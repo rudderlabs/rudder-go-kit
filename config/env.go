@@ -7,12 +7,12 @@ import (
 )
 
 // ConfigKeyToEnv gets the env variable name from a given config key
-func ConfigKeyToEnv(s string) string {
+func ConfigKeyToEnv(envPrefix, s string) string {
 	if upperCaseMatch.MatchString(s) {
 		return s
 	}
 	snake := camelCaseMatch.ReplaceAllString(s, "${1}_${2}")
-	return "RSERVER_" + strings.ToUpper(strings.ReplaceAll(snake, ".", "_"))
+	return envPrefix + "_" + strings.ToUpper(strings.ReplaceAll(snake, ".", "_"))
 }
 
 // getEnv returns the environment value stored in key variable

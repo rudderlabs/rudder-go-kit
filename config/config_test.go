@@ -215,11 +215,11 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 
 func TestConfigKeyToEnv(t *testing.T) {
 	expected := "RSERVER_KEY_VAR1_VAR2"
-	require.Equal(t, expected, ConfigKeyToEnv("Key.Var1.Var2"))
-	require.Equal(t, expected, ConfigKeyToEnv("key.var1.var2"))
-	require.Equal(t, expected, ConfigKeyToEnv("KeyVar1Var2"))
-	require.Equal(t, expected, ConfigKeyToEnv("RSERVER_KEY_VAR1_VAR2"))
-	require.Equal(t, "KEY_VAR1_VAR2", ConfigKeyToEnv("KEY_VAR1_VAR2"))
+	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "Key.Var1.Var2"))
+	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "key.var1.var2"))
+	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "KeyVar1Var2"))
+	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "RSERVER_KEY_VAR1_VAR2"))
+	require.Equal(t, "KEY_VAR1_VAR2", ConfigKeyToEnv(DefaultEnvPrefix, "KEY_VAR1_VAR2"))
 }
 
 func TestGetEnvThroughViper(t *testing.T) {

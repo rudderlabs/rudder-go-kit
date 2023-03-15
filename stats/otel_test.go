@@ -23,11 +23,11 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
 	statsTest "github.com/rudderlabs/rudder-go-kit/stats/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
-	"github.com/rudderlabs/rudder-go-kit/utils/httputil"
 )
 
 const (

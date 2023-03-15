@@ -11,9 +11,9 @@ import (
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 
+	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 	dt "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
-	"github.com/rudderlabs/rudder-go-kit/utils/httputil"
 )
 
 const healthPort = "13133"

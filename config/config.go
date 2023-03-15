@@ -13,7 +13,7 @@
 //   - In all other cases, the environment variable is transformed before being looked up as following:
 //     1. camelCase is converted to snake_case, e.g. someVariable -> some_variable
 //     2. dots (.) are replaced with underscores (_), e.g. some.variable -> some_variable
-//     3. the resulting string is uppercased and prefixed with RSERVER_, e.g. some_variable -> RSERVER_SOME_VARIABLE
+//     3. the resulting string is uppercased and prefixed with ${PREFIX}_ (default RSERVER_), e.g. some_variable -> RSERVER_SOME_VARIABLE
 package config
 
 import (
@@ -26,6 +26,8 @@ import (
 
 	"github.com/spf13/viper"
 )
+
+const DefaultEnvPrefix = "RSERVER"
 
 // regular expression matching lowercase letter followed by an uppercase letter
 var camelCaseMatch = regexp.MustCompile("([a-z0-9])([A-Z])")
@@ -46,9 +48,23 @@ func Reset() {
 	Default = New()
 }
 
+type Opt func(*Config)
+
+// WithEnvPrefix sets the environment variable prefix (default: RSERVER)
+func WithEnvPrefix(prefix string) Opt {
+	return func(c *Config) {
+		c.envPrefix = prefix
+	}
+}
+
 // New creates a new config instance
-func New() *Config {
-	c := &Config{}
+func New(opts ...Opt) *Config {
+	c := &Config{
+		envPrefix: DefaultEnvPrefix,
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
 	c.load()
 	return c
 }
@@ -61,6 +77,7 @@ type Config struct {
 	hotReloadableConfig     map[string][]*configValue
 	envsLock                sync.RWMutex // protects the envs map below
 	envs                    map[string]string
+	envPrefix               string // prefix for environment variables
 }
 
 // GetBool gets bool value from config
@@ -260,7 +277,7 @@ func (c *Config) Set(key string, value interface{}) {
 func (c *Config) bindEnv(key string) {
 	envVar := key
 	if !upperCaseMatch.MatchString(key) {
-		envVar = ConfigKeyToEnv(key)
+		envVar = ConfigKeyToEnv(c.envPrefix, key)
 	}
 	// bind once
 	c.envsLock.RLock()

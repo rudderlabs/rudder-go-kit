@@ -19,10 +19,10 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric/global"
 
+	"github.com/rudderlabs/rudder-go-kit/httputil"
 	statsTest "github.com/rudderlabs/rudder-go-kit/stats/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 	dt "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
-	"github.com/rudderlabs/rudder-go-kit/utils/httputil"
 )
 
 const (
