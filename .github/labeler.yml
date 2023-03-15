@@ -1,0 +1,11 @@
+with tests:
+- any: ['**/*_test.go']
+
+config:
+- any: ['config/**/*']
+
+logger:
+- any: ['logger/**/*']
+
+stats:
+- any: ['stats/**/*']
