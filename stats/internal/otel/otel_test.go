@@ -188,6 +188,58 @@ func TestHistogramBuckets(t *testing.T) {
 			},
 		})
 	})
+
+	t.Run("custom does not override default", func(t *testing.T) {
+		ctx := context.Background()
+		container, mp := setup(t,
+			WithDefaultHistogramBucketBoundaries("meter-1", []float64{10, 20, 30}),
+			WithHistogramBucketBoundaries("bar", "meter-1", []float64{40, 50, 60}),
+		)
+
+		// foo histogram
+		h, err := mp.Meter("meter-1").Int64Histogram("foo")
+		require.NoError(t, err)
+		h.Record(ctx, 20, attribute.String("a", "b"))
+
+		// bar histogram
+		h, err = mp.Meter("meter-1").Int64Histogram("bar")
+		require.NoError(t, err)
+		h.Record(ctx, 50, attribute.String("c", "d"))
+
+		metrics := requireMetrics(t, container, 5*time.Second, "foo", "bar")
+
+		requireHistogramEqual(t, metrics["foo"], histogram{
+			name: "foo", count: 1, sum: 20,
+			buckets: []*promClient.Bucket{
+				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+			},
+			labels: []*promClient.LabelPair{
+				{Name: ptr("label1"), Value: ptr("value1")},
+				{Name: ptr("a"), Value: ptr("b")},
+				{Name: ptr("job"), Value: ptr("TestHistogramBuckets")},
+				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+			},
+		})
+
+		requireHistogramEqual(t, metrics["bar"], histogram{
+			name: "bar", count: 1, sum: 50,
+			buckets: []*promClient.Bucket{
+				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(40.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(50.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+			},
+			labels: []*promClient.LabelPair{
+				{Name: ptr("label1"), Value: ptr("value1")},
+				{Name: ptr("c"), Value: ptr("d")},
+				{Name: ptr("job"), Value: ptr("TestHistogramBuckets")},
+				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+			},
+		})
+	})
 }
 
 func TestCollectorGlobals(t *testing.T) {
