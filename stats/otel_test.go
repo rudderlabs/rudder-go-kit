@@ -253,7 +253,8 @@ func TestOTelTaggedGauges(t *testing.T) {
 	s.NewStat("test-gauge", GaugeType).Gauge(2)
 	s.NewTaggedStat("test-gauge", GaugeType, Tags{"c": "d"}).Gauge(3)
 
-	rm, err := r.Collect(ctx)
+	rm := metricdata.ResourceMetrics{}
+	err := r.Collect(ctx, &rm)
 	require.NoError(t, err)
 
 	var dp []metricdata.DataPoint[float64]
@@ -535,7 +536,8 @@ func TestOTelStartStopError(t *testing.T) {
 
 func getDataPoint[T any](ctx context.Context, t *testing.T, rdr sdkmetric.Reader, name string, idx int) (zero T) {
 	t.Helper()
-	rm, err := rdr.Collect(ctx)
+	rm := metricdata.ResourceMetrics{}
+	err := rdr.Collect(ctx, &rm)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(rm.ScopeMetrics), 1)
 	require.GreaterOrEqual(t, len(rm.ScopeMetrics[0].Metrics), idx+1)

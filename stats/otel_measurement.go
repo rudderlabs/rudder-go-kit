@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric/instrument/syncfloat64"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
+	"go.opentelemetry.io/otel/metric/instrument"
 )
 
 // otelMeasurement is the statsd-specific implementation of Measurement
@@ -20,7 +19,7 @@ type otelMeasurement struct {
 // otelCounter represents a counter stat
 type otelCounter struct {
 	*otelMeasurement
-	counter syncint64.Counter
+	counter instrument.Int64Counter
 }
 
 func (c *otelCounter) Count(n int) {
@@ -68,7 +67,7 @@ func (g *otelGauge) getValue() interface{} {
 type otelTimer struct {
 	*otelMeasurement
 	now   func() time.Time
-	timer syncint64.Histogram
+	timer instrument.Int64Histogram
 }
 
 // Since sends the time elapsed since duration start. Only applies to TimerType stats
@@ -106,7 +105,7 @@ func (t *otelTimer) RecordDuration() func() {
 // otelHistogram represents a histogram stat
 type otelHistogram struct {
 	*otelMeasurement
-	histogram syncfloat64.Histogram
+	histogram instrument.Float64Histogram
 }
 
 // Observe sends an observation

@@ -12,9 +12,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/instrument"
-	"go.opentelemetry.io/otel/metric/instrument/syncfloat64"
-	"go.opentelemetry.io/otel/metric/instrument/syncint64"
-	"go.opentelemetry.io/otel/metric/unit"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
@@ -26,13 +23,13 @@ type otelStats struct {
 	otelConfig otelStatsConfig
 
 	meter        metric.Meter
-	counters     map[string]syncint64.Counter
+	counters     map[string]instrument.Int64Counter
 	countersMu   sync.Mutex
 	gauges       map[string]*otelGauge
 	gaugesMu     sync.Mutex
-	timers       map[string]syncint64.Histogram
+	timers       map[string]instrument.Int64Histogram
 	timersMu     sync.Mutex
-	histograms   map[string]syncfloat64.Histogram
+	histograms   map[string]instrument.Float64Histogram
 	histogramsMu sync.Mutex
 
 	otelManager              otel.Manager
@@ -204,7 +201,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	case GaugeType:
 		return s.getGauge(s.meter, name, om.attributes, tags.String())
 	case TimerType:
-		instr := buildOTelInstrument(s.meter, name, s.timers, &s.timersMu, instrument.WithUnit(unit.Milliseconds))
+		instr := buildOTelInstrument(s.meter, name, s.timers, &s.timersMu, instrument.WithUnit("ms"))
 		return &otelTimer{timer: instr, otelMeasurement: om}
 	case HistogramType:
 		instr := buildOTelInstrument(s.meter, name, s.histograms, &s.histogramsMu)
@@ -231,7 +228,7 @@ func (s *otelStats) getGauge(meter metric.Meter, name string, attributes []attri
 	}
 
 	if !ok {
-		g, err := meter.AsyncFloat64().Gauge(name)
+		g, err := meter.Float64ObservableGauge(name)
 		if err != nil {
 			panic(fmt.Errorf("failed to create gauge %s: %w", name, err))
 		}
@@ -239,11 +236,12 @@ func (s *otelStats) getGauge(meter metric.Meter, name string, attributes []attri
 			genericMeasurement: genericMeasurement{statType: GaugeType},
 			attributes:         attributes,
 		}}
-		err = meter.RegisterCallback([]instrument.Asynchronous{g}, func(ctx context.Context) {
+		_, err = meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
 			if value := og.getValue(); value != nil {
-				g.Observe(ctx, cast.ToFloat64(value), og.attributes...)
+				o.ObserveFloat64(g, cast.ToFloat64(value), og.attributes...)
 			}
-		})
+			return nil
+		}, g)
 		if err != nil {
 			panic(fmt.Errorf("failed to register callback for gauge %s: %w", name, err))
 		}
@@ -274,12 +272,12 @@ func buildOTelInstrument[T any](
 		var err error
 		var value interface{}
 		switch any(m).(type) {
-		case map[string]syncint64.Counter:
-			value, err = meter.SyncInt64().Counter(name, opts...)
-		case map[string]syncint64.Histogram:
-			value, err = meter.SyncInt64().Histogram(name, opts...)
-		case map[string]syncfloat64.Histogram:
-			value, err = meter.SyncFloat64().Histogram(name, opts...)
+		case map[string]instrument.Int64Counter:
+			value, err = meter.Int64Counter(name, castOptions[instrument.Int64Option](opts...)...)
+		case map[string]instrument.Int64Histogram:
+			value, err = meter.Int64Histogram(name, castOptions[instrument.Int64Option](opts...)...)
+		case map[string]instrument.Float64Histogram:
+			value, err = meter.Float64Histogram(name, castOptions[instrument.Float64Option](opts...)...)
 		default:
 			panic(fmt.Errorf("unknown instrument type %T", instr))
 		}
@@ -291,6 +289,16 @@ func buildOTelInstrument[T any](
 	}
 
 	return instr
+}
+
+func castOptions[T any](opts ...instrument.Option) []T {
+	var co []T
+	for _, opt := range opts {
+		if o, ok := opt.(T); ok {
+			co = append(co, o)
+		}
+	}
+	return co
 }
 
 type otelStatsConfig struct {

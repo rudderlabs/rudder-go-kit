@@ -89,6 +89,28 @@ func WithMeterProviderExportsInterval(interval time.Duration) MeterProviderOptio
 	}
 }
 
+// WithDefaultHistogramBucketBoundaries lets you overwrite the default buckets for all histograms.
+func WithDefaultHistogramBucketBoundaries(meterName string, boundaries []float64) MeterProviderOption {
+	var scope instrumentation.Scope
+	if meterName != "" {
+		scope.Name = meterName
+	}
+	newView := sdkmetric.NewView(
+		sdkmetric.Instrument{
+			Scope: scope,
+			Kind:  sdkmetric.InstrumentKindHistogram,
+		},
+		sdkmetric.Stream{
+			Aggregation: aggregation.ExplicitBucketHistogram{
+				Boundaries: boundaries,
+			},
+		},
+	)
+	return func(c *meterProviderConfig) {
+		c.views = append(c.views, newView)
+	}
+}
+
 // WithHistogramBucketBoundaries allows the creation of a view to overwrite the default buckets of a given histogram.
 // meterName is optional.
 func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries []float64) MeterProviderOption {
@@ -100,6 +122,7 @@ func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries 
 		sdkmetric.Instrument{
 			Name:  instrumentName,
 			Scope: scope,
+			Kind:  sdkmetric.InstrumentKindHistogram,
 		},
 		sdkmetric.Stream{
 			Aggregation: aggregation.ExplicitBucketHistogram{
