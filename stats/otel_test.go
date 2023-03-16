@@ -3,6 +3,7 @@ package stats
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -532,6 +533,77 @@ func TestOTelStartStopError(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Fatal("timeout waiting for Stop()")
 	}
+}
+
+func TestOTelHistogramBuckets(t *testing.T) {
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	container, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+		filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
+	)
+
+	c := config.New()
+	c.Set("INSTANCE_ID", "my-instance-id")
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("OpenTelemetry.metrics.endpoint", grpcEndpoint)
+	c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+	c.Set("RuntimeStats.enabled", false)
+	l := logger.NewFactory(c)
+	m := metric.NewManager()
+	s := NewStats(c, l, m,
+		WithServiceName(t.Name()),
+		WithDefaultHistogramBuckets([]float64{10, 20, 30}),
+	)
+
+	// start stats
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
+	defer s.Stop()
+
+	metricName := "foo"
+	s.NewTaggedStat(metricName, HistogramType, Tags{"a": "b"}).Observe(20)
+
+	var (
+		resp            *http.Response
+		metrics         map[string]*promClient.MetricFamily
+		metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", docker.GetHostPort(t, metricsPort, container))
+	)
+
+	require.Eventuallyf(t, func() bool {
+		resp, err = http.Get(metricsEndpoint)
+		if err != nil {
+			return false
+		}
+		defer func() { httputil.CloseResponse(resp) }()
+		metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
+		if err != nil {
+			return false
+		}
+		if _, ok := metrics[metricName]; !ok {
+			return false
+		}
+		return true
+	}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+
+	require.EqualValues(t, &metricName, metrics[metricName].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics[metricName].Type)
+	require.Len(t, metrics[metricName].Metric, 1)
+	require.EqualValues(t, ptr(uint64(1)), metrics[metricName].Metric[0].Histogram.SampleCount)
+	require.EqualValues(t, ptr(20.0), metrics[metricName].Metric[0].Histogram.SampleSum)
+	require.EqualValues(t, []*promClient.Bucket{
+		{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
+		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
+		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
+		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+	}, metrics[metricName].Metric[0].Histogram.Bucket)
+	require.ElementsMatchf(t, []*promClient.LabelPair{
+		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
+		{Name: ptr("label1"), Value: ptr("value1")},
+		{Name: ptr("a"), Value: ptr("b")},
+		{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
+		{Name: ptr("instance"), Value: ptr("my-instance-id")},
+	}, metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 }
 
 func getDataPoint[T any](ctx context.Context, t *testing.T, rdr sdkmetric.Reader, name string, idx int) (zero T) {
