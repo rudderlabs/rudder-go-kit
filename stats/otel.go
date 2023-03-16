@@ -65,10 +65,15 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		))
 	}
 	if s.otelConfig.metricsEndpoint != "" {
-		options = append(options, otel.WithMeterProvider(
-			s.otelConfig.metricsEndpoint,
+		meterProviderOptions := []otel.MeterProviderOption{
 			otel.WithMeterProviderExportsInterval(s.otelConfig.metricsExportInterval),
-		))
+		}
+		if len(s.config.defaultHistogramBuckets) > 0 {
+			meterProviderOptions = append(meterProviderOptions,
+				otel.WithDefaultHistogramBucketBoundaries(s.config.defaultHistogramBuckets),
+			)
+		}
+		options = append(options, otel.WithMeterProvider(s.otelConfig.metricsEndpoint, meterProviderOptions...))
 	}
 	_, mp, err := s.otelManager.Setup(ctx, res, options...)
 	if err != nil {

@@ -12,7 +12,8 @@ type statsConfig struct {
 	namespaceIdentifier string
 	excludedTags        map[string]struct{}
 
-	periodicStatsConfig periodicStatsConfig
+	periodicStatsConfig     periodicStatsConfig
+	defaultHistogramBuckets []float64
 }
 
 type Option func(*statsConfig)
@@ -28,5 +29,12 @@ func WithServiceName(name string) Option {
 func WithServiceVersion(version string) Option {
 	return func(c *statsConfig) {
 		c.serviceVersion = version
+	}
+}
+
+// WithDefaultHistogramBuckets sets the histogram buckets for the stats service.
+func WithDefaultHistogramBuckets(buckets []float64) Option {
+	return func(c *statsConfig) {
+		c.defaultHistogramBuckets = buckets
 	}
 }
