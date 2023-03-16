@@ -93,6 +93,9 @@ func (m *Manager) Setup(
 		if c.withInsecure {
 			meterProviderOptions = append(meterProviderOptions, otlpmetricgrpc.WithInsecure())
 		}
+		if len(c.meterProviderConfig.otlpMetricGRPCOptions) > 0 {
+			meterProviderOptions = append(meterProviderOptions, c.meterProviderConfig.otlpMetricGRPCOptions...)
+		}
 		exp, err := otlpmetricgrpc.New(ctx, meterProviderOptions...)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create metric exporter: %w", err)
@@ -202,8 +205,9 @@ type tracerProviderConfig struct {
 }
 
 type meterProviderConfig struct {
-	enabled         bool
-	global          bool
-	exportsInterval time.Duration
-	views           []sdkmetric.View
+	enabled               bool
+	global                bool
+	exportsInterval       time.Duration
+	views                 []sdkmetric.View
+	otlpMetricGRPCOptions []otlpmetricgrpc.Option
 }

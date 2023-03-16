@@ -137,22 +137,21 @@ func TestHistogramBuckets(t *testing.T) {
 		return container, mp
 	}
 
-	t.Run("default", func(t *testing.T) {
+	t.Run("default applies to all meters", func(t *testing.T) {
 		ctx := context.Background()
 		container, mp := setup(t,
-			WithDefaultHistogramBucketBoundaries("meter-1", []float64{10, 20, 30}),
-			WithDefaultHistogramBucketBoundaries("meter-2", []float64{40, 50, 60}),
+			WithDefaultHistogramBucketBoundaries([]float64{10, 20, 30}),
 		)
 
-		// foo histogram
+		// foo histogram on meter-1
 		h, err := mp.Meter("meter-1").Int64Histogram("foo")
 		require.NoError(t, err)
 		h.Record(ctx, 20, attribute.String("a", "b"))
 
-		// bar histogram
+		// bar histogram on meter-2
 		h, err = mp.Meter("meter-2").Int64Histogram("bar")
 		require.NoError(t, err)
-		h.Record(ctx, 50, attribute.String("c", "d"))
+		h.Record(ctx, 30, attribute.String("c", "d"))
 
 		metrics := requireMetrics(t, container, 5*time.Second, "foo", "bar")
 
@@ -173,11 +172,11 @@ func TestHistogramBuckets(t *testing.T) {
 		})
 
 		requireHistogramEqual(t, metrics["bar"], histogram{
-			name: "bar", count: 1, sum: 50,
+			name: "bar", count: 1, sum: 30,
 			buckets: []*promClient.Bucket{
-				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(40.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(50.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
+				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
+				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(20.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
 				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 			},
 			labels: []*promClient.LabelPair{
@@ -189,11 +188,12 @@ func TestHistogramBuckets(t *testing.T) {
 		})
 	})
 
-	t.Run("custom does not override default", func(t *testing.T) {
+	t.Run("custom boundaries do not override default ones", func(t *testing.T) {
 		ctx := context.Background()
 		container, mp := setup(t,
-			WithDefaultHistogramBucketBoundaries("meter-1", []float64{10, 20, 30}),
+			WithDefaultHistogramBucketBoundaries([]float64{10, 20, 30}),
 			WithHistogramBucketBoundaries("bar", "meter-1", []float64{40, 50, 60}),
+			WithHistogramBucketBoundaries("baz", "meter-1", []float64{70, 80, 90}),
 		)
 
 		// foo histogram
@@ -206,7 +206,12 @@ func TestHistogramBuckets(t *testing.T) {
 		require.NoError(t, err)
 		h.Record(ctx, 50, attribute.String("c", "d"))
 
-		metrics := requireMetrics(t, container, 5*time.Second, "foo", "bar")
+		// baz histogram
+		h, err = mp.Meter("meter-1").Int64Histogram("baz")
+		require.NoError(t, err)
+		h.Record(ctx, 80, attribute.String("e", "f"))
+
+		metrics := requireMetrics(t, container, 5*time.Second, "foo", "bar", "baz")
 
 		requireHistogramEqual(t, metrics["foo"], histogram{
 			name: "foo", count: 1, sum: 20,
@@ -235,6 +240,22 @@ func TestHistogramBuckets(t *testing.T) {
 			labels: []*promClient.LabelPair{
 				{Name: ptr("label1"), Value: ptr("value1")},
 				{Name: ptr("c"), Value: ptr("d")},
+				{Name: ptr("job"), Value: ptr("TestHistogramBuckets")},
+				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+			},
+		})
+
+		requireHistogramEqual(t, metrics["baz"], histogram{
+			name: "baz", count: 1, sum: 80,
+			buckets: []*promClient.Bucket{
+				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(70.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(80.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(90.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+			},
+			labels: []*promClient.LabelPair{
+				{Name: ptr("label1"), Value: ptr("value1")},
+				{Name: ptr("e"), Value: ptr("f")},
 				{Name: ptr("job"), Value: ptr("TestHistogramBuckets")},
 				{Name: ptr("instance"), Value: ptr("my-instance-id")},
 			},
@@ -389,8 +410,12 @@ func requireHistogramEqual(t *testing.T, mf *promClient.MetricFamily, h histogra
 	require.EqualValues(t, &h.name, mf.Name)
 	require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), mf.Type)
 	require.Len(t, mf.Metric, 1)
-	require.EqualValues(t, &h.count, mf.Metric[0].Histogram.SampleCount)
-	require.EqualValues(t, &h.sum, mf.Metric[0].Histogram.SampleSum)
+	require.EqualValuesf(t, &h.count, mf.Metric[0].Histogram.SampleCount,
+		"Got %d, expected %d", *mf.Metric[0].Histogram.SampleCount, h.count,
+	)
+	require.EqualValuesf(t, &h.sum, mf.Metric[0].Histogram.SampleSum,
+		"Got %.2f, expected %.2f", *mf.Metric[0].Histogram.SampleSum, h.sum,
+	)
 	require.ElementsMatchf(t, h.buckets, mf.Metric[0].Histogram.Bucket, "Buckets for %q do not match", h.name)
 	require.ElementsMatch(t, h.labels, mf.Metric[0].Label)
 
