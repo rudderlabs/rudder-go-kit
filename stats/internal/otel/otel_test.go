@@ -70,7 +70,7 @@ func TestCollector(t *testing.T) {
 	require.NoError(t, err)
 	h.Record(ctx, 20, attribute.String("a", "b"))
 
-	metrics := requireMetrics(t, container, 5*time.Second, "foo", "bar", "baz")
+	metrics := requireMetrics(t, container, "foo", "bar", "baz")
 
 	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
@@ -153,7 +153,7 @@ func TestHistogramBuckets(t *testing.T) {
 		require.NoError(t, err)
 		h.Record(ctx, 30, attribute.String("c", "d"))
 
-		metrics := requireMetrics(t, container, 5*time.Second, "foo", "bar")
+		metrics := requireMetrics(t, container, "foo", "bar")
 
 		requireHistogramEqual(t, metrics["foo"], histogram{
 			name: "foo", count: 1, sum: 20,
@@ -211,7 +211,7 @@ func TestHistogramBuckets(t *testing.T) {
 		require.NoError(t, err)
 		h.Record(ctx, 80, attribute.String("e", "f"))
 
-		metrics := requireMetrics(t, container, 5*time.Second, "foo", "bar", "baz")
+		metrics := requireMetrics(t, container, "foo", "bar", "baz")
 
 		requireHistogramEqual(t, metrics["foo"], histogram{
 			name: "foo", count: 1, sum: 20,
@@ -347,7 +347,7 @@ func TestNonBlockingConnection(t *testing.T) {
 	)
 	barCounter.Add(ctx, 456) // this should be recorded
 
-	metrics := requireMetrics(t, container, 5*time.Second, "foo", "bar")
+	metrics := requireMetrics(t, container, "foo", "bar")
 
 	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
@@ -374,7 +374,7 @@ func TestNonBlockingConnection(t *testing.T) {
 }
 
 func requireMetrics(
-	t *testing.T, container *docker.Container, timeout time.Duration, requiredKeys ...string,
+	t *testing.T, container *docker.Container, requiredKeys ...string,
 ) map[string]*promClient.MetricFamily {
 	t.Helper()
 
@@ -400,7 +400,7 @@ func requireMetrics(
 			}
 		}
 		return true
-	}, timeout, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+	}, 5*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
 
 	return metrics
 }
@@ -418,7 +418,6 @@ func requireHistogramEqual(t *testing.T, mf *promClient.MetricFamily, h histogra
 	)
 	require.ElementsMatchf(t, h.buckets, mf.Metric[0].Histogram.Bucket, "Buckets for %q do not match", h.name)
 	require.ElementsMatch(t, h.labels, mf.Metric[0].Label)
-
 }
 
 func ptr[T any](v T) *T {
