@@ -14,8 +14,10 @@ type statsConfig struct {
 
 	periodicStatsConfig     periodicStatsConfig
 	defaultHistogramBuckets []float64
+	histogramBuckets        map[string][]float64
 }
 
+// Option is a function used to configure the stats service.
 type Option func(*statsConfig)
 
 // WithServiceName sets the service name for the stats service.
@@ -36,5 +38,15 @@ func WithServiceVersion(version string) Option {
 func WithDefaultHistogramBuckets(buckets []float64) Option {
 	return func(c *statsConfig) {
 		c.defaultHistogramBuckets = buckets
+	}
+}
+
+// WithHistogramBuckets sets the histogram buckets for a measurement.
+func WithHistogramBuckets(histogramName string, buckets []float64) Option {
+	return func(c *statsConfig) {
+		if c.histogramBuckets == nil {
+			c.histogramBuckets = make(map[string][]float64)
+		}
+		c.histogramBuckets[histogramName] = buckets
 	}
 }

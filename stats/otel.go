@@ -17,6 +17,10 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
 )
 
+const (
+	defaultMeterName = ""
+)
+
 // otelStats is an OTel-specific adapter that follows the Stats contract
 type otelStats struct {
 	config     statsConfig
@@ -73,6 +77,13 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 				otel.WithDefaultHistogramBucketBoundaries(s.config.defaultHistogramBuckets),
 			)
 		}
+		if len(s.config.histogramBuckets) > 0 {
+			for histogramName, buckets := range s.config.histogramBuckets {
+				meterProviderOptions = append(meterProviderOptions,
+					otel.WithHistogramBucketBoundaries(histogramName, defaultMeterName, buckets),
+				)
+			}
+		}
 		options = append(options, otel.WithMeterProvider(s.otelConfig.metricsEndpoint, meterProviderOptions...))
 	}
 	_, mp, err := s.otelManager.Setup(ctx, res, options...)
@@ -80,7 +91,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		return fmt.Errorf("failed to setup open telemetry: %w", err)
 	}
 
-	s.meter = mp.Meter("")
+	s.meter = mp.Meter(defaultMeterName)
 
 	// Starting background collection
 	var backgroundCollectionCtx context.Context
