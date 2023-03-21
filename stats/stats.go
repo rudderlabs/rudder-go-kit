@@ -3,7 +3,6 @@ package stats
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync/atomic"
 	"time"
@@ -97,8 +96,6 @@ func NewStats(
 				metricsExportInterval: config.GetDuration("OpenTelemetry.metrics.exportInterval", 5, time.Second),
 			},
 		}
-	} else if len(statsConfig.defaultHistogramBuckets) > 0 {
-		panic(fmt.Errorf("default histogram buckets are configured but OpenTelemetry is disabled"))
 	}
 
 	backgroundCollectionCtx, backgroundCollectionCancel := context.WithCancel(context.Background())
