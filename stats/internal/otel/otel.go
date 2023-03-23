@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	promClient "github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -81,35 +83,11 @@ func (m *Manager) Setup(
 	}
 
 	if c.meterProviderConfig.enabled {
-		meterProviderOptions := []otlpmetricgrpc.Option{
-			otlpmetricgrpc.WithEndpoint(c.metricsEndpoint),
-			otlpmetricgrpc.WithRetry(otlpmetricgrpc.RetryConfig{
-				Enabled:         c.retryConfig.Enabled,
-				InitialInterval: c.retryConfig.InitialInterval,
-				MaxInterval:     c.retryConfig.MaxInterval,
-				MaxElapsedTime:  c.retryConfig.MaxElapsedTime,
-			}),
-		}
-		if c.withInsecure {
-			meterProviderOptions = append(meterProviderOptions, otlpmetricgrpc.WithInsecure())
-		}
-		if len(c.meterProviderConfig.otlpMetricGRPCOptions) > 0 {
-			meterProviderOptions = append(meterProviderOptions, c.meterProviderConfig.otlpMetricGRPCOptions...)
-		}
-		exp, err := otlpmetricgrpc.New(ctx, meterProviderOptions...)
+		var err error
+		m.mp, err = m.buildMeterProvider(ctx, c, res)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create metric exporter: %w", err)
+			return nil, nil, err
 		}
-
-		m.mp = sdkmetric.NewMeterProvider(
-			sdkmetric.WithResource(res),
-			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(
-				exp,
-				sdkmetric.WithInterval(c.meterProviderConfig.exportsInterval),
-			)),
-			sdkmetric.WithView(c.meterProviderConfig.views...),
-		)
-
 		if c.meterProviderConfig.global {
 			global.SetMeterProvider(m.mp)
 		}
@@ -120,6 +98,79 @@ func (m *Manager) Setup(
 	}
 
 	return m.tp, m.mp, nil
+}
+
+func (m *Manager) buildMeterProvider(
+	ctx context.Context, c config, res *resource.Resource,
+) (*sdkmetric.MeterProvider, error) {
+	if c.meterProviderConfig.grpcEndpoint == nil && c.meterProviderConfig.prometheusRegisterer == nil {
+		return nil, fmt.Errorf("no grpc endpoint or prometheus registerer to initialize meter provider")
+	}
+	if c.meterProviderConfig.grpcEndpoint != nil && c.meterProviderConfig.prometheusRegisterer != nil {
+		return nil, fmt.Errorf("cannot initialize meter provider with both grpc endpoint and prometheus registerer")
+	}
+	if c.meterProviderConfig.prometheusRegisterer != nil {
+		return m.buildPrometheusMeterProvider(c, res)
+	}
+	return m.buildOTLPMeterProvider(ctx, c, res)
+}
+
+func (m *Manager) buildPrometheusMeterProvider(c config, res *resource.Resource) (*sdkmetric.MeterProvider, error) {
+	exporterOptions := []prometheus.Option{
+		prometheus.WithRegisterer(c.meterProviderConfig.prometheusRegisterer),
+	}
+	if c.meterProviderConfig.defaultAggregationSelector != nil {
+		exporterOptions = append(exporterOptions,
+			prometheus.WithAggregationSelector(c.meterProviderConfig.defaultAggregationSelector),
+		)
+	}
+	exp, err := prometheus.New(exporterOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("prometheus: failed to create metric exporter: %w", err)
+	}
+	return sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(res),
+		sdkmetric.WithReader(exp),
+		sdkmetric.WithView(c.meterProviderConfig.views...),
+	), nil
+}
+
+func (m *Manager) buildOTLPMeterProvider(
+	ctx context.Context, c config, res *resource.Resource,
+) (*sdkmetric.MeterProvider, error) {
+	meterProviderOptions := []otlpmetricgrpc.Option{
+		otlpmetricgrpc.WithEndpoint(*c.meterProviderConfig.grpcEndpoint),
+		otlpmetricgrpc.WithRetry(otlpmetricgrpc.RetryConfig{
+			Enabled:         c.retryConfig.Enabled,
+			InitialInterval: c.retryConfig.InitialInterval,
+			MaxInterval:     c.retryConfig.MaxInterval,
+			MaxElapsedTime:  c.retryConfig.MaxElapsedTime,
+		}),
+	}
+	if c.withInsecure {
+		meterProviderOptions = append(meterProviderOptions, otlpmetricgrpc.WithInsecure())
+	}
+	if len(c.meterProviderConfig.otlpMetricGRPCOptions) > 0 {
+		meterProviderOptions = append(meterProviderOptions, c.meterProviderConfig.otlpMetricGRPCOptions...)
+	}
+	if c.meterProviderConfig.defaultAggregationSelector != nil {
+		meterProviderOptions = append(meterProviderOptions,
+			otlpmetricgrpc.WithAggregationSelector(c.meterProviderConfig.defaultAggregationSelector),
+		)
+	}
+	exp, err := otlpmetricgrpc.New(ctx, meterProviderOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("otlp: failed to create metric exporter: %w", err)
+	}
+
+	return sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(res),
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(
+			exp,
+			sdkmetric.WithInterval(c.meterProviderConfig.exportsInterval),
+		)),
+		sdkmetric.WithView(c.meterProviderConfig.views...),
+	), nil
 }
 
 // Shutdown allows you to gracefully clean up after the OTel manager (e.g. close underlying gRPC connection)
@@ -192,7 +243,6 @@ type config struct {
 
 	tracesEndpoint       string
 	tracerProviderConfig tracerProviderConfig
-	metricsEndpoint      string
 	meterProviderConfig  meterProviderConfig
 
 	textMapPropagator propagation.TextMapPropagator
@@ -205,9 +255,12 @@ type tracerProviderConfig struct {
 }
 
 type meterProviderConfig struct {
-	enabled               bool
-	global                bool
-	exportsInterval       time.Duration
-	views                 []sdkmetric.View
-	otlpMetricGRPCOptions []otlpmetricgrpc.Option
+	enabled                    bool
+	global                     bool
+	exportsInterval            time.Duration
+	views                      []sdkmetric.View
+	grpcEndpoint               *string
+	prometheusRegisterer       promClient.Registerer
+	defaultAggregationSelector sdkmetric.AggregationSelector
+	otlpMetricGRPCOptions      []otlpmetricgrpc.Option
 }
