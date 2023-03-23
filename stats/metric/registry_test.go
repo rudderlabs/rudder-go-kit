@@ -79,6 +79,34 @@ func TestRegistryGet(t *testing.T) {
 	}
 }
 
+func TestDelete(t *testing.T) {
+	registry := NewRegistry()
+	m1 := testMeasurement{name: "key", tag: "tag1"}
+	m2 := testMeasurement{name: "key", tag: "tag2"}
+	registry.MustGetCounter(m1).Inc()
+	registry.MustGetCounter(m2).Inc()
+	metrics := registry.GetMetricsByName("key")
+
+	require.Equal(
+		t,
+		2,
+		len(metrics),
+	)
+	registry.Delete(m1)
+
+	metrics = registry.GetMetricsByName("key")
+	require.Equal(
+		t,
+		1,
+		len(metrics),
+	)
+	require.Equal(
+		t,
+		"tag2",
+		metrics[0].Tags["tag"],
+	)
+}
+
 func TestRegistryNameIndex(t *testing.T) {
 	registry := NewRegistry()
 	m1 := testMeasurement{name: "key1", tag: "tag1"}

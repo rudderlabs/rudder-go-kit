@@ -47,6 +47,9 @@ type Registry interface {
 	// e.g. a Counter, it panics
 	MustGetGauge(Measurement) Gauge
 
+	// Deletes the metric by key.
+	Delete(Measurement)
+
 	// GetSimpleMovingAvg gets a moving average by key. If a value for this key
 	// already exists but corresponds to another measurement
 	// type, e.g. a Counter, an error is returned
@@ -132,6 +135,11 @@ func (r *registry) MustGetCounter(m Measurement) Counter {
 		panic(err)
 	}
 	return c
+}
+
+func (r *registry) Delete(m Measurement) {
+	r.store.Delete(m)
+	r.deleteFromIndex(m)
 }
 
 func (r *registry) GetGauge(m Measurement) (Gauge, error) {
@@ -231,6 +239,19 @@ func (r *registry) updateIndex(m Measurement, metric interface{}) {
 	lock := res.(*mutexWithMap).lock
 	lock.Lock()
 	res.(*mutexWithMap).value[m] = TagsWithValue{m.GetTags(), metric}
+	lock.Unlock()
+}
+
+func (r *registry) deleteFromIndex(m Measurement) {
+	name := m.GetName()
+	res, ok := r.nameIndex.Load(name)
+	if !ok {
+		return
+	}
+
+	lock := res.(*mutexWithMap).lock
+	lock.Lock()
+	delete(res.(*mutexWithMap).value, m)
 	lock.Unlock()
 }
 
