@@ -27,7 +27,7 @@ func WithStartCollectorPort(port int) StartOTelCollectorOpt {
 	}
 }
 
-func StartOTelCollector(t *testing.T, metricsPort, configPath string, opts ...StartOTelCollectorOpt) (
+func StartOTelCollector(t testing.TB, metricsPort, configPath string, opts ...StartOTelCollectorOpt) (
 	container *docker.Container,
 	grpcEndpoint string,
 ) {

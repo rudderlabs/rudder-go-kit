@@ -3,6 +3,7 @@ package otel
 import (
 	"time"
 
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -89,6 +90,28 @@ func WithMeterProviderExportsInterval(interval time.Duration) MeterProviderOptio
 	}
 }
 
+// WithDefaultHistogramBucketBoundaries lets you overwrite the default buckets for all histograms.
+func WithDefaultHistogramBucketBoundaries(boundaries []float64) MeterProviderOption {
+	return func(c *meterProviderConfig) {
+		c.otlpMetricGRPCOptions = append(c.otlpMetricGRPCOptions,
+			otlpmetricgrpc.WithAggregationSelector(func(ik sdkmetric.InstrumentKind) aggregation.Aggregation {
+				switch ik {
+				case sdkmetric.InstrumentKindCounter, sdkmetric.InstrumentKindUpDownCounter,
+					sdkmetric.InstrumentKindObservableCounter, sdkmetric.InstrumentKindObservableUpDownCounter:
+					return aggregation.Sum{}
+				case sdkmetric.InstrumentKindObservableGauge:
+					return aggregation.LastValue{}
+				case sdkmetric.InstrumentKindHistogram:
+					return aggregation.ExplicitBucketHistogram{
+						Boundaries: boundaries,
+					}
+				}
+				panic("unknown instrument kind")
+			}),
+		)
+	}
+}
+
 // WithHistogramBucketBoundaries allows the creation of a view to overwrite the default buckets of a given histogram.
 // meterName is optional.
 func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries []float64) MeterProviderOption {
@@ -100,6 +123,7 @@ func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries 
 		sdkmetric.Instrument{
 			Name:  instrumentName,
 			Scope: scope,
+			Kind:  sdkmetric.InstrumentKindHistogram,
 		},
 		sdkmetric.Stream{
 			Aggregation: aggregation.ExplicitBucketHistogram{
