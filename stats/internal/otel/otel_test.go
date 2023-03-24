@@ -160,30 +160,26 @@ func TestPrometheusExporter(t *testing.T) {
 		registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
 	))
 	t.Cleanup(ts.Close)
-	// WARNING: the counters in prometheus have the "_total" suffix!
-	// https://github.com/open-telemetry/opentelemetry-specification/blob/v1.14.0/specification/metrics/data-model.md#sums-1
-	metrics := requireMetrics(t, ts.URL, "foo_total", "bar_total", "baz", "qux")
+	metrics := requireMetrics(t, ts.URL, "foo", "bar", "baz", "qux")
 
-	require.EqualValues(t, ptr("foo_total"), metrics["foo_total"].Name)
-	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo_total"].Type)
-	require.Len(t, metrics["foo_total"].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics["foo_total"].Metric[0].Counter)
+	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
+	require.Len(t, metrics["foo"].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics["foo"].Metric[0].Counter)
 	require.ElementsMatch(t, []*promClient.LabelPair{
 		{Name: ptr("hello"), Value: ptr("world")},
-		{Name: ptr("otel_scope_name"), Value: ptr("some-meter-name")},
-		{Name: ptr("otel_scope_version"), Value: ptr("")},
-		//{Name: ptr("instance"), Value: ptr("my-instance-id")}, // @TODO: how to get this with prometheus?
-	}, metrics["foo_total"].Metric[0].Label)
+		{Name: ptr("job"), Value: ptr("TestPrometheusExporter")},
+		{Name: ptr("instance"), Value: ptr("my-instance-id")},
+	}, metrics["foo"].Metric[0].Label)
 
-	require.EqualValues(t, ptr("bar_total"), metrics["bar_total"].Name)
-	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar_total"].Type)
-	require.Len(t, metrics["bar_total"].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics["bar_total"].Metric[0].Counter)
+	require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar"].Type)
+	require.Len(t, metrics["bar"].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics["bar"].Metric[0].Counter)
 	require.ElementsMatch(t, []*promClient.LabelPair{
-		{Name: ptr("otel_scope_name"), Value: ptr("some-meter-name")},
-		{Name: ptr("otel_scope_version"), Value: ptr("")},
-		//{Name: ptr("instance"), Value: ptr("my-instance-id")}, // @TODO: how to get this with prometheus?
-	}, metrics["bar_total"].Metric[0].Label)
+		{Name: ptr("job"), Value: ptr("TestPrometheusExporter")},
+		{Name: ptr("instance"), Value: ptr("my-instance-id")},
+	}, metrics["bar"].Metric[0].Label)
 
 	requireHistogramEqual(t, metrics["baz"], histogram{
 		name: "baz", count: 1, sum: 20,
@@ -195,9 +191,8 @@ func TestPrometheusExporter(t *testing.T) {
 		},
 		labels: []*promClient.LabelPair{
 			{Name: ptr("a"), Value: ptr("b")},
-			{Name: ptr("otel_scope_name"), Value: ptr("some-meter-name")},
-			{Name: ptr("otel_scope_version"), Value: ptr("")},
-			//{Name: ptr("instance"), Value: ptr("my-instance-id")}, // @TODO: how to get this with prometheus?
+			{Name: ptr("job"), Value: ptr("TestPrometheusExporter")},
+			{Name: ptr("instance"), Value: ptr("my-instance-id")},
 		},
 	})
 
@@ -211,9 +206,8 @@ func TestPrometheusExporter(t *testing.T) {
 		},
 		labels: []*promClient.LabelPair{
 			{Name: ptr("c"), Value: ptr("d")},
-			{Name: ptr("otel_scope_name"), Value: ptr("some-meter-name")},
-			{Name: ptr("otel_scope_version"), Value: ptr("")},
-			//{Name: ptr("instance"), Value: ptr("my-instance-id")}, // @TODO: how to get this with prometheus?
+			{Name: ptr("job"), Value: ptr("TestPrometheusExporter")},
+			{Name: ptr("instance"), Value: ptr("my-instance-id")},
 		},
 	})
 }
