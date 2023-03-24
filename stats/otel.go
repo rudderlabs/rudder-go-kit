@@ -43,8 +43,6 @@ type otelStats struct {
 	logger                   logger.Logger
 }
 
-// @TODO propagate logger
-
 func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
 	if !s.config.enabled.Load() {
 		return nil
@@ -63,7 +61,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		return fmt.Errorf("failed to create open telemetry resource: %w", err)
 	}
 
-	options := []otel.Option{otel.WithInsecure()} // @TODO: could make this configurable
+	options := []otel.Option{otel.WithInsecure(), otel.WithLogger(s.logger)}
 	if s.otelConfig.tracesEndpoint != "" {
 		options = append(options, otel.WithTracerProvider(
 			s.otelConfig.tracesEndpoint,

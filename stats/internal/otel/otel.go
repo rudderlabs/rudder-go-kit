@@ -49,6 +49,9 @@ func (m *Manager) Setup(
 	if c.retryConfig == nil {
 		c.retryConfig = &DefaultRetryConfig
 	}
+	if c.logger == nil {
+		c.logger = nopLogger{}
+	}
 
 	if !c.tracerProviderConfig.enabled && !c.meterProviderConfig.enabled {
 		return nil, nil, fmt.Errorf("no trace provider or meter provider to initialize")
@@ -119,6 +122,7 @@ func (m *Manager) buildMeterProvider(
 func (m *Manager) buildPrometheusMeterProvider(c config, res *resource.Resource) (*sdkmetric.MeterProvider, error) {
 	exporterOptions := []prometheus.Option{
 		prometheus.WithRegisterer(c.meterProviderConfig.prometheusRegisterer),
+		prometheus.WithLogger(c.logger),
 	}
 	if c.meterProviderConfig.defaultAggregationSelector != nil {
 		exporterOptions = append(exporterOptions,
@@ -247,6 +251,8 @@ type config struct {
 	meterProviderConfig  meterProviderConfig
 
 	textMapPropagator propagation.TextMapPropagator
+
+	logger logger
 }
 
 type tracerProviderConfig struct {
@@ -265,3 +271,13 @@ type meterProviderConfig struct {
 	defaultAggregationSelector sdkmetric.AggregationSelector
 	otlpMetricGRPCOptions      []otlpmetricgrpc.Option
 }
+
+type logger interface {
+	Info(...interface{})
+	Error(...interface{})
+}
+
+type nopLogger struct{}
+
+func (nopLogger) Info(...interface{})  {}
+func (nopLogger) Error(...interface{}) {}

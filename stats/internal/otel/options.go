@@ -146,3 +146,8 @@ func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries 
 		c.views = append(c.views, newView)
 	}
 }
+
+// WithLogger allows to set the logger
+func WithLogger(l logger) Option {
+	return func(c *config) { c.logger = l }
+}
