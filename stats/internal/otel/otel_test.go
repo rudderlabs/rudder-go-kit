@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	promClient "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
@@ -46,7 +49,8 @@ func TestCollector(t *testing.T) {
 	tp, mp, err := om.Setup(ctx, res,
 		WithInsecure(),
 		WithTracerProvider(grpcEndpoint, 1.0),
-		WithMeterProvider(grpcEndpoint,
+		WithMeterProvider(
+			WithGRPCMeterProvider(grpcEndpoint),
 			WithMeterProviderExportsInterval(100*time.Millisecond),
 			WithHistogramBucketBoundaries("baz", "some-test", []float64{10, 20, 30}),
 		),
@@ -70,7 +74,8 @@ func TestCollector(t *testing.T) {
 	require.NoError(t, err)
 	h.Record(ctx, 20, attribute.String("a", "b"))
 
-	metrics := requireMetrics(t, container, "foo", "bar", "baz")
+	metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
+	metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "baz")
 
 	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
@@ -112,6 +117,107 @@ func TestCollector(t *testing.T) {
 	})
 }
 
+func TestPrometheusExporter(t *testing.T) {
+	registry := prometheus.NewRegistry()
+
+	ctx := context.Background()
+	res, err := NewResource(t.Name(), "my-instance-id", "1.0.0")
+	require.NoError(t, err)
+	var om Manager
+	tp, mp, err := om.Setup(ctx, res,
+		WithInsecure(),
+		WithMeterProvider(
+			WithPrometheusExporter(registry),
+			WithMeterProviderExportsInterval(100*time.Millisecond),
+			WithDefaultHistogramBucketBoundaries([]float64{1, 2, 3}),
+			WithHistogramBucketBoundaries("baz", "some-meter-name", []float64{10, 20, 30}),
+		),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
+	require.Nil(t, tp)
+	require.NotEqual(t, mp, global.MeterProvider())
+
+	m := mp.Meter("some-meter-name")
+	// foo counter
+	counter, err := m.Int64Counter("foo")
+	require.NoError(t, err)
+	counter.Add(ctx, 1, attribute.String("hello", "world"))
+	// bar counter
+	counter, err = m.Int64Counter("bar")
+	require.NoError(t, err)
+	counter.Add(ctx, 5)
+	// baz histogram
+	h, err := m.Int64Histogram("baz")
+	require.NoError(t, err)
+	h.Record(ctx, 20, attribute.String("a", "b"))
+	// qux histogram
+	h2, err := m.Int64Histogram("qux")
+	require.NoError(t, err)
+	h2.Record(ctx, 2, attribute.String("c", "d"))
+
+	ts := httptest.NewServer(promhttp.InstrumentMetricHandler(
+		registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
+	))
+	t.Cleanup(ts.Close)
+	// WARNING: the counters in prometheus have the "_total" suffix!
+	// https://github.com/open-telemetry/opentelemetry-specification/blob/v1.14.0/specification/metrics/data-model.md#sums-1
+	metrics := requireMetrics(t, ts.URL, "foo_total", "bar_total", "baz", "qux")
+
+	require.EqualValues(t, ptr("foo_total"), metrics["foo_total"].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo_total"].Type)
+	require.Len(t, metrics["foo_total"].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics["foo_total"].Metric[0].Counter)
+	require.ElementsMatch(t, []*promClient.LabelPair{
+		{Name: ptr("hello"), Value: ptr("world")},
+		{Name: ptr("otel_scope_name"), Value: ptr("some-meter-name")},
+		{Name: ptr("otel_scope_version"), Value: ptr("")},
+		//{Name: ptr("instance"), Value: ptr("my-instance-id")}, // @TODO: how to get this with prometheus?
+	}, metrics["foo_total"].Metric[0].Label)
+
+	require.EqualValues(t, ptr("bar_total"), metrics["bar_total"].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar_total"].Type)
+	require.Len(t, metrics["bar_total"].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics["bar_total"].Metric[0].Counter)
+	require.ElementsMatch(t, []*promClient.LabelPair{
+		{Name: ptr("otel_scope_name"), Value: ptr("some-meter-name")},
+		{Name: ptr("otel_scope_version"), Value: ptr("")},
+		//{Name: ptr("instance"), Value: ptr("my-instance-id")}, // @TODO: how to get this with prometheus?
+	}, metrics["bar_total"].Metric[0].Label)
+
+	requireHistogramEqual(t, metrics["baz"], histogram{
+		name: "baz", count: 1, sum: 20,
+		buckets: []*promClient.Bucket{
+			{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
+			{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
+			{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
+			{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+		},
+		labels: []*promClient.LabelPair{
+			{Name: ptr("a"), Value: ptr("b")},
+			{Name: ptr("otel_scope_name"), Value: ptr("some-meter-name")},
+			{Name: ptr("otel_scope_version"), Value: ptr("")},
+			//{Name: ptr("instance"), Value: ptr("my-instance-id")}, // @TODO: how to get this with prometheus?
+		},
+	})
+
+	requireHistogramEqual(t, metrics["qux"], histogram{
+		name: "qux", count: 1, sum: 2,
+		buckets: []*promClient.Bucket{
+			{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(1.0)},
+			{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(2.0)},
+			{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(3.0)},
+			{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+		},
+		labels: []*promClient.LabelPair{
+			{Name: ptr("c"), Value: ptr("d")},
+			{Name: ptr("otel_scope_name"), Value: ptr("some-meter-name")},
+			{Name: ptr("otel_scope_version"), Value: ptr("")},
+			//{Name: ptr("instance"), Value: ptr("my-instance-id")}, // @TODO: how to get this with prometheus?
+		},
+	})
+}
+
 func TestHistogramBuckets(t *testing.T) {
 	setup := func(t *testing.T, opts ...MeterProviderOption) (*docker.Container, *sdkmetric.MeterProvider) {
 		cwd, err := os.Getwd()
@@ -126,9 +232,10 @@ func TestHistogramBuckets(t *testing.T) {
 		var om Manager
 		_, mp, err := om.Setup(ctx, res,
 			WithInsecure(),
-			WithMeterProvider(grpcEndpoint,
-				append(opts, WithMeterProviderExportsInterval(50*time.Millisecond))...,
-			),
+			WithMeterProvider(append(opts,
+				WithGRPCMeterProvider(grpcEndpoint),
+				WithMeterProviderExportsInterval(50*time.Millisecond),
+			)...),
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
@@ -153,7 +260,8 @@ func TestHistogramBuckets(t *testing.T) {
 		require.NoError(t, err)
 		h.Record(ctx, 30, attribute.String("c", "d"))
 
-		metrics := requireMetrics(t, container, "foo", "bar")
+		metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
+		metrics := requireMetrics(t, metricsEndpoint, "foo", "bar")
 
 		requireHistogramEqual(t, metrics["foo"], histogram{
 			name: "foo", count: 1, sum: 20,
@@ -211,7 +319,8 @@ func TestHistogramBuckets(t *testing.T) {
 		require.NoError(t, err)
 		h.Record(ctx, 80, attribute.String("e", "f"))
 
-		metrics := requireMetrics(t, container, "foo", "bar", "baz")
+		metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
+		metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "baz")
 
 		requireHistogramEqual(t, metrics["foo"], histogram{
 			name: "foo", count: 1, sum: 20,
@@ -294,7 +403,7 @@ func TestCollectorGlobals(t *testing.T) {
 	tp, mp, err := om.Setup(ctx, res,
 		WithInsecure(),
 		WithTracerProvider(endpoint, 1.0, WithGlobalTracerProvider()),
-		WithMeterProvider(endpoint, WithGlobalMeterProvider()),
+		WithMeterProvider(WithGRPCMeterProvider(endpoint), WithGlobalMeterProvider()),
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
@@ -316,7 +425,7 @@ func TestNonBlockingConnection(t *testing.T) {
 	)
 	_, mp, err := om.Setup(ctx, res,
 		WithInsecure(),
-		WithMeterProvider(endpoint, WithMeterProviderExportsInterval(100*time.Millisecond)),
+		WithMeterProvider(WithGRPCMeterProvider(endpoint), WithMeterProviderExportsInterval(100*time.Millisecond)),
 		WithRetryConfig(RetryConfig{
 			Enabled:         true,
 			InitialInterval: time.Second,
@@ -347,7 +456,8 @@ func TestNonBlockingConnection(t *testing.T) {
 	)
 	barCounter.Add(ctx, 456) // this should be recorded
 
-	metrics := requireMetrics(t, container, "foo", "bar")
+	metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
+	metrics := requireMetrics(t, metricsEndpoint, "foo", "bar")
 
 	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
@@ -374,15 +484,14 @@ func TestNonBlockingConnection(t *testing.T) {
 }
 
 func requireMetrics(
-	t *testing.T, container *docker.Container, requiredKeys ...string,
+	t *testing.T, metricsEndpoint string, requiredKeys ...string,
 ) map[string]*promClient.MetricFamily {
 	t.Helper()
 
 	var (
-		err             error
-		resp            *http.Response
-		metrics         map[string]*promClient.MetricFamily
-		metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
+		err     error
+		resp    *http.Response
+		metrics map[string]*promClient.MetricFamily
 	)
 	require.Eventuallyf(t, func() bool {
 		resp, err = http.Get(metricsEndpoint)
