@@ -43,6 +43,8 @@ type otelStats struct {
 	logger                   logger.Logger
 }
 
+// @TODO propagate logger
+
 func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
 	if !s.config.enabled.Load() {
 		return nil
