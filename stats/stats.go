@@ -87,7 +87,7 @@ func NewStats(
 		return &otelStats{
 			config:                   statsConfig,
 			stopBackgroundCollection: func() {},
-			meter:                    global.MeterProvider().Meter(""),
+			meter:                    global.MeterProvider().Meter(defaultMeterName),
 			logger:                   loggerFactory.NewLogger().Child("stats"),
 			otelConfig: otelStatsConfig{
 				tracesEndpoint:        config.GetString("OpenTelemetry.traces.endpoint", ""),
