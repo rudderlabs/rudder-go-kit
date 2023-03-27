@@ -90,10 +90,12 @@ func NewStats(
 			meter:                    global.MeterProvider().Meter(defaultMeterName),
 			logger:                   loggerFactory.NewLogger().Child("stats"),
 			otelConfig: otelStatsConfig{
-				tracesEndpoint:        config.GetString("OpenTelemetry.traces.endpoint", ""),
-				tracingSamplingRate:   config.GetFloat64("OpenTelemetry.traces.samplingRate", 0.1),
-				metricsEndpoint:       config.GetString("OpenTelemetry.metrics.endpoint", ""),
-				metricsExportInterval: config.GetDuration("OpenTelemetry.metrics.exportInterval", 5, time.Second),
+				tracesEndpoint:           config.GetString("OpenTelemetry.traces.endpoint", ""),
+				tracingSamplingRate:      config.GetFloat64("OpenTelemetry.traces.samplingRate", 0.1),
+				metricsEndpoint:          config.GetString("OpenTelemetry.metrics.endpoint", ""),
+				metricsExportInterval:    config.GetDuration("OpenTelemetry.metrics.exportInterval", 5, time.Second),
+				enablePrometheusExporter: config.GetBool("OpenTelemetry.metrics.prometheus.enabled", true),
+				prometheusMetricsPort:    config.GetInt("OpenTelemetry.metrics.prometheus.port", 9898),
 			},
 		}
 	}
