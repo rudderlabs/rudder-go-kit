@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/metric/global"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
@@ -84,11 +85,21 @@ func NewStats(
 	}
 
 	if config.GetBool("OpenTelemetry.enabled", false) {
+		registerer := prometheus.DefaultRegisterer
+		gatherer := prometheus.DefaultGatherer
+		if statsConfig.prometheusRegisterer != nil {
+			registerer = statsConfig.prometheusRegisterer
+		}
+		if statsConfig.prometheusGatherer != nil {
+			gatherer = statsConfig.prometheusGatherer
+		}
 		return &otelStats{
 			config:                   statsConfig,
 			stopBackgroundCollection: func() {},
 			meter:                    global.MeterProvider().Meter(defaultMeterName),
 			logger:                   loggerFactory.NewLogger().Child("stats"),
+			prometheusRegisterer:     registerer,
+			prometheusGatherer:       gatherer,
 			otelConfig: otelStatsConfig{
 				tracesEndpoint:           config.GetString("OpenTelemetry.traces.endpoint", ""),
 				tracingSamplingRate:      config.GetFloat64("OpenTelemetry.traces.samplingRate", 0.1),

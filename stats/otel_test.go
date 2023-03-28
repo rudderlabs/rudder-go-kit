@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	promClient "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
@@ -676,6 +677,94 @@ func TestOTelHistogramBuckets(t *testing.T) {
 			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label, "Got %+v", metrics["bar"].Metric[0].Label)
 		})
 	}
+}
+
+func TestPrometheusCustomRegistry(t *testing.T) {
+	metricName := "foo"
+	setup := func(t testing.TB) (prometheus.Registerer, int) {
+		freePort, err := testhelper.GetFreePort()
+		require.NoError(t, err)
+
+		c := config.New()
+		c.Set("INSTANCE_ID", "my-instance-id")
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+		c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+		c.Set("RuntimeStats.enabled", false)
+		l := logger.NewFactory(c)
+		m := metric.NewManager()
+		r := prometheus.NewRegistry()
+		s := NewStats(c, l, m,
+			WithServiceName("TestPrometheusCustomRegistry"),
+			WithPrometheusRegistry(r, r),
+		)
+		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+		t.Cleanup(s.Stop)
+
+		s.NewTaggedStat(metricName, CountType, Tags{"a": "b"}).Count(7)
+
+		return r, freePort
+	}
+
+	t.Run("http", func(t *testing.T) {
+		var (
+			err             error
+			resp            *http.Response
+			metrics         map[string]*promClient.MetricFamily
+			_, serverPort   = setup(t)
+			metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", serverPort)
+		)
+		require.Eventuallyf(t, func() bool {
+			resp, err = http.Get(metricsEndpoint)
+			if err != nil {
+				return false
+			}
+			defer func() { httputil.CloseResponse(resp) }()
+			metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
+			if err != nil {
+				return false
+			}
+			if _, ok := metrics[metricName]; !ok {
+				return false
+			}
+			return true
+		}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+
+		require.EqualValues(t, &metricName, metrics[metricName].Name)
+		require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
+		require.Len(t, metrics[metricName].Metric, 1)
+		require.EqualValues(t, &promClient.Counter{Value: ptr(7.0)}, metrics[metricName].Metric[0].Counter)
+		require.ElementsMatchf(t, []*promClient.LabelPair{
+			{Name: ptr("a"), Value: ptr("b")},
+			{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
+			{Name: ptr("instance"), Value: ptr("my-instance-id")},
+		}, metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
+	})
+
+	t.Run("collector", func(t *testing.T) {
+		r, _ := setup(t)
+		metrics, err := r.(prometheus.Gatherer).Gather()
+		require.NoError(t, err)
+
+		var mf *promClient.MetricFamily
+		for _, m := range metrics {
+			if m.GetName() == metricName {
+				mf = m
+				break
+			}
+		}
+		require.NotNilf(t, mf, "Metric not found in %+v", metrics)
+		require.EqualValues(t, metricName, mf.GetName())
+		require.EqualValues(t, promClient.MetricType_COUNTER, mf.GetType())
+		require.Len(t, mf.GetMetric(), 1)
+		require.ElementsMatch(t, []*promClient.LabelPair{
+			{Name: ptr("a"), Value: ptr("b")},
+			{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
+			{Name: ptr("instance"), Value: ptr("my-instance-id")},
+		}, mf.GetMetric()[0].GetLabel())
+		require.EqualValues(t, ptr(7.0), mf.GetMetric()[0].GetCounter().Value)
+	})
 }
 
 func getDataPoint[T any](ctx context.Context, t *testing.T, rdr sdkmetric.Reader, name string, idx int) (zero T) {

@@ -48,6 +48,8 @@ type otelStats struct {
 
 	httpServer                 *http.Server
 	httpServerShutdownComplete chan struct{}
+	prometheusRegisterer       prometheus.Registerer
+	prometheusGatherer         prometheus.Gatherer
 }
 
 func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
@@ -100,7 +102,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 			return fmt.Errorf("invalid prometheus metrics port %d", s.otelConfig.prometheusMetricsPort)
 		}
 		options = append(options, otel.WithMeterProvider(append(meterProviderOptions,
-			otel.WithPrometheusExporter(prometheus.DefaultRegisterer),
+			otel.WithPrometheusExporter(s.prometheusRegisterer),
 		)...))
 	}
 	_, mp, err := s.otelManager.Setup(ctx, res, options...)
@@ -112,8 +114,12 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	if s.otelConfig.enablePrometheusExporter {
 		s.httpServerShutdownComplete = make(chan struct{})
 		s.httpServer = &http.Server{
-			Addr:    fmt.Sprintf(":%d", s.otelConfig.prometheusMetricsPort),
-			Handler: promhttp.Handler(),
+			Addr: fmt.Sprintf(":%d", s.otelConfig.prometheusMetricsPort),
+			Handler: promhttp.InstrumentMetricHandler(
+				s.prometheusRegisterer, promhttp.HandlerFor(s.prometheusGatherer, promhttp.HandlerOpts{
+					ErrorLog: &prometheusLogger{l: s.logger},
+				}),
+			),
 		}
 		goFactory.Go(func() {
 			defer close(s.httpServerShutdownComplete)
@@ -146,9 +152,13 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		})
 	}
 
-	s.logger.Infof("Stats started successfully in mode %q with metrics endpoint %q and traces endpoint %q",
-		"OpenTelemetry", s.otelConfig.metricsEndpoint, s.otelConfig.tracesEndpoint,
-	)
+	if s.otelConfig.enablePrometheusExporter {
+		s.logger.Infof("Stats started in Prometheus mode on %q", s.httpServer.Addr)
+	} else {
+		s.logger.Infof("Stats started in OpenTelemetry mode with metrics endpoint %q and traces endpoint %q",
+			s.otelConfig.metricsEndpoint, s.otelConfig.tracesEndpoint,
+		)
+	}
 
 	return nil
 }
@@ -368,3 +378,7 @@ type otelStatsConfig struct {
 	enablePrometheusExporter bool
 	prometheusMetricsPort    int
 }
+
+type prometheusLogger struct{ l logger.Logger }
+
+func (p *prometheusLogger) Println(v ...interface{}) { p.l.Error(v...) }

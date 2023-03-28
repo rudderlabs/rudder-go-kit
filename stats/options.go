@@ -2,6 +2,8 @@ package stats
 
 import (
 	"sync/atomic"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type statsConfig struct {
@@ -15,6 +17,8 @@ type statsConfig struct {
 	periodicStatsConfig     periodicStatsConfig
 	defaultHistogramBuckets []float64
 	histogramBuckets        map[string][]float64
+	prometheusRegisterer    prometheus.Registerer
+	prometheusGatherer      prometheus.Gatherer
 }
 
 // Option is a function used to configure the stats service.
@@ -48,5 +52,14 @@ func WithHistogramBuckets(histogramName string, buckets []float64) Option {
 			c.histogramBuckets = make(map[string][]float64)
 		}
 		c.histogramBuckets[histogramName] = buckets
+	}
+}
+
+// WithPrometheusRegistry sets the prometheus registerer and gatherer for the stats service.
+// If nil is passed the default ones will be used.
+func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheus.Gatherer) Option {
+	return func(c *statsConfig) {
+		c.prometheusRegisterer = registerer
+		c.prometheusGatherer = gatherer
 	}
 }
