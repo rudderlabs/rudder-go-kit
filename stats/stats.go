@@ -105,8 +105,8 @@ func NewStats(
 				tracingSamplingRate:      config.GetFloat64("OpenTelemetry.traces.samplingRate", 0.1),
 				metricsEndpoint:          config.GetString("OpenTelemetry.metrics.endpoint", ""),
 				metricsExportInterval:    config.GetDuration("OpenTelemetry.metrics.exportInterval", 5, time.Second),
-				enablePrometheusExporter: config.GetBool("OpenTelemetry.metrics.prometheus.enabled", true),
-				prometheusMetricsPort:    config.GetInt("OpenTelemetry.metrics.prometheus.port", 9898),
+				enablePrometheusExporter: config.GetBool("OpenTelemetry.metrics.prometheus.enabled", false),
+				prometheusMetricsPort:    config.GetInt("OpenTelemetry.metrics.prometheus.port", 0),
 			},
 		}
 	}

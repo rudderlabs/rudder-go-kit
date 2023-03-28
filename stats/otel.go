@@ -98,12 +98,11 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 			otel.WithGRPCMeterProvider(s.otelConfig.metricsEndpoint),
 		)...))
 	} else if s.otelConfig.enablePrometheusExporter {
-		if s.otelConfig.prometheusMetricsPort < 1 || s.otelConfig.prometheusMetricsPort > 65535 {
-			return fmt.Errorf("invalid prometheus metrics port %d", s.otelConfig.prometheusMetricsPort)
-		}
 		options = append(options, otel.WithMeterProvider(append(meterProviderOptions,
 			otel.WithPrometheusExporter(s.prometheusRegisterer),
 		)...))
+	} else {
+		return fmt.Errorf("no metrics endpoint or prometheus exporter enabled")
 	}
 	_, mp, err := s.otelManager.Setup(ctx, res, options...)
 	if err != nil {
@@ -111,7 +110,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	}
 
 	s.meter = mp.Meter(defaultMeterName)
-	if s.otelConfig.enablePrometheusExporter {
+	if s.otelConfig.enablePrometheusExporter && s.otelConfig.prometheusMetricsPort > 0 {
 		s.httpServerShutdownComplete = make(chan struct{})
 		s.httpServer = &http.Server{
 			Addr: fmt.Sprintf(":%d", s.otelConfig.prometheusMetricsPort),
