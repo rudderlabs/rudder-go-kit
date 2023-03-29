@@ -152,7 +152,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	}
 
 	if s.otelConfig.enablePrometheusExporter {
-		s.logger.Infof("Stats started in Prometheus mode on %q", s.httpServer.Addr)
+		s.logger.Infof("Stats started in Prometheus mode on :%q", s.otelConfig.prometheusMetricsPort)
 	} else {
 		s.logger.Infof("Stats started in OpenTelemetry mode with metrics endpoint %q and traces endpoint %q",
 			s.otelConfig.metricsEndpoint, s.otelConfig.tracesEndpoint,
