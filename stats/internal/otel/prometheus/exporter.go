@@ -1,3 +1,18 @@
+// Package prometheus is imported from the official OpenTelemetry package:
+// https://github.com/open-telemetry/opentelemetry-go/tree/v1.14.0/exporters/prometheus
+// The version of the exporter would be v0.37.0 (not v1.14.0, see releases).
+//
+// Customisations applied:
+//
+//  1. scope info keys are not "otel_scope_name", "otel_scope_version" but we're now using the semconv ones to be
+//     consistent if we switch over to gRPC. we're propagating them via the *resource.Resource (see Collect method)
+//     see here: https://github.com/open-telemetry/opentelemetry-go/blob/v1.14.0/exporters/prometheus/exporter.go#L48
+//
+//  2. prometheus counters MUST have a _total suffix but that breaks our dashboards, so we removed it
+//     see here: https://github.com/open-telemetry/opentelemetry-go/blob/v1.14.0/exporters/prometheus/exporter.go#L73
+//
+//  3. a global logger was used, we made it injectable via options
+//     see here: https://github.com/open-telemetry/opentelemetry-go/blob/v1.14.0/exporters/prometheus/exporter.go#L393
 package prometheus
 
 import (
