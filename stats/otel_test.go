@@ -170,7 +170,7 @@ func TestOTelMeasurementOperations(t *testing.T) {
 		md := getDataPoint[metricdata.Histogram](ctx, t, r, "test-timer-1", 0)
 		require.Len(t, md.DataPoints, 1)
 		require.EqualValues(t, 1, md.DataPoints[0].Count)
-		require.EqualValues(t, (10*time.Second)/time.Millisecond, md.DataPoints[0].Sum)
+		require.InDelta(t, 10.0, md.DataPoints[0].Sum, 0.001)
 	})
 
 	t.Run("timer since", func(t *testing.T) {
@@ -180,7 +180,7 @@ func TestOTelMeasurementOperations(t *testing.T) {
 		md := getDataPoint[metricdata.Histogram](ctx, t, r, "test-timer-2", 0)
 		require.Len(t, md.DataPoints, 1)
 		require.EqualValues(t, 1, md.DataPoints[0].Count)
-		require.EqualValues(t, time.Second.Milliseconds(), md.DataPoints[0].Sum)
+		require.InDelta(t, 1.0, md.DataPoints[0].Sum, 0.001)
 	})
 
 	t.Run("timer RecordDuration", func(t *testing.T) {
@@ -194,7 +194,7 @@ func TestOTelMeasurementOperations(t *testing.T) {
 		md := getDataPoint[metricdata.Histogram](ctx, t, r, "test-timer-3", 0)
 		require.Len(t, md.DataPoints, 1)
 		require.EqualValues(t, 1, md.DataPoints[0].Count)
-		require.InDelta(t, time.Second.Milliseconds(), md.DataPoints[0].Sum, 10)
+		require.InDelta(t, 1.0, md.DataPoints[0].Sum, 0.001)
 	})
 
 	t.Run("histogram", func(t *testing.T) {
@@ -479,27 +479,8 @@ func TestOTelExcludedTags(t *testing.T) {
 		"should_not_be_filtered": "fancy-value",
 	}).Increment()
 
-	var (
-		resp            *http.Response
-		metrics         map[string]*promClient.MetricFamily
-		metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", docker.GetHostPort(t, metricsPort, container))
-	)
-
-	require.Eventuallyf(t, func() bool {
-		resp, err = http.Get(metricsEndpoint)
-		if err != nil {
-			return false
-		}
-		defer func() { httputil.CloseResponse(resp) }()
-		metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
-		if err != nil {
-			return false
-		}
-		if _, ok := metrics[metricName]; !ok {
-			return false
-		}
-		return true
-	}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+	metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", docker.GetHostPort(t, metricsPort, container))
+	metrics := requireMetrics(t, metricsEndpoint, metricName)
 
 	require.EqualValues(t, &metricName, metrics[metricName].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
@@ -540,7 +521,7 @@ func TestOTelStartStopError(t *testing.T) {
 	}
 }
 
-func TestOTelHistogramBuckets(t *testing.T) {
+func TestOTelMeasurementsConsistency(t *testing.T) {
 	type testCase struct {
 		name               string
 		additionalLabels   []*promClient.LabelPair
@@ -617,30 +598,11 @@ func TestOTelHistogramBuckets(t *testing.T) {
 
 			s.NewTaggedStat("foo", HistogramType, Tags{"a": "b"}).Observe(20)
 			s.NewTaggedStat("bar", HistogramType, Tags{"c": "d"}).Observe(50)
+			s.NewTaggedStat("baz", CountType, Tags{"e": "f"}).Count(7)
+			s.NewTaggedStat("qux", GaugeType, Tags{"g": "h"}).Gauge(13)
+			s.NewTaggedStat("asd", TimerType, Tags{"i": "l"}).SendTiming(20 * time.Second)
 
-			var (
-				err     error
-				resp    *http.Response
-				metrics map[string]*promClient.MetricFamily
-			)
-			require.Eventuallyf(t, func() bool {
-				resp, err = http.Get(metricsEndpoint)
-				if err != nil {
-					return false
-				}
-				defer func() { httputil.CloseResponse(resp) }()
-				metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
-				if err != nil {
-					return false
-				}
-				if _, ok := metrics["foo"]; !ok {
-					return false
-				}
-				if _, ok := metrics["bar"]; !ok {
-					return false
-				}
-				return true
-			}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "baz", "qux", "asd")
 
 			require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["foo"].Type)
@@ -675,6 +637,41 @@ func TestOTelHistogramBuckets(t *testing.T) {
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
 				{Name: ptr("instance"), Value: ptr("my-instance-id")},
 			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label, "Got %+v", metrics["bar"].Metric[0].Label)
+
+			require.EqualValues(t, ptr("baz"), metrics["baz"].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["baz"].Type)
+			require.Len(t, metrics["baz"].Metric, 1)
+			require.EqualValues(t, ptr(7.0), metrics["baz"].Metric[0].Counter.Value)
+			require.ElementsMatchf(t, append([]*promClient.LabelPair{
+				{Name: ptr("e"), Value: ptr("f")},
+				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+			}, scenario.additionalLabels...), metrics["baz"].Metric[0].Label, "Got %+v", metrics["baz"].Metric[0].Label)
+
+			require.EqualValues(t, ptr("qux"), metrics["qux"].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_GAUGE), metrics["qux"].Type)
+			require.Len(t, metrics["qux"].Metric, 1)
+			require.EqualValues(t, ptr(13.0), metrics["qux"].Metric[0].Gauge.Value)
+			require.ElementsMatchf(t, append([]*promClient.LabelPair{
+				{Name: ptr("g"), Value: ptr("h")},
+				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+			}, scenario.additionalLabels...), metrics["qux"].Metric[0].Label, "Got %+v", metrics["qux"].Metric[0].Label)
+
+			require.EqualValues(t, ptr("asd"), metrics["asd"].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["asd"].Type)
+			require.Len(t, metrics["asd"].Metric, 1)
+			require.EqualValues(t, []*promClient.Bucket{
+				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+			}, metrics["asd"].Metric[0].Histogram.Bucket)
+			require.ElementsMatchf(t, append([]*promClient.LabelPair{
+				{Name: ptr("i"), Value: ptr("l")},
+				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+			}, scenario.additionalLabels...), metrics["asd"].Metric[0].Label, "Got %+v", metrics["asd"].Metric[0].Label)
 		})
 	}
 }
@@ -803,6 +800,37 @@ func newReaderWithMeter(t *testing.T) (sdkmetric.Reader, otelMetric.Meter) {
 		_ = meterProvider.Shutdown(context.Background())
 	})
 	return manualRdr, meterProvider.Meter(t.Name())
+}
+
+func requireMetrics(
+	t *testing.T, metricsEndpoint string, requiredKeys ...string,
+) map[string]*promClient.MetricFamily {
+	t.Helper()
+
+	var (
+		err     error
+		resp    *http.Response
+		metrics map[string]*promClient.MetricFamily
+	)
+	require.Eventuallyf(t, func() bool {
+		resp, err = http.Get(metricsEndpoint)
+		if err != nil {
+			return false
+		}
+		defer func() { httputil.CloseResponse(resp) }()
+		metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
+		if err != nil {
+			return false
+		}
+		for _, k := range requiredKeys {
+			if _, ok := metrics[k]; !ok {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+
+	return metrics
 }
 
 func ptr[T any](v T) *T {

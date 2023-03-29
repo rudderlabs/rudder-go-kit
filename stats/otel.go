@@ -35,7 +35,7 @@ type otelStats struct {
 	countersMu   sync.Mutex
 	gauges       map[string]*otelGauge
 	gaugesMu     sync.Mutex
-	timers       map[string]instrument.Int64Histogram
+	timers       map[string]instrument.Float64Histogram
 	timersMu     sync.Mutex
 	histograms   map[string]instrument.Float64Histogram
 	histogramsMu sync.Mutex
@@ -152,7 +152,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	}
 
 	if s.otelConfig.enablePrometheusExporter {
-		s.logger.Infof("Stats started in Prometheus mode on :%q", s.otelConfig.prometheusMetricsPort)
+		s.logger.Infof("Stats started in Prometheus mode on :%d", s.otelConfig.prometheusMetricsPort)
 	} else {
 		s.logger.Infof("Stats started in OpenTelemetry mode with metrics endpoint %q and traces endpoint %q",
 			s.otelConfig.metricsEndpoint, s.otelConfig.tracesEndpoint,
@@ -263,7 +263,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	case GaugeType:
 		return s.getGauge(s.meter, name, om.attributes, tags.String())
 	case TimerType:
-		instr := buildOTelInstrument(s.meter, name, s.timers, &s.timersMu, instrument.WithUnit("ms"))
+		instr := buildOTelInstrument(s.meter, name, s.timers, &s.timersMu)
 		return &otelTimer{timer: instr, otelMeasurement: om}
 	case HistogramType:
 		instr := buildOTelInstrument(s.meter, name, s.histograms, &s.histogramsMu)
