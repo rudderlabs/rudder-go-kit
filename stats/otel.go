@@ -2,12 +2,16 @@ package stats
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cast"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -31,7 +35,7 @@ type otelStats struct {
 	countersMu   sync.Mutex
 	gauges       map[string]*otelGauge
 	gaugesMu     sync.Mutex
-	timers       map[string]instrument.Int64Histogram
+	timers       map[string]instrument.Float64Histogram
 	timersMu     sync.Mutex
 	histograms   map[string]instrument.Float64Histogram
 	histogramsMu sync.Mutex
@@ -41,6 +45,11 @@ type otelStats struct {
 	metricsStatsCollector    metricStatsCollector
 	stopBackgroundCollection func()
 	logger                   logger.Logger
+
+	httpServer                 *http.Server
+	httpServerShutdownComplete chan struct{}
+	prometheusRegisterer       prometheus.Registerer
+	prometheusGatherer         prometheus.Gatherer
 }
 
 func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
@@ -61,30 +70,39 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		return fmt.Errorf("failed to create open telemetry resource: %w", err)
 	}
 
-	options := []otel.Option{otel.WithInsecure()} // @TODO: could make this configurable
+	options := []otel.Option{otel.WithInsecure(), otel.WithLogger(s.logger)}
 	if s.otelConfig.tracesEndpoint != "" {
 		options = append(options, otel.WithTracerProvider(
 			s.otelConfig.tracesEndpoint,
 			s.otelConfig.tracingSamplingRate,
 		))
 	}
-	if s.otelConfig.metricsEndpoint != "" {
-		meterProviderOptions := []otel.MeterProviderOption{
-			otel.WithMeterProviderExportsInterval(s.otelConfig.metricsExportInterval),
-		}
-		if len(s.config.defaultHistogramBuckets) > 0 {
+
+	meterProviderOptions := []otel.MeterProviderOption{
+		otel.WithMeterProviderExportsInterval(s.otelConfig.metricsExportInterval),
+	}
+	if len(s.config.defaultHistogramBuckets) > 0 {
+		meterProviderOptions = append(meterProviderOptions,
+			otel.WithDefaultHistogramBucketBoundaries(s.config.defaultHistogramBuckets),
+		)
+	}
+	if len(s.config.histogramBuckets) > 0 {
+		for histogramName, buckets := range s.config.histogramBuckets {
 			meterProviderOptions = append(meterProviderOptions,
-				otel.WithDefaultHistogramBucketBoundaries(s.config.defaultHistogramBuckets),
+				otel.WithHistogramBucketBoundaries(histogramName, defaultMeterName, buckets),
 			)
 		}
-		if len(s.config.histogramBuckets) > 0 {
-			for histogramName, buckets := range s.config.histogramBuckets {
-				meterProviderOptions = append(meterProviderOptions,
-					otel.WithHistogramBucketBoundaries(histogramName, defaultMeterName, buckets),
-				)
-			}
-		}
-		options = append(options, otel.WithMeterProvider(s.otelConfig.metricsEndpoint, meterProviderOptions...))
+	}
+	if s.otelConfig.metricsEndpoint != "" {
+		options = append(options, otel.WithMeterProvider(append(meterProviderOptions,
+			otel.WithGRPCMeterProvider(s.otelConfig.metricsEndpoint),
+		)...))
+	} else if s.otelConfig.enablePrometheusExporter {
+		options = append(options, otel.WithMeterProvider(append(meterProviderOptions,
+			otel.WithPrometheusExporter(s.prometheusRegisterer),
+		)...))
+	} else {
+		return fmt.Errorf("no metrics endpoint or prometheus exporter enabled")
 	}
 	_, mp, err := s.otelManager.Setup(ctx, res, options...)
 	if err != nil {
@@ -92,6 +110,23 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	}
 
 	s.meter = mp.Meter(defaultMeterName)
+	if s.otelConfig.enablePrometheusExporter && s.otelConfig.prometheusMetricsPort > 0 {
+		s.httpServerShutdownComplete = make(chan struct{})
+		s.httpServer = &http.Server{
+			Addr: fmt.Sprintf(":%d", s.otelConfig.prometheusMetricsPort),
+			Handler: promhttp.InstrumentMetricHandler(
+				s.prometheusRegisterer, promhttp.HandlerFor(s.prometheusGatherer, promhttp.HandlerOpts{
+					ErrorLog: &prometheusLogger{l: s.logger},
+				}),
+			),
+		}
+		goFactory.Go(func() {
+			defer close(s.httpServerShutdownComplete)
+			if err := s.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+				s.logger.Fatalf("Prometheus exporter failed: %v", err)
+			}
+		})
+	}
 
 	// Starting background collection
 	var backgroundCollectionCtx context.Context
@@ -116,9 +151,13 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		})
 	}
 
-	s.logger.Infof("Stats started successfully in mode %q with metrics endpoint %q and traces endpoint %q",
-		"OpenTelemetry", s.otelConfig.metricsEndpoint, s.otelConfig.tracesEndpoint,
-	)
+	if s.otelConfig.enablePrometheusExporter {
+		s.logger.Infof("Stats started in Prometheus mode on :%d", s.otelConfig.prometheusMetricsPort)
+	} else {
+		s.logger.Infof("Stats started in OpenTelemetry mode with metrics endpoint %q and traces endpoint %q",
+			s.otelConfig.metricsEndpoint, s.otelConfig.tracesEndpoint,
+		)
+	}
 
 	return nil
 }
@@ -141,6 +180,13 @@ func (s *otelStats) Stop() {
 	}
 	if s.config.periodicStatsConfig.enabled && s.runtimeStatsCollector.done != nil {
 		<-s.runtimeStatsCollector.done
+	}
+
+	if s.httpServer != nil && s.httpServerShutdownComplete != nil {
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			s.logger.Errorf("failed to shutdown prometheus exporter: %v", err)
+		}
+		<-s.httpServerShutdownComplete
 	}
 }
 
@@ -217,7 +263,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	case GaugeType:
 		return s.getGauge(s.meter, name, om.attributes, tags.String())
 	case TimerType:
-		instr := buildOTelInstrument(s.meter, name, s.timers, &s.timersMu, instrument.WithUnit("ms"))
+		instr := buildOTelInstrument(s.meter, name, s.timers, &s.timersMu)
 		return &otelTimer{timer: instr, otelMeasurement: om}
 	case HistogramType:
 		instr := buildOTelInstrument(s.meter, name, s.histograms, &s.histogramsMu)
@@ -276,13 +322,12 @@ func buildOTelInstrument[T any](
 	)
 
 	mu.Lock()
-	defer mu.Unlock()
-
 	if m == nil {
 		m = make(map[string]T)
 	} else {
 		instr, ok = m[name]
 	}
+	mu.Unlock()
 
 	if !ok {
 		var err error
@@ -301,7 +346,14 @@ func buildOTelInstrument[T any](
 			panic(fmt.Errorf("failed to create instrument %T(%s): %w", instr, name, err))
 		}
 		instr = value.(T)
-		m[name] = instr
+
+		mu.Lock() // the meter constructors might take some time so let's not hold the lock while that happens
+		if _, ok := m[name]; !ok {
+			m[name] = instr
+		} else {
+			instr = m[name]
+		}
+		mu.Unlock()
 	}
 
 	return instr
@@ -318,8 +370,14 @@ func castOptions[T any](opts ...instrument.Option) []T {
 }
 
 type otelStatsConfig struct {
-	tracesEndpoint        string
-	tracingSamplingRate   float64
-	metricsEndpoint       string
-	metricsExportInterval time.Duration
+	tracesEndpoint           string
+	tracingSamplingRate      float64
+	metricsEndpoint          string
+	metricsExportInterval    time.Duration
+	enablePrometheusExporter bool
+	prometheusMetricsPort    int
 }
+
+type prometheusLogger struct{ l logger.Logger }
+
+func (p *prometheusLogger) Println(v ...interface{}) { p.l.Error(v...) }

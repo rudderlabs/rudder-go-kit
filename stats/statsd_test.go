@@ -382,7 +382,6 @@ func TestStatsdExcludedTags(t *testing.T) {
 	c.Set("statsExcludedTags", []string{"workspaceId"})
 	s.NewTaggedStat("test-workspaceId", stats.CountType, stats.Tags{"workspaceId": "value"}).Increment()
 	require.Eventually(t, func() bool {
-		fmt.Println(lastReceived)
 		return lastReceived == "test-workspaceId,instanceName=test:1|c"
 	}, 2*time.Second, time.Millisecond)
 }

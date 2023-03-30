@@ -3,7 +3,7 @@ package otel
 import (
 	"time"
 
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -65,9 +65,8 @@ func WithGlobalTracerProvider() TracerProviderOption {
 }
 
 // WithMeterProvider allows to set the meter provider and specify if it should be the global one plus other options.
-func WithMeterProvider(endpoint string, opts ...MeterProviderOption) Option {
+func WithMeterProvider(opts ...MeterProviderOption) Option {
 	return func(c *config) {
-		c.metricsEndpoint = endpoint
 		c.meterProviderConfig.enabled = true
 		for _, opt := range opts {
 			opt(&c.meterProviderConfig)
@@ -82,6 +81,13 @@ func WithGlobalMeterProvider() MeterProviderOption {
 	}
 }
 
+// WithGRPCMeterProvider allows to set the meter provider to use GRPC
+func WithGRPCMeterProvider(grpcEndpoint string) MeterProviderOption {
+	return func(c *meterProviderConfig) {
+		c.grpcEndpoint = &grpcEndpoint
+	}
+}
+
 // WithMeterProviderExportsInterval configures the intervening time between exports (if less than or equal to zero,
 // 60 seconds is used)
 func WithMeterProviderExportsInterval(interval time.Duration) MeterProviderOption {
@@ -90,25 +96,30 @@ func WithMeterProviderExportsInterval(interval time.Duration) MeterProviderOptio
 	}
 }
 
+// WithPrometheusExporter allows to enable the Prometheus exporter
+func WithPrometheusExporter(registerer prometheus.Registerer) MeterProviderOption {
+	return func(c *meterProviderConfig) {
+		c.prometheusRegisterer = registerer
+	}
+}
+
 // WithDefaultHistogramBucketBoundaries lets you overwrite the default buckets for all histograms.
 func WithDefaultHistogramBucketBoundaries(boundaries []float64) MeterProviderOption {
 	return func(c *meterProviderConfig) {
-		c.otlpMetricGRPCOptions = append(c.otlpMetricGRPCOptions,
-			otlpmetricgrpc.WithAggregationSelector(func(ik sdkmetric.InstrumentKind) aggregation.Aggregation {
-				switch ik {
-				case sdkmetric.InstrumentKindCounter, sdkmetric.InstrumentKindUpDownCounter,
-					sdkmetric.InstrumentKindObservableCounter, sdkmetric.InstrumentKindObservableUpDownCounter:
-					return aggregation.Sum{}
-				case sdkmetric.InstrumentKindObservableGauge:
-					return aggregation.LastValue{}
-				case sdkmetric.InstrumentKindHistogram:
-					return aggregation.ExplicitBucketHistogram{
-						Boundaries: boundaries,
-					}
+		c.defaultAggregationSelector = func(ik sdkmetric.InstrumentKind) aggregation.Aggregation {
+			switch ik {
+			case sdkmetric.InstrumentKindCounter, sdkmetric.InstrumentKindUpDownCounter,
+				sdkmetric.InstrumentKindObservableCounter, sdkmetric.InstrumentKindObservableUpDownCounter:
+				return aggregation.Sum{}
+			case sdkmetric.InstrumentKindObservableGauge:
+				return aggregation.LastValue{}
+			case sdkmetric.InstrumentKindHistogram:
+				return aggregation.ExplicitBucketHistogram{
+					Boundaries: boundaries,
 				}
-				panic("unknown instrument kind")
-			}),
-		)
+			}
+			panic("unknown instrument kind")
+		}
 	}
 }
 
@@ -134,4 +145,9 @@ func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries 
 	return func(c *meterProviderConfig) {
 		c.views = append(c.views, newView)
 	}
+}
+
+// WithLogger allows to set the logger
+func WithLogger(l logger) Option {
+	return func(c *config) { c.logger = l }
 }

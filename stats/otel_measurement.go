@@ -67,7 +67,7 @@ func (g *otelGauge) getValue() interface{} {
 type otelTimer struct {
 	*otelMeasurement
 	now   func() time.Time
-	timer instrument.Int64Histogram
+	timer instrument.Float64Histogram
 }
 
 // Since sends the time elapsed since duration start. Only applies to TimerType stats
@@ -80,7 +80,7 @@ func (t *otelTimer) Since(start time.Time) {
 // SendTiming sends a timing for this stat. Only applies to TimerType stats
 func (t *otelTimer) SendTiming(duration time.Duration) {
 	if !t.disabled {
-		t.timer.Record(context.TODO(), duration.Milliseconds(), t.attributes...)
+		t.timer.Record(context.TODO(), duration.Seconds(), t.attributes...)
 	}
 }
 
