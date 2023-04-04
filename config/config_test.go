@@ -328,4 +328,10 @@ func Test_Misc(t *testing.T) {
 
 	t.Setenv("INSTANCE_ID", "prousmtusmt-v0-rs")
 	require.Equal(t, "", GetInstanceID())
+
+	t.Setenv("INSTANCE_ID", "prousmtusmt-v0-rs-gw-10")
+	require.Equal(t, "10", GetInstanceID())
+
+	t.Setenv("INSTANCE_ID", "prousmtusmt-v0-rs-gw-ha-12-234234-10")
+	require.Equal(t, "12", GetInstanceID())
 }

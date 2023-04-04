@@ -2,7 +2,7 @@ package config
 
 import (
 	"os"
-	"strconv"
+	"regexp"
 	"strings"
 )
 
@@ -35,19 +35,15 @@ func GetInstanceID() string {
 	instance := GetString("INSTANCE_ID", "")
 	instanceArr := strings.Split(instance, "-")
 	length := len(instanceArr)
+	regexGwHa := regexp.MustCompile(`^.*-gw-ha-\d+-\w+-\w+$`)
+	regexGwNonHaOrProcessor := regexp.MustCompile(`^.*-\d+$`)
 	// This handles 2 kinds of server instances
 	// a) Processor OR Gateway running in non HA mod where the instance name ends with the index
 	// b) Gateway running in HA mode, where the instance name is of the form *-gw-ha-<index>-<statefulset-id>-<pod-id>
-	potentialServerIndexIndices := []int{length - 1, length - 3}
-	for _, i := range potentialServerIndexIndices {
-		if i < 0 {
-			continue
-		}
-		serverIndex := instanceArr[i]
-		_, err := strconv.Atoi(serverIndex)
-		if err == nil {
-			return serverIndex
-		}
+	if (regexGwHa.MatchString(instance)) && (length > 3) {
+		return instanceArr[length-3]
+	} else if (regexGwNonHaOrProcessor.MatchString(instance)) && (length > 1) {
+		return instanceArr[length-1]
 	}
 	return ""
 }
