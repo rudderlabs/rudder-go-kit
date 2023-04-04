@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+var (
+	regexGwHa               = regexp.MustCompile(`^.*-gw-ha-\d+-\w+-\w+$`)
+	regexGwNonHaOrProcessor = regexp.MustCompile(`^.*-\d+$`)
+)
+
 // GetWorkspaceToken returns the workspace token provided in the environment variables
 // Env variable CONFIG_BACKEND_TOKEN is deprecating soon
 // WORKSPACE_TOKEN is newly introduced. This will override CONFIG_BACKEND_TOKEN
@@ -35,8 +40,6 @@ func GetInstanceID() string {
 	instance := GetString("INSTANCE_ID", "")
 	instanceArr := strings.Split(instance, "-")
 	length := len(instanceArr)
-	regexGwHa := regexp.MustCompile(`^.*-gw-ha-\d+-\w+-\w+$`)
-	regexGwNonHaOrProcessor := regexp.MustCompile(`^.*-\d+$`)
 	// This handles 2 kinds of server instances
 	// a) Processor OR Gateway running in non HA mod where the instance name ends with the index
 	// b) Gateway running in HA mode, where the instance name is of the form *-gw-ha-<index>-<statefulset-id>-<pod-id>
