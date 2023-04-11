@@ -2,8 +2,13 @@ package config
 
 import (
 	"os"
-	"strconv"
+	"regexp"
 	"strings"
+)
+
+var (
+	regexGwHa               = regexp.MustCompile(`^.*-gw-ha-\d+-\w+-\w+$`)
+	regexGwNonHaOrProcessor = regexp.MustCompile(`^.*-\d+$`)
 )
 
 // GetWorkspaceToken returns the workspace token provided in the environment variables
@@ -38,16 +43,10 @@ func GetInstanceID() string {
 	// This handles 2 kinds of server instances
 	// a) Processor OR Gateway running in non HA mod where the instance name ends with the index
 	// b) Gateway running in HA mode, where the instance name is of the form *-gw-ha-<index>-<statefulset-id>-<pod-id>
-	potentialServerIndexIndices := []int{length - 1, length - 3}
-	for _, i := range potentialServerIndexIndices {
-		if i < 0 {
-			continue
-		}
-		serverIndex := instanceArr[i]
-		_, err := strconv.Atoi(serverIndex)
-		if err == nil {
-			return serverIndex
-		}
+	if (regexGwHa.MatchString(instance)) && (length > 3) {
+		return instanceArr[length-3]
+	} else if (regexGwNonHaOrProcessor.MatchString(instance)) && (length > 1) {
+		return instanceArr[length-1]
 	}
 	return ""
 }
