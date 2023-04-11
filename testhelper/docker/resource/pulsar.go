@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"runtime"
-	"strings"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/pulsar"
@@ -52,15 +51,11 @@ func SetupPulsar(pool *dockertest.Pool, d cleaner, opts ...pulsar.Opt) (*PulsarR
 
 	if err := pool.Retry(func() (err error) {
 		var w bytes.Buffer
-		code, err := pulsarContainer.Exec([]string{"bin/pulsar-admin", "brokers", "healthcheck"}, dockertest.ExecOptions{StdOut: &w, StdErr: &w})
+		code, err := pulsarContainer.Exec([]string{"sh", "-c", "curl -I http://localhost:8080/admin/v2/namespaces/public/default | grep '200' || exit 1"}, dockertest.ExecOptions{StdOut: &w, StdErr: &w})
 		if err != nil {
 			return err
 		}
 		if code != 0 {
-			return fmt.Errorf("pulsar healthcheck failed")
-		}
-		out := strings.ReplaceAll(w.String(), "\n", "")
-		if !strings.Contains(out, "ok") {
 			return fmt.Errorf("pulsar healthcheck failed")
 		}
 		return nil
