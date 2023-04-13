@@ -2,13 +2,6 @@ package config
 
 import (
 	"os"
-	"regexp"
-	"strings"
-)
-
-var (
-	regexGwHa               = regexp.MustCompile(`^.*-gw-ha-\d+-\w+-\w+$`)
-	regexGwNonHaOrProcessor = regexp.MustCompile(`^.*-\d+$`)
 )
 
 // GetWorkspaceToken returns the workspace token provided in the environment variables
@@ -34,21 +27,6 @@ func GetNamespaceIdentifier() string {
 // GetKubeNamespace returns value stored in KUBE_NAMESPACE env var
 func GetKubeNamespace() string {
 	return os.Getenv("KUBE_NAMESPACE")
-}
-
-func GetInstanceID() string {
-	instance := GetString("INSTANCE_ID", "")
-	instanceArr := strings.Split(instance, "-")
-	length := len(instanceArr)
-	// This handles 2 kinds of server instances
-	// a) Processor OR Gateway running in non HA mod where the instance name ends with the index
-	// b) Gateway running in HA mode, where the instance name is of the form *-gw-ha-<index>-<statefulset-id>-<pod-id>
-	if (regexGwHa.MatchString(instance)) && (length > 3) {
-		return instanceArr[length-3]
-	} else if (regexGwNonHaOrProcessor.MatchString(instance)) && (length > 1) {
-		return instanceArr[length-1]
-	}
-	return ""
 }
 
 func GetReleaseName() string {
