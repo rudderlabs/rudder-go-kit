@@ -2,12 +2,6 @@ package config
 
 import (
 	"os"
-	"regexp"
-)
-
-var (
-	regexGwHa               = regexp.MustCompile(`^.*-gw-ha-\d+-\w+-\w+$`)
-	regexGwNonHaOrProcessor = regexp.MustCompile(`^.*-\d+$`)
 )
 
 // GetWorkspaceToken returns the workspace token provided in the environment variables
