@@ -4,11 +4,15 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
+	"github.com/throttled/throttled/v2"
+	"github.com/throttled/throttled/v2/store/memstore"
 
+	"github.com/rudderlabs/rudder-go-kit/cachettl"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 )
 
@@ -106,5 +110,215 @@ func BenchmarkRedisSortedSetRemover(b *testing.B) {
 		count, err := rc.ZCard(ctx, key).Result()
 		require.NoError(b, err)
 		require.EqualValues(b, 0, count)
+	})
+}
+
+func BenchmarkInMemoryGCRA(b *testing.B) {
+	var (
+		rate   = 10
+		period = 100 * time.Millisecond
+		burst  = rate
+	)
+	b.Run("one unlimited store per throttler", func(b *testing.B) {
+		b.Run("single key", func(b *testing.B) {
+			var (
+				key   = "key"
+				ctx   = context.Background()
+				cache = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
+			)
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				rl := cache.Get(key)
+				if rl == nil {
+					store, _ := memstore.NewCtx(0)
+					rl, _ = throttled.NewGCRARateLimiterCtx(store, throttled.RateQuota{
+						MaxRate:  throttled.PerDuration(rate, period),
+						MaxBurst: burst,
+					})
+					rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
+					cache.Put(key, rl, period)
+				}
+				_, _, _ = rl.RateLimitCtx(ctx, key, 1)
+			}
+		})
+		b.Run("multiple keys", func(b *testing.B) {
+			var (
+				div   = 10
+				ctx   = context.Background()
+				keys  = make([]string, b.N)
+				cache = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
+			)
+			for i := 0; i < b.N; i++ {
+				keys[i] = rand.UniqueString(10)
+			}
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				key := keys[i/div] // don't always use a different key
+				rl := cache.Get(key)
+				if rl == nil {
+					store, _ := memstore.NewCtx(0)
+					rl, _ = throttled.NewGCRARateLimiterCtx(store, throttled.RateQuota{
+						MaxRate:  throttled.PerDuration(rate, period),
+						MaxBurst: burst,
+					})
+					rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
+					cache.Put(key, rl, period)
+				}
+				_, _, _ = rl.RateLimitCtx(ctx, key, 1)
+			}
+		})
+	})
+	b.Run("one unlimited store for all throttlers", func(b *testing.B) {
+		b.Run("single key", func(b *testing.B) {
+			var (
+				key      = "key"
+				ctx      = context.Background()
+				store, _ = memstore.NewCtx(0)
+				cache    = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
+			)
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				rl := cache.Get(key)
+				if rl == nil {
+					rl, _ = throttled.NewGCRARateLimiterCtx(store, throttled.RateQuota{
+						MaxRate:  throttled.PerDuration(rate, period),
+						MaxBurst: burst,
+					})
+					rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
+					cache.Put(key, rl, period)
+				}
+				_, _, _ = rl.RateLimitCtx(ctx, key, 1)
+			}
+		})
+		b.Run("multiple keys", func(b *testing.B) {
+			var (
+				div      = 10
+				ctx      = context.Background()
+				store, _ = memstore.NewCtx(0)
+				keys     = make([]string, b.N)
+				cache    = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
+			)
+			for i := 0; i < b.N; i++ {
+				keys[i] = rand.UniqueString(10)
+			}
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				key := keys[i/div] // don't always use a different key
+				rl := cache.Get(key)
+				if rl == nil {
+					rl, _ = throttled.NewGCRARateLimiterCtx(store, throttled.RateQuota{
+						MaxRate:  throttled.PerDuration(rate, period),
+						MaxBurst: burst,
+					})
+					rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
+					cache.Put(key, rl, period)
+				}
+				_, _, _ = rl.RateLimitCtx(ctx, key, 1)
+			}
+		})
+	})
+	b.Run("one single key store per throttler", func(b *testing.B) {
+		b.Run("single key", func(b *testing.B) {
+			var (
+				key   = "key"
+				ctx   = context.Background()
+				cache = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
+			)
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				rl := cache.Get(key)
+				if rl == nil {
+					store, _ := memstore.NewCtx(1)
+					rl, _ = throttled.NewGCRARateLimiterCtx(store, throttled.RateQuota{
+						MaxRate:  throttled.PerDuration(rate, period),
+						MaxBurst: burst,
+					})
+					rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
+					cache.Put(key, rl, period)
+				}
+				_, _, _ = rl.RateLimitCtx(ctx, key, 1)
+			}
+		})
+		b.Run("multiple keys", func(b *testing.B) {
+			var (
+				div   = 10
+				ctx   = context.Background()
+				keys  = make([]string, b.N)
+				cache = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
+			)
+			for i := 0; i < b.N; i++ {
+				keys[i] = rand.UniqueString(10)
+			}
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				key := keys[i/div]
+				rl := cache.Get(key)
+				if rl == nil {
+					store, _ := memstore.NewCtx(1)
+					rl, _ = throttled.NewGCRARateLimiterCtx(store, throttled.RateQuota{
+						MaxRate:  throttled.PerDuration(rate, period),
+						MaxBurst: burst,
+					})
+					rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
+					cache.Put(key, rl, period)
+				}
+				_, _, _ = rl.RateLimitCtx(ctx, key, 1)
+			}
+		})
+	})
+	b.Run("custom store per throttler", func(b *testing.B) {
+		b.Run("single key", func(b *testing.B) {
+			var (
+				key   = "key"
+				ctx   = context.Background()
+				cache = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
+			)
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				rl := cache.Get(key)
+				if rl == nil {
+					rl, _ = throttled.NewGCRARateLimiterCtx(newGCRAMemStore(), throttled.RateQuota{
+						MaxRate:  throttled.PerDuration(rate, period),
+						MaxBurst: burst,
+					})
+					rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
+					cache.Put(key, rl, period)
+				}
+				_, _, _ = rl.RateLimitCtx(ctx, key, 1)
+			}
+		})
+		b.Run("multiple keys", func(b *testing.B) {
+			var (
+				div   = 10
+				ctx   = context.Background()
+				keys  = make([]string, b.N)
+				cache = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
+			)
+			for i := 0; i < b.N; i++ {
+				keys[i] = rand.UniqueString(10)
+			}
+
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				key := keys[i/div] // don't always use a different key
+				rl := cache.Get(key)
+				if rl == nil {
+					rl, _ = throttled.NewGCRARateLimiterCtx(newGCRAMemStore(), throttled.RateQuota{
+						MaxRate:  throttled.PerDuration(rate, period),
+						MaxBurst: burst,
+					})
+					rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
+					cache.Put(key, rl, period)
+				}
+				_, _, _ = rl.RateLimitCtx(ctx, key, 1)
+			}
+		})
 	})
 }
