@@ -10,6 +10,13 @@ import (
 	"github.com/ory/dockertest/v3"
 )
 
+// WithRedisTag is used to specify a custom tag that is used when pulling the Redis image from the container registry
+func WithRedisTag(tag string) RedisOption {
+	return func(c *redisConfig) {
+		c.tag = tag
+	}
+}
+
 // WithRedisCmdArg is used to specify the save argument when running the container.
 func WithRedisCmdArg(key, value string) RedisOption {
 	return func(c *redisConfig) {
@@ -31,19 +38,23 @@ type RedisResource struct {
 type RedisOption func(*redisConfig)
 
 type redisConfig struct {
+	tag     string
 	envs    []string
 	cmdArgs []string
 }
 
 func SetupRedis(ctx context.Context, pool *dockertest.Pool, d cleaner, opts ...RedisOption) (*RedisResource, error) {
-	conf := redisConfig{}
+	conf := redisConfig{
+		tag: "6.2-alpine",
+	}
 	for _, opt := range opts {
 		opt(&conf)
 	}
 	runOptions := &dockertest.RunOptions{
-		Repository: "redis", Tag: "6.2.7-alpine3.16",
-		Env: conf.envs,
-		Cmd: []string{"redis-server"},
+		Repository: "redis",
+		Tag:        conf.tag,
+		Env:        conf.envs,
+		Cmd:        []string{"redis-server"},
 	}
 	if len(conf.cmdArgs) > 0 {
 		runOptions.Cmd = append(runOptions.Cmd, conf.cmdArgs...)
@@ -59,6 +70,7 @@ func SetupRedis(ctx context.Context, pool *dockertest.Pool, d cleaner, opts ...R
 			d.Log("Could not purge resource:", err)
 		}
 	})
+
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	redisAddress := fmt.Sprintf("localhost:%s", redisContainer.GetPort("6379/tcp"))
 	err = pool.Retry(func() error {
@@ -71,5 +83,6 @@ func SetupRedis(ctx context.Context, pool *dockertest.Pool, d cleaner, opts ...R
 	if err != nil {
 		return nil, err
 	}
+
 	return &RedisResource{Addr: redisAddress}, nil
 }
