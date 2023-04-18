@@ -10,7 +10,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/joho/godotenv v1.5.1
-	github.com/lib/pq v1.10.7
+	github.com/lib/pq v1.10.8
 	github.com/ory/dockertest/v3 v3.9.1
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.15.0
