@@ -36,6 +36,7 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) (er
 	// So, that nil pointer error is not received when client is called.
 	s.state.client.statsd, err = statsd.New(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags())
 	if err == nil {
+		s.logger.Info("StatsD client setup succeeded.")
 		s.state.clientsLock.Lock()
 		s.state.connEstablished = true
 		s.state.clientsLock.Unlock()
@@ -43,17 +44,18 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) (er
 
 	goFactory.Go(func() {
 		if err != nil {
+			s.logger.Info("retrying StatsD client creation in the background...")
 			s.state.client.statsd, err = s.getNewStatsdClientWithExpoBackoff(ctx, s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags())
 			if err != nil {
 				s.config.enabled.Store(false)
-				s.logger.Errorf("error while creating new statsd client: %v", err)
+				s.logger.Errorf("error while creating new StatsD client, giving up: %v", err)
 			} else {
 				s.state.clientsLock.Lock()
 				for _, client := range s.state.pendingClients {
 					client.statsd = s.state.client.statsd.Clone(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags(), statsd.Tags(client.tags...), statsd.SampleRate(client.samplingRate))
 				}
 
-				s.logger.Info("statsd client setup succeeded.")
+				s.logger.Info("StatsD client setup succeeded.")
 				s.state.connEstablished = true
 				s.state.pendingClients = nil
 				s.state.clientsLock.Unlock()
@@ -79,7 +81,7 @@ func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opt
 	op := func() error {
 		c, err = statsd.New(opts...)
 		if err != nil {
-			s.logger.Errorf("error while setting statsd client: %v", err)
+			s.logger.Errorf("error while creating new StatsD client: %v", err)
 		}
 		return err
 	}
