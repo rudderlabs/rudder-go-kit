@@ -24,7 +24,7 @@ type statsdStats struct {
 	backgroundCollectionCancel func()
 }
 
-func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) (err error) {
+func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
 	if !s.config.enabled.Load() {
 		return nil
 	}
@@ -34,6 +34,7 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) (er
 
 	// NOTE: this is to get at least a dummy client, even if there is a failure.
 	// So, that nil pointer error is not received when client is called.
+	var err error
 	s.state.client.statsd, err = statsd.New(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags())
 	if err == nil {
 		s.logger.Info("StatsD client setup succeeded.")
