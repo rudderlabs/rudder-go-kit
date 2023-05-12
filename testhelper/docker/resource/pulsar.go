@@ -3,7 +3,6 @@ package resource
 import (
 	"bytes"
 	"fmt"
-	"runtime"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/pulsar"
@@ -16,22 +15,16 @@ type PulsarResource struct {
 
 func SetupPulsar(pool *dockertest.Pool, d cleaner, opts ...pulsar.Opt) (*PulsarResource, error) {
 	c := &pulsar.Config{
-		Tag: "2.11.0",
+		Tag: "3.0.0",
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
 	cmd := []string{"bin/pulsar", "standalone"}
 
-	repository := "apachepulsar/pulsar"
-	tag := c.Tag
-	if runtime.GOARCH == "arm64" { // TODO: use original image when multi-arch images are supported by pulsar
-		repository = "atzoum/pulsar"
-		tag = "latest"
-	}
 	pulsarContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   repository,
-		Tag:          tag,
+		Repository:   "apachepulsar/pulsar",
+		Tag:          c.Tag,
 		Env:          []string{},
 		ExposedPorts: []string{"6650", "8080"},
 		Cmd:          cmd,
