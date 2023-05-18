@@ -349,7 +349,7 @@ func TestOTelPeriodicStats(t *testing.T) {
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
 				{Name: ptr("label1"), Value: ptr("value1")},
 				{Name: ptr("job"), Value: ptr("TestOTelPeriodicStats")},
-				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 			}
 			if exp.tags != nil {
 				expectedLabels = append(expectedLabels, exp.tags...)
@@ -491,7 +491,7 @@ func TestOTelExcludedTags(t *testing.T) {
 		{Name: ptr("label1"), Value: ptr("value1")},
 		{Name: ptr("should_not_be_filtered"), Value: ptr("fancy-value")},
 		{Name: ptr("job"), Value: ptr("TestOTelExcludedTags")},
-		{Name: ptr("instance"), Value: ptr("my-instance-id")},
+		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 	}, metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 }
 
@@ -618,7 +618,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("a"), Value: ptr("b")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 			}, scenario.additionalLabels...), metrics["foo"].Metric[0].Label, "Got %+v", metrics["foo"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
@@ -635,7 +635,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("c"), Value: ptr("d")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label, "Got %+v", metrics["bar"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("baz"), metrics["baz"].Name)
@@ -645,7 +645,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("e"), Value: ptr("f")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 			}, scenario.additionalLabels...), metrics["baz"].Metric[0].Label, "Got %+v", metrics["baz"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("qux"), metrics["qux"].Name)
@@ -655,7 +655,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("g"), Value: ptr("h")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 			}, scenario.additionalLabels...), metrics["qux"].Metric[0].Label, "Got %+v", metrics["qux"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("asd"), metrics["asd"].Name)
@@ -670,7 +670,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("i"), Value: ptr("l")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instance"), Value: ptr("my-instance-id")},
+				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 			}, scenario.additionalLabels...), metrics["asd"].Metric[0].Label, "Got %+v", metrics["asd"].Metric[0].Label)
 		})
 	}
@@ -735,7 +735,7 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		require.ElementsMatchf(t, []*promClient.LabelPair{
 			{Name: ptr("a"), Value: ptr("b")},
 			{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
-			{Name: ptr("instance"), Value: ptr("my-instance-id")},
+			{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 		}, metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 	})
 
@@ -758,7 +758,7 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		require.ElementsMatch(t, []*promClient.LabelPair{
 			{Name: ptr("a"), Value: ptr("b")},
 			{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
-			{Name: ptr("instance"), Value: ptr("my-instance-id")},
+			{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 		}, mf.GetMetric()[0].GetLabel())
 		require.EqualValues(t, ptr(7.0), mf.GetMetric()[0].GetCounter().Value)
 	})

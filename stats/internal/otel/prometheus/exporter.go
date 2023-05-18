@@ -53,7 +53,7 @@ var (
 	}
 	scopeInfoKeysMapping = map[string]string{
 		string(semconv.ServiceNameKey):       "job",
-		string(semconv.ServiceInstanceIDKey): "instance",
+		string(semconv.ServiceInstanceIDKey): "instanceName",
 	}
 	scopeInfoKeysRenamed = [2]string{
 		scopeInfoKeysMapping[scopeInfoKeys[0]],
