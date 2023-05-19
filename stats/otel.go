@@ -65,7 +65,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	if s.config.namespaceIdentifier != "" {
 		attrs = append(attrs, attribute.String("namespace", s.config.namespaceIdentifier))
 	}
-	res, err := otel.NewResource(s.config.serviceName, s.config.instanceName, s.config.serviceVersion, attrs...)
+	res, err := otel.NewResource(s.config.serviceName, s.config.serviceVersion, attrs...)
 	if err != nil {
 		return fmt.Errorf("failed to create open telemetry resource: %w", err)
 	}

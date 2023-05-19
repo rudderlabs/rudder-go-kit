@@ -208,11 +208,10 @@ func (m *Manager) Shutdown(ctx context.Context) error {
 
 // NewResource allows the creation of an OpenTelemetry resource
 // https://opentelemetry.io/docs/concepts/glossary/#resource
-func NewResource(svcName, instanceID, svcVersion string, attrs ...attribute.KeyValue) (*resource.Resource, error) {
+func NewResource(svcName, svcVersion string, attrs ...attribute.KeyValue) (*resource.Resource, error) {
 	defaultAttrs := []attribute.KeyValue{
 		semconv.ServiceNameKey.String(svcName),
 		semconv.ServiceVersionKey.String(svcVersion),
-		semconv.ServiceInstanceIDKey.String(instanceID),
 	}
 	return resource.Merge(
 		resource.Default(),

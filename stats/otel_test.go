@@ -37,6 +37,16 @@ const (
 	metricsPort = "8889"
 )
 
+var (
+	globalDefaultAttrs = []*promClient.LabelPair{
+		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
+		{Name: ptr("service_version"), Value: ptr("v1.2.3")},
+		{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
+		{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
+		{Name: ptr("telemetry_sdk_version"), Value: ptr("1.14.0")},
+	}
+)
+
 func TestOTelMeasurementInvalidOperations(t *testing.T) {
 	s := &otelStats{meter: global.MeterProvider().Meter(t.Name())}
 
@@ -306,7 +316,7 @@ func TestOTelPeriodicStats(t *testing.T) {
 		prepareFunc(c, m)
 
 		l := logger.NewFactory(c)
-		s := NewStats(c, l, m, WithServiceName("TestOTelPeriodicStats"))
+		s := NewStats(c, l, m, WithServiceName("TestOTelPeriodicStats"), WithServiceVersion("v1.2.3"))
 
 		// start stats
 		ctx, cancel := context.WithCancel(context.Background())
@@ -345,12 +355,12 @@ func TestOTelPeriodicStats(t *testing.T) {
 			require.EqualValues(t, ptr(promClient.MetricType_GAUGE), metrics[metricName].Type)
 			require.Len(t, metrics[metricName].Metric, 1)
 
-			expectedLabels := []*promClient.LabelPair{
+			expectedLabels := append(globalDefaultAttrs,
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-				{Name: ptr("label1"), Value: ptr("value1")},
-				{Name: ptr("job"), Value: ptr("TestOTelPeriodicStats")},
-				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
-			}
+				&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
+				&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestOTelPeriodicStats")},
+				&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestOTelPeriodicStats")},
+			)
 			if exp.tags != nil {
 				expectedLabels = append(expectedLabels, exp.tags...)
 			}
@@ -465,7 +475,7 @@ func TestOTelExcludedTags(t *testing.T) {
 	c.Set("statsExcludedTags", []string{"workspaceId"})
 	l := logger.NewFactory(c)
 	m := metric.NewManager()
-	s := NewStats(c, l, m, WithServiceName(t.Name()))
+	s := NewStats(c, l, m, WithServiceName(t.Name()), WithServiceVersion("v1.2.3"))
 
 	// start stats
 	ctx, cancel := context.WithCancel(context.Background())
@@ -486,13 +496,13 @@ func TestOTelExcludedTags(t *testing.T) {
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
 	require.Len(t, metrics[metricName].Metric, 1)
 	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics[metricName].Metric[0].Counter)
-	require.ElementsMatchf(t, []*promClient.LabelPair{
+	require.ElementsMatchf(t, append(globalDefaultAttrs,
 		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-		{Name: ptr("label1"), Value: ptr("value1")},
-		{Name: ptr("should_not_be_filtered"), Value: ptr("fancy-value")},
-		{Name: ptr("job"), Value: ptr("TestOTelExcludedTags")},
-		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
-	}, metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
+		&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
+		&promClient.LabelPair{Name: ptr("should_not_be_filtered"), Value: ptr("fancy-value")},
+		&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestOTelExcludedTags")},
+		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestOTelExcludedTags")},
+	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 }
 
 func TestOTelStartStopError(t *testing.T) {
@@ -530,10 +540,10 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 	scenarios := []testCase{
 		{
 			name: "grpc",
-			additionalLabels: []*promClient.LabelPair{
+			additionalLabels: append(globalDefaultAttrs,
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-				{Name: ptr("label1"), Value: ptr("value1")},
-			},
+				&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
+			),
 			setupMeterProvider: func(t testing.TB) (Stats, string) {
 				cwd, err := os.Getwd()
 				require.NoError(t, err)
@@ -551,6 +561,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				m := metric.NewManager()
 				s := NewStats(c, l, m,
 					WithServiceName("TestOTelHistogramBuckets"),
+					WithServiceVersion("v1.2.3"),
 					WithDefaultHistogramBuckets([]float64{10, 20, 30}),
 					WithHistogramBuckets("bar", []float64{40, 50, 60}),
 				)
@@ -560,7 +571,8 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			},
 		},
 		{
-			name: "prometheus",
+			name:             "prometheus",
+			additionalLabels: globalDefaultAttrs,
 			setupMeterProvider: func(t testing.TB) (Stats, string) {
 				freePort, err := testhelper.GetFreePort()
 				require.NoError(t, err)
@@ -576,6 +588,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				m := metric.NewManager()
 				s := NewStats(c, l, m,
 					WithServiceName("TestOTelHistogramBuckets"),
+					WithServiceVersion("v1.2.3"),
 					WithDefaultHistogramBuckets([]float64{10, 20, 30}),
 					WithHistogramBuckets("bar", []float64{40, 50, 60}),
 				)
@@ -618,7 +631,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("a"), Value: ptr("b")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
+				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["foo"].Metric[0].Label, "Got %+v", metrics["foo"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
@@ -635,7 +648,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("c"), Value: ptr("d")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
+				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label, "Got %+v", metrics["bar"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("baz"), metrics["baz"].Name)
@@ -645,7 +658,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("e"), Value: ptr("f")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
+				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["baz"].Metric[0].Label, "Got %+v", metrics["baz"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("qux"), metrics["qux"].Name)
@@ -655,7 +668,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("g"), Value: ptr("h")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
+				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["qux"].Metric[0].Label, "Got %+v", metrics["qux"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("asd"), metrics["asd"].Name)
@@ -670,7 +683,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("i"), Value: ptr("l")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
+				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["asd"].Metric[0].Label, "Got %+v", metrics["asd"].Metric[0].Label)
 		})
 	}
@@ -694,6 +707,7 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		r := prometheus.NewRegistry()
 		s := NewStats(c, l, m,
 			WithServiceName("TestPrometheusCustomRegistry"),
+			WithServiceVersion("v1.2.3"),
 			WithPrometheusRegistry(r, r),
 		)
 		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
@@ -732,11 +746,11 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
 		require.Len(t, metrics[metricName].Metric, 1)
 		require.EqualValues(t, &promClient.Counter{Value: ptr(7.0)}, metrics[metricName].Metric[0].Counter)
-		require.ElementsMatchf(t, []*promClient.LabelPair{
-			{Name: ptr("a"), Value: ptr("b")},
-			{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
-			{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
-		}, metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
+		require.ElementsMatchf(t, append(globalDefaultAttrs,
+			&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+			&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
+			&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestPrometheusCustomRegistry")},
+		), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 	})
 
 	t.Run("collector", func(t *testing.T) {
@@ -755,11 +769,11 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		require.EqualValues(t, metricName, mf.GetName())
 		require.EqualValues(t, promClient.MetricType_COUNTER, mf.GetType())
 		require.Len(t, mf.GetMetric(), 1)
-		require.ElementsMatch(t, []*promClient.LabelPair{
-			{Name: ptr("a"), Value: ptr("b")},
-			{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
-			{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
-		}, mf.GetMetric()[0].GetLabel())
+		require.ElementsMatch(t, append(globalDefaultAttrs,
+			&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+			&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
+			&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestPrometheusCustomRegistry")},
+		), mf.GetMetric()[0].GetLabel())
 		require.EqualValues(t, ptr(7.0), mf.GetMetric()[0].GetCounter().Value)
 	})
 }
