@@ -114,6 +114,12 @@ func TestMetrics(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		instanceLabel := "instanceName"
+		if scenario.name == "grpc" {
+			// TODO remove hack once we find a way to properly set global attributes with gRPC
+			instanceLabel = "instance"
+		}
+
 		t.Run(scenario.name, func(t *testing.T) {
 			mp, metricsEndpoint := scenario.setupMeterProvider(t)
 			m := mp.Meter(meterName, metric.WithInstrumentationAttributes(
@@ -143,60 +149,50 @@ func TestMetrics(t *testing.T) {
 			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
 			require.Len(t, metrics["foo"].Metric, 1)
 			require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics["foo"].Metric[0].Counter)
+			require.ElementsMatch(t, generateLabelPairs(instanceLabel, svcInstanceName, append(
+				scenario.additionalLabels,
+				&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
+				&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+			)...), metrics["foo"].Metric[0].Label)
 
-			found := false
-			for _, lbl := range metrics["foo"].Metric[0].Label {
-				if *lbl.Name == "instanceName" {
-					found = true
-					break
-				}
-				t.Logf("Label: %s=%s", *lbl.Name, *lbl.Value)
-			}
-			require.True(t, found, "instanceName label not found")
-			//require.ElementsMatch(t, append([]*promClient.LabelPair{
-			//	{Name: ptr("hello"), Value: ptr("world")},
-			//	{Name: ptr("job"), Value: &svcName},
-			//	{Name: ptr("instanceName"), Value: &svcInstanceName},
-			//}, scenario.additionalLabels...), metrics["foo"].Metric[0].Label)
-			//
-			//require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
-			//require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar"].Type)
-			//require.Len(t, metrics["bar"].Metric, 1)
-			//require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics["bar"].Metric[0].Counter)
-			//require.ElementsMatch(t, append([]*promClient.LabelPair{
-			//	{Name: ptr("job"), Value: &svcName},
-			//	{Name: ptr("instanceName"), Value: &svcInstanceName},
-			//}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label)
-			//
-			//requireHistogramEqual(t, metrics["baz"], histogram{
-			//	name: "baz", count: 1, sum: 20,
-			//	buckets: []*promClient.Bucket{
-			//		{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-			//		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
-			//		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-			//		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
-			//	},
-			//	labels: append([]*promClient.LabelPair{
-			//		{Name: ptr("a"), Value: ptr("b")},
-			//		{Name: ptr("job"), Value: &svcName},
-			//		{Name: ptr("instanceName"), Value: &svcInstanceName},
-			//	}, scenario.additionalLabels...),
-			//})
-			//
-			//requireHistogramEqual(t, metrics["qux"], histogram{
-			//	name: "qux", count: 1, sum: 2,
-			//	buckets: []*promClient.Bucket{
-			//		{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(1.0)},
-			//		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(2.0)},
-			//		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(3.0)},
-			//		{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
-			//	},
-			//	labels: append([]*promClient.LabelPair{
-			//		{Name: ptr("c"), Value: ptr("d")},
-			//		{Name: ptr("job"), Value: &svcName},
-			//		{Name: ptr("instanceName"), Value: &svcInstanceName},
-			//	}, scenario.additionalLabels...),
-			//})
+			require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar"].Type)
+			require.Len(t, metrics["bar"].Metric, 1)
+			require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics["bar"].Metric[0].Counter)
+			require.ElementsMatch(t, generateLabelPairs(instanceLabel, svcInstanceName, append(
+				scenario.additionalLabels,
+				&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+			)...), metrics["bar"].Metric[0].Label)
+
+			requireHistogramEqual(t, metrics["baz"], histogram{
+				name: "baz", count: 1, sum: 20,
+				buckets: []*promClient.Bucket{
+					{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
+					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
+					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
+					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+				},
+				labels: generateLabelPairs(instanceLabel, svcInstanceName, append(
+					scenario.additionalLabels,
+					&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+					&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+				)...),
+			})
+
+			requireHistogramEqual(t, metrics["qux"], histogram{
+				name: "qux", count: 1, sum: 2,
+				buckets: []*promClient.Bucket{
+					{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(1.0)},
+					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(2.0)},
+					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(3.0)},
+					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+				},
+				labels: generateLabelPairs(instanceLabel, svcInstanceName, append(
+					scenario.additionalLabels,
+					&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
+					&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+				)...),
+			})
 		})
 	}
 }
@@ -271,6 +267,12 @@ func TestHistogramBuckets(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		instanceLabel := "instanceName"
+		if scenario.name == "grpc" {
+			// TODO remove hack once we find a way to properly set global attributes with gRPC
+			instanceLabel = "instance"
+		}
+
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Run("default applies to all meters", func(t *testing.T) {
 				mp, metricsEndpoint := scenario.setupMeterProvider(t,
@@ -297,11 +299,11 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("a"), Value: ptr("b")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instanceName"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: generateLabelPairs(instanceLabel, svcInstanceName, append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+					)...),
 				})
 
 				requireHistogramEqual(t, metrics["bar"], histogram{
@@ -312,11 +314,11 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("c"), Value: ptr("d")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instanceName"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: generateLabelPairs(instanceLabel, svcInstanceName, append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+					)...),
 				})
 			})
 
@@ -352,11 +354,11 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("a"), Value: ptr("b")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instanceName"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: generateLabelPairs(instanceLabel, svcInstanceName, append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+					)...),
 				})
 
 				requireHistogramEqual(t, metrics["bar"], histogram{
@@ -367,11 +369,11 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("c"), Value: ptr("d")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instanceName"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: generateLabelPairs(instanceLabel, svcInstanceName, append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+					)...),
 				})
 
 				requireHistogramEqual(t, metrics["baz"], histogram{
@@ -382,11 +384,11 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(90.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("e"), Value: ptr("f")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instanceName"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: generateLabelPairs(instanceLabel, svcInstanceName, append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("e"), Value: ptr("f")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+					)...),
 				})
 			})
 		})
@@ -484,24 +486,22 @@ func TestNonBlockingConnection(t *testing.T) {
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
 	require.Len(t, metrics["foo"].Metric, 1)
 	require.EqualValues(t, &promClient.Counter{Value: ptr(123.0)}, metrics["foo"].Metric[0].Counter)
-	require.ElementsMatch(t, []*promClient.LabelPair{
+	require.ElementsMatch(t, generateLabelPairs("instance", "my-instance-id",
 		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-		{Name: ptr("label1"), Value: ptr("value1")},
-		{Name: ptr("hello"), Value: ptr("world")},
-		{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
-		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
-	}, metrics["foo"].Metric[0].Label)
+		&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
+		&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
+		&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
+	), metrics["foo"].Metric[0].Label)
 
 	require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar"].Type)
 	require.Len(t, metrics["bar"].Metric, 1)
 	require.EqualValues(t, &promClient.Counter{Value: ptr(456.0)}, metrics["bar"].Metric[0].Counter)
-	require.ElementsMatch(t, []*promClient.LabelPair{
+	require.ElementsMatch(t, generateLabelPairs("instance", "my-instance-id",
 		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-		{Name: ptr("label1"), Value: ptr("value1")},
-		{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
-		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
-	}, metrics["bar"].Metric[0].Label)
+		&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
+		&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
+	), metrics["bar"].Metric[0].Label)
 }
 
 func requireMetrics(
@@ -548,6 +548,13 @@ func requireHistogramEqual(t *testing.T, mf *promClient.MetricFamily, h histogra
 	)
 	require.ElementsMatchf(t, h.buckets, mf.Metric[0].Histogram.Bucket, "Buckets for %q do not match", h.name)
 	require.ElementsMatch(t, h.labels, mf.Metric[0].Label)
+}
+
+// TODO we can remove this hacky function was we find a way to set global labels in the gRPC version
+func generateLabelPairs(instanceLabel, instanceValue string, pairs ...*promClient.LabelPair) []*promClient.LabelPair {
+	return append([]*promClient.LabelPair{
+		{Name: ptr(instanceLabel), Value: &instanceValue},
+	}, pairs...)
 }
 
 func ptr[T any](v T) *T {
