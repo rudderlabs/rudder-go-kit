@@ -33,22 +33,31 @@ const (
 	metricsPort = "8889"
 )
 
+var (
+	globalDefaultAttrs = []*promClient.LabelPair{
+		{Name: ptr("service_version"), Value: ptr("v1.2.3")},
+		{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
+		{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
+		{Name: ptr("telemetry_sdk_version"), Value: ptr("1.14.0")},
+		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
+	}
+	globalGRPCDefaultAttrs = append(globalDefaultAttrs,
+		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
+		&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
+	)
+)
+
 // see https://opentelemetry.io/docs/collector/getting-started/
 func TestMetrics(t *testing.T) {
 	var (
-		ctx             = context.Background()
-		meterName       = "some-meter-name"
-		svcName         = "TestMetrics"
-		svcInstanceName = "my-instance-id"
-		svcVersion      = "v0.10.0"
+		ctx       = context.Background()
+		meterName = "some-meter-name"
+		svcName   = "TestMetrics"
 	)
 	scenarios := []testCase{
 		{
-			name: "grpc",
-			additionalLabels: []*promClient.LabelPair{
-				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-				{Name: ptr("label1"), Value: ptr("value1")},
-			},
+			name:             "grpc",
+			additionalLabels: globalGRPCDefaultAttrs,
 			setupMeterProvider: func(t testing.TB, _ ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				cwd, err := os.Getwd()
 				require.NoError(t, err)
@@ -56,7 +65,9 @@ func TestMetrics(t *testing.T) {
 					filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 				)
 
-				res, err := NewResource(svcName, svcInstanceName, svcVersion)
+				res, err := NewResource(svcName, "v1.2.3",
+					attribute.String("instanceName", "my-instance-id"),
+				)
 				require.NoError(t, err)
 				var om Manager
 				tp, mp, err := om.Setup(ctx, res,
@@ -79,11 +90,14 @@ func TestMetrics(t *testing.T) {
 			},
 		},
 		{
-			name: "prometheus",
+			name:             "prometheus",
+			additionalLabels: globalDefaultAttrs,
 			setupMeterProvider: func(t testing.TB, _ ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				registry := prometheus.NewRegistry()
 
-				res, err := NewResource(svcName, svcInstanceName, svcVersion)
+				res, err := NewResource(svcName, "v1.2.3",
+					attribute.String("instanceName", "my-instance-id"),
+				)
 				require.NoError(t, err)
 				var om Manager
 				tp, mp, err := om.Setup(ctx, res,
@@ -138,20 +152,22 @@ func TestMetrics(t *testing.T) {
 			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
 			require.Len(t, metrics["foo"].Metric, 1)
 			require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics["foo"].Metric[0].Counter)
-			require.ElementsMatch(t, append([]*promClient.LabelPair{
-				{Name: ptr("hello"), Value: ptr("world")},
-				{Name: ptr("job"), Value: &svcName},
-				{Name: ptr("instance"), Value: &svcInstanceName},
-			}, scenario.additionalLabels...), metrics["foo"].Metric[0].Label)
+			require.ElementsMatch(t, append(
+				scenario.additionalLabels,
+				&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
+				&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+				&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+			), metrics["foo"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar"].Type)
 			require.Len(t, metrics["bar"].Metric, 1)
 			require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics["bar"].Metric[0].Counter)
-			require.ElementsMatch(t, append([]*promClient.LabelPair{
-				{Name: ptr("job"), Value: &svcName},
-				{Name: ptr("instance"), Value: &svcInstanceName},
-			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label)
+			require.ElementsMatch(t, append(
+				scenario.additionalLabels,
+				&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+				&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+			), metrics["bar"].Metric[0].Label)
 
 			requireHistogramEqual(t, metrics["baz"], histogram{
 				name: "baz", count: 1, sum: 20,
@@ -161,11 +177,12 @@ func TestMetrics(t *testing.T) {
 					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
 					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 				},
-				labels: append([]*promClient.LabelPair{
-					{Name: ptr("a"), Value: ptr("b")},
-					{Name: ptr("job"), Value: &svcName},
-					{Name: ptr("instance"), Value: &svcInstanceName},
-				}, scenario.additionalLabels...),
+				labels: append(
+					scenario.additionalLabels,
+					&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+					&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+					&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+				),
 			})
 
 			requireHistogramEqual(t, metrics["qux"], histogram{
@@ -176,11 +193,12 @@ func TestMetrics(t *testing.T) {
 					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(3.0)},
 					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 				},
-				labels: append([]*promClient.LabelPair{
-					{Name: ptr("c"), Value: ptr("d")},
-					{Name: ptr("job"), Value: &svcName},
-					{Name: ptr("instance"), Value: &svcInstanceName},
-				}, scenario.additionalLabels...),
+				labels: append(
+					scenario.additionalLabels,
+					&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
+					&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+					&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+				),
 			})
 		})
 	}
@@ -188,18 +206,13 @@ func TestMetrics(t *testing.T) {
 
 func TestHistogramBuckets(t *testing.T) {
 	var (
-		ctx             = context.Background()
-		svcName         = "TestHistogramBuckets"
-		svcInstanceName = "my-instance-id"
-		svcVersion      = "v0.10.0"
+		ctx     = context.Background()
+		svcName = "TestHistogramBuckets"
 	)
 	scenarios := []testCase{
 		{
-			name: "grpc",
-			additionalLabels: []*promClient.LabelPair{
-				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-				{Name: ptr("label1"), Value: ptr("value1")},
-			},
+			name:             "grpc",
+			additionalLabels: globalGRPCDefaultAttrs,
 			setupMeterProvider: func(t testing.TB, opts ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				cwd, err := os.Getwd()
 				require.NoError(t, err)
@@ -207,7 +220,7 @@ func TestHistogramBuckets(t *testing.T) {
 					filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 				)
 
-				res, err := NewResource(svcName, svcInstanceName, svcVersion)
+				res, err := NewResource(svcName, "v1.2.3", attribute.String("instanceName", "my-instance-id"))
 				require.NoError(t, err)
 				var om Manager
 				_, mp, err := om.Setup(ctx, res,
@@ -226,11 +239,12 @@ func TestHistogramBuckets(t *testing.T) {
 			},
 		},
 		{
-			name: "prometheus",
+			name:             "prometheus",
+			additionalLabels: globalDefaultAttrs,
 			setupMeterProvider: func(t testing.TB, opts ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				registry := prometheus.NewRegistry()
 
-				res, err := NewResource(svcName, svcInstanceName, svcVersion)
+				res, err := NewResource(svcName, "v1.2.3", attribute.String("instanceName", "my-instance-id"))
 				require.NoError(t, err)
 				var om Manager
 				tp, mp, err := om.Setup(ctx, res,
@@ -282,11 +296,12 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("a"), Value: ptr("b")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instance"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+					),
 				})
 
 				requireHistogramEqual(t, metrics["bar"], histogram{
@@ -297,11 +312,12 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("c"), Value: ptr("d")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instance"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+					),
 				})
 			})
 
@@ -337,11 +353,12 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("a"), Value: ptr("b")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instance"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+					),
 				})
 
 				requireHistogramEqual(t, metrics["bar"], histogram{
@@ -352,11 +369,12 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("c"), Value: ptr("d")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instance"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+					),
 				})
 
 				requireHistogramEqual(t, metrics["baz"], histogram{
@@ -367,11 +385,12 @@ func TestHistogramBuckets(t *testing.T) {
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(90.0)},
 						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
 					},
-					labels: append([]*promClient.LabelPair{
-						{Name: ptr("e"), Value: ptr("f")},
-						{Name: ptr("job"), Value: &svcName},
-						{Name: ptr("instance"), Value: &svcInstanceName},
-					}, scenario.additionalLabels...),
+					labels: append(
+						scenario.additionalLabels,
+						&promClient.LabelPair{Name: ptr("e"), Value: ptr("f")},
+						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
+						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+					),
 				})
 			})
 		})
@@ -404,7 +423,7 @@ func TestCollectorGlobals(t *testing.T) {
 		ctx      = context.Background()
 		endpoint = fmt.Sprintf("localhost:%d", grpcPort)
 	)
-	res, err := NewResource(t.Name(), "my-instance-id", "1.0.0")
+	res, err := NewResource(t.Name(), "v1.2.3", attribute.String("instanceName", "my-instance-id"))
 	require.NoError(t, err)
 	tp, mp, err := om.Setup(ctx, res,
 		WithInsecure(),
@@ -421,7 +440,9 @@ func TestNonBlockingConnection(t *testing.T) {
 	grpcPort, err := testhelper.GetFreePort()
 	require.NoError(t, err)
 
-	res, err := NewResource(t.Name(), "my-instance-id", "1.0.0")
+	res, err := NewResource(t.Name(), "v1.2.3",
+		attribute.String("instanceName", "my-instance-id"),
+	)
 	require.NoError(t, err)
 
 	var (
@@ -465,28 +486,24 @@ func TestNonBlockingConnection(t *testing.T) {
 	metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
 	metrics := requireMetrics(t, metricsEndpoint, "foo", "bar")
 
+	defaultAttrs := append(globalGRPCDefaultAttrs,
+		&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
+		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestNonBlockingConnection")},
+	)
+
 	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
 	require.Len(t, metrics["foo"].Metric, 1)
 	require.EqualValues(t, &promClient.Counter{Value: ptr(123.0)}, metrics["foo"].Metric[0].Counter)
-	require.ElementsMatch(t, []*promClient.LabelPair{
-		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-		{Name: ptr("label1"), Value: ptr("value1")},
-		{Name: ptr("hello"), Value: ptr("world")},
-		{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
-		{Name: ptr("instance"), Value: ptr("my-instance-id")},
-	}, metrics["foo"].Metric[0].Label)
+	require.ElementsMatch(t, append(defaultAttrs,
+		&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
+	), metrics["foo"].Metric[0].Label)
 
 	require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar"].Type)
 	require.Len(t, metrics["bar"].Metric, 1)
 	require.EqualValues(t, &promClient.Counter{Value: ptr(456.0)}, metrics["bar"].Metric[0].Counter)
-	require.ElementsMatch(t, []*promClient.LabelPair{
-		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-		{Name: ptr("label1"), Value: ptr("value1")},
-		{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
-		{Name: ptr("instance"), Value: ptr("my-instance-id")},
-	}, metrics["bar"].Metric[0].Label)
+	require.ElementsMatch(t, defaultAttrs, metrics["bar"].Metric[0].Label)
 }
 
 func requireMetrics(
