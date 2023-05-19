@@ -3,12 +3,6 @@ package otel
 import (
 	"context"
 	"fmt"
-	"github.com/ory/dockertest/v3"
-	"github.com/ory/dockertest/v3/docker"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric/global"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -18,9 +12,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	promClient "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric/global"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
