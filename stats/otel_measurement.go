@@ -2,7 +2,7 @@ package stats
 
 import (
 	"context"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -38,8 +38,7 @@ func (c *otelCounter) Increment() {
 // otelGauge represents a gauge stat
 type otelGauge struct {
 	*otelMeasurement
-	value   interface{}
-	valueMu sync.Mutex
+	value atomic.Value
 }
 
 // Gauge records an absolute value for this stat. Only applies to GaugeType stats
@@ -47,20 +46,14 @@ func (g *otelGauge) Gauge(value interface{}) {
 	if g.disabled {
 		return
 	}
-	g.valueMu.Lock()
-	g.value = value
-	g.valueMu.Unlock()
+	g.value.Store(value)
 }
 
 func (g *otelGauge) getValue() interface{} {
 	if g.disabled {
 		return nil
 	}
-	g.valueMu.Lock()
-	v := g.value
-	g.value = nil
-	g.valueMu.Unlock()
-	return v
+	return g.value.Load()
 }
 
 // otelTimer represents a timer stat
