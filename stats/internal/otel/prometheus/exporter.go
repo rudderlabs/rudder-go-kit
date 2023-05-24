@@ -13,6 +13,8 @@
 //
 //  3. a global logger was used, we made it injectable via options
 //     see here: https://github.com/open-telemetry/opentelemetry-go/blob/v1.14.0/exporters/prometheus/exporter.go#L393
+//
+//  4. removed unnecessary otel_scope_info metric
 package prometheus
 
 import (
@@ -41,24 +43,6 @@ import (
 const (
 	targetInfoMetricName  = "target_info"
 	targetInfoDescription = "Target metadata"
-
-	scopeInfoMetricName  = "otel_scope_info"
-	scopeInfoDescription = "Instrumentation Scope metadata"
-)
-
-var (
-	scopeInfoKeys = [2]string{
-		string(semconv.ServiceNameKey),
-		string(semconv.ServiceInstanceIDKey),
-	}
-	scopeInfoKeysMapping = map[string]string{
-		string(semconv.ServiceNameKey):       "job",
-		string(semconv.ServiceInstanceIDKey): "instance",
-	}
-	scopeInfoKeysRenamed = [2]string{
-		scopeInfoKeysMapping[scopeInfoKeys[0]],
-		scopeInfoKeysMapping[scopeInfoKeys[1]],
-	}
 )
 
 // Exporter is a Prometheus Exporter that embeds the OTel metric.Reader
@@ -77,7 +61,6 @@ type collector struct {
 	disableTargetInfo    bool
 	withoutUnits         bool
 	targetInfo           prometheus.Metric
-	disableScopeInfo     bool
 	createTargetInfoOnce sync.Once
 	scopeInfos           map[instrumentation.Scope]prometheus.Metric
 	metricFamilies       map[string]*dto.MetricFamily
@@ -96,7 +79,6 @@ func New(opts ...Option) (*Exporter, error) {
 		logger:            cfg.logger,
 		disableTargetInfo: cfg.disableTargetInfo,
 		withoutUnits:      cfg.withoutUnits,
-		disableScopeInfo:  cfg.disableScopeInfo,
 		scopeInfos:        make(map[instrumentation.Scope]prometheus.Metric),
 		metricFamilies:    make(map[string]*dto.MetricFamily),
 	}
@@ -140,37 +122,29 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 		ch <- c.targetInfo
 	}
 
-	scopeInfoValues := getScopeInfoValues(metrics.Resource, scopeInfoKeys[:])
+	var scopeKeys, scopeValues []string
+	for _, attr := range metrics.Resource.Attributes() {
+		if string(attr.Key) == string(semconv.ServiceNameKey) {
+			scopeKeys = append(scopeKeys, "job")
+			scopeValues = append(scopeValues, attr.Value.AsString())
+		}
+		scopeKeys = append(scopeKeys, strings.ReplaceAll(string(attr.Key), ".", "_"))
+		scopeValues = append(scopeValues, attr.Value.AsString())
+	}
 
 	for _, scopeMetrics := range metrics.ScopeMetrics {
-		var keys, values [2]string
-
-		if !c.disableScopeInfo {
-			scopeInfo, ok := c.scopeInfos[scopeMetrics.Scope]
-			if !ok {
-				scopeInfo, err = createScopeInfoMetric(scopeMetrics.Scope)
-				if err != nil {
-					otel.Handle(err)
-				}
-				c.scopeInfos[scopeMetrics.Scope] = scopeInfo
-			}
-			ch <- scopeInfo
-			keys = scopeInfoKeysRenamed
-			values = [2]string{scopeInfoValues[0], scopeInfoValues[1]}
-		}
-
 		for _, m := range scopeMetrics.Metrics {
 			switch v := m.Data.(type) {
 			case metricdata.Histogram:
-				addHistogramMetric(ch, v, m, keys, values, c.getName(m), c.metricFamilies, c.logger)
+				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			case metricdata.Sum[int64]:
-				addSumMetric(ch, v, m, keys, values, c.getName(m), c.metricFamilies, c.logger)
+				addSumMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			case metricdata.Sum[float64]:
-				addSumMetric(ch, v, m, keys, values, c.getName(m), c.metricFamilies, c.logger)
+				addSumMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			case metricdata.Gauge[int64]:
-				addGaugeMetric(ch, v, m, keys, values, c.getName(m), c.metricFamilies, c.logger)
+				addGaugeMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			case metricdata.Gauge[float64]:
-				addGaugeMetric(ch, v, m, keys, values, c.getName(m), c.metricFamilies, c.logger)
+				addGaugeMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			}
 		}
 	}
@@ -178,7 +152,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 
 func addHistogramMetric(
 	ch chan<- prometheus.Metric, histogram metricdata.Histogram, m metricdata.Metrics,
-	ks, vs [2]string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	drop, help := validateMetrics(name, m.Description, dto.MetricType_HISTOGRAM.Enum(), mfs, l)
 	if drop {
@@ -210,7 +184,7 @@ func addHistogramMetric(
 
 func addSumMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, sum metricdata.Sum[N], m metricdata.Metrics,
-	ks, vs [2]string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	valueType := prometheus.CounterValue
 	metricType := dto.MetricType_COUNTER
@@ -242,7 +216,7 @@ func addSumMetric[N int64 | float64](
 
 func addGaugeMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, gauge metricdata.Gauge[N], m metricdata.Metrics,
-	ks, vs [2]string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	drop, help := validateMetrics(name, m.Description, dto.MetricType_GAUGE.Enum(), mfs, l)
 	if drop {
@@ -268,7 +242,7 @@ func addGaugeMetric[N int64 | float64](
 // getAttrs parses the attribute.Set to two lists of matching Prometheus-style
 // keys and values. It sanitizes invalid characters and handles duplicate keys
 // (due to sanitization) by sorting and concatenating the values following the spec.
-func getAttrs(attrs attribute.Set, ks, vs [2]string) ([]string, []string) {
+func getAttrs(attrs attribute.Set, ks, vs []string) ([]string, []string) {
 	keysMap := make(map[string][]string)
 	itr := attrs.Iter()
 	for itr.Next() {
@@ -292,7 +266,7 @@ func getAttrs(attrs attribute.Set, ks, vs [2]string) ([]string, []string) {
 		values = append(values, strings.Join(vals, ";"))
 	}
 
-	if ks[0] != "" {
+	if len(ks) > 0 {
 		keys = append(keys, ks[:]...)
 		values = append(values, vs[:]...)
 	}
@@ -300,15 +274,9 @@ func getAttrs(attrs attribute.Set, ks, vs [2]string) ([]string, []string) {
 }
 
 func (c *collector) createInfoMetric(name, description string, res *resource.Resource) (prometheus.Metric, error) {
-	keys, values := getAttrs(*res.Set(), [2]string{}, [2]string{})
+	keys, values := getAttrs(*res.Set(), []string{}, []string{})
 	desc := prometheus.NewDesc(name, description, keys, nil)
 	return prometheus.NewConstMetric(desc, prometheus.GaugeValue, float64(1), values...)
-}
-
-func createScopeInfoMetric(scope instrumentation.Scope) (prometheus.Metric, error) {
-	keys := scopeInfoKeysRenamed[:]
-	desc := prometheus.NewDesc(scopeInfoMetricName, scopeInfoDescription, keys, nil)
-	return prometheus.NewConstMetric(desc, prometheus.GaugeValue, float64(1), scope.Name, scope.Version)
 }
 
 func sanitizeRune(r rune) rune {
@@ -422,19 +390,4 @@ func validateMetrics(
 	}
 
 	return false, ""
-}
-
-func getScopeInfoValues(res *resource.Resource, scopeInfoKeys []string) []string {
-	scopeInfoValues := make([]string, len(scopeInfoKeys))
-
-	for i, key := range scopeInfoKeys {
-		for _, attr := range res.Attributes() {
-			if key == string(attr.Key) {
-				scopeInfoValues[i] = attr.Value.AsString()
-				break
-			}
-		}
-	}
-
-	return scopeInfoValues
 }
