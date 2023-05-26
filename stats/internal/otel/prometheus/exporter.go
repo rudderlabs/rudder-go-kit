@@ -16,7 +16,8 @@
 //
 //  4. removed unnecessary otel_scope_info metric
 //
-//  5. added logic to detect duplicated attributes
+//  5. added logic to remove and detect duplicated attributes (instead of concatenating them to stay compatible
+//     with gRPC)
 package prometheus
 
 import (
