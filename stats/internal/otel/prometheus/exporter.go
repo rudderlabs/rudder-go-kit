@@ -254,7 +254,7 @@ func addGaugeMetric[N int64 | float64](
 // keys and values. It sanitizes invalid characters and handles duplicate keys
 // (due to sanitization) by removing and reporting the duplicates so that we
 // can be compatible with the gRPC implementation that does not concatenate
-// duplicate values.
+// duplicated keys.
 func getAttrs(attrs attribute.Set, scopeKeys, scopeValues []string) ([]string, []string, []string) {
 	var (
 		dups    []string
