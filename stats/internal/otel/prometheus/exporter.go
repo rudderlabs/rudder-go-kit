@@ -23,7 +23,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -130,7 +129,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 			scopeKeys = append(scopeKeys, "job")
 			scopeValues = append(scopeValues, attr.Value.AsString())
 		}
-		scopeKeys = append(scopeKeys, strings.ReplaceAll(string(attr.Key), ".", "_"))
+		scopeKeys = append(scopeKeys, string(attr.Key))
 		scopeValues = append(scopeValues, attr.Value.AsString())
 	}
 
@@ -154,7 +153,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 
 func addHistogramMetric(
 	ch chan<- prometheus.Metric, histogram metricdata.Histogram, m metricdata.Metrics,
-	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	scopeKeys, scopeValues []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	drop, help := validateMetrics(name, m.Description, dto.MetricType_HISTOGRAM.Enum(), mfs, l)
 	if drop {
@@ -165,7 +164,7 @@ func addHistogramMetric(
 	}
 
 	for _, dp := range histogram.DataPoints {
-		keys, values, dups := getAttrs(dp.Attributes, ks, vs)
+		keys, values, dups := getAttrs(dp.Attributes, scopeKeys, scopeValues)
 		if len(dups) > 0 {
 			l.Error("duplicate keys found:", name, dups)
 		}
@@ -189,7 +188,7 @@ func addHistogramMetric(
 
 func addSumMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, sum metricdata.Sum[N], m metricdata.Metrics,
-	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	scopeKeys, scopeValues []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	valueType := prometheus.CounterValue
 	metricType := dto.MetricType_COUNTER
@@ -207,7 +206,7 @@ func addSumMetric[N int64 | float64](
 	}
 
 	for _, dp := range sum.DataPoints {
-		keys, values, dups := getAttrs(dp.Attributes, ks, vs)
+		keys, values, dups := getAttrs(dp.Attributes, scopeKeys, scopeValues)
 		if len(dups) > 0 {
 			l.Error("duplicate keys found:", name, dups)
 		}
@@ -224,7 +223,7 @@ func addSumMetric[N int64 | float64](
 
 func addGaugeMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, gauge metricdata.Gauge[N], m metricdata.Metrics,
-	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	scopeKeys, scopeValues []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	drop, help := validateMetrics(name, m.Description, dto.MetricType_GAUGE.Enum(), mfs, l)
 	if drop {
@@ -235,7 +234,7 @@ func addGaugeMetric[N int64 | float64](
 	}
 
 	for _, dp := range gauge.DataPoints {
-		keys, values, dups := getAttrs(dp.Attributes, ks, vs)
+		keys, values, dups := getAttrs(dp.Attributes, scopeKeys, scopeValues)
 		if len(dups) > 0 {
 			l.Error("duplicate keys found:", name, dups)
 		}
@@ -252,43 +251,43 @@ func addGaugeMetric[N int64 | float64](
 
 // getAttrs parses the attribute.Set to two lists of matching Prometheus-style
 // keys and values. It sanitizes invalid characters and handles duplicate keys
-// (due to sanitization) by sorting and concatenating the values following the spec.
-func getAttrs(attrs attribute.Set, ks, vs []string) ([]string, []string, []string) {
-	var dups []string
-	keysMap := make(map[string][]string)
+// (due to sanitization) by removing and reporting the duplicates so that we
+// can be compatible with the gRPC implementation that does not concatenate
+// duplicate values.
+func getAttrs(attrs attribute.Set, scopeKeys, scopeValues []string) ([]string, []string, []string) {
+	var (
+		dups    []string
+		keysMap = make(map[string]string)
+	)
+	for i, scopeKey := range scopeKeys {
+		key := strings.Map(sanitizeRune, scopeKey)
+		if _, ok := keysMap[key]; !ok {
+			keysMap[key] = scopeValues[i]
+		} else {
+			// if the sanitized key is a duplicate, ignore and append to the duplicates
+			dups = append(dups, key)
+		}
+	}
+
 	itr := attrs.Iter()
 	for itr.Next() {
 		kv := itr.Attribute()
 		key := strings.Map(sanitizeRune, string(kv.Key))
 		if _, ok := keysMap[key]; !ok {
-			keysMap[key] = []string{kv.Value.Emit()}
+			keysMap[key] = kv.Value.Emit()
 		} else {
-			// if the sanitized key is a duplicate, append to the list of keys
-			keysMap[key] = append(keysMap[key], kv.Value.Emit())
+			// if the sanitized key is a duplicate, ignore and append to the duplicates
 			dups = append(dups, key)
 		}
 	}
 
-	keys := make([]string, 0, attrs.Len())
-	values := make([]string, 0, attrs.Len())
-	for key, vals := range keysMap {
+	keys := make([]string, 0, len(keysMap))
+	values := make([]string, 0, len(keysMap))
+	for key, val := range keysMap {
 		keys = append(keys, key)
-		sort.Slice(vals, func(i, j int) bool {
-			return i < j
-		})
-		values = append(values, strings.Join(vals, ";"))
+		values = append(values, val)
 	}
 
-	if len(ks) > 0 {
-		for i, key := range ks {
-			if _, dup := keysMap[key]; dup {
-				dups = append(dups, key)
-				continue
-			}
-			keys = append(keys, key)
-			values = append(values, vs[i])
-		}
-	}
 	return keys, values, dups
 }
 

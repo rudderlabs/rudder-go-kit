@@ -506,13 +506,13 @@ func TestNonBlockingConnection(t *testing.T) {
 	require.ElementsMatch(t, defaultAttrs, metrics["bar"].Metric[0].Label)
 }
 
-func TestDuplicatedAttributes(t *testing.T) {
+func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	spy := &loggerSpy{}
 	ctx := context.Background()
 	registry := prometheus.NewRegistry()
 	res, err := NewResource("my-service-name", "v1.2.3",
 		attribute.String("instanceName", "my-instance-id"),
-		attribute.String("duplicate", "foo"),
+		attribute.String("duplicate", "from-resource"),
 	)
 	require.NoError(t, err)
 	var om Manager
@@ -537,9 +537,26 @@ func TestDuplicatedAttributes(t *testing.T) {
 	// foo counter
 	counter, err := m.Int64Counter("foo")
 	require.NoError(t, err)
-	counter.Add(ctx, 1, attribute.String("hello", "world"), attribute.String("duplicate", "bar"))
+	counter.Add(ctx, 1,
+		attribute.String("hello", "world"),
+		attribute.String("duplicate", "from-metric"),
+	)
 
-	_ = requireMetrics(t, ts.URL, "foo")
+	metrics := requireMetrics(t, ts.URL, "foo")
+	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
+	require.Len(t, metrics["foo"].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics["foo"].Metric[0].Counter)
+	require.ElementsMatch(t, append(
+		globalDefaultAttrs,
+		&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
+		&promClient.LabelPair{Name: ptr("job"), Value: ptr("my-service-name")},
+		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("my-service-name")},
+		// we expect "duplicate" to have "from-resource" and not "from-metric"
+		// since resource attributes take precedence
+		&promClient.LabelPair{Name: ptr("duplicate"), Value: ptr("from-resource")},
+	), metrics["foo"].Metric[0].Label)
+
 	require.Len(t, spy.calls, 1)
 	require.Equal(t, "duplicate keys found:foo[duplicate]", spy.calls[0])
 }
