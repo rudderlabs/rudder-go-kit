@@ -15,6 +15,8 @@
 //     see here: https://github.com/open-telemetry/opentelemetry-go/blob/v1.14.0/exporters/prometheus/exporter.go#L393
 //
 //  4. removed unnecessary otel_scope_info metric
+//
+//  5. added logic to detect duplicated attributes
 package prometheus
 
 import (
@@ -163,7 +165,10 @@ func addHistogramMetric(
 	}
 
 	for _, dp := range histogram.DataPoints {
-		keys, values := getAttrs(dp.Attributes, ks, vs)
+		keys, values, dups := getAttrs(dp.Attributes, ks, vs)
+		if len(dups) > 0 {
+			l.Error("duplicate keys found:", name, dups)
+		}
 
 		desc := prometheus.NewDesc(name, m.Description, keys, nil)
 		buckets := make(map[float64]uint64, len(dp.Bounds))
@@ -202,7 +207,10 @@ func addSumMetric[N int64 | float64](
 	}
 
 	for _, dp := range sum.DataPoints {
-		keys, values := getAttrs(dp.Attributes, ks, vs)
+		keys, values, dups := getAttrs(dp.Attributes, ks, vs)
+		if len(dups) > 0 {
+			l.Error("duplicate keys found:", name, dups)
+		}
 
 		desc := prometheus.NewDesc(name, m.Description, keys, nil)
 		m, err := prometheus.NewConstMetric(desc, valueType, float64(dp.Value), values...)
@@ -227,7 +235,10 @@ func addGaugeMetric[N int64 | float64](
 	}
 
 	for _, dp := range gauge.DataPoints {
-		keys, values := getAttrs(dp.Attributes, ks, vs)
+		keys, values, dups := getAttrs(dp.Attributes, ks, vs)
+		if len(dups) > 0 {
+			l.Error("duplicate keys found:", name, dups)
+		}
 
 		desc := prometheus.NewDesc(name, m.Description, keys, nil)
 		m, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, float64(dp.Value), values...)
@@ -242,7 +253,8 @@ func addGaugeMetric[N int64 | float64](
 // getAttrs parses the attribute.Set to two lists of matching Prometheus-style
 // keys and values. It sanitizes invalid characters and handles duplicate keys
 // (due to sanitization) by sorting and concatenating the values following the spec.
-func getAttrs(attrs attribute.Set, ks, vs []string) ([]string, []string) {
+func getAttrs(attrs attribute.Set, ks, vs []string) ([]string, []string, []string) {
+	var dups []string
 	keysMap := make(map[string][]string)
 	itr := attrs.Iter()
 	for itr.Next() {
@@ -253,6 +265,7 @@ func getAttrs(attrs attribute.Set, ks, vs []string) ([]string, []string) {
 		} else {
 			// if the sanitized key is a duplicate, append to the list of keys
 			keysMap[key] = append(keysMap[key], kv.Value.Emit())
+			dups = append(dups, key)
 		}
 	}
 
@@ -267,14 +280,23 @@ func getAttrs(attrs attribute.Set, ks, vs []string) ([]string, []string) {
 	}
 
 	if len(ks) > 0 {
-		keys = append(keys, ks[:]...)
-		values = append(values, vs[:]...)
+		for i, key := range ks {
+			if _, dup := keysMap[key]; dup {
+				dups = append(dups, key)
+				continue
+			}
+			keys = append(keys, key)
+			values = append(values, vs[i])
+		}
 	}
-	return keys, values
+	return keys, values, dups
 }
 
 func (c *collector) createInfoMetric(name, description string, res *resource.Resource) (prometheus.Metric, error) {
-	keys, values := getAttrs(*res.Set(), []string{}, []string{})
+	keys, values, dups := getAttrs(*res.Set(), []string{}, []string{})
+	if len(dups) > 0 {
+		c.logger.Error("duplicate keys found:", name, dups)
+	}
 	desc := prometheus.NewDesc(name, description, keys, nil)
 	return prometheus.NewConstMetric(desc, prometheus.GaugeValue, float64(1), values...)
 }
