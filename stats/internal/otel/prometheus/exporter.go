@@ -15,15 +15,13 @@
 //     see here: https://github.com/open-telemetry/opentelemetry-go/blob/v1.14.0/exporters/prometheus/exporter.go#L393
 //
 //  4. removed unnecessary otel_scope_info metric
-//
-//  5. added logic to remove and detect duplicated attributes (instead of concatenating them to stay compatible
-//     with gRPC)
 package prometheus
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -130,7 +128,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 			scopeKeys = append(scopeKeys, "job")
 			scopeValues = append(scopeValues, attr.Value.AsString())
 		}
-		scopeKeys = append(scopeKeys, string(attr.Key))
+		scopeKeys = append(scopeKeys, strings.Map(sanitizeRune, string(attr.Key)))
 		scopeValues = append(scopeValues, attr.Value.AsString())
 	}
 
@@ -154,7 +152,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 
 func addHistogramMetric(
 	ch chan<- prometheus.Metric, histogram metricdata.Histogram, m metricdata.Metrics,
-	scopeKeys, scopeValues []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	drop, help := validateMetrics(name, m.Description, dto.MetricType_HISTOGRAM.Enum(), mfs, l)
 	if drop {
@@ -165,10 +163,7 @@ func addHistogramMetric(
 	}
 
 	for _, dp := range histogram.DataPoints {
-		keys, values, dups := getAttrs(dp.Attributes, scopeKeys, scopeValues)
-		if len(dups) > 0 {
-			l.Error("duplicate keys found:", name, dups)
-		}
+		keys, values := getAttrs(dp.Attributes, ks, vs)
 
 		desc := prometheus.NewDesc(name, m.Description, keys, nil)
 		buckets := make(map[float64]uint64, len(dp.Bounds))
@@ -189,7 +184,7 @@ func addHistogramMetric(
 
 func addSumMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, sum metricdata.Sum[N], m metricdata.Metrics,
-	scopeKeys, scopeValues []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	valueType := prometheus.CounterValue
 	metricType := dto.MetricType_COUNTER
@@ -207,10 +202,7 @@ func addSumMetric[N int64 | float64](
 	}
 
 	for _, dp := range sum.DataPoints {
-		keys, values, dups := getAttrs(dp.Attributes, scopeKeys, scopeValues)
-		if len(dups) > 0 {
-			l.Error("duplicate keys found:", name, dups)
-		}
+		keys, values := getAttrs(dp.Attributes, ks, vs)
 
 		desc := prometheus.NewDesc(name, m.Description, keys, nil)
 		m, err := prometheus.NewConstMetric(desc, valueType, float64(dp.Value), values...)
@@ -224,7 +216,7 @@ func addSumMetric[N int64 | float64](
 
 func addGaugeMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, gauge metricdata.Gauge[N], m metricdata.Metrics,
-	scopeKeys, scopeValues []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	drop, help := validateMetrics(name, m.Description, dto.MetricType_GAUGE.Enum(), mfs, l)
 	if drop {
@@ -235,10 +227,7 @@ func addGaugeMetric[N int64 | float64](
 	}
 
 	for _, dp := range gauge.DataPoints {
-		keys, values, dups := getAttrs(dp.Attributes, scopeKeys, scopeValues)
-		if len(dups) > 0 {
-			l.Error("duplicate keys found:", name, dups)
-		}
+		keys, values := getAttrs(dp.Attributes, ks, vs)
 
 		desc := prometheus.NewDesc(name, m.Description, keys, nil)
 		m, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, float64(dp.Value), values...)
@@ -252,55 +241,46 @@ func addGaugeMetric[N int64 | float64](
 
 // getAttrs parses the attribute.Set to two lists of matching Prometheus-style
 // keys and values. It sanitizes invalid characters and handles duplicate keys
-// (due to sanitization) by removing and reporting the duplicates so that we
-// can be compatible with the gRPC implementation that does not concatenate
-// duplicated keys.
-func getAttrs(attrs attribute.Set, scopeKeys, scopeValues []string) ([]string, []string, []string) {
-	var (
-		dups    []string
-		keysMap = make(map[string]string)
-	)
-	for i, scopeKey := range scopeKeys {
-		key := strings.Map(sanitizeRune, scopeKey)
-		if _, ok := keysMap[key]; !ok {
-			keysMap[key] = scopeValues[i]
-		} else {
-			// if the sanitized key is a duplicate, ignore and append to the duplicates
-			dups = append(dups, key)
-		}
-	}
-
+// (due to sanitization) by sorting and concatenating the values following the spec.
+func getAttrs(attrs attribute.Set, ks, vs []string) ([]string, []string) {
+	keysMap := make(map[string][]string)
 	itr := attrs.Iter()
 	for itr.Next() {
 		kv := itr.Attribute()
 		key := strings.Map(sanitizeRune, string(kv.Key))
 		if _, ok := keysMap[key]; !ok {
-			keysMap[key] = kv.Value.Emit()
+			keysMap[key] = []string{kv.Value.Emit()}
 		} else {
-			// if the sanitized key is a duplicate, ignore and append to the duplicates
-			dups = append(dups, key)
+			// if the sanitized key is a duplicate, append to the list of keys
+			keysMap[key] = append(keysMap[key], kv.Value.Emit())
 		}
 	}
 
-	keys := make([]string, 0, len(keysMap))
-	values := make([]string, 0, len(keysMap))
-	for key, val := range keysMap {
+	keys := make([]string, 0, attrs.Len())
+	values := make([]string, 0, attrs.Len())
+	for key, vals := range keysMap {
 		keys = append(keys, key)
-		values = append(values, val)
+		sort.Slice(vals, func(i, j int) bool {
+			return i < j
+		})
+		values = append(values, strings.Join(vals, ";"))
 	}
 
-	return keys, values, dups
+	if len(ks) > 0 {
+		keys = append(keys, ks[:]...)
+		values = append(values, vs[:]...)
+	}
+	return keys, values
 }
 
 func (c *collector) createInfoMetric(name, description string, res *resource.Resource) (prometheus.Metric, error) {
-	keys, values, dups := getAttrs(*res.Set(), []string{}, []string{})
-	if len(dups) > 0 {
-		c.logger.Error("duplicate keys found:", name, dups)
-	}
+	keys, values := getAttrs(*res.Set(), []string{}, []string{})
 	desc := prometheus.NewDesc(name, description, keys, nil)
 	return prometheus.NewConstMetric(desc, prometheus.GaugeValue, float64(1), values...)
 }
 
+// BEWARE that we are already sanitizing metric names in the OTel adapter, see sanitizeTagKey function,
+// but we still need this function to sanitize metrics coming from the internal OpenTelemetry client
 func sanitizeRune(r rune) rune {
 	if unicode.IsLetter(r) || unicode.IsDigit(r) || r == ':' || r == '_' {
 		return r

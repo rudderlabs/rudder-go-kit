@@ -506,61 +506,6 @@ func TestNonBlockingConnection(t *testing.T) {
 	require.ElementsMatch(t, defaultAttrs, metrics["bar"].Metric[0].Label)
 }
 
-func TestPrometheusDuplicatedAttributes(t *testing.T) {
-	spy := &loggerSpy{}
-	ctx := context.Background()
-	registry := prometheus.NewRegistry()
-	res, err := NewResource("my-service-name", "v1.2.3",
-		attribute.String("instanceName", "my-instance-id"),
-		attribute.String("duplicate", "from-resource"),
-	)
-	require.NoError(t, err)
-	var om Manager
-	_, mp, err := om.Setup(ctx, res,
-		WithInsecure(),
-		WithLogger(spy),
-		WithMeterProvider(
-			WithPrometheusExporter(registry),
-			WithMeterProviderExportsInterval(100*time.Millisecond),
-		),
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
-	require.NotEqual(t, mp, global.MeterProvider())
-
-	ts := httptest.NewServer(promhttp.InstrumentMetricHandler(
-		registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
-	))
-	t.Cleanup(ts.Close)
-
-	m := mp.Meter("")
-	// foo counter
-	counter, err := m.Int64Counter("foo")
-	require.NoError(t, err)
-	counter.Add(ctx, 1,
-		attribute.String("hello", "world"),
-		attribute.String("duplicate", "from-metric"),
-	)
-
-	metrics := requireMetrics(t, ts.URL, "foo")
-	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
-	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
-	require.Len(t, metrics["foo"].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics["foo"].Metric[0].Counter)
-	require.ElementsMatch(t, append(
-		globalDefaultAttrs,
-		&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
-		&promClient.LabelPair{Name: ptr("job"), Value: ptr("my-service-name")},
-		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("my-service-name")},
-		// we expect "duplicate" to have "from-resource" and not "from-metric"
-		// since resource attributes take precedence
-		&promClient.LabelPair{Name: ptr("duplicate"), Value: ptr("from-resource")},
-	), metrics["foo"].Metric[0].Label)
-
-	require.Len(t, spy.calls, 1)
-	require.Equal(t, "duplicate keys found:foo[duplicate]", spy.calls[0])
-}
-
 func requireMetrics(
 	t *testing.T, metricsEndpoint string, requiredKeys ...string,
 ) map[string]*promClient.MetricFamily {
@@ -624,8 +569,3 @@ type histogram struct {
 	buckets []*promClient.Bucket
 	labels  []*promClient.LabelPair
 }
-
-type loggerSpy struct{ calls []string }
-
-func (s *loggerSpy) Info(args ...interface{})  { s.calls = append(s.calls, fmt.Sprint(args...)) }
-func (s *loggerSpy) Error(args ...interface{}) { s.calls = append(s.calls, fmt.Sprint(args...)) }
