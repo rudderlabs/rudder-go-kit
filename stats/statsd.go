@@ -159,18 +159,24 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 	}
 
 	// Clean up tags based on deployment type. No need to send workspace id tag for free tier customers.
-	for excludedTag := range s.config.excludedTags {
-		delete(tags, excludedTag)
+	newTags := make(Tags)
+	for k, v := range tags {
+		if strings.Trim(k, " ") == "" {
+			s.logger.Warnf("removing empty tag key with value %q for measurement %q", v, name)
+			continue
+		}
+		if _, ok := s.config.excludedTags[k]; ok {
+			continue
+		}
+		sanitizedKey := sanitizeTagKey(k)
+		if _, ok := s.config.excludedTags[sanitizedKey]; ok {
+			continue
+		}
+		newTags[sanitizedKey] = v
 	}
-	if tags == nil {
-		tags = make(Tags)
-	}
-	if v, ok := tags[""]; ok {
-		s.logger.Warnf("removing empty tag key with value %s for measurement %s", v, name)
-		delete(tags, "")
-	}
-	// key comprises of the measurement type plus all tag-value pairs
-	taggedClientKey := tags.String() + fmt.Sprintf("%f", samplingRate)
+
+	// key comprises the measurement type plus all tag-value pairs
+	taggedClientKey := newTags.String() + fmt.Sprintf("%f", samplingRate)
 
 	s.state.clientsLock.RLock()
 	taggedClient, found := s.state.clients[taggedClientKey]
@@ -179,7 +185,7 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 	if !found {
 		s.state.clientsLock.Lock()
 		if taggedClient, found = s.state.clients[taggedClientKey]; !found { // double check for race
-			tagVals := tags.Strings()
+			tagVals := newTags.Strings()
 			taggedClient = &statsdClient{samplingRate: samplingRate, tags: tagVals}
 			if s.state.connEstablished {
 				taggedClient.statsd = s.state.client.statsd.Clone(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags(), statsd.Tags(tagVals...), statsd.SampleRate(samplingRate))

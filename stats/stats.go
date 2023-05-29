@@ -4,8 +4,10 @@ package stats
 import (
 	"context"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/metric/global"
@@ -54,9 +56,13 @@ type Stats interface {
 	Stop()
 }
 
+type loggerFactory interface {
+	NewLogger() logger.Logger
+}
+
 // NewStats create a new Stats instance using the provided config, logger factory and metric manager as dependencies
 func NewStats(
-	config *config.Config, loggerFactory *logger.Factory, metricManager svcMetric.Manager, opts ...Option,
+	config *config.Config, loggerFactory loggerFactory, metricManager svcMetric.Manager, opts ...Option,
 ) Stats {
 	excludedTags := make(map[string]struct{})
 	excludedTagsSlice := config.GetStringSlice("statsExcludedTags", nil)
@@ -139,4 +145,22 @@ type defaultGoRoutineFactory struct{}
 
 func (defaultGoRoutineFactory) Go(function func()) {
 	go function()
+}
+
+func sanitizeTagKey(key string) string {
+	return strings.Map(sanitizeRune, key)
+}
+
+// This function has been copied from the prometheus exporter.
+// Thus changes done only here might not always produce the desired result when exporting to prometheus
+// unless the prometheus exporter is also updated.
+// The rationale behind the duplication is that this function is used across all our Stats modes (statsd, prom, otel...)
+// and the one in the prometheus exporter is still used to sanitize some attributes set on a Resource level from
+// the OpenTelemetry client itself or 3rd parties.
+// Alternatively we could further customise the prometheus exporter and make it use the same function (this one).
+func sanitizeRune(r rune) rune {
+	if unicode.IsLetter(r) || unicode.IsDigit(r) || r == ':' || r == '_' {
+		return r
+	}
+	return '_'
 }

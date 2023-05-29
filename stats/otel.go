@@ -27,8 +27,9 @@ const (
 
 // otelStats is an OTel-specific adapter that follows the Stats contract
 type otelStats struct {
-	config     statsConfig
-	otelConfig otelStatsConfig
+	config        statsConfig
+	otelConfig    otelStatsConfig
+	resourceAttrs map[string]struct{}
 
 	meter        metric.Meter
 	counters     map[string]instrument.Int64Counter
@@ -59,11 +60,16 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 
 	// Starting OpenTelemetry setup
 	var attrs []attribute.KeyValue
+	s.resourceAttrs = make(map[string]struct{})
 	if s.config.instanceName != "" {
-		attrs = append(attrs, attribute.String("instanceName", s.config.instanceName))
+		sanitized := sanitizeTagKey("instanceName")
+		attrs = append(attrs, attribute.String(sanitized, s.config.instanceName))
+		s.resourceAttrs[sanitized] = struct{}{}
 	}
 	if s.config.namespaceIdentifier != "" {
-		attrs = append(attrs, attribute.String("namespace", s.config.namespaceIdentifier))
+		sanitized := sanitizeTagKey("namespace")
+		attrs = append(attrs, attribute.String(sanitized, s.config.namespaceIdentifier))
+		s.resourceAttrs[sanitized] = struct{}{}
 	}
 	res, err := otel.NewResource(s.config.serviceName, s.config.serviceVersion, attrs...)
 	if err != nil {
@@ -238,22 +244,29 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	}
 
 	// Clean up tags based on deployment type. No need to send workspace id tag for free tier customers.
+	newTags := make(Tags)
 	for k, v := range tags {
 		if strings.Trim(k, " ") == "" {
-			s.logger.Warnf("removing empty tag key with value %s for measurement %s", v, name)
-			delete(tags, k)
+			s.logger.Warnf("removing empty tag key with value %q for measurement %q", v, name)
+			continue
 		}
 		if _, ok := s.config.excludedTags[k]; ok {
-			delete(tags, k)
+			continue
 		}
-	}
-	if tags == nil {
-		tags = make(Tags)
+		sanitizedKey := sanitizeTagKey(k)
+		if _, ok := s.config.excludedTags[sanitizedKey]; ok {
+			continue
+		}
+		if _, ok := s.resourceAttrs[sanitizedKey]; ok {
+			s.logger.Warnf("removing tag %q for measurement %q since it is a resource attribute", k, name)
+			continue
+		}
+		newTags[sanitizedKey] = v
 	}
 
 	om := &otelMeasurement{
 		genericMeasurement: genericMeasurement{statType: statType},
-		attributes:         tags.otelAttributes(),
+		attributes:         newTags.otelAttributes(),
 	}
 
 	switch statType {
@@ -261,7 +274,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		instr := buildOTelInstrument(s.meter, name, s.counters, &s.countersMu)
 		return &otelCounter{counter: instr, otelMeasurement: om}
 	case GaugeType:
-		return s.getGauge(s.meter, name, om.attributes, tags.String())
+		return s.getGauge(s.meter, name, om.attributes, newTags.String())
 	case TimerType:
 		instr := buildOTelInstrument(s.meter, name, s.timers, &s.timersMu)
 		return &otelTimer{timer: instr, otelMeasurement: om}

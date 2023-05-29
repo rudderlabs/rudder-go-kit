@@ -128,7 +128,7 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 			scopeKeys = append(scopeKeys, "job")
 			scopeValues = append(scopeValues, attr.Value.AsString())
 		}
-		scopeKeys = append(scopeKeys, strings.ReplaceAll(string(attr.Key), ".", "_"))
+		scopeKeys = append(scopeKeys, strings.Map(sanitizeRune, string(attr.Key)))
 		scopeValues = append(scopeValues, attr.Value.AsString())
 	}
 
@@ -279,6 +279,8 @@ func (c *collector) createInfoMetric(name, description string, res *resource.Res
 	return prometheus.NewConstMetric(desc, prometheus.GaugeValue, float64(1), values...)
 }
 
+// BEWARE that we are already sanitizing metric names in the OTel adapter, see sanitizeTagKey function,
+// but we still need this function to sanitize metrics coming from the internal OpenTelemetry client
 func sanitizeRune(r rune) rune {
 	if unicode.IsLetter(r) || unicode.IsDigit(r) || r == ':' || r == '_' {
 		return r

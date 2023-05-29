@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/prometheus/client_golang/prometheus"
 	promClient "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
@@ -27,6 +28,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	"github.com/rudderlabs/rudder-go-kit/logger/mock_logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
 	statsTest "github.com/rudderlabs/rudder-go-kit/stats/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
@@ -776,6 +778,72 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 	})
 }
 
+func TestPrometheusDuplicatedAttributes(t *testing.T) {
+	freePort, err := testhelper.GetFreePort()
+	require.NoError(t, err)
+
+	c := config.New()
+	c.Set("INSTANCE_ID", "my-instance-id")
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+	c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+	c.Set("RuntimeStats.enabled", false)
+	ctrl := gomock.NewController(t)
+	loggerSpy := mock_logger.NewMockLogger(ctrl)
+	loggerSpy.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
+	loggerSpy.EXPECT().Warnf(
+		"removing tag %q for measurement %q since it is a resource attribute",
+		"instanceName", "foo",
+	).Times(1)
+	loggerFactory := mock_logger.NewMockLogger(ctrl)
+	loggerFactory.EXPECT().Child(gomock.Any()).Times(1).Return(loggerSpy)
+	l := newLoggerSpyFactory(loggerFactory)
+	m := metric.NewManager()
+	r := prometheus.NewRegistry()
+	s := NewStats(c, l, m,
+		WithServiceName(t.Name()),
+		WithServiceVersion("v1.2.3"),
+		WithPrometheusRegistry(r, r),
+	)
+	require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+	t.Cleanup(s.Stop)
+
+	metricName := "foo"
+	s.NewTaggedStat(metricName, CountType, Tags{"a": "b", "instanceName": "from-metric"}).Count(7)
+
+	var (
+		resp            *http.Response
+		metrics         map[string]*promClient.MetricFamily
+		metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", freePort)
+	)
+	require.Eventuallyf(t, func() bool {
+		resp, err = http.Get(metricsEndpoint)
+		if err != nil {
+			return false
+		}
+		defer func() { httputil.CloseResponse(resp) }()
+		metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
+		if err != nil {
+			return false
+		}
+		if _, ok := metrics[metricName]; !ok {
+			return false
+		}
+		return true
+	}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+
+	require.EqualValues(t, &metricName, metrics[metricName].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
+	require.Len(t, metrics[metricName].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(7.0)}, metrics[metricName].Metric[0].Counter)
+	require.ElementsMatchf(t, append(globalDefaultAttrs,
+		&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
+		&promClient.LabelPair{Name: ptr("job"), Value: ptr(t.Name())},
+		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr(t.Name())},
+	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
+}
+
 func getDataPoint[T any](ctx context.Context, t *testing.T, rdr sdkmetric.Reader, name string, idx int) (zero T) {
 	t.Helper()
 	rm := metricdata.ResourceMetrics{}
@@ -870,4 +938,12 @@ func (r TestMeasurement) GetTags() map[string]string {
 		"workspaceId": r.workspace,
 		"destType":    r.destType,
 	}
+}
+
+type loggerSpyFactory struct{ spy logger.Logger }
+
+func (f loggerSpyFactory) NewLogger() logger.Logger { return f.spy }
+
+func newLoggerSpyFactory(l logger.Logger) loggerFactory {
+	return &loggerSpyFactory{spy: l}
 }
