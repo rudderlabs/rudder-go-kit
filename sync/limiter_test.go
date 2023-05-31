@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/memstats"
 	miscsync "github.com/rudderlabs/rudder-go-kit/sync"
 	"github.com/stretchr/testify/require"
@@ -148,5 +149,17 @@ func TestLimiter(t *testing.T) {
 		require.True(t, dynamicPriorityVerified, "dynamic priority should have been verified")
 		require.EqualValues(t, 1000, counterHigh, "high priority counter should be 1000")
 		require.EqualValues(t, 10, counterLow, "low priority counter should be 10")
+	})
+
+	t.Run("invalid limit", func(t *testing.T) {
+		require.Panics(t, func() {
+			var wg sync.WaitGroup
+			_ = miscsync.NewLimiter(context.Background(), &wg, "zerolimit", 0, stats.Default)
+		})
+
+		require.Panics(t, func() {
+			var wg sync.WaitGroup
+			_ = miscsync.NewLimiter(context.Background(), &wg, "negativelimit", -1, stats.Default)
+		})
 	})
 }
