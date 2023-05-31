@@ -3,11 +3,13 @@ package sync
 import (
 	"container/heap"
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/rudderlabs/rudder-go-kit/queue"
 	"github.com/rudderlabs/rudder-go-kit/stats"
+	"github.com/samber/lo"
 )
 
 // LimiterPriorityValue defines the priority values supported by Limiter.
@@ -67,6 +69,9 @@ var WithLimiterTags = func(tags stats.Tags) func(*limiter) {
 
 // NewLimiter creates a new limiter
 func NewLimiter(ctx context.Context, wg *sync.WaitGroup, name string, limit int, statsf stats.Stats, opts ...func(*limiter)) Limiter {
+	if limit <= 0 {
+		panic(fmt.Errorf("limit for %q must be greater than 0", name))
+	}
 	l := &limiter{
 		name:     name,
 		limit:    limit,
@@ -141,10 +146,11 @@ func (l *limiter) Begin(key string) (end func()) {
 func (l *limiter) BeginWithPriority(key string, priority LimiterPriorityValue) (end func()) {
 	start := time.Now()
 	l.wait(priority)
-	l.stats.stat.NewTaggedStat(l.name+"_limiter_waiting", stats.TimerType, stats.Tags{"key": key}).Since(start)
+	tags := lo.Assign(l.tags, stats.Tags{"key": key})
+	l.stats.stat.NewTaggedStat(l.name+"_limiter_waiting", stats.TimerType, tags).Since(start)
 	start = time.Now()
 	end = func() {
-		defer l.stats.stat.NewTaggedStat(l.name+"_limiter_working", stats.TimerType, stats.Tags{"key": key}).Since(start)
+		defer l.stats.stat.NewTaggedStat(l.name+"_limiter_working", stats.TimerType, tags).Since(start)
 		l.mu.Lock()
 		l.count--
 		if len(l.waitList) == 0 {
