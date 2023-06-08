@@ -12,7 +12,28 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats"
 )
 
-func StatMiddleware(ctx context.Context, router chi.Router, s stats.Stats, component string) func(http.Handler) http.Handler {
+type config struct {
+	redactUnknownPaths bool
+}
+
+type Option func(*config)
+
+// RedactUnknownPaths sets the redactUnknownPaths flag.
+// If set to true, the path will be redacted if the route is not found.
+// If set to false, the path will be used as is.
+func RedactUnknownPaths(redactUnknownPaths bool) Option {
+	return func(c *config) {
+		c.redactUnknownPaths = redactUnknownPaths
+	}
+}
+
+func StatMiddleware(ctx context.Context, router chi.Router, s stats.Stats, component string, options ...Option) func(http.Handler) http.Handler {
+	conf := config{
+		redactUnknownPaths: true,
+	}
+	for _, option := range options {
+		option(&conf)
+	}
 	var concurrentRequests int32
 	activeClientCount := s.NewStat(fmt.Sprintf("%s.concurrent_requests_count", component), stats.GaugeType)
 	go func() {
@@ -33,6 +54,9 @@ func StatMiddleware(ctx context.Context, router chi.Router, s stats.Stats, compo
 		if path := chi.RouteContext(r.Context()).RoutePattern(); path != "" {
 			return path
 		}
+		if conf.redactUnknownPaths {
+			return "/redacted"
+		}
 		return r.URL.Path
 	}
 	return func(next http.Handler) http.Handler {
@@ -43,7 +67,6 @@ func StatMiddleware(ctx context.Context, router chi.Router, s stats.Stats, compo
 			defer atomic.AddInt32(&concurrentRequests, -1)
 
 			next.ServeHTTP(sw, r)
-
 			s.NewSampledTaggedStat(
 				fmt.Sprintf("%s.response_time", component),
 				stats.TimerType,

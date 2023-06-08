@@ -18,7 +18,7 @@ import (
 
 func TestStatsMiddleware(t *testing.T) {
 	component := "test"
-	testCase := func(expectedStatusCode int, pathTemplate, requestPath, expectedMethod string) func(t *testing.T) {
+	testCase := func(expectedStatusCode int, pathTemplate, requestPath, expectedMethod string, options ...chiware.Option) func(t *testing.T) {
 		return func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mockStats := mock_stats.NewMockStats(ctrl)
@@ -40,7 +40,7 @@ func TestStatsMiddleware(t *testing.T) {
 			defer cancel()
 			router := chi.NewRouter()
 			router.Use(
-				chiware.StatMiddleware(ctx, router, mockStats, component),
+				chiware.StatMiddleware(ctx, router, mockStats, component, options...),
 			)
 			router.MethodFunc(expectedMethod, pathTemplate, handler)
 
@@ -52,6 +52,8 @@ func TestStatsMiddleware(t *testing.T) {
 	}
 
 	t.Run("template with param in path", testCase(http.StatusNotFound, "/v1/{param}", "/v1/abc", "GET"))
-
 	t.Run("template without param in path", testCase(http.StatusNotFound, "/v1/some-other/key", "/v1/some-other/key", "GET"))
+	t.Run("template with unknown path ", testCase(http.StatusNotFound, "/a/b/c", "/a/b/c", "GET", chiware.RedactUnknownPaths(false)))
+	t.Run("template with unknown path ", testCase(http.StatusNotFound, "/redacted", "/a/b/c", "GET", chiware.RedactUnknownPaths(true)))
+	t.Run("template with unknown path ", testCase(http.StatusNotFound, "/redacted", "/a/b/c", "GET"))
 }
