@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/memstats"
 	miscsync "github.com/rudderlabs/rudder-go-kit/sync"
-	"github.com/stretchr/testify/require"
 )
 
 func TestLimiter(t *testing.T) {

@@ -3,8 +3,9 @@ package mem
 import (
 	"fmt"
 
-	"github.com/rudderlabs/rudder-go-kit/mem/internal/cgroup"
 	gomem "github.com/shirou/gopsutil/v3/mem"
+
+	"github.com/rudderlabs/rudder-go-kit/mem/internal/cgroup"
 )
 
 // Stat represents memory statistics (cgroup aware)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ory/dockertest/v3"
+
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/pulsar"
 )
 

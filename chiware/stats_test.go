@@ -10,10 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/rudderlabs/rudder-go-kit/chiware"
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/mock_stats"
-	"github.com/stretchr/testify/require"
 )
 
 func TestStatsMiddleware(t *testing.T) {

@@ -3,9 +3,10 @@ package cgroup_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/mem/internal/cgroup"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCgroupMemory(t *testing.T) {
