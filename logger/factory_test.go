@@ -5,10 +5,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/config"
-	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/stretchr/testify/require"
 	"github.com/zenizh/go-capturer"
+
+	"github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 func Test_Config_Default(t *testing.T) {

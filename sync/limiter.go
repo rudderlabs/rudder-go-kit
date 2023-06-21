@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/samber/lo"
+
 	"github.com/rudderlabs/rudder-go-kit/queue"
 	"github.com/rudderlabs/rudder-go-kit/stats"
-	"github.com/samber/lo"
 )
 
 // LimiterPriorityValue defines the priority values supported by Limiter.

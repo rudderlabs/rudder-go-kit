@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudderlabs/rudder-go-kit/sync"
 	"github.com/stretchr/testify/require"
+
+	"github.com/rudderlabs/rudder-go-kit/sync"
 )
 
 func TestPartitionLocker(t *testing.T) {

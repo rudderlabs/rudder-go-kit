@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/ory/dockertest/v3"
+	"github.com/stretchr/testify/require"
+
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPulsar(t *testing.T) {
