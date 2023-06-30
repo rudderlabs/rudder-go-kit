@@ -64,6 +64,7 @@ type collector struct {
 	createTargetInfoOnce sync.Once
 	scopeInfos           map[instrumentation.Scope]prometheus.Metric
 	metricFamilies       map[string]*dto.MetricFamily
+	namespace            string
 }
 
 // New returns a Prometheus Exporter.
@@ -81,6 +82,7 @@ func New(opts ...Option) (*Exporter, error) {
 		withoutUnits:      cfg.withoutUnits,
 		scopeInfos:        make(map[instrumentation.Scope]prometheus.Metric),
 		metricFamilies:    make(map[string]*dto.MetricFamily),
+		namespace:         cfg.namespace,
 	}
 
 	if err := cfg.registerer.Register(collector); err != nil {
@@ -135,7 +137,9 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	for _, scopeMetrics := range metrics.ScopeMetrics {
 		for _, m := range scopeMetrics.Metrics {
 			switch v := m.Data.(type) {
-			case metricdata.Histogram:
+			case metricdata.Histogram[int64]:
+				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+			case metricdata.Histogram[float64]:
 				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			case metricdata.Sum[int64]:
 				addSumMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
@@ -150,8 +154,8 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-func addHistogramMetric(
-	ch chan<- prometheus.Metric, histogram metricdata.Histogram, m metricdata.Metrics,
+func addHistogramMetric[N int64 | float64](
+	ch chan<- prometheus.Metric, histogram metricdata.Histogram[N], m metricdata.Metrics,
 	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
 ) {
 	drop, help := validateMetrics(name, m.Description, dto.MetricType_HISTOGRAM.Enum(), mfs, l)
@@ -173,7 +177,7 @@ func addHistogramMetric(
 			cumulativeCount += dp.BucketCounts[i]
 			buckets[bound] = cumulativeCount
 		}
-		m, err := prometheus.NewConstHistogram(desc, dp.Count, dp.Sum, buckets, values...)
+		m, err := prometheus.NewConstHistogram(desc, dp.Count, float64(dp.Sum), buckets, values...)
 		if err != nil {
 			otel.Handle(err)
 			continue
@@ -294,9 +298,12 @@ var unitSuffixes = map[string]string{
 	"ms": "_milliseconds",
 }
 
-// getName returns the sanitized name, including unit suffix.
+// getName returns the sanitized name, prefixed with the namespace and suffixed with unit.
 func (c *collector) getName(m metricdata.Metrics) string {
 	name := sanitizeName(m.Name)
+	if c.namespace != "" {
+		name = c.namespace + name
+	}
 	if c.withoutUnits {
 		return name
 	}

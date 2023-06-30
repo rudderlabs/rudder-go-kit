@@ -10,7 +10,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -93,7 +92,7 @@ func (m *Manager) Setup(
 			return nil, nil, err
 		}
 		if c.meterProviderConfig.global {
-			global.SetMeterProvider(m.mp)
+			otel.SetMeterProvider(m.mp)
 		}
 	}
 

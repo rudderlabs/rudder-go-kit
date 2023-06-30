@@ -1,6 +1,8 @@
 package prometheus
 
 import (
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
 )
@@ -16,6 +18,7 @@ type config struct {
 	disableTargetInfo bool
 	withoutUnits      bool
 	aggregation       metric.AggregationSelector
+	namespace         string
 	logger            logger
 }
 
@@ -97,6 +100,23 @@ func WithoutTargetInfo() Option {
 func WithoutUnits() Option {
 	return optionFunc(func(cfg config) config {
 		cfg.withoutUnits = true
+		return cfg
+	})
+}
+
+// WithNamespace configures the Exporter to prefix metric with the given namespace.
+// Metadata metrics such as target_info and otel_scope_info are not prefixed since these
+// have special behavior based on their name.
+func WithNamespace(ns string) Option {
+	return optionFunc(func(cfg config) config {
+		ns = sanitizeName(ns)
+		if !strings.HasSuffix(ns, "_") {
+			// namespace and metric names should be separated with an underscore,
+			// adds a trailing underscore if there is not one already.
+			ns = ns + "_"
+		}
+
+		cfg.namespace = ns
 		return cfg
 	})
 }

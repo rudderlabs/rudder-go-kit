@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
@@ -38,7 +38,7 @@ var (
 		{Name: ptr("service_version"), Value: ptr("v1.2.3")},
 		{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
 		{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-		{Name: ptr("telemetry_sdk_version"), Value: ptr("1.14.0")},
+		{Name: ptr("telemetry_sdk_version"), Value: ptr("1.16.0")},
 		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 	}
 	globalGRPCDefaultAttrs = append(globalDefaultAttrs,
@@ -83,7 +83,7 @@ func TestMetrics(t *testing.T) {
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
 				require.NotEqual(t, tp, otel.GetTracerProvider())
-				require.NotEqual(t, mp, global.MeterProvider())
+				require.NotEqual(t, mp, otel.GetMeterProvider())
 
 				metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
 				return mp, metricsEndpoint
@@ -112,7 +112,7 @@ func TestMetrics(t *testing.T) {
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
 				require.Nil(t, tp)
-				require.NotEqual(t, mp, global.MeterProvider())
+				require.NotEqual(t, mp, otel.GetMeterProvider())
 
 				ts := httptest.NewServer(promhttp.InstrumentMetricHandler(
 					registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
@@ -131,7 +131,7 @@ func TestMetrics(t *testing.T) {
 			// foo counter
 			counter, err := m.Int64Counter("foo")
 			require.NoError(t, err)
-			counter.Add(ctx, 1, attribute.String("hello", "world"))
+			counter.Add(ctx, 1, metric.WithAttributes(attribute.String("hello", "world")))
 			// bar counter
 			counter, err = m.Int64Counter("bar")
 			require.NoError(t, err)
@@ -139,11 +139,11 @@ func TestMetrics(t *testing.T) {
 			// baz histogram
 			h1, err := m.Int64Histogram("baz")
 			require.NoError(t, err)
-			h1.Record(ctx, 20, attribute.String("a", "b"))
+			h1.Record(ctx, 20, metric.WithAttributes(attribute.String("a", "b")))
 			// qux histogram
 			h2, err := m.Int64Histogram("qux")
 			require.NoError(t, err)
-			h2.Record(ctx, 2, attribute.String("c", "d"))
+			h2.Record(ctx, 2, metric.WithAttributes(attribute.String("c", "d")))
 
 			// Run assertions
 			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "baz", "qux")
@@ -232,7 +232,7 @@ func TestHistogramBuckets(t *testing.T) {
 				)
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
-				require.NotEqual(t, mp, global.MeterProvider())
+				require.NotEqual(t, mp, otel.GetMeterProvider())
 
 				metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
 				return mp, metricsEndpoint
@@ -257,7 +257,7 @@ func TestHistogramBuckets(t *testing.T) {
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
 				require.Nil(t, tp)
-				require.NotEqual(t, mp, global.MeterProvider())
+				require.NotEqual(t, mp, otel.GetMeterProvider())
 
 				ts := httptest.NewServer(promhttp.InstrumentMetricHandler(
 					registry, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}),
@@ -279,12 +279,12 @@ func TestHistogramBuckets(t *testing.T) {
 				// foo histogram on meter-1
 				h, err := mp.Meter("meter-1").Int64Histogram("foo")
 				require.NoError(t, err)
-				h.Record(ctx, 20, attribute.String("a", "b"))
+				h.Record(ctx, 20, metric.WithAttributes(attribute.String("a", "b")))
 
 				// bar histogram on meter-2
 				h, err = mp.Meter("meter-2").Int64Histogram("bar")
 				require.NoError(t, err)
-				h.Record(ctx, 30, attribute.String("c", "d"))
+				h.Record(ctx, 30, metric.WithAttributes(attribute.String("c", "d")))
 
 				metrics := requireMetrics(t, metricsEndpoint, "foo", "bar")
 
@@ -331,17 +331,17 @@ func TestHistogramBuckets(t *testing.T) {
 				// foo histogram
 				h, err := mp.Meter("meter-1").Int64Histogram("foo")
 				require.NoError(t, err)
-				h.Record(ctx, 20, attribute.String("a", "b"))
+				h.Record(ctx, 20, metric.WithAttributes(attribute.String("a", "b")))
 
 				// bar histogram
 				h, err = mp.Meter("meter-1").Int64Histogram("bar")
 				require.NoError(t, err)
-				h.Record(ctx, 50, attribute.String("c", "d"))
+				h.Record(ctx, 50, metric.WithAttributes(attribute.String("c", "d")))
 
 				// baz histogram
 				h, err = mp.Meter("meter-1").Int64Histogram("baz")
 				require.NoError(t, err)
-				h.Record(ctx, 80, attribute.String("e", "f"))
+				h.Record(ctx, 80, metric.WithAttributes(attribute.String("e", "f")))
 
 				metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "baz")
 
@@ -433,7 +433,7 @@ func TestCollectorGlobals(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
 	require.Equal(t, tp, otel.GetTracerProvider())
-	require.Equal(t, mp, global.MeterProvider())
+	require.Equal(t, mp, otel.GetMeterProvider())
 }
 
 func TestNonBlockingConnection(t *testing.T) {
@@ -472,7 +472,7 @@ func TestNonBlockingConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	// this counter will not be lost even though the container isn't even started. see MaxElapsedTime.
-	fooCounter.Add(ctx, 123, attribute.String("hello", "world"))
+	fooCounter.Add(ctx, 123, metric.WithAttributes(attribute.String("hello", "world")))
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)

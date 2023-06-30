@@ -17,9 +17,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	promClient "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelMetric "go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/global"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -44,11 +44,11 @@ var globalDefaultAttrs = []*promClient.LabelPair{
 	{Name: ptr("service_version"), Value: ptr("v1.2.3")},
 	{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
 	{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-	{Name: ptr("telemetry_sdk_version"), Value: ptr("1.14.0")},
+	{Name: ptr("telemetry_sdk_version"), Value: ptr("1.16.0")},
 }
 
 func TestOTelMeasurementInvalidOperations(t *testing.T) {
-	s := &otelStats{meter: global.MeterProvider().Meter(t.Name())}
+	s := &otelStats{meter: otel.GetMeterProvider().Meter(t.Name())}
 
 	t.Run("counter invalid operations", func(t *testing.T) {
 		require.Panics(t, func() {
@@ -177,7 +177,7 @@ func TestOTelMeasurementOperations(t *testing.T) {
 		r, m := newReaderWithMeter(t)
 		s := &otelStats{meter: m, config: statsConfig{enabled: atomicBool(true)}}
 		s.NewStat("test-timer-1", TimerType).SendTiming(10 * time.Second)
-		md := getDataPoint[metricdata.Histogram](ctx, t, r, "test-timer-1", 0)
+		md := getDataPoint[metricdata.Histogram[float64]](ctx, t, r, "test-timer-1", 0)
 		require.Len(t, md.DataPoints, 1)
 		require.EqualValues(t, 1, md.DataPoints[0].Count)
 		require.InDelta(t, 10.0, md.DataPoints[0].Sum, 0.001)
@@ -187,7 +187,7 @@ func TestOTelMeasurementOperations(t *testing.T) {
 		r, m := newReaderWithMeter(t)
 		s := &otelStats{meter: m, config: statsConfig{enabled: atomicBool(true)}}
 		s.NewStat("test-timer-2", TimerType).Since(time.Now().Add(-time.Second))
-		md := getDataPoint[metricdata.Histogram](ctx, t, r, "test-timer-2", 0)
+		md := getDataPoint[metricdata.Histogram[float64]](ctx, t, r, "test-timer-2", 0)
 		require.Len(t, md.DataPoints, 1)
 		require.EqualValues(t, 1, md.DataPoints[0].Count)
 		require.InDelta(t, 1.0, md.DataPoints[0].Sum, 0.001)
@@ -201,7 +201,7 @@ func TestOTelMeasurementOperations(t *testing.T) {
 			return time.Now().Add(-time.Second)
 		}
 		ot.RecordDuration()()
-		md := getDataPoint[metricdata.Histogram](ctx, t, r, "test-timer-3", 0)
+		md := getDataPoint[metricdata.Histogram[float64]](ctx, t, r, "test-timer-3", 0)
 		require.Len(t, md.DataPoints, 1)
 		require.EqualValues(t, 1, md.DataPoints[0].Count)
 		require.InDelta(t, 1.0, md.DataPoints[0].Sum, 0.001)
@@ -211,7 +211,7 @@ func TestOTelMeasurementOperations(t *testing.T) {
 		r, m := newReaderWithMeter(t)
 		s := &otelStats{meter: m, config: statsConfig{enabled: atomicBool(true)}}
 		s.NewStat("test-hist-1", HistogramType).Observe(1.2)
-		md := getDataPoint[metricdata.Histogram](ctx, t, r, "test-hist-1", 0)
+		md := getDataPoint[metricdata.Histogram[float64]](ctx, t, r, "test-hist-1", 0)
 		require.Len(t, md.DataPoints, 1)
 		require.EqualValues(t, 1, md.DataPoints[0].Count)
 		require.EqualValues(t, 1.2, md.DataPoints[0].Sum)

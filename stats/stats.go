@@ -10,7 +10,7 @@ import (
 	"unicode"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -47,6 +47,7 @@ type Stats interface {
 
 	// NewSampledTaggedStat creates a new Measurement with provided Name, Type and Tags
 	// Deprecated: use NewTaggedStat instead
+
 	NewSampledTaggedStat(name, statType string, tags Tags) Measurement
 
 	// Start starts the stats service and the collection of periodic stats.
@@ -102,7 +103,7 @@ func NewStats(
 		return &otelStats{
 			config:                   statsConfig,
 			stopBackgroundCollection: func() {},
-			meter:                    global.MeterProvider().Meter(defaultMeterName),
+			meter:                    otel.GetMeterProvider().Meter(defaultMeterName),
 			logger:                   loggerFactory.NewLogger().Child("stats"),
 			prometheusRegisterer:     registerer,
 			prometheusGatherer:       gatherer,
