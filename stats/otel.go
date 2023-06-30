@@ -336,12 +336,12 @@ func buildOTelInstrument[T any](
 	)
 
 	mu.Lock()
+	defer mu.Unlock()
 	if m == nil {
 		m = make(map[string]T)
 	} else {
 		instr, ok = m[name]
 	}
-	mu.Unlock()
 
 	if !ok {
 		var err error
@@ -358,14 +358,7 @@ func buildOTelInstrument[T any](
 			panic(fmt.Errorf("failed to create instrument %T(%s): %w", instr, name, err))
 		}
 		instr = value.(T)
-
-		mu.Lock() // the meter constructors might take some time so let's not hold the lock while that happens
-		if _, ok := m[name]; !ok {
-			m[name] = instr
-		} else {
-			instr = m[name]
-		}
-		mu.Unlock()
+		m[name] = instr
 	}
 
 	return instr
