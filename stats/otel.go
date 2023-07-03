@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cast"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/instrument"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
@@ -32,13 +31,13 @@ type otelStats struct {
 	resourceAttrs map[string]struct{}
 
 	meter        metric.Meter
-	counters     map[string]instrument.Int64Counter
+	counters     map[string]metric.Int64Counter
 	countersMu   sync.Mutex
 	gauges       map[string]*otelGauge
 	gaugesMu     sync.Mutex
-	timers       map[string]instrument.Float64Histogram
+	timers       map[string]metric.Float64Histogram
 	timersMu     sync.Mutex
-	histograms   map[string]instrument.Float64Histogram
+	histograms   map[string]metric.Float64Histogram
 	histogramsMu sync.Mutex
 
 	otelManager              otel.Manager
@@ -286,7 +285,9 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	}
 }
 
-func (s *otelStats) getGauge(meter metric.Meter, name string, attributes []attribute.KeyValue, tagsKey string) *otelGauge {
+func (s *otelStats) getGauge(
+	meter metric.Meter, name string, attributes []attribute.KeyValue, tagsKey string,
+) *otelGauge {
 	var (
 		ok     bool
 		og     *otelGauge
@@ -313,7 +314,7 @@ func (s *otelStats) getGauge(meter metric.Meter, name string, attributes []attri
 		}}
 		_, err = meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
 			if value := og.getValue(); value != nil {
-				o.ObserveFloat64(g, cast.ToFloat64(value), og.attributes...)
+				o.ObserveFloat64(g, cast.ToFloat64(value), metric.WithAttributes(attributes...))
 			}
 			return nil
 		}, g)
@@ -327,7 +328,7 @@ func (s *otelStats) getGauge(meter metric.Meter, name string, attributes []attri
 }
 
 func buildOTelInstrument[T any](
-	meter metric.Meter, name string, m map[string]T, mu *sync.Mutex, opts ...instrument.Option,
+	meter metric.Meter, name string, m map[string]T, mu *sync.Mutex,
 ) T {
 	var (
 		ok    bool
@@ -335,23 +336,21 @@ func buildOTelInstrument[T any](
 	)
 
 	mu.Lock()
+	defer mu.Unlock()
 	if m == nil {
 		m = make(map[string]T)
 	} else {
 		instr, ok = m[name]
 	}
-	mu.Unlock()
 
 	if !ok {
 		var err error
 		var value interface{}
 		switch any(m).(type) {
-		case map[string]instrument.Int64Counter:
-			value, err = meter.Int64Counter(name, castOptions[instrument.Int64Option](opts...)...)
-		case map[string]instrument.Int64Histogram:
-			value, err = meter.Int64Histogram(name, castOptions[instrument.Int64Option](opts...)...)
-		case map[string]instrument.Float64Histogram:
-			value, err = meter.Float64Histogram(name, castOptions[instrument.Float64Option](opts...)...)
+		case map[string]metric.Int64Counter:
+			value, err = meter.Int64Counter(name)
+		case map[string]metric.Float64Histogram:
+			value, err = meter.Float64Histogram(name)
 		default:
 			panic(fmt.Errorf("unknown instrument type %T", instr))
 		}
@@ -359,27 +358,10 @@ func buildOTelInstrument[T any](
 			panic(fmt.Errorf("failed to create instrument %T(%s): %w", instr, name, err))
 		}
 		instr = value.(T)
-
-		mu.Lock() // the meter constructors might take some time so let's not hold the lock while that happens
-		if _, ok := m[name]; !ok {
-			m[name] = instr
-		} else {
-			instr = m[name]
-		}
-		mu.Unlock()
+		m[name] = instr
 	}
 
 	return instr
-}
-
-func castOptions[T any](opts ...instrument.Option) []T {
-	var co []T
-	for _, opt := range opts {
-		if o, ok := opt.(T); ok {
-			co = append(co, o)
-		}
-	}
-	return co
 }
 
 type otelStatsConfig struct {

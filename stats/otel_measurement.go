@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric/instrument"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // otelMeasurement is the statsd-specific implementation of Measurement
@@ -19,19 +19,19 @@ type otelMeasurement struct {
 // otelCounter represents a counter stat
 type otelCounter struct {
 	*otelMeasurement
-	counter instrument.Int64Counter
+	counter metric.Int64Counter
 }
 
 func (c *otelCounter) Count(n int) {
 	if !c.disabled {
-		c.counter.Add(context.TODO(), int64(n), c.attributes...)
+		c.counter.Add(context.TODO(), int64(n), metric.WithAttributes(c.attributes...))
 	}
 }
 
 // Increment increases the stat by 1. Is the Equivalent of Count(1). Only applies to CountType stats
 func (c *otelCounter) Increment() {
 	if !c.disabled {
-		c.counter.Add(context.TODO(), 1, c.attributes...)
+		c.counter.Add(context.TODO(), 1, metric.WithAttributes(c.attributes...))
 	}
 }
 
@@ -60,7 +60,7 @@ func (g *otelGauge) getValue() interface{} {
 type otelTimer struct {
 	*otelMeasurement
 	now   func() time.Time
-	timer instrument.Float64Histogram
+	timer metric.Float64Histogram
 }
 
 // Since sends the time elapsed since duration start. Only applies to TimerType stats
@@ -73,7 +73,7 @@ func (t *otelTimer) Since(start time.Time) {
 // SendTiming sends a timing for this stat. Only applies to TimerType stats
 func (t *otelTimer) SendTiming(duration time.Duration) {
 	if !t.disabled {
-		t.timer.Record(context.TODO(), duration.Seconds(), t.attributes...)
+		t.timer.Record(context.TODO(), duration.Seconds(), metric.WithAttributes(t.attributes...))
 	}
 }
 
@@ -98,12 +98,12 @@ func (t *otelTimer) RecordDuration() func() {
 // otelHistogram represents a histogram stat
 type otelHistogram struct {
 	*otelMeasurement
-	histogram instrument.Float64Histogram
+	histogram metric.Float64Histogram
 }
 
 // Observe sends an observation
 func (h *otelHistogram) Observe(value float64) {
 	if !h.disabled {
-		h.histogram.Record(context.TODO(), value, h.attributes...)
+		h.histogram.Record(context.TODO(), value, metric.WithAttributes(h.attributes...))
 	}
 }
