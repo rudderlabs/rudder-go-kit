@@ -41,12 +41,12 @@ type Limiter interface {
 
 	// Begin starts a new operation, blocking until a slot becomes available.
 	// Caller is expected to call the returned function to end the operation, otherwise
-	// the slot will be reserved indefinitely
+	// the slot will be reserved indefinitely. End can be called multiple times without any side effects
 	Begin(key string) (end func())
 
 	// BeginWithPriority starts a new operation, blocking until a slot becomes available, respecting the priority.
 	// Caller is expected to call the returned function to end the operation, otherwise
-	// the slot will be reserved indefinitely
+	// the slot will be reserved indefinitely. End can be called multiple times without any side effects
 	BeginWithPriority(key string, priority LimiterPriorityValue) (end func())
 }
 
@@ -150,19 +150,23 @@ func (l *limiter) BeginWithPriority(key string, priority LimiterPriorityValue) (
 	tags := lo.Assign(l.tags, stats.Tags{"key": key})
 	l.stats.stat.NewTaggedStat(l.name+"_limiter_waiting", stats.TimerType, tags).Since(start)
 	start = time.Now()
+	var endOnce sync.Once
+
 	end = func() {
-		defer l.stats.stat.NewTaggedStat(l.name+"_limiter_working", stats.TimerType, tags).Since(start)
-		l.mu.Lock()
-		l.count--
-		if len(l.waitList) == 0 {
+		endOnce.Do(func() {
+			defer l.stats.stat.NewTaggedStat(l.name+"_limiter_working", stats.TimerType, tags).Since(start)
+			l.mu.Lock()
+			l.count--
+			if len(l.waitList) == 0 {
+				l.mu.Unlock()
+				return
+			}
+			next := heap.Pop(&l.waitList).(*queue.Item[chan struct{}])
+			l.count++
 			l.mu.Unlock()
-			return
-		}
-		next := heap.Pop(&l.waitList).(*queue.Item[chan struct{}])
-		l.count++
-		l.mu.Unlock()
-		next.Value <- struct{}{}
-		close(next.Value)
+			next.Value <- struct{}{}
+			close(next.Value)
+		})
 	}
 	return end
 }
