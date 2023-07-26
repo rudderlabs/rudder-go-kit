@@ -156,14 +156,12 @@ func (m *minioManager) objectUrl(objectName string) string {
 
 func (m *minioManager) getClient() (*minio.Client, error) {
 	m.clientOnce.Do(func() {
-		if m.client == nil {
-			m.client, m.clientErr = minio.New(m.config.EndPoint, &minio.Options{
-				Creds:  credentials.NewStaticV4(m.config.AccessKeyID, m.config.SecretAccessKey, ""),
-				Secure: m.config.UseSSL,
-			})
-			if m.clientErr != nil {
-				m.client = &minio.Client{}
-			}
+		m.client, m.clientErr = minio.New(m.config.EndPoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(m.config.AccessKeyID, m.config.SecretAccessKey, ""),
+			Secure: m.config.UseSSL,
+		})
+		if m.clientErr != nil {
+			m.client = &minio.Client{}
 		}
 	})
 
