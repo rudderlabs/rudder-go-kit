@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	awsS3Manager "github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -93,7 +92,7 @@ func (m *S3Manager) Download(ctx context.Context, output *os.File, key string) e
 			Key:    aws.String(key),
 		})
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok && aerr.Code() == ErrKeyNotFound.Error() {
+		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "NoSuchKey" {
 			return ErrKeyNotFound
 		}
 		return err
@@ -126,7 +125,7 @@ func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...strin
 
 	output, err := s3manager.UploadWithContext(ctx, uploadInput)
 	if err != nil {
-		if awsError, ok := err.(awserr.Error); ok && awsError.Code() == "MissingRegion" {
+		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "MissingRegion" {
 			err = fmt.Errorf(fmt.Sprintf(`Bucket '%s' not found.`, m.config.Bucket))
 		}
 		return UploadedFile{}, err
@@ -163,11 +162,9 @@ func (m *S3Manager) Delete(ctx context.Context, keys []string) (err error) {
 		cancel()
 
 		if err != nil {
-			if codeErr, ok := err.(interface{ Code() string }); ok {
+			if codeErr, ok := err.(codeError); ok {
 				m.logger.Errorf(`Error while deleting S3 objects: %v, error code: %v`, err.Error(), codeErr.Code())
 			} else {
-				// Print the error, cast err to awserr.Error to get the Code and
-				// Message from an error.
 				m.logger.Errorf(`Error while deleting S3 objects: %v`, err.Error())
 			}
 			return err
@@ -323,4 +320,8 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
 	}
 	return
+}
+
+type codeError interface {
+	Code() string
 }
