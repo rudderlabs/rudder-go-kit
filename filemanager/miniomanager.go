@@ -24,6 +24,7 @@ type MinioConfig struct {
 	AccessKeyID     string
 	SecretAccessKey string
 	UseSSL          bool
+	Region          string
 }
 
 // NewMinioManager creates a new file manager for minio
@@ -80,8 +81,14 @@ func (m *minioManager) Upload(ctx context.Context, file *os.File, prefixes ...st
 	if err != nil {
 		return UploadedFile{}, fmt.Errorf("checking bucket: %w", err)
 	}
+
+	region := m.config.Region
+	if len(region) == 0 {
+		region = "us-east-1"
+	}
+
 	if !exists {
-		if err = minioClient.MakeBucket(ctx, m.config.Bucket, minio.MakeBucketOptions{Region: "us-east-1"}); err != nil {
+		if err = minioClient.MakeBucket(ctx, m.config.Bucket, minio.MakeBucketOptions{Region: region}); err != nil {
 			return UploadedFile{}, fmt.Errorf("creating bucket: %w", err)
 		}
 	}
@@ -159,6 +166,7 @@ func (m *minioManager) getClient() (*minio.Client, error) {
 		m.client, m.clientErr = minio.New(m.config.EndPoint, &minio.Options{
 			Creds:  credentials.NewStaticV4(m.config.AccessKeyID, m.config.SecretAccessKey, ""),
 			Secure: m.config.UseSSL,
+			Region: m.config.Region,
 		})
 		if m.clientErr != nil {
 			m.client = &minio.Client{}
@@ -178,7 +186,7 @@ type minioManager struct {
 }
 
 func minioConfig(config map[string]interface{}) *MinioConfig {
-	var bucketName, prefix, endPoint, accessKeyID, secretAccessKey string
+	var bucketName, prefix, endPoint, accessKeyID, secretAccessKey, region string
 	var useSSL, ok bool
 	if config["bucketName"] != nil {
 		tmp, ok := config["bucketName"].(string)
@@ -215,6 +223,12 @@ func minioConfig(config map[string]interface{}) *MinioConfig {
 			useSSL = false
 		}
 	}
+	if config["region"] != nil {
+		tmp, ok := config["region"].(string)
+		if ok {
+			region = tmp
+		}
+	}
 
 	return &MinioConfig{
 		Bucket:          bucketName,
@@ -223,6 +237,7 @@ func minioConfig(config map[string]interface{}) *MinioConfig {
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
 		UseSSL:          useSSL,
+		Region:          region,
 	}
 }
 
@@ -246,6 +261,7 @@ func (l *minioListSession) Next() (fileObjects []*FileInfo, err error) {
 	core, err := minio.NewCore(manager.config.EndPoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(manager.config.AccessKeyID, manager.config.SecretAccessKey, ""),
 		Secure: manager.config.UseSSL,
+		Region: manager.config.Region,
 	})
 	if err != nil {
 		return
