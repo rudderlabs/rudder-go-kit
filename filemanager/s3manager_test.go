@@ -92,7 +92,7 @@ func TestNewS3ManagerWithBothAccessKeysAndRoleButRoleBasedAuthFalse(t *testing.T
 }
 
 func TestGetSessionWithAccessKeys(t *testing.T) {
-	s3Manager := s3Manager{
+	s3Manager := S3Manager{
 		baseManager: &baseManager{
 			logger: logger.NOP,
 		},
@@ -113,7 +113,7 @@ func TestGetSessionWithAccessKeys(t *testing.T) {
 }
 
 func TestGetSessionWithIAMRole(t *testing.T) {
-	s3Manager := s3Manager{
+	s3Manager := S3Manager{
 		baseManager: &baseManager{
 			logger: logger.NOP,
 		},
