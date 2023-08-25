@@ -25,7 +25,7 @@ require (
 	github.com/spf13/cast v1.5.1
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.3
-	github.com/throttled/throttled/v2 v2.11.0
+	github.com/throttled/throttled/v2 v2.12.0
 	github.com/zenizh/go-capturer v0.0.0-20211219060012-52ea6c8fed04
 	go.opentelemetry.io/otel v1.16.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.39.0
