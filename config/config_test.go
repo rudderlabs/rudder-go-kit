@@ -213,6 +213,21 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 	})
 }
 
+func TestAtomicHotReload(t *testing.T) {
+	t.Run("atomic int", func(t *testing.T) {
+		var (
+			intValue Atomic[int]
+			key      = t.Name() + ".intValue"
+		)
+
+		c := New()
+		c.RegisterAtomicIntVar(0, &intValue, 1, key)
+		c.Set(key, 10)
+
+		require.Equal(t, 10, intValue.Load())
+	})
+}
+
 func TestConfigKeyToEnv(t *testing.T) {
 	expected := "RSERVER_KEY_VAR1_VAR2"
 	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "Key.Var1.Var2"))
