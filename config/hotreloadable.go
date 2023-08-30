@@ -6,8 +6,21 @@ import (
 )
 
 // RegisterIntConfigVariable registers int config variable
+// Deprecated: use RegisterIntVar or RegisterAtomicIntVar instead
 func RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string) {
-	Default.RegisterIntConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, keys...)
+	Default.registerIntVar(defaultValue, ptr, isHotReloadable, valueScale, func(v int) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterIntVar registers a not hot-reloadable int config variable
+func RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys ...string) {
+	Default.RegisterIntVar(defaultValue, ptr, valueScale, keys...)
+}
+
+// RegisterAtomicIntVar registers a hot-reloadable int config variable
+func RegisterAtomicIntVar(defaultValue int, ptr *Atomic[int], valueScale int, keys ...string) {
+	Default.RegisterAtomicIntVar(defaultValue, ptr, valueScale, keys...)
 }
 
 // RegisterIntConfigVariable registers int config variable
@@ -154,8 +167,21 @@ func (c *Config) RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isH
 }
 
 // RegisterDurationConfigVariable registers duration config variable
+// Deprecated: use RegisterDurationVar or RegisterAtomicDurationVar instead
 func RegisterDurationConfigVariable(defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string) {
-	Default.RegisterDurationConfigVariable(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, keys...)
+	Default.registerDurationVar(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, func(v time.Duration) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterDurationVar registers a not hot-reloadable duration config variable
+func RegisterDurationVar(defaultValueInTimescaleUnits int64, ptr *time.Duration, timeScale time.Duration, keys ...string) {
+	Default.RegisterDurationVar(defaultValueInTimescaleUnits, ptr, timeScale, keys...)
+}
+
+// RegisterAtomicDurationVar registers a not hot-reloadable duration config variable
+func RegisterAtomicDurationVar(defaultValueInTimescaleUnits int64, ptr *Atomic[time.Duration], timeScale time.Duration, keys ...string) {
+	Default.RegisterAtomicDurationVar(defaultValueInTimescaleUnits, ptr, timeScale, keys...)
 }
 
 // RegisterDurationConfigVariable registers duration config variable
