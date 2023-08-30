@@ -214,17 +214,23 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 }
 
 func TestAtomicHotReload(t *testing.T) {
-	t.Run("atomic int", func(t *testing.T) {
-		var (
-			intValue Atomic[int]
-			key      = t.Name() + ".intValue"
-		)
+	t.Run("int", func(t *testing.T) {
+		var v Atomic[int]
 
 		c := New()
-		c.RegisterAtomicIntVar(0, &intValue, 1, key)
-		c.Set(key, 10)
+		c.RegisterAtomicIntVar(0, &v, 1, t.Name())
+		c.Set(t.Name(), 10)
 
-		require.Equal(t, 10, intValue.Load())
+		require.Equal(t, 10, v.Load())
+	})
+	t.Run("duration", func(t *testing.T) {
+		var v Atomic[time.Duration]
+
+		c := New()
+		c.RegisterAtomicDurationVar(0, &v, 1, t.Name())
+		c.Set(t.Name(), 123*time.Millisecond)
+
+		require.Equal(t, 123*time.Millisecond, v.Load())
 	})
 }
 

@@ -126,7 +126,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
 					*value = _value
 				}
-			case *time.Duration:
+			case *time.Duration, *Atomic[time.Duration]:
 				var _value time.Duration
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -139,9 +139,22 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = time.Duration(configVal.defaultValue.(int64)) * configVal.multiplier.(time.Duration)
 				}
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
+				if value, ok := value.(*time.Duration); ok {
+					if _value != *value {
+						fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
+							key, configVal, *value, _value,
+						)
+						*value = _value
+					}
+				} else {
+					atomicValue := configVal.value.(*Atomic[time.Duration])
+					if intValue := atomicValue.Load(); _value != intValue {
+						if atomicValue.CompareAndSwap(intValue, _value) {
+							fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
+								key, configVal, intValue, _value,
+							)
+						}
+					}
 				}
 			case *bool:
 				var _value bool

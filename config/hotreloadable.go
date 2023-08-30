@@ -13,14 +13,14 @@ func RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool,
 // RegisterIntConfigVariable registers int config variable
 // Deprecated: use RegisterIntVar or RegisterAtomicIntVar instead
 func (c *Config) RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string) {
-	c.registerIntConfigVar(defaultValue, ptr, isHotReloadable, valueScale, func(v int) {
+	c.registerIntVar(defaultValue, ptr, isHotReloadable, valueScale, func(v int) {
 		*ptr = v
 	}, keys...)
 }
 
 // RegisterIntVar registers a not hot-reloadable int config variable
 func (c *Config) RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys ...string) {
-	c.registerIntConfigVar(defaultValue, ptr, false, valueScale, func(v int) {
+	c.registerIntVar(defaultValue, ptr, false, valueScale, func(v int) {
 		*ptr = v
 	}, keys...)
 }
@@ -28,12 +28,12 @@ func (c *Config) RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys
 // RegisterAtomicIntVar registers a hot-reloadable int config variable
 // Copy of RegisterIntConfigVariable, but with a way to avoid data races for hot reloadable config variables
 func (c *Config) RegisterAtomicIntVar(defaultValue int, ptr *Atomic[int], valueScale int, keys ...string) {
-	c.registerIntConfigVar(defaultValue, ptr, true, valueScale, func(v int) {
+	c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
 		ptr.Store(v)
 	}, keys...)
 }
 
-func (c *Config) registerIntConfigVar(defaultValue int, ptr any, isHotReloadable bool, valueScale int, store func(int), keys ...string) {
+func (c *Config) registerIntVar(defaultValue int, ptr any, isHotReloadable bool, valueScale int, store func(int), keys ...string) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -159,7 +159,37 @@ func RegisterDurationConfigVariable(defaultValueInTimescaleUnits int64, ptr *tim
 }
 
 // RegisterDurationConfigVariable registers duration config variable
-func (c *Config) RegisterDurationConfigVariable(defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string) {
+// Deprecated: use RegisterDurationVar or RegisterAtomicDurationVar instead
+func (c *Config) RegisterDurationConfigVariable(
+	defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string,
+) {
+	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, func(v time.Duration) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterDurationVar registers a not hot-reloadable duration config variable
+func (c *Config) RegisterDurationVar(
+	defaultValueInTimescaleUnits int64, ptr *time.Duration, timeScale time.Duration, keys ...string,
+) {
+	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, false, timeScale, func(v time.Duration) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterAtomicDurationVar registers a hot-reloadable duration config variable
+func (c *Config) RegisterAtomicDurationVar(
+	defaultValueInTimescaleUnits int64, ptr *Atomic[time.Duration], timeScale time.Duration, keys ...string,
+) {
+	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, true, timeScale, func(v time.Duration) {
+		ptr.Store(v)
+	}, keys...)
+}
+
+func (c *Config) registerDurationVar(
+	defaultValueInTimescaleUnits int64, ptr any, isHotReloadable bool, timeScale time.Duration,
+	store func(time.Duration), keys ...string,
+) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -177,11 +207,11 @@ func (c *Config) RegisterDurationConfigVariable(defaultValueInTimescaleUnits int
 
 	for _, key := range keys {
 		if c.IsSet(key) {
-			*ptr = c.GetDuration(key, defaultValueInTimescaleUnits, timeScale)
+			store(c.GetDuration(key, defaultValueInTimescaleUnits, timeScale))
 			return
 		}
 	}
-	*ptr = time.Duration(defaultValueInTimescaleUnits) * timeScale
+	store(time.Duration(defaultValueInTimescaleUnits) * timeScale)
 }
 
 // RegisterStringConfigVariable registers string config variable
