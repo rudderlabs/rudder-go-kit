@@ -8,9 +8,7 @@ import (
 // RegisterIntConfigVariable registers int config variable
 // Deprecated: use RegisterIntVar or RegisterAtomicIntVar instead
 func RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string) {
-	Default.registerIntVar(defaultValue, ptr, isHotReloadable, valueScale, func(v int) {
-		*ptr = v
-	}, keys...)
+	Default.RegisterIntConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, keys...)
 }
 
 // RegisterIntVar registers a not hot-reloadable int config variable
@@ -72,12 +70,44 @@ func (c *Config) registerIntVar(defaultValue int, ptr any, isHotReloadable bool,
 }
 
 // RegisterBoolConfigVariable registers bool config variable
+// Deprecated: use RegisterBoolVar or RegisterAtomicBoolVar instead
 func RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bool, keys ...string) {
 	Default.RegisterBoolConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
 
+// RegisterBoolVar registers a not hot-reloadable bool config variable
+func RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
+	Default.RegisterBoolVar(defaultValue, ptr, keys...)
+}
+
+// RegisterAtomicBoolVar registers a hot-reloadable bool config variable
+func RegisterAtomicBoolVar(defaultValue bool, ptr *Atomic[bool], keys ...string) {
+	Default.RegisterAtomicBoolVar(defaultValue, ptr, keys...)
+}
+
 // RegisterBoolConfigVariable registers bool config variable
+// Deprecated: use RegisterBoolVar or RegisterAtomicBoolVar instead
 func (c *Config) RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bool, keys ...string) {
+	c.registerBoolVar(defaultValue, ptr, isHotReloadable, func(v bool) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterBoolVar registers a not hot-reloadable bool config variable
+func (c *Config) RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
+	c.registerBoolVar(defaultValue, ptr, false, func(v bool) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterAtomicBoolVar registers a hot-reloadable bool config variable
+func (c *Config) RegisterAtomicBoolVar(defaultValue bool, ptr *Atomic[bool], keys ...string) {
+	c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
+		ptr.Store(v)
+	}, keys...)
+}
+
+func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable bool, store func(bool), keys ...string) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -95,11 +125,11 @@ func (c *Config) RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotR
 	for _, key := range keys {
 		c.bindEnv(key)
 		if c.IsSet(key) {
-			*ptr = c.GetBool(key, defaultValue)
+			store(c.GetBool(key, defaultValue))
 			return
 		}
 	}
-	*ptr = defaultValue
+	store(defaultValue)
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
@@ -169,9 +199,7 @@ func (c *Config) RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isH
 // RegisterDurationConfigVariable registers duration config variable
 // Deprecated: use RegisterDurationVar or RegisterAtomicDurationVar instead
 func RegisterDurationConfigVariable(defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string) {
-	Default.registerDurationVar(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, func(v time.Duration) {
-		*ptr = v
-	}, keys...)
+	Default.RegisterDurationConfigVariable(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, keys...)
 }
 
 // RegisterDurationVar registers a not hot-reloadable duration config variable

@@ -152,7 +152,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 						)
 					}
 				}
-			case *bool:
+			case *bool, *Atomic[bool]:
 				var _value bool
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -165,9 +165,20 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.(bool)
 				}
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
+				if value, ok := value.(*bool); ok {
+					if _value != *value {
+						fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n",
+							key, configVal, *value, _value,
+						)
+						*value = _value
+					}
+				} else {
+					atomicValue := configVal.value.(*Atomic[bool])
+					if oldValue, swapped := atomicValue.swapIfNotEqual(_value); swapped {
+						fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n",
+							key, configVal, oldValue, _value,
+						)
+					}
 				}
 			case *float64:
 				var _value float64

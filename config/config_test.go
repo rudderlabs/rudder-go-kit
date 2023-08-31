@@ -224,6 +224,15 @@ func TestAtomicHotReload(t *testing.T) {
 
 		require.Equal(t, 10, v.Load())
 	})
+	t.Run("bool", func(t *testing.T) {
+		var v Atomic[bool]
+
+		c := New()
+		c.RegisterAtomicBoolVar(false, &v, t.Name())
+		c.Set(t.Name(), true)
+
+		require.True(t, v.Load())
+	})
 	t.Run("duration", func(t *testing.T) {
 		var v Atomic[time.Duration]
 
