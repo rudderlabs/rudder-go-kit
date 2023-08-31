@@ -341,8 +341,12 @@ type Atomic[T any] struct {
 	atomic.Value
 }
 
-func (a *Atomic[T]) Load() T {
-	return a.Value.Load().(T)
+func (a *Atomic[T]) Load() (zero T) {
+	v := a.Value.Load()
+	if v == nil {
+		return zero
+	}
+	return v.(T)
 }
 
 func (a *Atomic[T]) Store(v T) {
