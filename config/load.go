@@ -74,21 +74,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(int)
 				}
 				_value = _value * configVal.multiplier.(int)
-				if value, ok := value.(*int); ok {
-					if _value != *value {
-						fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
-							key, configVal, *value, _value,
-						)
-						*value = _value
-					}
-				} else {
-					atomicValue := configVal.value.(*Atomic[int])
-					if oldValue, swapped := atomicValue.swapIfNotEqual(_value); swapped {
-						fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
-							key, configVal, oldValue, _value,
-						)
-					}
-				}
+				swapHotReloadableConfig(key, "%d", configVal, value, _value)
 			case *int64:
 				var _value int64
 				var isSet bool
@@ -137,21 +123,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = time.Duration(configVal.defaultValue.(int64)) * configVal.multiplier.(time.Duration)
 				}
-				if value, ok := value.(*time.Duration); ok {
-					if _value != *value {
-						fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
-							key, configVal, *value, _value,
-						)
-						*value = _value
-					}
-				} else {
-					atomicValue := configVal.value.(*Atomic[time.Duration])
-					if oldValue, swapped := atomicValue.swapIfNotEqual(_value); swapped {
-						fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
-							key, configVal, oldValue, _value,
-						)
-					}
-				}
+				swapHotReloadableConfig(key, "%d", configVal, value, _value)
 			case *bool, *Atomic[bool]:
 				var _value bool
 				var isSet bool
@@ -165,21 +137,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.(bool)
 				}
-				if value, ok := value.(*bool); ok {
-					if _value != *value {
-						fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n",
-							key, configVal, *value, _value,
-						)
-						*value = _value
-					}
-				} else {
-					atomicValue := configVal.value.(*Atomic[bool])
-					if oldValue, swapped := atomicValue.swapIfNotEqual(_value); swapped {
-						fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n",
-							key, configVal, oldValue, _value,
-						)
-					}
-				}
+				swapHotReloadableConfig(key, "%v", configVal, value, _value)
 			case *float64:
 				var _value float64
 				var isSet bool
@@ -235,6 +193,26 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				}
 			}
 		}
+	}
+}
+
+func swapHotReloadableConfig[T comparable](
+	key, placeholder string, configVal *configValue, ptr any, newValue T,
+) {
+	if value, ok := ptr.(*T); ok {
+		if newValue != *value {
+			fmt.Printf("The value of key %q & variable %p changed from "+placeholder+" to "+placeholder+"\n",
+				key, configVal, *value, newValue,
+			)
+			*value = newValue
+		}
+		return
+	}
+	atomicValue, _ := configVal.value.(*Atomic[T])
+	if oldValue, swapped := atomicValue.swapIfNotEqual(newValue); swapped {
+		fmt.Printf("The value of key %q & variable %p changed from "+placeholder+" to "+placeholder+"\n",
+			key, configVal, oldValue, newValue,
+		)
 	}
 }
 
