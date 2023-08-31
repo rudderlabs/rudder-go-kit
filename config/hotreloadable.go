@@ -23,7 +23,9 @@ func RegisterAtomicIntVar(defaultValue int, ptr *Atomic[int], valueScale int, ke
 
 // RegisterIntConfigVariable registers int config variable
 // Deprecated: use RegisterIntVar or RegisterAtomicIntVar instead
-func (c *Config) RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string) {
+func (c *Config) RegisterIntConfigVariable(
+	defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string,
+) {
 	c.registerIntVar(defaultValue, ptr, isHotReloadable, valueScale, func(v int) {
 		*ptr = v
 	}, keys...)
@@ -44,7 +46,9 @@ func (c *Config) RegisterAtomicIntVar(defaultValue int, ptr *Atomic[int], valueS
 	}, keys...)
 }
 
-func (c *Config) registerIntVar(defaultValue int, ptr any, isHotReloadable bool, valueScale int, store func(int), keys ...string) {
+func (c *Config) registerIntVar(
+	defaultValue int, ptr any, isHotReloadable bool, valueScale int, store func(int), keys ...string,
+) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -138,6 +142,16 @@ func RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotRelo
 	Default.RegisterFloat64ConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
 
+// RegisterFloat64Var registers float64 config variable
+func RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...string) {
+	Default.RegisterFloat64Var(defaultValue, ptr, keys...)
+}
+
+// RegisterAtomicFloat64Var registers float64 config variable
+func RegisterAtomicFloat64Var(defaultValue float64, ptr *Atomic[float64], keys ...string) {
+	Default.RegisterAtomicFloat64Var(defaultValue, ptr, keys...)
+}
+
 // RegisterFloat64ConfigVariable registers float64 config variable
 // Deprecated: use RegisterFloat64Var or RegisterAtomicFloat64Var instead
 func (c *Config) RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, keys ...string) {
@@ -161,7 +175,7 @@ func (c *Config) RegisterAtomicFloat64Var(defaultValue float64, ptr *Atomic[floa
 }
 
 func (c *Config) registerFloat64Var(
-	defaultValue float64, ptr any, isHotReloadable bool, store func(v float64), keys ...string,
+	defaultValue float64, ptr any, isHotReloadable bool, store func(float64), keys ...string,
 ) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
@@ -189,12 +203,48 @@ func (c *Config) registerFloat64Var(
 }
 
 // RegisterInt64ConfigVariable registers int64 config variable
+// Deprecated: use RegisterInt64Var or RegisterAtomicInt64Var instead
 func RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, keys ...string) {
 	Default.RegisterInt64ConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, keys...)
 }
 
+// RegisterInt64Var registers a not hot-reloadable int64 config variable
+func RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int64, keys ...string) {
+	Default.RegisterInt64Var(defaultValue, ptr, valueScale, keys...)
+}
+
+// RegisterAtomicInt64Var registers a hot-reloadable int64 config variable
+func RegisterAtomicInt64Var(defaultValue int64, ptr *Atomic[int64], valueScale int64, keys ...string) {
+	Default.RegisterAtomicInt64Var(defaultValue, ptr, valueScale, keys...)
+}
+
 // RegisterInt64ConfigVariable registers int64 config variable
-func (c *Config) RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, keys ...string) {
+// Deprecated: use RegisterInt64Var or RegisterAtomicInt64Var instead
+func (c *Config) RegisterInt64ConfigVariable(
+	defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, keys ...string,
+) {
+	c.registerInt64Var(defaultValue, ptr, isHotReloadable, valueScale, func(v int64) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterInt64Var registers a not hot-reloadable int64 config variable
+func (c *Config) RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int64, keys ...string) {
+	c.registerInt64Var(defaultValue, ptr, false, valueScale, func(v int64) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterAtomicInt64Var registers a not hot-reloadable int64 config variable
+func (c *Config) RegisterAtomicInt64Var(defaultValue int64, ptr *Atomic[int64], valueScale int64, keys ...string) {
+	c.registerInt64Var(defaultValue, ptr, true, valueScale, func(v int64) {
+		ptr.Store(v)
+	}, keys...)
+}
+
+func (c *Config) registerInt64Var(
+	defaultValue int64, ptr any, isHotReloadable bool, valueScale int64, store func(int64), keys ...string,
+) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -213,26 +263,32 @@ func (c *Config) RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isH
 	for _, key := range keys {
 		c.bindEnv(key)
 		if c.IsSet(key) {
-			*ptr = c.GetInt64(key, defaultValue) * valueScale
+			store(c.GetInt64(key, defaultValue) * valueScale)
 			return
 		}
 	}
-	*ptr = defaultValue * valueScale
+	store(defaultValue * valueScale)
 }
 
 // RegisterDurationConfigVariable registers duration config variable
 // Deprecated: use RegisterDurationVar or RegisterAtomicDurationVar instead
-func RegisterDurationConfigVariable(defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string) {
+func RegisterDurationConfigVariable(
+	defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string,
+) {
 	Default.RegisterDurationConfigVariable(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, keys...)
 }
 
 // RegisterDurationVar registers a not hot-reloadable duration config variable
-func RegisterDurationVar(defaultValueInTimescaleUnits int64, ptr *time.Duration, timeScale time.Duration, keys ...string) {
+func RegisterDurationVar(
+	defaultValueInTimescaleUnits int64, ptr *time.Duration, timeScale time.Duration, keys ...string,
+) {
 	Default.RegisterDurationVar(defaultValueInTimescaleUnits, ptr, timeScale, keys...)
 }
 
 // RegisterAtomicDurationVar registers a not hot-reloadable duration config variable
-func RegisterAtomicDurationVar(defaultValueInTimescaleUnits int64, ptr *Atomic[time.Duration], timeScale time.Duration, keys ...string) {
+func RegisterAtomicDurationVar(
+	defaultValueInTimescaleUnits int64, ptr *Atomic[time.Duration], timeScale time.Duration, keys ...string,
+) {
 	Default.RegisterAtomicDurationVar(defaultValueInTimescaleUnits, ptr, timeScale, keys...)
 }
 

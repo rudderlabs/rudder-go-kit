@@ -225,6 +225,16 @@ func TestAtomicHotReload(t *testing.T) {
 		c.Set(t.Name(), 10)
 		require.Equal(t, 10, v.Load())
 	})
+	t.Run("int64", func(t *testing.T) {
+		var v Atomic[int64]
+
+		c := New()
+		c.RegisterAtomicInt64Var(5, &v, 1, t.Name())
+		require.EqualValues(t, 5, v.Load())
+
+		c.Set(t.Name(), 10)
+		require.EqualValues(t, 10, v.Load())
+	})
 	t.Run("bool", func(t *testing.T) {
 		var v Atomic[bool]
 
