@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// BenchmarkAtomic/mutex-24						135314967			8.845 ns/op
+// BenchmarkAtomic/rw_mutex-24					132994274			8.715 ns/op
+// BenchmarkAtomic/atomic_value-24				1000000000			0.6007 ns/op
+// BenchmarkAtomic/atomic_custom_mutex-24		77852116			15.19 ns/op
 func BenchmarkAtomic(b *testing.B) {
 	b.Run("mutex", func(b *testing.B) {
 		var v atomicMutex[int]
@@ -44,8 +48,8 @@ func BenchmarkAtomic(b *testing.B) {
 			_ = v.Load()
 		}
 	})
-	b.Run("atomic bool", func(b *testing.B) {
-		var v atomicBool[int]
+	b.Run("atomic custom mutex", func(b *testing.B) {
+		var v atomicCustomMutex[int]
 		go func() {
 			for {
 				v.Store(1)
@@ -112,29 +116,29 @@ func (a *atomicValue[T]) Store(v T) {
 	a.Value.Store(v)
 }
 
-type atomicBool[T comparable] struct {
+type atomicCustomMutex[T comparable] struct {
 	value T
-	mutex atomic.Bool
+	mutex int32
 }
 
-func (a *atomicBool[T]) lock() {
-	for a.mutex.CompareAndSwap(false, true) {
+func (a *atomicCustomMutex[T]) lock() {
+	for atomic.CompareAndSwapInt32(&a.mutex, 0, 1) {
 	}
 }
 
-func (a *atomicBool[T]) unlock() {
-	for a.mutex.CompareAndSwap(true, false) {
+func (a *atomicCustomMutex[T]) unlock() {
+	for atomic.CompareAndSwapInt32(&a.mutex, 1, 0) {
 	}
 }
 
-func (a *atomicBool[T]) Load() T {
+func (a *atomicCustomMutex[T]) Load() T {
 	a.lock()
 	v := a.value
 	a.unlock()
 	return v
 }
 
-func (a *atomicBool[T]) Store(v T) {
+func (a *atomicCustomMutex[T]) Store(v T) {
 	a.lock()
 	a.value = v
 	a.unlock()

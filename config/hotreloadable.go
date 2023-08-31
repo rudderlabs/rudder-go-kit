@@ -133,12 +133,36 @@ func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable boo
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
+// Deprecated: use RegisterFloat64Var or RegisterAtomicFloat64Var instead
 func RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, keys ...string) {
 	Default.RegisterFloat64ConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
+// Deprecated: use RegisterFloat64Var or RegisterAtomicFloat64Var instead
 func (c *Config) RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, keys ...string) {
+	c.registerFloat64Var(defaultValue, ptr, isHotReloadable, func(v float64) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterFloat64Var registers a not hot-reloadable float64 config variable
+func (c *Config) RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...string) {
+	c.registerFloat64Var(defaultValue, ptr, false, func(v float64) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterAtomicFloat64Var registers a hot-reloadable float64 config variable
+func (c *Config) RegisterAtomicFloat64Var(defaultValue float64, ptr *Atomic[float64], keys ...string) {
+	c.registerFloat64Var(defaultValue, ptr, true, func(v float64) {
+		ptr.Store(v)
+	}, keys...)
+}
+
+func (c *Config) registerFloat64Var(
+	defaultValue float64, ptr any, isHotReloadable bool, store func(v float64), keys ...string,
+) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -157,11 +181,11 @@ func (c *Config) RegisterFloat64ConfigVariable(defaultValue float64, ptr *float6
 	for _, key := range keys {
 		c.bindEnv(key)
 		if c.IsSet(key) {
-			*ptr = c.GetFloat64(key, defaultValue)
+			store(c.GetFloat64(key, defaultValue))
 			return
 		}
 	}
-	*ptr = defaultValue
+	store(defaultValue)
 }
 
 // RegisterInt64ConfigVariable registers int64 config variable

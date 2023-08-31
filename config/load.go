@@ -138,7 +138,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(bool)
 				}
 				swapHotReloadableConfig(key, "%v", configVal, value, _value)
-			case *float64:
+			case *float64, *Atomic[float64]:
 				var _value float64
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -152,10 +152,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(float64)
 				}
 				_value = _value * configVal.multiplier.(float64)
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
+				swapHotReloadableConfig(key, "%v", configVal, value, _value)
 			case *[]string:
 				var _value []string
 				var isSet bool
