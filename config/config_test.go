@@ -255,6 +255,16 @@ func TestAtomicHotReload(t *testing.T) {
 		c.Set(t.Name(), 4.567)
 		require.EqualValues(t, 4.567, v.Load())
 	})
+	t.Run("string", func(t *testing.T) {
+		var v Atomic[string]
+
+		c := New()
+		c.RegisterAtomicStringVar("foo", &v, t.Name())
+		require.Equal(t, "foo", v.Load())
+
+		c.Set(t.Name(), "bar")
+		require.EqualValues(t, "bar", v.Load())
+	})
 	t.Run("duration", func(t *testing.T) {
 		var v Atomic[time.Duration]
 

@@ -349,12 +349,44 @@ func (c *Config) registerDurationVar(
 }
 
 // RegisterStringConfigVariable registers string config variable
+// Deprecated: use RegisterStringVar or RegisterAtomicStringVar instead
 func RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloadable bool, keys ...string) {
 	Default.RegisterStringConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
 
+// RegisterStringVar registers a not hot-reloadable string config variable
+func RegisterStringVar(defaultValue string, ptr *string, keys ...string) {
+	Default.RegisterStringVar(defaultValue, ptr, keys...)
+}
+
+// RegisterAtomicStringVar registers a hot-reloadable string config variable
+func RegisterAtomicStringVar(defaultValue string, ptr *Atomic[string], keys ...string) {
+	Default.RegisterAtomicStringVar(defaultValue, ptr, keys...)
+}
+
 // RegisterStringConfigVariable registers string config variable
+// Deprecated: use RegisterStringVar or RegisterAtomicStringVar instead
 func (c *Config) RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloadable bool, keys ...string) {
+	c.registerStringVar(defaultValue, ptr, isHotReloadable, func(v string) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterStringVar registers a not hot-reloadable string config variable
+func (c *Config) RegisterStringVar(defaultValue string, ptr *string, keys ...string) {
+	c.registerStringVar(defaultValue, ptr, false, func(v string) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterAtomicStringVar registers a hot-reloadable string config variable
+func (c *Config) RegisterAtomicStringVar(defaultValue string, ptr *Atomic[string], keys ...string) {
+	c.registerStringVar(defaultValue, ptr, true, func(v string) {
+		ptr.Store(v)
+	}, keys...)
+}
+
+func (c *Config) registerStringVar(defaultValue string, ptr any, isHotReloadable bool, store func(string), keys ...string) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -371,11 +403,11 @@ func (c *Config) RegisterStringConfigVariable(defaultValue string, ptr *string, 
 
 	for _, key := range keys {
 		if c.IsSet(key) {
-			*ptr = c.GetString(key, defaultValue)
+			store(c.GetString(key, defaultValue))
 			return
 		}
 	}
-	*ptr = defaultValue
+	store(defaultValue)
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
