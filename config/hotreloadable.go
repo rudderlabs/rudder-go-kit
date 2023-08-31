@@ -340,14 +340,15 @@ func (c *Config) appendVarToConfigMaps(key string, configVar *configValue) {
 // Atomic is used as a wrapper for hot-reloadable config variables
 type Atomic[T comparable] struct {
 	value T
-	lock  sync.Mutex
+	lock  sync.RWMutex
 }
 
 // Load should be used to read the underlying value without worrying about data races
 func (a *Atomic[T]) Load() T {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-	return a.value
+	a.lock.RLock()
+	v := a.value
+	a.lock.RUnlock()
+	return v
 }
 
 // Store should be used to write a value without worrying about data races
