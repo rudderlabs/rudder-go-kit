@@ -83,12 +83,10 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					}
 				} else {
 					atomicValue := configVal.value.(*Atomic[int])
-					if intValue := atomicValue.Load(); _value != intValue {
-						if atomicValue.CompareAndSwap(intValue, _value) {
-							fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
-								key, configVal, intValue, _value,
-							)
-						}
+					if oldValue, swapped := atomicValue.swapIfNotEqual(_value); swapped {
+						fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
+							key, configVal, oldValue, _value,
+						)
 					}
 				}
 			case *int64:
@@ -148,12 +146,10 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					}
 				} else {
 					atomicValue := configVal.value.(*Atomic[time.Duration])
-					if intValue := atomicValue.Load(); _value != intValue {
-						if atomicValue.CompareAndSwap(intValue, _value) {
-							fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
-								key, configVal, intValue, _value,
-							)
-						}
+					if oldValue, swapped := atomicValue.swapIfNotEqual(_value); swapped {
+						fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n",
+							key, configVal, oldValue, _value,
+						)
 					}
 				}
 			case *bool:

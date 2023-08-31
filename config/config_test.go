@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -231,6 +232,27 @@ func TestAtomicHotReload(t *testing.T) {
 		c.Set(t.Name(), 123*time.Millisecond)
 
 		require.Equal(t, 123*time.Millisecond, v.Load())
+	})
+}
+
+func TestAtomic(t *testing.T) {
+	t.Run("scalar", func(t *testing.T) {
+		var v Atomic[int]
+		v.Store(123)
+		require.Equal(t, 123, v.Load())
+	})
+	t.Run("interface", func(t *testing.T) {
+		var v Atomic[error]
+		require.Nil(t, v.Load())
+
+		v.Store(nil)
+		require.Nil(t, v.Load())
+
+		v.Store(errors.New("some error"))
+		require.EqualError(t, v.Load(), "some error")
+
+		v.Store(nil)
+		require.Nil(t, v.Load())
 	})
 }
 

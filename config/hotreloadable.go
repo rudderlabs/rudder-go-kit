@@ -1,7 +1,7 @@
 package config
 
 import (
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
@@ -337,18 +337,34 @@ func (c *Config) appendVarToConfigMaps(key string, configVar *configValue) {
 	c.hotReloadableConfig[key] = append(c.hotReloadableConfig[key], configVar)
 }
 
-type Atomic[T any] struct {
-	atomic.Value
+// Atomic is used as a wrapper for hot-reloadable config variables
+type Atomic[T comparable] struct {
+	value T
+	lock  sync.Mutex
 }
 
-func (a *Atomic[T]) Load() (zero T) {
-	v := a.Value.Load()
-	if v == nil {
-		return zero
-	}
-	return v.(T)
+// Load should be used to read the underlying value without worrying about data races
+func (a *Atomic[T]) Load() T {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	return a.value
 }
 
+// Store should be used to write a value without worrying about data races
 func (a *Atomic[T]) Store(v T) {
-	a.Value.Store(v)
+	a.lock.Lock()
+	a.value = v
+	a.lock.Unlock()
+}
+
+// swapIfNotEqual is used internally to swap the value of a hot-reloadable config variable
+func (a *Atomic[T]) swapIfNotEqual(new T) (old T, swapped bool) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	if a.value != new {
+		old := a.value
+		a.value = new
+		return old, true
+	}
+	return a.value, false
 }
