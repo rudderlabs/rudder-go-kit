@@ -275,6 +275,16 @@ func TestAtomicHotReload(t *testing.T) {
 		c.Set(t.Name(), 456*time.Millisecond)
 		require.Equal(t, 456*time.Millisecond, v.Load())
 	})
+	t.Run("slice of strings", func(t *testing.T) {
+		var v Atomic[[]string]
+
+		c := New()
+		c.RegisterAtomicStringSliceVar([]string{"a", "b"}, &v, t.Name())
+		require.Equal(t, []string{"a", "b"}, v.Load())
+
+		c.Set(t.Name(), []string{"c", "d"})
+		require.Equal(t, []string{"c", "d"}, v.Load())
+	})
 }
 
 func TestAtomic(t *testing.T) {

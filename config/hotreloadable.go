@@ -142,12 +142,12 @@ func RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotRelo
 	Default.RegisterFloat64ConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
 
-// RegisterFloat64Var registers float64 config variable
+// RegisterFloat64Var registers a not hot-reloadable float64 config variable
 func RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...string) {
 	Default.RegisterFloat64Var(defaultValue, ptr, keys...)
 }
 
-// RegisterAtomicFloat64Var registers float64 config variable
+// RegisterAtomicFloat64Var registers a hot-reloadable float64 config variable
 func RegisterAtomicFloat64Var(defaultValue float64, ptr *Atomic[float64], keys ...string) {
 	Default.RegisterAtomicFloat64Var(defaultValue, ptr, keys...)
 }
@@ -411,12 +411,48 @@ func (c *Config) registerStringVar(defaultValue string, ptr any, isHotReloadable
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
+// Deprecated: use RegisterStringSliceVar or RegisterAtomicStringSliceVar instead
 func RegisterStringSliceConfigVariable(defaultValue []string, ptr *[]string, isHotReloadable bool, keys ...string) {
 	Default.RegisterStringSliceConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
 
+// RegisterStringSliceVar registers a not hot-reloadable string slice config variable
+func RegisterStringSliceVar(defaultValue []string, ptr *[]string, keys ...string) {
+	Default.RegisterStringSliceVar(defaultValue, ptr, keys...)
+}
+
+// RegisterAtomicStringSliceVar registers a hot-reloadable string slice config variable
+func RegisterAtomicStringSliceVar(defaultValue []string, ptr *Atomic[[]string], keys ...string) {
+	Default.RegisterAtomicStringSliceVar(defaultValue, ptr, keys...)
+}
+
 // RegisterStringSliceConfigVariable registers string slice config variable
-func (c *Config) RegisterStringSliceConfigVariable(defaultValue []string, ptr *[]string, isHotReloadable bool, keys ...string) {
+// Deprecated: use RegisterStringSliceVar or RegisterAtomicStringSliceVar instead
+func (c *Config) RegisterStringSliceConfigVariable(
+	defaultValue []string, ptr *[]string, isHotReloadable bool, keys ...string,
+) {
+	c.registerStringSliceVar(defaultValue, ptr, isHotReloadable, func(v []string) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterStringSliceVar registers a not hot-reloadable string slice config variable
+func (c *Config) RegisterStringSliceVar(defaultValue []string, ptr *[]string, keys ...string) {
+	c.registerStringSliceVar(defaultValue, ptr, false, func(v []string) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterAtomicStringSliceVar registers a hot-reloadable string slice config variable
+func (c *Config) RegisterAtomicStringSliceVar(defaultValue []string, ptr *Atomic[[]string], keys ...string) {
+	c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
+		ptr.Store(v)
+	}, keys...)
+}
+
+func (c *Config) registerStringSliceVar(
+	defaultValue []string, ptr any, isHotReloadable bool, store func([]string), keys ...string,
+) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -433,11 +469,11 @@ func (c *Config) RegisterStringSliceConfigVariable(defaultValue []string, ptr *[
 
 	for _, key := range keys {
 		if c.IsSet(key) {
-			*ptr = c.GetStringSlice(key, defaultValue)
+			store(c.GetStringSlice(key, defaultValue))
 			return
 		}
 	}
-	*ptr = defaultValue
+	store(defaultValue)
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
@@ -478,7 +514,7 @@ func (c *Config) appendVarToConfigMaps(key string, configVar *configValue) {
 }
 
 // Atomic is used as a wrapper for hot-reloadable config variables
-type Atomic[T comparable] struct {
+type Atomic[T any] struct {
 	value T
 	lock  sync.RWMutex
 }
@@ -499,13 +535,19 @@ func (a *Atomic[T]) Store(v T) {
 }
 
 // swapIfNotEqual is used internally to swap the value of a hot-reloadable config variable
-func (a *Atomic[T]) swapIfNotEqual(new T) (old T, swapped bool) {
+func (a *Atomic[T]) swapIfNotEqual(new T, compare func(old, new T) bool) (old T, swapped bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
-	if a.value != new {
+	if !compare(a.value, new) {
 		old := a.value
 		a.value = new
 		return old, true
 	}
 	return a.value, false
+}
+
+func compare[T comparable]() func(a, b T) bool {
+	return func(a, b T) bool {
+		return a == b
+	}
 }

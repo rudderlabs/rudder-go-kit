@@ -74,7 +74,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(int)
 				}
 				_value = _value * configVal.multiplier.(int)
-				swapHotReloadableConfig(key, "%d", configVal, value, _value)
+				swapHotReloadableConfig(key, "%d", configVal, value, _value, compare[int]())
 			case *int64, *Atomic[int64]:
 				var _value int64
 				var isSet bool
@@ -89,7 +89,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(int64)
 				}
 				_value = _value * configVal.multiplier.(int64)
-				swapHotReloadableConfig(key, "%d", configVal, value, _value)
+				swapHotReloadableConfig(key, "%d", configVal, value, _value, compare[int64]())
 			case *string, *Atomic[string]:
 				var _value string
 				var isSet bool
@@ -103,7 +103,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.(string)
 				}
-				swapHotReloadableConfig(key, "%q", configVal, value, _value)
+				swapHotReloadableConfig(key, "%q", configVal, value, _value, compare[string]())
 			case *time.Duration, *Atomic[time.Duration]:
 				var _value time.Duration
 				var isSet bool
@@ -117,7 +117,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = time.Duration(configVal.defaultValue.(int64)) * configVal.multiplier.(time.Duration)
 				}
-				swapHotReloadableConfig(key, "%d", configVal, value, _value)
+				swapHotReloadableConfig(key, "%d", configVal, value, _value, compare[time.Duration]())
 			case *bool, *Atomic[bool]:
 				var _value bool
 				var isSet bool
@@ -131,7 +131,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.(bool)
 				}
-				swapHotReloadableConfig(key, "%v", configVal, value, _value)
+				swapHotReloadableConfig(key, "%v", configVal, value, _value, compare[bool]())
 			case *float64, *Atomic[float64]:
 				var _value float64
 				var isSet bool
@@ -146,8 +146,8 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(float64)
 				}
 				_value = _value * configVal.multiplier.(float64)
-				swapHotReloadableConfig(key, "%v", configVal, value, _value)
-			case *[]string:
+				swapHotReloadableConfig(key, "%v", configVal, value, _value, compare[float64]())
+			case *[]string, *Atomic[[]string]:
 				var _value []string
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -160,10 +160,9 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.([]string)
 				}
-				if slices.Compare(_value, *value) != 0 {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
+				swapHotReloadableConfig(key, "%v", configVal, value, _value, func(a, b []string) bool {
+					return slices.Compare(a, b) == 0
+				})
 			case *map[string]interface{}:
 				var _value map[string]interface{}
 				var isSet bool
@@ -187,11 +186,12 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 	}
 }
 
-func swapHotReloadableConfig[T comparable](
+func swapHotReloadableConfig[T any](
 	key, placeholder string, configVal *configValue, ptr any, newValue T,
+	compare func(T, T) bool,
 ) {
 	if value, ok := ptr.(*T); ok {
-		if newValue != *value {
+		if !compare(*value, newValue) {
 			fmt.Printf("The value of key %q & variable %p changed from "+placeholder+" to "+placeholder+"\n",
 				key, configVal, *value, newValue,
 			)
@@ -200,7 +200,7 @@ func swapHotReloadableConfig[T comparable](
 		return
 	}
 	atomicValue, _ := configVal.value.(*Atomic[T])
-	if oldValue, swapped := atomicValue.swapIfNotEqual(newValue); swapped {
+	if oldValue, swapped := atomicValue.swapIfNotEqual(newValue, compare); swapped {
 		fmt.Printf("The value of key %q & variable %p changed from "+placeholder+" to "+placeholder+"\n",
 			key, configVal, oldValue, newValue,
 		)
