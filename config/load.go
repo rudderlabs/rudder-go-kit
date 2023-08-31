@@ -163,7 +163,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				swapHotReloadableConfig(key, "%v", configVal, value, _value, func(a, b []string) bool {
 					return slices.Compare(a, b) == 0
 				})
-			case *map[string]interface{}:
+			case *map[string]interface{}, *Atomic[map[string]interface{}]:
 				var _value map[string]interface{}
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -176,11 +176,9 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.(map[string]interface{})
 				}
-
-				if !mapDeepEqual(_value, *value) {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
+				swapHotReloadableConfig(key, "%v", configVal, value, _value, func(a, b map[string]interface{}) bool {
+					return mapDeepEqual(a, b)
+				})
 			}
 		}
 	}
@@ -227,13 +225,11 @@ func mapDeepEqual[K comparable, V any](a, b map[K]V) bool {
 	if len(a) != len(b) {
 		return false
 	}
-
 	for k, v := range a {
 		if w, ok := b[k]; !ok || !reflect.DeepEqual(v, w) {
 			return false
 		}
 	}
-
 	return true
 }
 

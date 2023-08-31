@@ -477,12 +477,58 @@ func (c *Config) registerStringSliceVar(
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
-func RegisterStringMapConfigVariable(defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, keys ...string) {
+// Deprecated: use RegisterStringMapVar or RegisterAtomicStringMapVar instead
+func RegisterStringMapConfigVariable(
+	defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, keys ...string,
+) {
 	Default.RegisterStringMapConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
 
+// RegisterStringMapVar registers a not hot-reloadable string map config variable
+func RegisterStringMapVar(
+	defaultValue map[string]interface{}, ptr *map[string]interface{}, keys ...string,
+) {
+	Default.RegisterStringMapVar(defaultValue, ptr, keys...)
+}
+
+// RegisterAtomicStringMapVar registers a hot-reloadable string map config variable
+func RegisterAtomicStringMapVar(
+	defaultValue map[string]interface{}, ptr *Atomic[map[string]interface{}], keys ...string,
+) {
+	Default.RegisterAtomicStringMapVar(defaultValue, ptr, keys...)
+}
+
 // RegisterStringMapConfigVariable registers string map config variable
-func (c *Config) RegisterStringMapConfigVariable(defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, keys ...string) {
+// Deprecated: use RegisterStringMapVar or RegisterAtomicStringMapVar instead
+func (c *Config) RegisterStringMapConfigVariable(
+	defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, keys ...string,
+) {
+	c.registerStringMapVar(defaultValue, ptr, isHotReloadable, func(v map[string]interface{}) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterStringMapVar registers a not hot-reloadable string map config variable
+func (c *Config) RegisterStringMapVar(
+	defaultValue map[string]interface{}, ptr *map[string]interface{}, keys ...string,
+) {
+	c.registerStringMapVar(defaultValue, ptr, false, func(v map[string]interface{}) {
+		*ptr = v
+	}, keys...)
+}
+
+// RegisterAtomicStringMapVar registers a hot-reloadable string map config variable
+func (c *Config) RegisterAtomicStringMapVar(
+	defaultValue map[string]interface{}, ptr *Atomic[map[string]interface{}], keys ...string,
+) {
+	c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]interface{}) {
+		ptr.Store(v)
+	}, keys...)
+}
+
+func (c *Config) registerStringMapVar(
+	defaultValue map[string]interface{}, ptr any, isHotReloadable bool, store func(map[string]interface{}), keys ...string,
+) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -499,11 +545,11 @@ func (c *Config) RegisterStringMapConfigVariable(defaultValue map[string]interfa
 
 	for _, key := range keys {
 		if c.IsSet(key) {
-			*ptr = c.GetStringMap(key, defaultValue)
+			store(c.GetStringMap(key, defaultValue))
 			return
 		}
 	}
-	*ptr = defaultValue
+	store(defaultValue)
 }
 
 func (c *Config) appendVarToConfigMaps(key string, configVar *configValue) {

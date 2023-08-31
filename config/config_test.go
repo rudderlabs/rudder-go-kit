@@ -275,7 +275,7 @@ func TestAtomicHotReload(t *testing.T) {
 		c.Set(t.Name(), 456*time.Millisecond)
 		require.Equal(t, 456*time.Millisecond, v.Load())
 	})
-	t.Run("slice of strings", func(t *testing.T) {
+	t.Run("[]string", func(t *testing.T) {
 		var v Atomic[[]string]
 
 		c := New()
@@ -284,6 +284,16 @@ func TestAtomicHotReload(t *testing.T) {
 
 		c.Set(t.Name(), []string{"c", "d"})
 		require.Equal(t, []string{"c", "d"}, v.Load())
+	})
+	t.Run("map[string]interface{}", func(t *testing.T) {
+		var v Atomic[map[string]interface{}]
+
+		c := New()
+		c.RegisterAtomicStringMapVar(map[string]interface{}{"a": 1, "b": 2}, &v, t.Name())
+		require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, v.Load())
+
+		c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
+		require.Equal(t, map[string]interface{}{"c": 3, "d": 4}, v.Load())
 	})
 }
 
