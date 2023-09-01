@@ -434,8 +434,8 @@ func RegisterStringSliceVar(defaultValue []string, ptr *[]string, keys ...string
 }
 
 // RegisterAtomicStringSliceVar registers a hot-reloadable string slice config variable
-func RegisterAtomicStringSliceVar(defaultValue []string, ptr *Atomic[[]string], keys ...string) {
-	Default.RegisterAtomicStringSliceVar(defaultValue, ptr, keys...)
+func RegisterAtomicStringSliceVar(defaultValue []string, keys ...string) *Atomic[[]string] {
+	return Default.RegisterAtomicStringSliceVar(defaultValue, keys...)
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
@@ -456,10 +456,12 @@ func (c *Config) RegisterStringSliceVar(defaultValue []string, ptr *[]string, ke
 }
 
 // RegisterAtomicStringSliceVar registers a hot-reloadable string slice config variable
-func (c *Config) RegisterAtomicStringSliceVar(defaultValue []string, ptr *Atomic[[]string], keys ...string) {
+func (c *Config) RegisterAtomicStringSliceVar(defaultValue []string, keys ...string) *Atomic[[]string] {
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
 		ptr.store(v)
 	}, keys...)
+	return ptr
 }
 
 func (c *Config) registerStringSliceVar(
@@ -505,9 +507,9 @@ func RegisterStringMapVar(
 
 // RegisterAtomicStringMapVar registers a hot-reloadable string map config variable
 func RegisterAtomicStringMapVar(
-	defaultValue map[string]interface{}, ptr *Atomic[map[string]interface{}], keys ...string,
-) {
-	Default.RegisterAtomicStringMapVar(defaultValue, ptr, keys...)
+	defaultValue map[string]interface{}, keys ...string,
+) *Atomic[map[string]interface{}] {
+	return Default.RegisterAtomicStringMapVar(defaultValue, keys...)
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
@@ -531,11 +533,13 @@ func (c *Config) RegisterStringMapVar(
 
 // RegisterAtomicStringMapVar registers a hot-reloadable string map config variable
 func (c *Config) RegisterAtomicStringMapVar(
-	defaultValue map[string]interface{}, ptr *Atomic[map[string]interface{}], keys ...string,
-) {
+	defaultValue map[string]interface{}, keys ...string,
+) *Atomic[map[string]interface{}] {
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]interface{}) {
 		ptr.store(v)
 	}, keys...)
+	return ptr
 }
 
 func (c *Config) registerStringMapVar(

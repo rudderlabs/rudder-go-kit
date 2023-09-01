@@ -263,20 +263,16 @@ func TestAtomicHotReload(t *testing.T) {
 		require.Equal(t, 456*time.Millisecond, v.Load())
 	})
 	t.Run("[]string", func(t *testing.T) {
-		var v Atomic[[]string]
-
 		c := New()
-		c.RegisterAtomicStringSliceVar([]string{"a", "b"}, &v, t.Name())
+		v := c.RegisterAtomicStringSliceVar([]string{"a", "b"}, t.Name())
 		require.Equal(t, []string{"a", "b"}, v.Load())
 
 		c.Set(t.Name(), []string{"c", "d"})
 		require.Equal(t, []string{"c", "d"}, v.Load())
 	})
 	t.Run("map[string]interface{}", func(t *testing.T) {
-		var v Atomic[map[string]interface{}]
-
 		c := New()
-		c.RegisterAtomicStringMapVar(map[string]interface{}{"a": 1, "b": 2}, &v, t.Name())
+		v := c.RegisterAtomicStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
 		require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, v.Load())
 
 		c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
