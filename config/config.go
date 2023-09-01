@@ -19,6 +19,7 @@ package config
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -78,6 +79,8 @@ type Config struct {
 	envsLock                sync.RWMutex // protects the envs map below
 	envs                    map[string]string
 	envPrefix               string // prefix for environment variables
+	atomicVars              map[string]any
+	atomicVarsLock          sync.RWMutex
 }
 
 // GetBool gets bool value from config
@@ -268,6 +271,35 @@ func (c *Config) Set(key string, value interface{}) {
 	c.v.Set(key, value)
 	c.vLock.Unlock()
 	c.onConfigChange()
+}
+
+func getAtomicMapKey(v any, keys ...string) string {
+	switch v.(type) {
+	case int, int64, string, time.Duration, bool, float64, []string, map[string]interface{}:
+		sort.Strings(keys)
+		return fmt.Sprintf("%T:%s", v, strings.Join(keys, ""))
+	default:
+		panic(fmt.Errorf("getAtomicMapKey: unsupported type %T", v))
+	}
+}
+
+func getOrCreatePointer[T any](m map[string]any, lock *sync.RWMutex, defaultValue T, keys ...string) *Atomic[T] {
+	key := getAtomicMapKey(defaultValue, keys...)
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	if m == nil {
+		m = make(map[string]any)
+	}
+
+	if p, ok := m[key]; ok {
+		return p.(*Atomic[T])
+	}
+
+	ptr := &Atomic[T]{}
+	m[key] = ptr
+	return ptr
 }
 
 // bindEnv handles rudder server's unique snake case replacement by registering

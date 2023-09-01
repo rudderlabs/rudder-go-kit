@@ -216,10 +216,8 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 
 func TestAtomicHotReload(t *testing.T) {
 	t.Run("int", func(t *testing.T) {
-		var v Atomic[int]
-
 		c := New()
-		c.RegisterAtomicIntVar(5, &v, 1, t.Name())
+		v := c.RegisterAtomicIntVar(5, 1, t.Name())
 		require.Equal(t, 5, v.Load())
 
 		c.Set(t.Name(), 10)

@@ -17,8 +17,8 @@ func RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys ...string) 
 }
 
 // RegisterAtomicIntVar registers a hot-reloadable int config variable
-func RegisterAtomicIntVar(defaultValue int, ptr *Atomic[int], valueScale int, keys ...string) {
-	Default.RegisterAtomicIntVar(defaultValue, ptr, valueScale, keys...)
+func RegisterAtomicIntVar(defaultValue, valueScale int, keys ...string) *Atomic[int] {
+	return Default.RegisterAtomicIntVar(defaultValue, valueScale, keys...)
 }
 
 // RegisterIntConfigVariable registers int config variable
@@ -40,10 +40,12 @@ func (c *Config) RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys
 
 // RegisterAtomicIntVar registers a hot-reloadable int config variable
 // Copy of RegisterIntConfigVariable, but with a way to avoid data races for hot reloadable config variables
-func (c *Config) RegisterAtomicIntVar(defaultValue int, ptr *Atomic[int], valueScale int, keys ...string) {
+func (c *Config) RegisterAtomicIntVar(defaultValue, valueScale int, keys ...string) *Atomic[int] {
+	ptr := getOrCreatePointer(c.atomicVars, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
 		ptr.store(v)
 	}, keys...)
+	return ptr
 }
 
 func (c *Config) registerIntVar(
