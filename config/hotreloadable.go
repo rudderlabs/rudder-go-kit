@@ -42,7 +42,7 @@ func (c *Config) RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys
 // Copy of RegisterIntConfigVariable, but with a way to avoid data races for hot reloadable config variables
 func (c *Config) RegisterAtomicIntVar(defaultValue int, ptr *Atomic[int], valueScale int, keys ...string) {
 	c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
-		ptr.Store(v)
+		ptr.store(v)
 	}, keys...)
 }
 
@@ -107,7 +107,7 @@ func (c *Config) RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
 // RegisterAtomicBoolVar registers a hot-reloadable bool config variable
 func (c *Config) RegisterAtomicBoolVar(defaultValue bool, ptr *Atomic[bool], keys ...string) {
 	c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
-		ptr.Store(v)
+		ptr.store(v)
 	}, keys...)
 }
 
@@ -170,7 +170,7 @@ func (c *Config) RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...
 // RegisterAtomicFloat64Var registers a hot-reloadable float64 config variable
 func (c *Config) RegisterAtomicFloat64Var(defaultValue float64, ptr *Atomic[float64], keys ...string) {
 	c.registerFloat64Var(defaultValue, ptr, true, func(v float64) {
-		ptr.Store(v)
+		ptr.store(v)
 	}, keys...)
 }
 
@@ -238,7 +238,7 @@ func (c *Config) RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int
 // RegisterAtomicInt64Var registers a not hot-reloadable int64 config variable
 func (c *Config) RegisterAtomicInt64Var(defaultValue int64, ptr *Atomic[int64], valueScale int64, keys ...string) {
 	c.registerInt64Var(defaultValue, ptr, true, valueScale, func(v int64) {
-		ptr.Store(v)
+		ptr.store(v)
 	}, keys...)
 }
 
@@ -316,7 +316,7 @@ func (c *Config) RegisterAtomicDurationVar(
 	defaultValueInTimescaleUnits int64, ptr *Atomic[time.Duration], timeScale time.Duration, keys ...string,
 ) {
 	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, true, timeScale, func(v time.Duration) {
-		ptr.Store(v)
+		ptr.store(v)
 	}, keys...)
 }
 
@@ -382,7 +382,7 @@ func (c *Config) RegisterStringVar(defaultValue string, ptr *string, keys ...str
 // RegisterAtomicStringVar registers a hot-reloadable string config variable
 func (c *Config) RegisterAtomicStringVar(defaultValue string, ptr *Atomic[string], keys ...string) {
 	c.registerStringVar(defaultValue, ptr, true, func(v string) {
-		ptr.Store(v)
+		ptr.store(v)
 	}, keys...)
 }
 
@@ -446,7 +446,7 @@ func (c *Config) RegisterStringSliceVar(defaultValue []string, ptr *[]string, ke
 // RegisterAtomicStringSliceVar registers a hot-reloadable string slice config variable
 func (c *Config) RegisterAtomicStringSliceVar(defaultValue []string, ptr *Atomic[[]string], keys ...string) {
 	c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
-		ptr.Store(v)
+		ptr.store(v)
 	}, keys...)
 }
 
@@ -522,7 +522,7 @@ func (c *Config) RegisterAtomicStringMapVar(
 	defaultValue map[string]interface{}, ptr *Atomic[map[string]interface{}], keys ...string,
 ) {
 	c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]interface{}) {
-		ptr.Store(v)
+		ptr.store(v)
 	}, keys...)
 }
 
@@ -573,8 +573,7 @@ func (a *Atomic[T]) Load() T {
 	return v
 }
 
-// Store should be used to write a value without worrying about data races
-func (a *Atomic[T]) Store(v T) {
+func (a *Atomic[T]) store(v T) {
 	a.lock.Lock()
 	a.value = v
 	a.lock.Unlock()

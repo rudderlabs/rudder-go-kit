@@ -300,20 +300,20 @@ func TestAtomicHotReload(t *testing.T) {
 func TestAtomic(t *testing.T) {
 	t.Run("scalar", func(t *testing.T) {
 		var v Atomic[int]
-		v.Store(123)
+		v.store(123)
 		require.Equal(t, 123, v.Load())
 	})
 	t.Run("interface", func(t *testing.T) {
 		var v Atomic[error]
 		require.Nil(t, v.Load())
 
-		v.Store(nil)
+		v.store(nil)
 		require.Nil(t, v.Load())
 
-		v.Store(errors.New("some error"))
+		v.store(errors.New("some error"))
 		require.EqualError(t, v.Load(), "some error")
 
-		v.Store(nil)
+		v.store(nil)
 		require.Nil(t, v.Load())
 	})
 }
