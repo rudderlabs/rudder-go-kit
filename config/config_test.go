@@ -298,7 +298,7 @@ func TestGetOrCreatePointer(t *testing.T) {
 
 	require.PanicsWithError(t,
 		"Detected misuse of atomic variable registered with different default values "+
-			"int:barfooqux:123 - int:barfooqux:456\n",
+			"int:bar,foo,qux:123 - int:bar,foo,qux:456\n",
 		func() {
 			getOrCreatePointer(&m, &dvs, &rwm, 456, "qux", "foo", "bar")
 		},

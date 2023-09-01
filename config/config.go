@@ -276,7 +276,7 @@ func (c *Config) Set(key string, value interface{}) {
 
 func getAtomicMapKeys[T configTypes](v T, keys ...string) (string, string) {
 	sort.Strings(keys)
-	k := fmt.Sprintf("%T:%s", v, strings.Join(keys, ""))
+	k := fmt.Sprintf("%T:%s", v, strings.Join(keys, ","))
 	return k, fmt.Sprintf("%s:%v", k, v)
 }
 
