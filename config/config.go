@@ -80,7 +80,8 @@ type Config struct {
 	envs                    map[string]string
 	envPrefix               string // prefix for environment variables
 	atomicVars              map[string]any
-	atomicVarsLock          sync.RWMutex
+	atomicVarsMisuses       map[string]string
+	atomicVarsLock          sync.RWMutex // used to protect both atomicVars maps
 }
 
 // GetBool gets bool value from config
@@ -273,13 +274,16 @@ func (c *Config) Set(key string, value interface{}) {
 	c.onConfigChange()
 }
 
-func getAtomicMapKey[T configTypes](v T, keys ...string) string {
+func getAtomicMapKeys[T configTypes](v T, keys ...string) (string, string) {
 	sort.Strings(keys)
-	return fmt.Sprintf("%T:%s", v, strings.Join(keys, ""))
+	k := fmt.Sprintf("%T:%s", v, strings.Join(keys, ""))
+	return k, fmt.Sprintf("%s:%v", k, v)
 }
 
-func getOrCreatePointer[T configTypes](m map[string]any, lock *sync.RWMutex, defaultValue T, keys ...string) *Atomic[T] {
-	key := getAtomicMapKey(defaultValue, keys...)
+func getOrCreatePointer[T configTypes](
+	m map[string]any, dvs map[string]string, lock *sync.RWMutex, defaultValue T, keys ...string,
+) *Atomic[T] {
+	key, dvKey := getAtomicMapKeys(defaultValue, keys...)
 
 	lock.Lock()
 	defer lock.Unlock()
@@ -287,6 +291,21 @@ func getOrCreatePointer[T configTypes](m map[string]any, lock *sync.RWMutex, def
 	if m == nil {
 		m = make(map[string]any)
 	}
+	if dvs == nil {
+		dvs = make(map[string]string)
+	}
+
+	defer func() {
+		if _, ok := dvs[key]; !ok {
+			dvs[key] = dvKey
+		}
+		if dvs[key] != dvKey {
+			panic(fmt.Errorf(
+				"Detected misuse of atomic variable registered with different default values %+v - %+v\n",
+				defaultValue, dvKey,
+			))
+		}
+	}()
 
 	if p, ok := m[key]; ok {
 		return p.(*Atomic[T])

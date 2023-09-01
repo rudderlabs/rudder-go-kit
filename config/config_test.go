@@ -223,10 +223,8 @@ func TestAtomicHotReload(t *testing.T) {
 		require.Equal(t, 10, v.Load())
 	})
 	t.Run("int64", func(t *testing.T) {
-		var v Atomic[int64]
-
 		c := New()
-		c.RegisterAtomicInt64Var(5, &v, 1, t.Name())
+		v := c.RegisterAtomicInt64Var(5, 1, t.Name())
 		require.EqualValues(t, 5, v.Load())
 
 		c.Set(t.Name(), 10)
@@ -241,30 +239,24 @@ func TestAtomicHotReload(t *testing.T) {
 		require.False(t, v.Load())
 	})
 	t.Run("float64", func(t *testing.T) {
-		var v Atomic[float64]
-
 		c := New()
-		c.RegisterAtomicFloat64Var(0.123, &v, t.Name())
+		v := c.RegisterAtomicFloat64Var(0.123, t.Name())
 		require.EqualValues(t, 0.123, v.Load())
 
 		c.Set(t.Name(), 4.567)
 		require.EqualValues(t, 4.567, v.Load())
 	})
 	t.Run("string", func(t *testing.T) {
-		var v Atomic[string]
-
 		c := New()
-		c.RegisterAtomicStringVar("foo", &v, t.Name())
+		v := c.RegisterAtomicStringVar("foo", t.Name())
 		require.Equal(t, "foo", v.Load())
 
 		c.Set(t.Name(), "bar")
 		require.EqualValues(t, "bar", v.Load())
 	})
 	t.Run("duration", func(t *testing.T) {
-		var v Atomic[time.Duration]
-
 		c := New()
-		c.RegisterAtomicDurationVar(123, &v, 1, t.Name())
+		v := c.RegisterAtomicDurationVar(123, 1, t.Name())
 		require.Equal(t, 123*time.Nanosecond, v.Load())
 
 		c.Set(t.Name(), 456*time.Millisecond)
