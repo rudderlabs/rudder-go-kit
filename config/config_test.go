@@ -1,6 +1,7 @@
 package config
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -278,6 +279,29 @@ func TestAtomicHotReload(t *testing.T) {
 		c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
 		require.Equal(t, map[string]interface{}{"c": 3, "d": 4}, v.Load())
 	})
+}
+
+func TestGetOrCreatePointer(t *testing.T) {
+	var (
+		m   map[string]any
+		dvs map[string]string
+		rwm sync.RWMutex
+	)
+	p1 := getOrCreatePointer(&m, &dvs, &rwm, 123, "foo", "bar")
+	require.NotNil(t, p1)
+
+	p2 := getOrCreatePointer(&m, &dvs, &rwm, 123, "bar", "foo")
+	require.True(t, p1 == p2)
+
+	p3 := getOrCreatePointer(&m, &dvs, &rwm, 123, "bar", "foo", "qux")
+	require.True(t, p1 != p3)
+
+	require.PanicsWithError(t,
+		"Detected misuse of atomic variable registered with different default values 456 - int:barfooqux:456\n",
+		func() {
+			getOrCreatePointer(&m, &dvs, &rwm, 456, "qux", "foo", "bar")
+		},
+	)
 }
 
 func TestAtomic(t *testing.T) {

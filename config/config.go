@@ -281,19 +281,23 @@ func getAtomicMapKeys[T configTypes](v T, keys ...string) (string, string) {
 }
 
 func getOrCreatePointer[T configTypes](
-	m map[string]any, dvs map[string]string, lock *sync.RWMutex, defaultValue T, keys ...string,
+	mapPtr *map[string]any, dvsMapPtr *map[string]string, // using pointers to maps so that we can run "make" here
+	lock *sync.RWMutex, defaultValue T, keys ...string,
 ) *Atomic[T] {
 	key, dvKey := getAtomicMapKeys(defaultValue, keys...)
 
 	lock.Lock()
 	defer lock.Unlock()
 
-	if m == nil {
-		m = make(map[string]any)
+	if *mapPtr == nil {
+		*mapPtr = make(map[string]any)
 	}
-	if dvs == nil {
-		dvs = make(map[string]string)
+	if *dvsMapPtr == nil {
+		*dvsMapPtr = make(map[string]string)
 	}
+
+	m := *mapPtr
+	dvs := *dvsMapPtr
 
 	defer func() {
 		if _, ok := dvs[key]; !ok {
