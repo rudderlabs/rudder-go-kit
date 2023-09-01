@@ -87,8 +87,8 @@ func RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
 }
 
 // RegisterAtomicBoolVar registers a hot-reloadable bool config variable
-func RegisterAtomicBoolVar(defaultValue bool, ptr *Atomic[bool], keys ...string) {
-	Default.RegisterAtomicBoolVar(defaultValue, ptr, keys...)
+func RegisterAtomicBoolVar(defaultValue bool, keys ...string) *Atomic[bool] {
+	return Default.RegisterAtomicBoolVar(defaultValue, keys...)
 }
 
 // RegisterBoolConfigVariable registers bool config variable
@@ -107,10 +107,12 @@ func (c *Config) RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
 }
 
 // RegisterAtomicBoolVar registers a hot-reloadable bool config variable
-func (c *Config) RegisterAtomicBoolVar(defaultValue bool, ptr *Atomic[bool], keys ...string) {
+func (c *Config) RegisterAtomicBoolVar(defaultValue bool, keys ...string) *Atomic[bool] {
+	ptr := getOrCreatePointer(c.atomicVars, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
 		ptr.store(v)
 	}, keys...)
+	return ptr
 }
 
 func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable bool, store func(bool), keys ...string) {
@@ -561,8 +563,12 @@ func (c *Config) appendVarToConfigMaps(key string, configVar *configValue) {
 	c.hotReloadableConfig[key] = append(c.hotReloadableConfig[key], configVar)
 }
 
+type configTypes interface {
+	int | int64 | string | time.Duration | bool | float64 | []string | map[string]interface{}
+}
+
 // Atomic is used as a wrapper for hot-reloadable config variables
-type Atomic[T any] struct {
+type Atomic[T configTypes] struct {
 	value T
 	lock  sync.RWMutex
 }

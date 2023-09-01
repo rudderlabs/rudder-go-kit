@@ -184,7 +184,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 	}
 }
 
-func swapHotReloadableConfig[T any](
+func swapHotReloadableConfig[T configTypes](
 	key, placeholder string, configVal *configValue, ptr any, newValue T,
 	compare func(T, T) bool,
 ) {

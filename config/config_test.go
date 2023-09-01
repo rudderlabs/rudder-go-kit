@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -234,10 +233,8 @@ func TestAtomicHotReload(t *testing.T) {
 		require.EqualValues(t, 10, v.Load())
 	})
 	t.Run("bool", func(t *testing.T) {
-		var v Atomic[bool]
-
 		c := New()
-		c.RegisterAtomicBoolVar(true, &v, t.Name())
+		v := c.RegisterAtomicBoolVar(true, t.Name())
 		require.True(t, v.Load())
 
 		c.Set(t.Name(), false)
@@ -301,15 +298,15 @@ func TestAtomic(t *testing.T) {
 		v.store(123)
 		require.Equal(t, 123, v.Load())
 	})
-	t.Run("interface", func(t *testing.T) {
-		var v Atomic[error]
+	t.Run("nullable", func(t *testing.T) {
+		var v Atomic[[]string]
 		require.Nil(t, v.Load())
 
 		v.store(nil)
 		require.Nil(t, v.Load())
 
-		v.store(errors.New("some error"))
-		require.EqualError(t, v.Load(), "some error")
+		v.store([]string{"foo", "bar"})
+		require.Equal(t, v.Load(), []string{"foo", "bar"})
 
 		v.store(nil)
 		require.Nil(t, v.Load())

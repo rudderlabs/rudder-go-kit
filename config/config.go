@@ -273,17 +273,12 @@ func (c *Config) Set(key string, value interface{}) {
 	c.onConfigChange()
 }
 
-func getAtomicMapKey(v any, keys ...string) string {
-	switch v.(type) {
-	case int, int64, string, time.Duration, bool, float64, []string, map[string]interface{}:
-		sort.Strings(keys)
-		return fmt.Sprintf("%T:%s", v, strings.Join(keys, ""))
-	default:
-		panic(fmt.Errorf("getAtomicMapKey: unsupported type %T", v))
-	}
+func getAtomicMapKey[T configTypes](v T, keys ...string) string {
+	sort.Strings(keys)
+	return fmt.Sprintf("%T:%s", v, strings.Join(keys, ""))
 }
 
-func getOrCreatePointer[T any](m map[string]any, lock *sync.RWMutex, defaultValue T, keys ...string) *Atomic[T] {
+func getOrCreatePointer[T configTypes](m map[string]any, lock *sync.RWMutex, defaultValue T, keys ...string) *Atomic[T] {
 	key := getAtomicMapKey(defaultValue, keys...)
 
 	lock.Lock()
@@ -297,9 +292,9 @@ func getOrCreatePointer[T any](m map[string]any, lock *sync.RWMutex, defaultValu
 		return p.(*Atomic[T])
 	}
 
-	ptr := &Atomic[T]{}
-	m[key] = ptr
-	return ptr
+	p := &Atomic[T]{}
+	m[key] = p
+	return p
 }
 
 // bindEnv handles rudder server's unique snake case replacement by registering
