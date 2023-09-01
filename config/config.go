@@ -306,7 +306,7 @@ func getOrCreatePointer[T configTypes](
 		if dvs[key] != dvKey {
 			panic(fmt.Errorf(
 				"Detected misuse of atomic variable registered with different default values %+v - %+v\n",
-				defaultValue, dvKey,
+				dvs[key], dvKey,
 			))
 		}
 	}()
