@@ -41,7 +41,7 @@ func (c *Config) RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys
 // RegisterAtomicIntVar registers a hot-reloadable int config variable
 // Copy of RegisterIntConfigVariable, but with a way to avoid data races for hot reloadable config variables
 func (c *Config) RegisterAtomicIntVar(defaultValue, valueScale int, keys ...string) *Atomic[int] {
-	ptr := getOrCreatePointer(&c.atomicVars, &c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
 		ptr.store(v)
 	}, keys...)
@@ -108,7 +108,7 @@ func (c *Config) RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
 
 // RegisterAtomicBoolVar registers a hot-reloadable bool config variable
 func (c *Config) RegisterAtomicBoolVar(defaultValue bool, keys ...string) *Atomic[bool] {
-	ptr := getOrCreatePointer(&c.atomicVars, &c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
 		ptr.store(v)
 	}, keys...)
@@ -173,7 +173,7 @@ func (c *Config) RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...
 
 // RegisterAtomicFloat64Var registers a hot-reloadable float64 config variable
 func (c *Config) RegisterAtomicFloat64Var(defaultValue float64, keys ...string) *Atomic[float64] {
-	ptr := getOrCreatePointer(&c.atomicVars, &c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerFloat64Var(defaultValue, ptr, true, func(v float64) {
 		ptr.store(v)
 	}, keys...)
@@ -243,7 +243,7 @@ func (c *Config) RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int
 
 // RegisterAtomicInt64Var registers a not hot-reloadable int64 config variable
 func (c *Config) RegisterAtomicInt64Var(defaultValue, valueScale int64, keys ...string) *Atomic[int64] {
-	ptr := getOrCreatePointer(&c.atomicVars, &c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerInt64Var(defaultValue, ptr, true, valueScale, func(v int64) {
 		ptr.store(v)
 	}, keys...)
@@ -322,7 +322,7 @@ func (c *Config) RegisterAtomicDurationVar(
 	defaultValueInTimescaleUnits int64, timeScale time.Duration, keys ...string,
 ) *Atomic[time.Duration] {
 	ptr := getOrCreatePointer(
-		&c.atomicVars, &c.atomicVarsMisuses, &c.atomicVarsLock, time.Duration(defaultValueInTimescaleUnits), keys...,
+		c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, time.Duration(defaultValueInTimescaleUnits), keys...,
 	)
 	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, true, timeScale, func(v time.Duration) {
 		ptr.store(v)
@@ -391,7 +391,7 @@ func (c *Config) RegisterStringVar(defaultValue string, ptr *string, keys ...str
 
 // RegisterAtomicStringVar registers a hot-reloadable string config variable
 func (c *Config) RegisterAtomicStringVar(defaultValue string, keys ...string) *Atomic[string] {
-	ptr := getOrCreatePointer(&c.atomicVars, &c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerStringVar(defaultValue, ptr, true, func(v string) {
 		ptr.store(v)
 	}, keys...)
@@ -457,7 +457,7 @@ func (c *Config) RegisterStringSliceVar(defaultValue []string, ptr *[]string, ke
 
 // RegisterAtomicStringSliceVar registers a hot-reloadable string slice config variable
 func (c *Config) RegisterAtomicStringSliceVar(defaultValue []string, keys ...string) *Atomic[[]string] {
-	ptr := getOrCreatePointer(&c.atomicVars, &c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
 		ptr.store(v)
 	}, keys...)
@@ -535,7 +535,7 @@ func (c *Config) RegisterStringMapVar(
 func (c *Config) RegisterAtomicStringMapVar(
 	defaultValue map[string]interface{}, keys ...string,
 ) *Atomic[map[string]interface{}] {
-	ptr := getOrCreatePointer(&c.atomicVars, &c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
 	c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]interface{}) {
 		ptr.store(v)
 	}, keys...)

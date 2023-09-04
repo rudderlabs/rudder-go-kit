@@ -61,7 +61,9 @@ func WithEnvPrefix(prefix string) Opt {
 // New creates a new config instance
 func New(opts ...Opt) *Config {
 	c := &Config{
-		envPrefix: DefaultEnvPrefix,
+		envPrefix:         DefaultEnvPrefix,
+		atomicVars:        make(map[string]any),
+		atomicVarsMisuses: make(map[string]string),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -281,23 +283,13 @@ func getAtomicMapKeys[T configTypes](v T, keys ...string) (string, string) {
 }
 
 func getOrCreatePointer[T configTypes](
-	mapPtr *map[string]any, dvsMapPtr *map[string]string, // using pointers to maps so that we can run "make" here
+	m map[string]any, dvs map[string]string, // this function MUST receive maps that are already initialized
 	lock *sync.RWMutex, defaultValue T, keys ...string,
 ) *Atomic[T] {
 	key, dvKey := getAtomicMapKeys(defaultValue, keys...)
 
 	lock.Lock()
 	defer lock.Unlock()
-
-	if *mapPtr == nil {
-		*mapPtr = make(map[string]any)
-	}
-	if *dvsMapPtr == nil {
-		*dvsMapPtr = make(map[string]string)
-	}
-
-	m := *mapPtr
-	dvs := *dvsMapPtr
 
 	defer func() {
 		if _, ok := dvs[key]; !ok {

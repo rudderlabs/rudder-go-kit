@@ -283,24 +283,24 @@ func TestAtomicHotReload(t *testing.T) {
 
 func TestGetOrCreatePointer(t *testing.T) {
 	var (
-		m   map[string]any
-		dvs map[string]string
+		m   = make(map[string]any)
+		dvs = make(map[string]string)
 		rwm sync.RWMutex
 	)
-	p1 := getOrCreatePointer(&m, &dvs, &rwm, 123, "foo", "bar")
+	p1 := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
 	require.NotNil(t, p1)
 
-	p2 := getOrCreatePointer(&m, &dvs, &rwm, 123, "bar", "foo")
+	p2 := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo")
 	require.True(t, p1 == p2)
 
-	p3 := getOrCreatePointer(&m, &dvs, &rwm, 123, "bar", "foo", "qux")
+	p3 := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo", "qux")
 	require.True(t, p1 != p3)
 
 	require.PanicsWithError(t,
 		"Detected misuse of atomic variable registered with different default values "+
 			"int:bar,foo,qux:123 - int:bar,foo,qux:456\n",
 		func() {
-			getOrCreatePointer(&m, &dvs, &rwm, 456, "qux", "foo", "bar")
+			getOrCreatePointer(m, dvs, &rwm, 456, "qux", "foo", "bar")
 		},
 	)
 }
