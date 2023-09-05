@@ -7,7 +7,9 @@ import (
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 
+	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/postgres"
 )
 
@@ -29,7 +31,8 @@ type PostgresResource struct {
 
 func SetupPostgres(pool *dockertest.Pool, d cleaner, opts ...func(*postgres.Config)) (*PostgresResource, error) {
 	c := &postgres.Config{
-		Tag: "15-alpine",
+		Tag:     "15-alpine",
+		ShmSize: 128 * bytesize.MB,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -49,6 +52,8 @@ func SetupPostgres(pool *dockertest.Pool, d cleaner, opts ...func(*postgres.Conf
 			"POSTGRES_USER=" + postgresDefaultUser,
 		},
 		Cmd: cmd,
+	}, func(hc *dc.HostConfig) {
+		hc.ShmSize = c.ShmSize
 	})
 	if err != nil {
 		return nil, err
