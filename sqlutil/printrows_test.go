@@ -33,6 +33,8 @@ func TestPrintRowsToTable(t *testing.T) {
 	var out bytes.Buffer
 	rows, err := postgres.DB.Query(`SELECT * FROM users`)
 	require.NoError(t, err)
+	err = rows.Err()
+	require.NoError(t, err)
 	defer func() { _ = rows.Close() }()
 	err = sqlutil.PrintRowsToTable(rows, &out)
 	require.NoError(t, err)

@@ -1,6 +1,6 @@
 run:
   timeout: 5m
-  go: '1.20'
+  go: '1.21'
 
 linters:
   enable:
@@ -10,9 +10,10 @@ linters:
     - govet
     - ineffassign
     - staticcheck
-    - structcheck
     - typecheck
     - unused
+    - unparam
+    - unconvert
     - varcheck
     - bodyclose
     - decorder
@@ -36,10 +37,10 @@ issues:
 
 linters-settings:
   depguard:
-    # Kind of list is passed in.
-    # Allowed values: allowlist|denylist
-    # Default: denylist
-    list-type: denylist
-    # Check the list against standard lib.
-    # Default: false
-    include-go-root: true
+    rules:
+      main:
+        files:
+          - $all
+        deny:
+          - pkg: "github.com/gofrs/uuid"
+            desc: 'use github.com/google/uuid instead'
