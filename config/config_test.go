@@ -306,6 +306,9 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			c.Set(t.Name(), 10)
 			require.Equal(t, 10, v.Load())
+
+			c.Set(t.Name(), 10)
+			require.Equal(t, 10, v.Load(), "value should not change")
 		})
 		t.Run("int64", func(t *testing.T) {
 			c := New()
@@ -314,6 +317,9 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			c.Set(t.Name(), 10)
 			require.EqualValues(t, 10, v.Load())
+
+			c.Set(t.Name(), 10)
+			require.EqualValues(t, 10, v.Load(), "value should not change")
 		})
 		t.Run("bool", func(t *testing.T) {
 			c := New()
@@ -322,6 +328,9 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			c.Set(t.Name(), false)
 			require.False(t, v.Load())
+
+			c.Set(t.Name(), false)
+			require.False(t, v.Load(), "value should not change")
 		})
 		t.Run("float64", func(t *testing.T) {
 			c := New()
@@ -330,6 +339,9 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			c.Set(t.Name(), 4.567)
 			require.EqualValues(t, 4.567, v.Load())
+
+			c.Set(t.Name(), 4.567)
+			require.EqualValues(t, 4.567, v.Load(), "value should not change")
 		})
 		t.Run("string", func(t *testing.T) {
 			c := New()
@@ -338,6 +350,9 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			c.Set(t.Name(), "bar")
 			require.EqualValues(t, "bar", v.Load())
+
+			c.Set(t.Name(), "bar")
+			require.EqualValues(t, "bar", v.Load(), "value should not change")
 		})
 		t.Run("duration", func(t *testing.T) {
 			c := New()
@@ -346,6 +361,9 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			c.Set(t.Name(), 456*time.Millisecond)
 			require.Equal(t, 456*time.Millisecond, v.Load())
+
+			c.Set(t.Name(), 456*time.Millisecond)
+			require.Equal(t, 456*time.Millisecond, v.Load(), "value should not change")
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
@@ -363,6 +381,9 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			c.Set(t.Name(), []string{"c", "d"})
 			require.Equal(t, []string{"c", "d"}, v.Load())
+
+			c.Set(t.Name(), []string{"c", "d"})
+			require.Equal(t, []string{"c", "d"}, v.Load(), "value should not change")
 		})
 		t.Run("map[string]interface{}", func(t *testing.T) {
 			c := New()
@@ -371,6 +392,9 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
 			require.Equal(t, map[string]interface{}{"c": 3, "d": 4}, v.Load())
+
+			c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
+			require.Equal(t, map[string]interface{}{"c": 3, "d": 4}, v.Load(), "value should not change")
 		})
 	})
 }
