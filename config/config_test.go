@@ -214,10 +214,10 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 	})
 }
 
-func TestAtomicHotReload(t *testing.T) {
+func TestRegisterReloadable(t *testing.T) {
 	t.Run("int", func(t *testing.T) {
 		c := New()
-		v := c.RegisterAtomicIntVar(5, 1, t.Name())
+		v := c.RegisterReloadableIntVar(5, 1, t.Name())
 		require.Equal(t, 5, v.Load())
 
 		c.Set(t.Name(), 10)
@@ -225,7 +225,7 @@ func TestAtomicHotReload(t *testing.T) {
 	})
 	t.Run("int64", func(t *testing.T) {
 		c := New()
-		v := c.RegisterAtomicInt64Var(5, 1, t.Name())
+		v := c.RegisterReloadableInt64Var(5, 1, t.Name())
 		require.EqualValues(t, 5, v.Load())
 
 		c.Set(t.Name(), 10)
@@ -233,7 +233,7 @@ func TestAtomicHotReload(t *testing.T) {
 	})
 	t.Run("bool", func(t *testing.T) {
 		c := New()
-		v := c.RegisterAtomicBoolVar(true, t.Name())
+		v := c.RegisterReloadableBoolVar(true, t.Name())
 		require.True(t, v.Load())
 
 		c.Set(t.Name(), false)
@@ -241,7 +241,7 @@ func TestAtomicHotReload(t *testing.T) {
 	})
 	t.Run("float64", func(t *testing.T) {
 		c := New()
-		v := c.RegisterAtomicFloat64Var(0.123, t.Name())
+		v := c.RegisterReloadableFloat64Var(0.123, t.Name())
 		require.EqualValues(t, 0.123, v.Load())
 
 		c.Set(t.Name(), 4.567)
@@ -249,7 +249,7 @@ func TestAtomicHotReload(t *testing.T) {
 	})
 	t.Run("string", func(t *testing.T) {
 		c := New()
-		v := c.RegisterAtomicStringVar("foo", t.Name())
+		v := c.RegisterReloadableStringVar("foo", t.Name())
 		require.Equal(t, "foo", v.Load())
 
 		c.Set(t.Name(), "bar")
@@ -257,7 +257,7 @@ func TestAtomicHotReload(t *testing.T) {
 	})
 	t.Run("duration", func(t *testing.T) {
 		c := New()
-		v := c.RegisterAtomicDurationVar(123, 1, t.Name())
+		v := c.RegisterReloadableDurationVar(123, 1, t.Name())
 		require.Equal(t, 123*time.Nanosecond, v.Load())
 
 		c.Set(t.Name(), 456*time.Millisecond)
@@ -265,7 +265,7 @@ func TestAtomicHotReload(t *testing.T) {
 	})
 	t.Run("[]string", func(t *testing.T) {
 		c := New()
-		v := c.RegisterAtomicStringSliceVar([]string{"a", "b"}, t.Name())
+		v := c.RegisterReloadableStringSliceVar([]string{"a", "b"}, t.Name())
 		require.Equal(t, []string{"a", "b"}, v.Load())
 
 		c.Set(t.Name(), []string{"c", "d"})
@@ -273,7 +273,7 @@ func TestAtomicHotReload(t *testing.T) {
 	})
 	t.Run("map[string]interface{}", func(t *testing.T) {
 		c := New()
-		v := c.RegisterAtomicStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
+		v := c.RegisterReloadableStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
 		require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, v.Load())
 
 		c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
@@ -297,7 +297,7 @@ func TestGetOrCreatePointer(t *testing.T) {
 	require.True(t, p1 != p3)
 
 	require.PanicsWithError(t,
-		"Detected misuse of atomic variable registered with different default values "+
+		"Detected misuse of reloadable variable registered with different default values "+
 			"int:bar,foo,qux:123 - int:bar,foo,qux:456\n",
 		func() {
 			getOrCreatePointer(m, dvs, &rwm, 456, "qux", "foo", "bar")
@@ -305,14 +305,14 @@ func TestGetOrCreatePointer(t *testing.T) {
 	)
 }
 
-func TestAtomic(t *testing.T) {
+func TestReloadable(t *testing.T) {
 	t.Run("scalar", func(t *testing.T) {
-		var v Atomic[int]
+		var v Reloadable[int]
 		v.store(123)
 		require.Equal(t, 123, v.Load())
 	})
 	t.Run("nullable", func(t *testing.T) {
-		var v Atomic[[]string]
+		var v Reloadable[[]string]
 		require.Nil(t, v.Load())
 
 		v.store(nil)

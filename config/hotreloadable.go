@@ -6,7 +6,7 @@ import (
 )
 
 // RegisterIntConfigVariable registers int config variable
-// Deprecated: use RegisterIntVar or RegisterAtomicIntVar instead
+// Deprecated: use RegisterIntVar or RegisterReloadableIntVar instead
 func RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string) {
 	Default.RegisterIntConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, keys...)
 }
@@ -16,13 +16,13 @@ func RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys ...string) 
 	Default.RegisterIntVar(defaultValue, ptr, valueScale, keys...)
 }
 
-// RegisterAtomicIntVar registers a hot-reloadable int config variable
-func RegisterAtomicIntVar(defaultValue, valueScale int, keys ...string) *Atomic[int] {
-	return Default.RegisterAtomicIntVar(defaultValue, valueScale, keys...)
+// RegisterReloadableIntVar registers a hot-reloadable int config variable
+func RegisterReloadableIntVar(defaultValue, valueScale int, keys ...string) *Reloadable[int] {
+	return Default.RegisterReloadableIntVar(defaultValue, valueScale, keys...)
 }
 
 // RegisterIntConfigVariable registers int config variable
-// Deprecated: use RegisterIntVar or RegisterAtomicIntVar instead
+// Deprecated: use RegisterIntVar or RegisterReloadableIntVar instead
 func (c *Config) RegisterIntConfigVariable(
 	defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string,
 ) {
@@ -38,10 +38,10 @@ func (c *Config) RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys
 	}, keys...)
 }
 
-// RegisterAtomicIntVar registers a hot-reloadable int config variable
+// RegisterReloadableIntVar registers a hot-reloadable int config variable
 // Copy of RegisterIntConfigVariable, but with a way to avoid data races for hot reloadable config variables
-func (c *Config) RegisterAtomicIntVar(defaultValue, valueScale int, keys ...string) *Atomic[int] {
-	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+func (c *Config) RegisterReloadableIntVar(defaultValue, valueScale int, keys ...string) *Reloadable[int] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
 	c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
 		ptr.store(v)
 	}, keys...)
@@ -76,7 +76,7 @@ func (c *Config) registerIntVar(
 }
 
 // RegisterBoolConfigVariable registers bool config variable
-// Deprecated: use RegisterBoolVar or RegisterAtomicBoolVar instead
+// Deprecated: use RegisterBoolVar or RegisterReloadableBoolVar instead
 func RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bool, keys ...string) {
 	Default.RegisterBoolConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
@@ -86,13 +86,13 @@ func RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
 	Default.RegisterBoolVar(defaultValue, ptr, keys...)
 }
 
-// RegisterAtomicBoolVar registers a hot-reloadable bool config variable
-func RegisterAtomicBoolVar(defaultValue bool, keys ...string) *Atomic[bool] {
-	return Default.RegisterAtomicBoolVar(defaultValue, keys...)
+// RegisterReloadableBoolVar registers a hot-reloadable bool config variable
+func RegisterReloadableBoolVar(defaultValue bool, keys ...string) *Reloadable[bool] {
+	return Default.RegisterReloadableBoolVar(defaultValue, keys...)
 }
 
 // RegisterBoolConfigVariable registers bool config variable
-// Deprecated: use RegisterBoolVar or RegisterAtomicBoolVar instead
+// Deprecated: use RegisterBoolVar or RegisterReloadableBoolVar instead
 func (c *Config) RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bool, keys ...string) {
 	c.registerBoolVar(defaultValue, ptr, isHotReloadable, func(v bool) {
 		*ptr = v
@@ -106,9 +106,9 @@ func (c *Config) RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
 	}, keys...)
 }
 
-// RegisterAtomicBoolVar registers a hot-reloadable bool config variable
-func (c *Config) RegisterAtomicBoolVar(defaultValue bool, keys ...string) *Atomic[bool] {
-	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+// RegisterReloadableBoolVar registers a hot-reloadable bool config variable
+func (c *Config) RegisterReloadableBoolVar(defaultValue bool, keys ...string) *Reloadable[bool] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
 	c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
 		ptr.store(v)
 	}, keys...)
@@ -141,7 +141,7 @@ func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable boo
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
-// Deprecated: use RegisterFloat64Var or RegisterAtomicFloat64Var instead
+// Deprecated: use RegisterFloat64Var or RegisterReloadableFloat64Var instead
 func RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, keys ...string) {
 	Default.RegisterFloat64ConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
@@ -151,13 +151,13 @@ func RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...string) {
 	Default.RegisterFloat64Var(defaultValue, ptr, keys...)
 }
 
-// RegisterAtomicFloat64Var registers a hot-reloadable float64 config variable
-func RegisterAtomicFloat64Var(defaultValue float64, keys ...string) *Atomic[float64] {
-	return Default.RegisterAtomicFloat64Var(defaultValue, keys...)
+// RegisterReloadableFloat64Var registers a hot-reloadable float64 config variable
+func RegisterReloadableFloat64Var(defaultValue float64, keys ...string) *Reloadable[float64] {
+	return Default.RegisterReloadableFloat64Var(defaultValue, keys...)
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
-// Deprecated: use RegisterFloat64Var or RegisterAtomicFloat64Var instead
+// Deprecated: use RegisterFloat64Var or RegisterReloadableFloat64Var instead
 func (c *Config) RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, keys ...string) {
 	c.registerFloat64Var(defaultValue, ptr, isHotReloadable, func(v float64) {
 		*ptr = v
@@ -171,9 +171,9 @@ func (c *Config) RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...
 	}, keys...)
 }
 
-// RegisterAtomicFloat64Var registers a hot-reloadable float64 config variable
-func (c *Config) RegisterAtomicFloat64Var(defaultValue float64, keys ...string) *Atomic[float64] {
-	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+// RegisterReloadableFloat64Var registers a hot-reloadable float64 config variable
+func (c *Config) RegisterReloadableFloat64Var(defaultValue float64, keys ...string) *Reloadable[float64] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
 	c.registerFloat64Var(defaultValue, ptr, true, func(v float64) {
 		ptr.store(v)
 	}, keys...)
@@ -209,7 +209,7 @@ func (c *Config) registerFloat64Var(
 }
 
 // RegisterInt64ConfigVariable registers int64 config variable
-// Deprecated: use RegisterInt64Var or RegisterAtomicInt64Var instead
+// Deprecated: use RegisterInt64Var or RegisterReloadableInt64Var instead
 func RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, keys ...string) {
 	Default.RegisterInt64ConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, keys...)
 }
@@ -219,13 +219,13 @@ func RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int64, keys ...
 	Default.RegisterInt64Var(defaultValue, ptr, valueScale, keys...)
 }
 
-// RegisterAtomicInt64Var registers a hot-reloadable int64 config variable
-func RegisterAtomicInt64Var(defaultValue, valueScale int64, keys ...string) *Atomic[int64] {
-	return Default.RegisterAtomicInt64Var(defaultValue, valueScale, keys...)
+// RegisterReloadableInt64Var registers a hot-reloadable int64 config variable
+func RegisterReloadableInt64Var(defaultValue, valueScale int64, keys ...string) *Reloadable[int64] {
+	return Default.RegisterReloadableInt64Var(defaultValue, valueScale, keys...)
 }
 
 // RegisterInt64ConfigVariable registers int64 config variable
-// Deprecated: use RegisterInt64Var or RegisterAtomicInt64Var instead
+// Deprecated: use RegisterInt64Var or RegisterReloadableInt64Var instead
 func (c *Config) RegisterInt64ConfigVariable(
 	defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, keys ...string,
 ) {
@@ -241,9 +241,9 @@ func (c *Config) RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int
 	}, keys...)
 }
 
-// RegisterAtomicInt64Var registers a not hot-reloadable int64 config variable
-func (c *Config) RegisterAtomicInt64Var(defaultValue, valueScale int64, keys ...string) *Atomic[int64] {
-	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+// RegisterReloadableInt64Var registers a not hot-reloadable int64 config variable
+func (c *Config) RegisterReloadableInt64Var(defaultValue, valueScale int64, keys ...string) *Reloadable[int64] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
 	c.registerInt64Var(defaultValue, ptr, true, valueScale, func(v int64) {
 		ptr.store(v)
 	}, keys...)
@@ -279,7 +279,7 @@ func (c *Config) registerInt64Var(
 }
 
 // RegisterDurationConfigVariable registers duration config variable
-// Deprecated: use RegisterDurationVar or RegisterAtomicDurationVar instead
+// Deprecated: use RegisterDurationVar or RegisterReloadableDurationVar instead
 func RegisterDurationConfigVariable(
 	defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string,
 ) {
@@ -293,13 +293,13 @@ func RegisterDurationVar(
 	Default.RegisterDurationVar(defaultValueInTimescaleUnits, ptr, timeScale, keys...)
 }
 
-// RegisterAtomicDurationVar registers a not hot-reloadable duration config variable
-func RegisterAtomicDurationVar(defaultValueInTimescaleUnits int64, timeScale time.Duration, keys ...string) *Atomic[time.Duration] {
-	return Default.RegisterAtomicDurationVar(defaultValueInTimescaleUnits, timeScale, keys...)
+// RegisterReloadableDurationVar registers a not hot-reloadable duration config variable
+func RegisterReloadableDurationVar(defaultValueInTimescaleUnits int64, timeScale time.Duration, keys ...string) *Reloadable[time.Duration] {
+	return Default.RegisterReloadableDurationVar(defaultValueInTimescaleUnits, timeScale, keys...)
 }
 
 // RegisterDurationConfigVariable registers duration config variable
-// Deprecated: use RegisterDurationVar or RegisterAtomicDurationVar instead
+// Deprecated: use RegisterDurationVar or RegisterReloadableDurationVar instead
 func (c *Config) RegisterDurationConfigVariable(
 	defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string,
 ) {
@@ -317,12 +317,12 @@ func (c *Config) RegisterDurationVar(
 	}, keys...)
 }
 
-// RegisterAtomicDurationVar registers a hot-reloadable duration config variable
-func (c *Config) RegisterAtomicDurationVar(
+// RegisterReloadableDurationVar registers a hot-reloadable duration config variable
+func (c *Config) RegisterReloadableDurationVar(
 	defaultValueInTimescaleUnits int64, timeScale time.Duration, keys ...string,
-) *Atomic[time.Duration] {
+) *Reloadable[time.Duration] {
 	ptr := getOrCreatePointer(
-		c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, time.Duration(defaultValueInTimescaleUnits), keys...,
+		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, time.Duration(defaultValueInTimescaleUnits), keys...,
 	)
 	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, true, timeScale, func(v time.Duration) {
 		ptr.store(v)
@@ -359,7 +359,7 @@ func (c *Config) registerDurationVar(
 }
 
 // RegisterStringConfigVariable registers string config variable
-// Deprecated: use RegisterStringVar or RegisterAtomicStringVar instead
+// Deprecated: use RegisterStringVar or RegisterReloadableStringVar instead
 func RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloadable bool, keys ...string) {
 	Default.RegisterStringConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
@@ -369,13 +369,13 @@ func RegisterStringVar(defaultValue string, ptr *string, keys ...string) {
 	Default.RegisterStringVar(defaultValue, ptr, keys...)
 }
 
-// RegisterAtomicStringVar registers a hot-reloadable string config variable
-func RegisterAtomicStringVar(defaultValue string, keys ...string) *Atomic[string] {
-	return Default.RegisterAtomicStringVar(defaultValue, keys...)
+// RegisterReloadableStringVar registers a hot-reloadable string config variable
+func RegisterReloadableStringVar(defaultValue string, keys ...string) *Reloadable[string] {
+	return Default.RegisterReloadableStringVar(defaultValue, keys...)
 }
 
 // RegisterStringConfigVariable registers string config variable
-// Deprecated: use RegisterStringVar or RegisterAtomicStringVar instead
+// Deprecated: use RegisterStringVar or RegisterReloadableStringVar instead
 func (c *Config) RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloadable bool, keys ...string) {
 	c.registerStringVar(defaultValue, ptr, isHotReloadable, func(v string) {
 		*ptr = v
@@ -389,9 +389,9 @@ func (c *Config) RegisterStringVar(defaultValue string, ptr *string, keys ...str
 	}, keys...)
 }
 
-// RegisterAtomicStringVar registers a hot-reloadable string config variable
-func (c *Config) RegisterAtomicStringVar(defaultValue string, keys ...string) *Atomic[string] {
-	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+// RegisterReloadableStringVar registers a hot-reloadable string config variable
+func (c *Config) RegisterReloadableStringVar(defaultValue string, keys ...string) *Reloadable[string] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
 	c.registerStringVar(defaultValue, ptr, true, func(v string) {
 		ptr.store(v)
 	}, keys...)
@@ -423,7 +423,7 @@ func (c *Config) registerStringVar(defaultValue string, ptr any, isHotReloadable
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
-// Deprecated: use RegisterStringSliceVar or RegisterAtomicStringSliceVar instead
+// Deprecated: use RegisterStringSliceVar or RegisterReloadableStringSliceVar instead
 func RegisterStringSliceConfigVariable(defaultValue []string, ptr *[]string, isHotReloadable bool, keys ...string) {
 	Default.RegisterStringSliceConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
 }
@@ -433,13 +433,13 @@ func RegisterStringSliceVar(defaultValue []string, ptr *[]string, keys ...string
 	Default.RegisterStringSliceVar(defaultValue, ptr, keys...)
 }
 
-// RegisterAtomicStringSliceVar registers a hot-reloadable string slice config variable
-func RegisterAtomicStringSliceVar(defaultValue []string, keys ...string) *Atomic[[]string] {
-	return Default.RegisterAtomicStringSliceVar(defaultValue, keys...)
+// RegisterReloadableStringSliceVar registers a hot-reloadable string slice config variable
+func RegisterReloadableStringSliceVar(defaultValue []string, keys ...string) *Reloadable[[]string] {
+	return Default.RegisterReloadableStringSliceVar(defaultValue, keys...)
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
-// Deprecated: use RegisterStringSliceVar or RegisterAtomicStringSliceVar instead
+// Deprecated: use RegisterStringSliceVar or RegisterReloadableStringSliceVar instead
 func (c *Config) RegisterStringSliceConfigVariable(
 	defaultValue []string, ptr *[]string, isHotReloadable bool, keys ...string,
 ) {
@@ -455,9 +455,9 @@ func (c *Config) RegisterStringSliceVar(defaultValue []string, ptr *[]string, ke
 	}, keys...)
 }
 
-// RegisterAtomicStringSliceVar registers a hot-reloadable string slice config variable
-func (c *Config) RegisterAtomicStringSliceVar(defaultValue []string, keys ...string) *Atomic[[]string] {
-	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+// RegisterReloadableStringSliceVar registers a hot-reloadable string slice config variable
+func (c *Config) RegisterReloadableStringSliceVar(defaultValue []string, keys ...string) *Reloadable[[]string] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
 	c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
 		ptr.store(v)
 	}, keys...)
@@ -491,7 +491,7 @@ func (c *Config) registerStringSliceVar(
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
-// Deprecated: use RegisterStringMapVar or RegisterAtomicStringMapVar instead
+// Deprecated: use RegisterStringMapVar or RegisterReloadableStringMapVar instead
 func RegisterStringMapConfigVariable(
 	defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, keys ...string,
 ) {
@@ -505,15 +505,15 @@ func RegisterStringMapVar(
 	Default.RegisterStringMapVar(defaultValue, ptr, keys...)
 }
 
-// RegisterAtomicStringMapVar registers a hot-reloadable string map config variable
-func RegisterAtomicStringMapVar(
+// RegisterReloadableStringMapVar registers a hot-reloadable string map config variable
+func RegisterReloadableStringMapVar(
 	defaultValue map[string]interface{}, keys ...string,
-) *Atomic[map[string]interface{}] {
-	return Default.RegisterAtomicStringMapVar(defaultValue, keys...)
+) *Reloadable[map[string]interface{}] {
+	return Default.RegisterReloadableStringMapVar(defaultValue, keys...)
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
-// Deprecated: use RegisterStringMapVar or RegisterAtomicStringMapVar instead
+// Deprecated: use RegisterStringMapVar or RegisterReloadableStringMapVar instead
 func (c *Config) RegisterStringMapConfigVariable(
 	defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, keys ...string,
 ) {
@@ -531,11 +531,11 @@ func (c *Config) RegisterStringMapVar(
 	}, keys...)
 }
 
-// RegisterAtomicStringMapVar registers a hot-reloadable string map config variable
-func (c *Config) RegisterAtomicStringMapVar(
+// RegisterReloadableStringMapVar registers a hot-reloadable string map config variable
+func (c *Config) RegisterReloadableStringMapVar(
 	defaultValue map[string]interface{}, keys ...string,
-) *Atomic[map[string]interface{}] {
-	ptr := getOrCreatePointer(c.atomicVars, c.atomicVarsMisuses, &c.atomicVarsLock, defaultValue, keys...)
+) *Reloadable[map[string]interface{}] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
 	c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]interface{}) {
 		ptr.store(v)
 	}, keys...)
@@ -579,28 +579,28 @@ type configTypes interface {
 	int | int64 | string | time.Duration | bool | float64 | []string | map[string]interface{}
 }
 
-// Atomic is used as a wrapper for hot-reloadable config variables
-type Atomic[T configTypes] struct {
+// Reloadable is used as a wrapper for hot-reloadable config variables
+type Reloadable[T configTypes] struct {
 	value T
 	lock  sync.RWMutex
 }
 
 // Load should be used to read the underlying value without worrying about data races
-func (a *Atomic[T]) Load() T {
+func (a *Reloadable[T]) Load() T {
 	a.lock.RLock()
 	v := a.value
 	a.lock.RUnlock()
 	return v
 }
 
-func (a *Atomic[T]) store(v T) {
+func (a *Reloadable[T]) store(v T) {
 	a.lock.Lock()
 	a.value = v
 	a.lock.Unlock()
 }
 
 // swapIfNotEqual is used internally to swap the value of a hot-reloadable config variable
-func (a *Atomic[T]) swapIfNotEqual(new T, compare func(old, new T) bool) (old T, swapped bool) {
+func (a *Reloadable[T]) swapIfNotEqual(new T, compare func(old, new T) bool) (old T, swapped bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	if !compare(a.value, new) {

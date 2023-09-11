@@ -61,9 +61,9 @@ func WithEnvPrefix(prefix string) Opt {
 // New creates a new config instance
 func New(opts ...Opt) *Config {
 	c := &Config{
-		envPrefix:         DefaultEnvPrefix,
-		atomicVars:        make(map[string]any),
-		atomicVarsMisuses: make(map[string]string),
+		envPrefix:             DefaultEnvPrefix,
+		reloadableVars:        make(map[string]any),
+		reloadableVarsMisuses: make(map[string]string),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -81,9 +81,9 @@ type Config struct {
 	envsLock                sync.RWMutex // protects the envs map below
 	envs                    map[string]string
 	envPrefix               string // prefix for environment variables
-	atomicVars              map[string]any
-	atomicVarsMisuses       map[string]string
-	atomicVarsLock          sync.RWMutex // used to protect both atomicVars maps
+	reloadableVars          map[string]any
+	reloadableVarsMisuses   map[string]string
+	reloadableVarsLock      sync.RWMutex // used to protect both reloadableVars maps
 }
 
 // GetBool gets bool value from config
@@ -276,7 +276,7 @@ func (c *Config) Set(key string, value interface{}) {
 	c.onConfigChange()
 }
 
-func getAtomicMapKeys[T configTypes](v T, keys ...string) (string, string) {
+func getReloadableMapKeys[T configTypes](v T, keys ...string) (string, string) {
 	sort.Strings(keys)
 	k := fmt.Sprintf("%T:%s", v, strings.Join(keys, ","))
 	return k, fmt.Sprintf("%s:%v", k, v)
@@ -285,8 +285,8 @@ func getAtomicMapKeys[T configTypes](v T, keys ...string) (string, string) {
 func getOrCreatePointer[T configTypes](
 	m map[string]any, dvs map[string]string, // this function MUST receive maps that are already initialized
 	lock *sync.RWMutex, defaultValue T, keys ...string,
-) *Atomic[T] {
-	key, dvKey := getAtomicMapKeys(defaultValue, keys...)
+) *Reloadable[T] {
+	key, dvKey := getReloadableMapKeys(defaultValue, keys...)
 
 	lock.Lock()
 	defer lock.Unlock()
@@ -297,17 +297,17 @@ func getOrCreatePointer[T configTypes](
 		}
 		if dvs[key] != dvKey {
 			panic(fmt.Errorf(
-				"Detected misuse of atomic variable registered with different default values %+v - %+v\n",
+				"Detected misuse of reloadable variable registered with different default values %+v - %+v\n",
 				dvs[key], dvKey,
 			))
 		}
 	}()
 
 	if p, ok := m[key]; ok {
-		return p.(*Atomic[T])
+		return p.(*Reloadable[T])
 	}
 
-	p := &Atomic[T]{}
+	p := &Reloadable[T]{}
 	m[key] = p
 	return p
 }
