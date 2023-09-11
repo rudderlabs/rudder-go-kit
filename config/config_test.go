@@ -214,70 +214,164 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 	})
 }
 
-func TestRegisterReloadable(t *testing.T) {
-	t.Run("int", func(t *testing.T) {
-		c := New()
-		v := c.RegisterReloadableIntVar(5, 1, t.Name())
-		require.Equal(t, 5, v.Load())
+func TestRegisterNewReloadableAPI(t *testing.T) {
+	t.Run("non reloadable", func(t *testing.T) {
+		t.Run("int", func(t *testing.T) {
+			c := New()
+			v := c.RegisterIntVar(5, 1, t.Name())
+			require.NotNil(t, v)
+			require.Equal(t, 5, *v)
 
-		c.Set(t.Name(), 10)
-		require.Equal(t, 10, v.Load())
+			c.Set(t.Name(), 10)
+			require.Equal(t, 5, *v, "variable is not reloadable")
+		})
+		t.Run("int64", func(t *testing.T) {
+			c := New()
+			v := c.RegisterInt64Var(5, 1, t.Name())
+			require.NotNil(t, v)
+			require.EqualValues(t, 5, *v)
+
+			c.Set(t.Name(), 10)
+			require.EqualValues(t, 5, *v, "variable is not reloadable")
+		})
+		t.Run("bool", func(t *testing.T) {
+			c := New()
+			v := c.RegisterBoolVar(true, t.Name())
+			require.NotNil(t, v)
+			require.True(t, *v)
+
+			c.Set(t.Name(), false)
+			require.True(t, *v, "variable is not reloadable")
+		})
+		t.Run("float64", func(t *testing.T) {
+			c := New()
+			v := c.RegisterFloat64Var(0.123, t.Name())
+			require.NotNil(t, v)
+			require.EqualValues(t, 0.123, *v)
+
+			c.Set(t.Name(), 4.567)
+			require.EqualValues(t, 0.123, *v, "variable is not reloadable")
+		})
+		t.Run("string", func(t *testing.T) {
+			c := New()
+			v := c.RegisterStringVar("foo", t.Name())
+			require.NotNil(t, v)
+			require.Equal(t, "foo", *v)
+
+			c.Set(t.Name(), "bar")
+			require.EqualValues(t, "foo", *v, "variable is not reloadable")
+		})
+		t.Run("duration", func(t *testing.T) {
+			c := New()
+			v := c.RegisterDurationVar(123, time.Second, t.Name())
+			require.NotNil(t, v)
+			require.Equal(t, 123*time.Second, *v)
+
+			c.Set(t.Name(), 456*time.Millisecond)
+			require.Equal(t, 123*time.Second, *v, "variable is not reloadable")
+
+			require.PanicsWithError(t,
+				"Detected misuse of config variable registered with different default values "+
+					"time.Duration:TestRegisterNewReloadableAPI/non_reloadable/duration:2m3s - "+
+					"time.Duration:TestRegisterNewReloadableAPI/non_reloadable/duration:124ms\n",
+				func() {
+					_ = c.RegisterDurationVar(124, time.Millisecond, t.Name())
+				},
+			)
+		})
+		t.Run("[]string", func(t *testing.T) {
+			c := New()
+			v := c.RegisterStringSliceVar([]string{"a", "b"}, t.Name())
+			require.NotNil(t, v)
+			require.Equal(t, []string{"a", "b"}, *v)
+
+			c.Set(t.Name(), []string{"c", "d"})
+			require.Equal(t, []string{"a", "b"}, *v, "variable is not reloadable")
+		})
+		t.Run("map[string]interface{}", func(t *testing.T) {
+			c := New()
+			v := c.RegisterStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
+			require.NotNil(t, v)
+			require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, *v)
+
+			c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
+			require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, *v, "variable is not reloadable")
+		})
 	})
-	t.Run("int64", func(t *testing.T) {
-		c := New()
-		v := c.RegisterReloadableInt64Var(5, 1, t.Name())
-		require.EqualValues(t, 5, v.Load())
+	t.Run("reloadable", func(t *testing.T) {
+		t.Run("int", func(t *testing.T) {
+			c := New()
+			v := c.RegisterReloadableIntVar(5, 1, t.Name())
+			require.Equal(t, 5, v.Load())
 
-		c.Set(t.Name(), 10)
-		require.EqualValues(t, 10, v.Load())
-	})
-	t.Run("bool", func(t *testing.T) {
-		c := New()
-		v := c.RegisterReloadableBoolVar(true, t.Name())
-		require.True(t, v.Load())
+			c.Set(t.Name(), 10)
+			require.Equal(t, 10, v.Load())
+		})
+		t.Run("int64", func(t *testing.T) {
+			c := New()
+			v := c.RegisterReloadableInt64Var(5, 1, t.Name())
+			require.EqualValues(t, 5, v.Load())
 
-		c.Set(t.Name(), false)
-		require.False(t, v.Load())
-	})
-	t.Run("float64", func(t *testing.T) {
-		c := New()
-		v := c.RegisterReloadableFloat64Var(0.123, t.Name())
-		require.EqualValues(t, 0.123, v.Load())
+			c.Set(t.Name(), 10)
+			require.EqualValues(t, 10, v.Load())
+		})
+		t.Run("bool", func(t *testing.T) {
+			c := New()
+			v := c.RegisterReloadableBoolVar(true, t.Name())
+			require.True(t, v.Load())
 
-		c.Set(t.Name(), 4.567)
-		require.EqualValues(t, 4.567, v.Load())
-	})
-	t.Run("string", func(t *testing.T) {
-		c := New()
-		v := c.RegisterReloadableStringVar("foo", t.Name())
-		require.Equal(t, "foo", v.Load())
+			c.Set(t.Name(), false)
+			require.False(t, v.Load())
+		})
+		t.Run("float64", func(t *testing.T) {
+			c := New()
+			v := c.RegisterReloadableFloat64Var(0.123, t.Name())
+			require.EqualValues(t, 0.123, v.Load())
 
-		c.Set(t.Name(), "bar")
-		require.EqualValues(t, "bar", v.Load())
-	})
-	t.Run("duration", func(t *testing.T) {
-		c := New()
-		v := c.RegisterReloadableDurationVar(123, 1, t.Name())
-		require.Equal(t, 123*time.Nanosecond, v.Load())
+			c.Set(t.Name(), 4.567)
+			require.EqualValues(t, 4.567, v.Load())
+		})
+		t.Run("string", func(t *testing.T) {
+			c := New()
+			v := c.RegisterReloadableStringVar("foo", t.Name())
+			require.Equal(t, "foo", v.Load())
 
-		c.Set(t.Name(), 456*time.Millisecond)
-		require.Equal(t, 456*time.Millisecond, v.Load())
-	})
-	t.Run("[]string", func(t *testing.T) {
-		c := New()
-		v := c.RegisterReloadableStringSliceVar([]string{"a", "b"}, t.Name())
-		require.Equal(t, []string{"a", "b"}, v.Load())
+			c.Set(t.Name(), "bar")
+			require.EqualValues(t, "bar", v.Load())
+		})
+		t.Run("duration", func(t *testing.T) {
+			c := New()
+			v := c.RegisterReloadableDurationVar(123, 1, t.Name())
+			require.Equal(t, 123*time.Nanosecond, v.Load())
 
-		c.Set(t.Name(), []string{"c", "d"})
-		require.Equal(t, []string{"c", "d"}, v.Load())
-	})
-	t.Run("map[string]interface{}", func(t *testing.T) {
-		c := New()
-		v := c.RegisterReloadableStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
-		require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, v.Load())
+			c.Set(t.Name(), 456*time.Millisecond)
+			require.Equal(t, 456*time.Millisecond, v.Load())
 
-		c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
-		require.Equal(t, map[string]interface{}{"c": 3, "d": 4}, v.Load())
+			require.PanicsWithError(t,
+				"Detected misuse of config variable registered with different default values "+
+					"time.Duration:TestRegisterNewReloadableAPI/reloadable/duration:123ns - "+
+					"time.Duration:TestRegisterNewReloadableAPI/reloadable/duration:2m3s\n",
+				func() {
+					_ = c.RegisterDurationVar(123, time.Second, t.Name())
+				},
+			)
+		})
+		t.Run("[]string", func(t *testing.T) {
+			c := New()
+			v := c.RegisterReloadableStringSliceVar([]string{"a", "b"}, t.Name())
+			require.Equal(t, []string{"a", "b"}, v.Load())
+
+			c.Set(t.Name(), []string{"c", "d"})
+			require.Equal(t, []string{"c", "d"}, v.Load())
+		})
+		t.Run("map[string]interface{}", func(t *testing.T) {
+			c := New()
+			v := c.RegisterReloadableStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
+			require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, v.Load())
+
+			c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
+			require.Equal(t, map[string]interface{}{"c": 3, "d": 4}, v.Load())
+		})
 	})
 }
 
@@ -287,23 +381,23 @@ func TestGetOrCreatePointer(t *testing.T) {
 		dvs = make(map[string]string)
 		rwm sync.RWMutex
 	)
-	p1 := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
+	p1 := getOrCreatePointer(m, dvs, &rwm, 123, true, "foo", "bar")
 	require.NotNil(t, p1)
 
-	p2 := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
+	p2 := getOrCreatePointer(m, dvs, &rwm, 123, true, "foo", "bar")
 	require.True(t, p1 == p2)
 
-	p3 := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo")
+	p3 := getOrCreatePointer(m, dvs, &rwm, 123, true, "bar", "foo")
 	require.True(t, p1 != p3)
 
-	p4 := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo", "qux")
+	p4 := getOrCreatePointer(m, dvs, &rwm, 123, true, "bar", "foo", "qux")
 	require.True(t, p1 != p4)
 
 	require.PanicsWithError(t,
-		"Detected misuse of reloadable variable registered with different default values "+
+		"Detected misuse of config variable registered with different default values "+
 			"int:bar,foo,qux:123 - int:bar,foo,qux:456\n",
 		func() {
-			getOrCreatePointer(m, dvs, &rwm, 456, "bar", "foo", "qux")
+			getOrCreatePointer(m, dvs, &rwm, 456, true, "bar", "foo", "qux")
 		},
 	)
 }

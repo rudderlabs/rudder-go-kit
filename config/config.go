@@ -77,9 +77,9 @@ func WithEnvPrefix(prefix string) Opt {
 // New creates a new config instance
 func New(opts ...Opt) *Config {
 	c := &Config{
-		envPrefix:             DefaultEnvPrefix,
-		reloadableVars:        make(map[string]any),
-		reloadableVarsMisuses: make(map[string]string),
+		envPrefix:   DefaultEnvPrefix,
+		vars:        make(map[string]any),
+		varsMisuses: make(map[string]string),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -97,9 +97,9 @@ type Config struct {
 	envsLock                sync.RWMutex // protects the envs map below
 	envs                    map[string]string
 	envPrefix               string // prefix for environment variables
-	reloadableVars          map[string]any
-	reloadableVarsMisuses   map[string]string
-	reloadableVarsLock      sync.RWMutex // used to protect both reloadableVars maps
+	vars                    map[string]any
+	varsMisuses             map[string]string
+	varsLock                sync.RWMutex // used to protect both the vars and varsMisuses maps
 }
 
 // GetBool gets bool value from config
@@ -299,8 +299,8 @@ func getReloadableMapKeys[T configTypes](v T, orderedKeys ...string) (string, st
 
 func getOrCreatePointer[T configTypes](
 	m map[string]any, dvs map[string]string, // this function MUST receive maps that are already initialized
-	lock *sync.RWMutex, defaultValue T, orderedKeys ...string,
-) *Reloadable[T] {
+	lock *sync.RWMutex, defaultValue T, isHotReloadable bool, orderedKeys ...string,
+) any {
 	key, dvKey := getReloadableMapKeys(defaultValue, orderedKeys...)
 
 	lock.Lock()
@@ -312,12 +312,20 @@ func getOrCreatePointer[T configTypes](
 		}
 		if dvs[key] != dvKey {
 			panic(fmt.Errorf(
-				"Detected misuse of reloadable variable registered with different default values %+v - %+v\n",
+				"Detected misuse of config variable registered with different default values %+v - %+v\n",
 				dvs[key], dvKey,
 			))
 		}
 	}()
 
+	if isHotReloadable {
+		return getOrCreateReloadablePointer[T](key, m)
+	}
+
+	return getOrCreateNonReloadablePointer[T](key, m)
+}
+
+func getOrCreateReloadablePointer[T configTypes](key string, m map[string]any) *Reloadable[T] {
 	if p, ok := m[key]; ok {
 		return p.(*Reloadable[T])
 	}
@@ -325,6 +333,16 @@ func getOrCreatePointer[T configTypes](
 	p := &Reloadable[T]{}
 	m[key] = p
 	return p
+}
+
+func getOrCreateNonReloadablePointer[T configTypes](key string, m map[string]any) *T {
+	if p, ok := m[key]; ok {
+		return p.(*T)
+	}
+
+	var p T
+	m[key] = &p
+	return &p
 }
 
 // bindEnv handles rudder server's unique snake case replacement by registering
