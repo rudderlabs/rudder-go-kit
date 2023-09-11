@@ -14,12 +14,28 @@
 //     1. camelCase is converted to snake_case, e.g. someVariable -> some_variable
 //     2. dots (.) are replaced with underscores (_), e.g. some.variable -> some_variable
 //     3. the resulting string is uppercased and prefixed with ${PREFIX}_ (default RSERVER_), e.g. some_variable -> RSERVER_SOME_VARIABLE
+//
+// Order of keys:
+//
+//		When registering a variable with multiple keys, the order of the keys is important as it determines the
+//		hierarchical order of the keys.
+//		The first key is the most important one, and the last key is the least important one.
+//		Example:
+//		config.RegisterDurationConfigVariable(90, &cmdTimeout, true, time.Second,
+//			"JobsDB.Router.CommandRequestTimeout",
+//			"JobsDB.CommandRequestTimeout",
+//		)
+//
+//		In the above example "JobsDB.Router.CommandRequestTimeout" is checked first. If it doesn't exist then
+//	    JobsDB.CommandRequestTimeout is checked.
+//
+//	    WARNING: for this reason, registering with the same keys but in a different order is going to return two
+//	    different variables.
 package config
 
 import (
 	"fmt"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,7 +52,7 @@ var camelCaseMatch = regexp.MustCompile("([a-z0-9])([A-Z])")
 // regular expression matching uppercase letters contained in environment variable names
 var upperCaseMatch = regexp.MustCompile("^[A-Z0-9_]+$")
 
-// default, singleton config instance
+// Default is the singleton config instance
 var Default *Config
 
 func init() {
@@ -276,17 +292,16 @@ func (c *Config) Set(key string, value interface{}) {
 	c.onConfigChange()
 }
 
-func getReloadableMapKeys[T configTypes](v T, keys ...string) (string, string) {
-	sort.Strings(keys)
-	k := fmt.Sprintf("%T:%s", v, strings.Join(keys, ","))
+func getReloadableMapKeys[T configTypes](v T, orderedKeys ...string) (string, string) {
+	k := fmt.Sprintf("%T:%s", v, strings.Join(orderedKeys, ","))
 	return k, fmt.Sprintf("%s:%v", k, v)
 }
 
 func getOrCreatePointer[T configTypes](
 	m map[string]any, dvs map[string]string, // this function MUST receive maps that are already initialized
-	lock *sync.RWMutex, defaultValue T, keys ...string,
+	lock *sync.RWMutex, defaultValue T, orderedKeys ...string,
 ) *Reloadable[T] {
-	key, dvKey := getReloadableMapKeys(defaultValue, keys...)
+	key, dvKey := getReloadableMapKeys(defaultValue, orderedKeys...)
 
 	lock.Lock()
 	defer lock.Unlock()

@@ -1,55 +1,61 @@
 package config
 
 import (
+	"strings"
 	"sync"
 	"time"
 )
 
 // RegisterIntConfigVariable registers int config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterIntVar or RegisterReloadableIntVar instead
-func RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string) {
-	Default.RegisterIntConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, keys...)
+func RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool, valueScale int, orderedKeys ...string) {
+	Default.RegisterIntConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, orderedKeys...)
 }
 
 // RegisterIntVar registers a not hot-reloadable int config variable
-func RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys ...string) {
-	Default.RegisterIntVar(defaultValue, ptr, valueScale, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterIntVar(defaultValue int, ptr *int, valueScale int, orderedKeys ...string) {
+	Default.RegisterIntVar(defaultValue, ptr, valueScale, orderedKeys...)
 }
 
 // RegisterReloadableIntVar registers a hot-reloadable int config variable
-func RegisterReloadableIntVar(defaultValue, valueScale int, keys ...string) *Reloadable[int] {
-	return Default.RegisterReloadableIntVar(defaultValue, valueScale, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterReloadableIntVar(defaultValue, valueScale int, orderedKeys ...string) *Reloadable[int] {
+	return Default.RegisterReloadableIntVar(defaultValue, valueScale, orderedKeys...)
 }
 
 // RegisterIntConfigVariable registers int config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterIntVar or RegisterReloadableIntVar instead
 func (c *Config) RegisterIntConfigVariable(
-	defaultValue int, ptr *int, isHotReloadable bool, valueScale int, keys ...string,
+	defaultValue int, ptr *int, isHotReloadable bool, valueScale int, orderedKeys ...string,
 ) {
 	c.registerIntVar(defaultValue, ptr, isHotReloadable, valueScale, func(v int) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterIntVar registers a not hot-reloadable int config variable
-func (c *Config) RegisterIntVar(defaultValue int, ptr *int, valueScale int, keys ...string) {
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterIntVar(defaultValue int, ptr *int, valueScale int, orderedKeys ...string) {
 	c.registerIntVar(defaultValue, ptr, false, valueScale, func(v int) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterReloadableIntVar registers a hot-reloadable int config variable
-// Copy of RegisterIntConfigVariable, but with a way to avoid data races for hot reloadable config variables
-func (c *Config) RegisterReloadableIntVar(defaultValue, valueScale int, keys ...string) *Reloadable[int] {
-	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterReloadableIntVar(defaultValue, valueScale int, orderedKeys ...string) *Reloadable[int] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...)
 	c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
 		ptr.store(v)
-	}, keys...)
+	}, orderedKeys...)
 	return ptr
 }
 
 func (c *Config) registerIntVar(
-	defaultValue int, ptr any, isHotReloadable bool, valueScale int, store func(int), keys ...string,
+	defaultValue int, ptr any, isHotReloadable bool, valueScale int, store func(int), orderedKeys ...string,
 ) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
@@ -59,14 +65,14 @@ func (c *Config) registerIntVar(
 		value:        ptr,
 		multiplier:   valueScale,
 		defaultValue: defaultValue,
-		keys:         keys,
+		keys:         orderedKeys,
 	}
 
 	if isHotReloadable {
-		c.appendVarToConfigMaps(keys[0], &configVar)
+		c.appendVarToConfigMaps(orderedKeys, &configVar)
 	}
 
-	for _, key := range keys {
+	for _, key := range orderedKeys {
 		if c.IsSet(key) {
 			store(c.GetInt(key, defaultValue) * valueScale)
 			return
@@ -76,46 +82,52 @@ func (c *Config) registerIntVar(
 }
 
 // RegisterBoolConfigVariable registers bool config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterBoolVar or RegisterReloadableBoolVar instead
-func RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bool, keys ...string) {
-	Default.RegisterBoolConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
+func RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bool, orderedKeys ...string) {
+	Default.RegisterBoolConfigVariable(defaultValue, ptr, isHotReloadable, orderedKeys...)
 }
 
 // RegisterBoolVar registers a not hot-reloadable bool config variable
-func RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
-	Default.RegisterBoolVar(defaultValue, ptr, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterBoolVar(defaultValue bool, ptr *bool, orderedKeys ...string) {
+	Default.RegisterBoolVar(defaultValue, ptr, orderedKeys...)
 }
 
 // RegisterReloadableBoolVar registers a hot-reloadable bool config variable
-func RegisterReloadableBoolVar(defaultValue bool, keys ...string) *Reloadable[bool] {
-	return Default.RegisterReloadableBoolVar(defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterReloadableBoolVar(defaultValue bool, orderedKeys ...string) *Reloadable[bool] {
+	return Default.RegisterReloadableBoolVar(defaultValue, orderedKeys...)
 }
 
 // RegisterBoolConfigVariable registers bool config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterBoolVar or RegisterReloadableBoolVar instead
-func (c *Config) RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bool, keys ...string) {
+func (c *Config) RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bool, orderedKeys ...string) {
 	c.registerBoolVar(defaultValue, ptr, isHotReloadable, func(v bool) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterBoolVar registers a not hot-reloadable bool config variable
-func (c *Config) RegisterBoolVar(defaultValue bool, ptr *bool, keys ...string) {
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterBoolVar(defaultValue bool, ptr *bool, orderedKeys ...string) {
 	c.registerBoolVar(defaultValue, ptr, false, func(v bool) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterReloadableBoolVar registers a hot-reloadable bool config variable
-func (c *Config) RegisterReloadableBoolVar(defaultValue bool, keys ...string) *Reloadable[bool] {
-	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterReloadableBoolVar(defaultValue bool, orderedKeys ...string) *Reloadable[bool] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...)
 	c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
 		ptr.store(v)
-	}, keys...)
+	}, orderedKeys...)
 	return ptr
 }
 
-func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable bool, store func(bool), keys ...string) {
+func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable bool, store func(bool), orderedKeys ...string) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -123,14 +135,14 @@ func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable boo
 	configVar := configValue{
 		value:        ptr,
 		defaultValue: defaultValue,
-		keys:         keys,
+		keys:         orderedKeys,
 	}
 
 	if isHotReloadable {
-		c.appendVarToConfigMaps(keys[0], &configVar)
+		c.appendVarToConfigMaps(orderedKeys, &configVar)
 	}
 
-	for _, key := range keys {
+	for _, key := range orderedKeys {
 		c.bindEnv(key)
 		if c.IsSet(key) {
 			store(c.GetBool(key, defaultValue))
@@ -141,47 +153,53 @@ func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable boo
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterFloat64Var or RegisterReloadableFloat64Var instead
-func RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, keys ...string) {
-	Default.RegisterFloat64ConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
+func RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, orderedKeys ...string) {
+	Default.RegisterFloat64ConfigVariable(defaultValue, ptr, isHotReloadable, orderedKeys...)
 }
 
 // RegisterFloat64Var registers a not hot-reloadable float64 config variable
-func RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...string) {
-	Default.RegisterFloat64Var(defaultValue, ptr, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterFloat64Var(defaultValue float64, ptr *float64, orderedKeys ...string) {
+	Default.RegisterFloat64Var(defaultValue, ptr, orderedKeys...)
 }
 
 // RegisterReloadableFloat64Var registers a hot-reloadable float64 config variable
-func RegisterReloadableFloat64Var(defaultValue float64, keys ...string) *Reloadable[float64] {
-	return Default.RegisterReloadableFloat64Var(defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterReloadableFloat64Var(defaultValue float64, orderedKeys ...string) *Reloadable[float64] {
+	return Default.RegisterReloadableFloat64Var(defaultValue, orderedKeys...)
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterFloat64Var or RegisterReloadableFloat64Var instead
-func (c *Config) RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, keys ...string) {
+func (c *Config) RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotReloadable bool, orderedKeys ...string) {
 	c.registerFloat64Var(defaultValue, ptr, isHotReloadable, func(v float64) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterFloat64Var registers a not hot-reloadable float64 config variable
-func (c *Config) RegisterFloat64Var(defaultValue float64, ptr *float64, keys ...string) {
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterFloat64Var(defaultValue float64, ptr *float64, orderedKeys ...string) {
 	c.registerFloat64Var(defaultValue, ptr, false, func(v float64) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterReloadableFloat64Var registers a hot-reloadable float64 config variable
-func (c *Config) RegisterReloadableFloat64Var(defaultValue float64, keys ...string) *Reloadable[float64] {
-	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterReloadableFloat64Var(defaultValue float64, orderedKeys ...string) *Reloadable[float64] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...)
 	c.registerFloat64Var(defaultValue, ptr, true, func(v float64) {
 		ptr.store(v)
-	}, keys...)
+	}, orderedKeys...)
 	return ptr
 }
 
 func (c *Config) registerFloat64Var(
-	defaultValue float64, ptr any, isHotReloadable bool, store func(float64), keys ...string,
+	defaultValue float64, ptr any, isHotReloadable bool, store func(float64), orderedKeys ...string,
 ) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
@@ -191,14 +209,14 @@ func (c *Config) registerFloat64Var(
 		value:        ptr,
 		multiplier:   1.0,
 		defaultValue: defaultValue,
-		keys:         keys,
+		keys:         orderedKeys,
 	}
 
 	if isHotReloadable {
-		c.appendVarToConfigMaps(keys[0], &configVar)
+		c.appendVarToConfigMaps(orderedKeys, &configVar)
 	}
 
-	for _, key := range keys {
+	for _, key := range orderedKeys {
 		c.bindEnv(key)
 		if c.IsSet(key) {
 			store(c.GetFloat64(key, defaultValue))
@@ -209,49 +227,55 @@ func (c *Config) registerFloat64Var(
 }
 
 // RegisterInt64ConfigVariable registers int64 config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterInt64Var or RegisterReloadableInt64Var instead
-func RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, keys ...string) {
-	Default.RegisterInt64ConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, keys...)
+func RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, orderedKeys ...string) {
+	Default.RegisterInt64ConfigVariable(defaultValue, ptr, isHotReloadable, valueScale, orderedKeys...)
 }
 
 // RegisterInt64Var registers a not hot-reloadable int64 config variable
-func RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int64, keys ...string) {
-	Default.RegisterInt64Var(defaultValue, ptr, valueScale, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int64, orderedKeys ...string) {
+	Default.RegisterInt64Var(defaultValue, ptr, valueScale, orderedKeys...)
 }
 
 // RegisterReloadableInt64Var registers a hot-reloadable int64 config variable
-func RegisterReloadableInt64Var(defaultValue, valueScale int64, keys ...string) *Reloadable[int64] {
-	return Default.RegisterReloadableInt64Var(defaultValue, valueScale, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterReloadableInt64Var(defaultValue, valueScale int64, orderedKeys ...string) *Reloadable[int64] {
+	return Default.RegisterReloadableInt64Var(defaultValue, valueScale, orderedKeys...)
 }
 
 // RegisterInt64ConfigVariable registers int64 config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterInt64Var or RegisterReloadableInt64Var instead
 func (c *Config) RegisterInt64ConfigVariable(
-	defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, keys ...string,
+	defaultValue int64, ptr *int64, isHotReloadable bool, valueScale int64, orderedKeys ...string,
 ) {
 	c.registerInt64Var(defaultValue, ptr, isHotReloadable, valueScale, func(v int64) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterInt64Var registers a not hot-reloadable int64 config variable
-func (c *Config) RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int64, keys ...string) {
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterInt64Var(defaultValue int64, ptr *int64, valueScale int64, orderedKeys ...string) {
 	c.registerInt64Var(defaultValue, ptr, false, valueScale, func(v int64) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterReloadableInt64Var registers a not hot-reloadable int64 config variable
-func (c *Config) RegisterReloadableInt64Var(defaultValue, valueScale int64, keys ...string) *Reloadable[int64] {
-	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterReloadableInt64Var(defaultValue, valueScale int64, orderedKeys ...string) *Reloadable[int64] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...)
 	c.registerInt64Var(defaultValue, ptr, true, valueScale, func(v int64) {
 		ptr.store(v)
-	}, keys...)
+	}, orderedKeys...)
 	return ptr
 }
 
 func (c *Config) registerInt64Var(
-	defaultValue int64, ptr any, isHotReloadable bool, valueScale int64, store func(int64), keys ...string,
+	defaultValue int64, ptr any, isHotReloadable bool, valueScale int64, store func(int64), orderedKeys ...string,
 ) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
@@ -261,14 +285,14 @@ func (c *Config) registerInt64Var(
 		value:        ptr,
 		multiplier:   valueScale,
 		defaultValue: defaultValue,
-		keys:         keys,
+		keys:         orderedKeys,
 	}
 
 	if isHotReloadable {
-		c.appendVarToConfigMaps(keys[0], &configVar)
+		c.appendVarToConfigMaps(orderedKeys, &configVar)
 	}
 
-	for _, key := range keys {
+	for _, key := range orderedKeys {
 		c.bindEnv(key)
 		if c.IsSet(key) {
 			store(c.GetInt64(key, defaultValue) * valueScale)
@@ -279,60 +303,66 @@ func (c *Config) registerInt64Var(
 }
 
 // RegisterDurationConfigVariable registers duration config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterDurationVar or RegisterReloadableDurationVar instead
 func RegisterDurationConfigVariable(
-	defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string,
+	defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, orderedKeys ...string,
 ) {
-	Default.RegisterDurationConfigVariable(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, keys...)
+	Default.RegisterDurationConfigVariable(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, orderedKeys...)
 }
 
 // RegisterDurationVar registers a not hot-reloadable duration config variable
+// WARNING: a different order of keys will result in a different variable
 func RegisterDurationVar(
-	defaultValueInTimescaleUnits int64, ptr *time.Duration, timeScale time.Duration, keys ...string,
+	defaultValueInTimescaleUnits int64, ptr *time.Duration, timeScale time.Duration, orderedKeys ...string,
 ) {
-	Default.RegisterDurationVar(defaultValueInTimescaleUnits, ptr, timeScale, keys...)
+	Default.RegisterDurationVar(defaultValueInTimescaleUnits, ptr, timeScale, orderedKeys...)
 }
 
 // RegisterReloadableDurationVar registers a not hot-reloadable duration config variable
-func RegisterReloadableDurationVar(defaultValueInTimescaleUnits int64, timeScale time.Duration, keys ...string) *Reloadable[time.Duration] {
-	return Default.RegisterReloadableDurationVar(defaultValueInTimescaleUnits, timeScale, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterReloadableDurationVar(defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string) *Reloadable[time.Duration] {
+	return Default.RegisterReloadableDurationVar(defaultValueInTimescaleUnits, timeScale, orderedKeys...)
 }
 
 // RegisterDurationConfigVariable registers duration config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterDurationVar or RegisterReloadableDurationVar instead
 func (c *Config) RegisterDurationConfigVariable(
-	defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, keys ...string,
+	defaultValueInTimescaleUnits int64, ptr *time.Duration, isHotReloadable bool, timeScale time.Duration, orderedKeys ...string,
 ) {
 	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, isHotReloadable, timeScale, func(v time.Duration) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterDurationVar registers a not hot-reloadable duration config variable
+// WARNING: a different order of keys will result in a different variable
 func (c *Config) RegisterDurationVar(
-	defaultValueInTimescaleUnits int64, ptr *time.Duration, timeScale time.Duration, keys ...string,
+	defaultValueInTimescaleUnits int64, ptr *time.Duration, timeScale time.Duration, orderedKeys ...string,
 ) {
 	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, false, timeScale, func(v time.Duration) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterReloadableDurationVar registers a hot-reloadable duration config variable
+// WARNING: a different order of keys will result in a different variable
 func (c *Config) RegisterReloadableDurationVar(
-	defaultValueInTimescaleUnits int64, timeScale time.Duration, keys ...string,
+	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
 ) *Reloadable[time.Duration] {
 	ptr := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, time.Duration(defaultValueInTimescaleUnits), keys...,
+		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, time.Duration(defaultValueInTimescaleUnits), orderedKeys...,
 	)
 	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, true, timeScale, func(v time.Duration) {
 		ptr.store(v)
-	}, keys...)
+	}, orderedKeys...)
 	return ptr
 }
 
 func (c *Config) registerDurationVar(
 	defaultValueInTimescaleUnits int64, ptr any, isHotReloadable bool, timeScale time.Duration,
-	store func(time.Duration), keys ...string,
+	store func(time.Duration), orderedKeys ...string,
 ) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
@@ -342,14 +372,14 @@ func (c *Config) registerDurationVar(
 		value:        ptr,
 		multiplier:   timeScale,
 		defaultValue: defaultValueInTimescaleUnits,
-		keys:         keys,
+		keys:         orderedKeys,
 	}
 
 	if isHotReloadable {
-		c.appendVarToConfigMaps(keys[0], &configVar)
+		c.appendVarToConfigMaps(orderedKeys, &configVar)
 	}
 
-	for _, key := range keys {
+	for _, key := range orderedKeys {
 		if c.IsSet(key) {
 			store(c.GetDuration(key, defaultValueInTimescaleUnits, timeScale))
 			return
@@ -359,46 +389,52 @@ func (c *Config) registerDurationVar(
 }
 
 // RegisterStringConfigVariable registers string config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterStringVar or RegisterReloadableStringVar instead
-func RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloadable bool, keys ...string) {
-	Default.RegisterStringConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
+func RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloadable bool, orderedKeys ...string) {
+	Default.RegisterStringConfigVariable(defaultValue, ptr, isHotReloadable, orderedKeys...)
 }
 
 // RegisterStringVar registers a not hot-reloadable string config variable
-func RegisterStringVar(defaultValue string, ptr *string, keys ...string) {
-	Default.RegisterStringVar(defaultValue, ptr, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterStringVar(defaultValue string, ptr *string, orderedKeys ...string) {
+	Default.RegisterStringVar(defaultValue, ptr, orderedKeys...)
 }
 
 // RegisterReloadableStringVar registers a hot-reloadable string config variable
-func RegisterReloadableStringVar(defaultValue string, keys ...string) *Reloadable[string] {
-	return Default.RegisterReloadableStringVar(defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterReloadableStringVar(defaultValue string, orderedKeys ...string) *Reloadable[string] {
+	return Default.RegisterReloadableStringVar(defaultValue, orderedKeys...)
 }
 
 // RegisterStringConfigVariable registers string config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterStringVar or RegisterReloadableStringVar instead
-func (c *Config) RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloadable bool, keys ...string) {
+func (c *Config) RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloadable bool, orderedKeys ...string) {
 	c.registerStringVar(defaultValue, ptr, isHotReloadable, func(v string) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterStringVar registers a not hot-reloadable string config variable
-func (c *Config) RegisterStringVar(defaultValue string, ptr *string, keys ...string) {
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterStringVar(defaultValue string, ptr *string, orderedKeys ...string) {
 	c.registerStringVar(defaultValue, ptr, false, func(v string) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterReloadableStringVar registers a hot-reloadable string config variable
-func (c *Config) RegisterReloadableStringVar(defaultValue string, keys ...string) *Reloadable[string] {
-	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterReloadableStringVar(defaultValue string, orderedKeys ...string) *Reloadable[string] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...)
 	c.registerStringVar(defaultValue, ptr, true, func(v string) {
 		ptr.store(v)
-	}, keys...)
+	}, orderedKeys...)
 	return ptr
 }
 
-func (c *Config) registerStringVar(defaultValue string, ptr any, isHotReloadable bool, store func(string), keys ...string) {
+func (c *Config) registerStringVar(defaultValue string, ptr any, isHotReloadable bool, store func(string), orderedKeys ...string) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	c.hotReloadableConfigLock.Lock()
@@ -406,14 +442,14 @@ func (c *Config) registerStringVar(defaultValue string, ptr any, isHotReloadable
 	configVar := configValue{
 		value:        ptr,
 		defaultValue: defaultValue,
-		keys:         keys,
+		keys:         orderedKeys,
 	}
 
 	if isHotReloadable {
-		c.appendVarToConfigMaps(keys[0], &configVar)
+		c.appendVarToConfigMaps(orderedKeys, &configVar)
 	}
 
-	for _, key := range keys {
+	for _, key := range orderedKeys {
 		if c.IsSet(key) {
 			store(c.GetString(key, defaultValue))
 			return
@@ -423,49 +459,55 @@ func (c *Config) registerStringVar(defaultValue string, ptr any, isHotReloadable
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterStringSliceVar or RegisterReloadableStringSliceVar instead
-func RegisterStringSliceConfigVariable(defaultValue []string, ptr *[]string, isHotReloadable bool, keys ...string) {
-	Default.RegisterStringSliceConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
+func RegisterStringSliceConfigVariable(defaultValue []string, ptr *[]string, isHotReloadable bool, orderedKeys ...string) {
+	Default.RegisterStringSliceConfigVariable(defaultValue, ptr, isHotReloadable, orderedKeys...)
 }
 
 // RegisterStringSliceVar registers a not hot-reloadable string slice config variable
-func RegisterStringSliceVar(defaultValue []string, ptr *[]string, keys ...string) {
-	Default.RegisterStringSliceVar(defaultValue, ptr, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterStringSliceVar(defaultValue []string, ptr *[]string, orderedKeys ...string) {
+	Default.RegisterStringSliceVar(defaultValue, ptr, orderedKeys...)
 }
 
 // RegisterReloadableStringSliceVar registers a hot-reloadable string slice config variable
-func RegisterReloadableStringSliceVar(defaultValue []string, keys ...string) *Reloadable[[]string] {
-	return Default.RegisterReloadableStringSliceVar(defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func RegisterReloadableStringSliceVar(defaultValue []string, orderedKeys ...string) *Reloadable[[]string] {
+	return Default.RegisterReloadableStringSliceVar(defaultValue, orderedKeys...)
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterStringSliceVar or RegisterReloadableStringSliceVar instead
 func (c *Config) RegisterStringSliceConfigVariable(
-	defaultValue []string, ptr *[]string, isHotReloadable bool, keys ...string,
+	defaultValue []string, ptr *[]string, isHotReloadable bool, orderedKeys ...string,
 ) {
 	c.registerStringSliceVar(defaultValue, ptr, isHotReloadable, func(v []string) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterStringSliceVar registers a not hot-reloadable string slice config variable
-func (c *Config) RegisterStringSliceVar(defaultValue []string, ptr *[]string, keys ...string) {
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterStringSliceVar(defaultValue []string, ptr *[]string, orderedKeys ...string) {
 	c.registerStringSliceVar(defaultValue, ptr, false, func(v []string) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterReloadableStringSliceVar registers a hot-reloadable string slice config variable
-func (c *Config) RegisterReloadableStringSliceVar(defaultValue []string, keys ...string) *Reloadable[[]string] {
-	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
+// WARNING: a different order of keys will result in a different variable
+func (c *Config) RegisterReloadableStringSliceVar(defaultValue []string, orderedKeys ...string) *Reloadable[[]string] {
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...)
 	c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
 		ptr.store(v)
-	}, keys...)
+	}, orderedKeys...)
 	return ptr
 }
 
 func (c *Config) registerStringSliceVar(
-	defaultValue []string, ptr any, isHotReloadable bool, store func([]string), keys ...string,
+	defaultValue []string, ptr any, isHotReloadable bool, store func([]string), orderedKeys ...string,
 ) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
@@ -474,14 +516,14 @@ func (c *Config) registerStringSliceVar(
 	configVar := configValue{
 		value:        ptr,
 		defaultValue: defaultValue,
-		keys:         keys,
+		keys:         orderedKeys,
 	}
 
 	if isHotReloadable {
-		c.appendVarToConfigMaps(keys[0], &configVar)
+		c.appendVarToConfigMaps(orderedKeys, &configVar)
 	}
 
-	for _, key := range keys {
+	for _, key := range orderedKeys {
 		if c.IsSet(key) {
 			store(c.GetStringSlice(key, defaultValue))
 			return
@@ -491,59 +533,65 @@ func (c *Config) registerStringSliceVar(
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterStringMapVar or RegisterReloadableStringMapVar instead
 func RegisterStringMapConfigVariable(
-	defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, keys ...string,
+	defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, orderedKeys ...string,
 ) {
-	Default.RegisterStringMapConfigVariable(defaultValue, ptr, isHotReloadable, keys...)
+	Default.RegisterStringMapConfigVariable(defaultValue, ptr, isHotReloadable, orderedKeys...)
 }
 
 // RegisterStringMapVar registers a not hot-reloadable string map config variable
+// WARNING: a different order of keys will result in a different variable
 func RegisterStringMapVar(
-	defaultValue map[string]interface{}, ptr *map[string]interface{}, keys ...string,
+	defaultValue map[string]interface{}, ptr *map[string]interface{}, orderedKeys ...string,
 ) {
-	Default.RegisterStringMapVar(defaultValue, ptr, keys...)
+	Default.RegisterStringMapVar(defaultValue, ptr, orderedKeys...)
 }
 
 // RegisterReloadableStringMapVar registers a hot-reloadable string map config variable
+// WARNING: a different order of keys will result in a different variable
 func RegisterReloadableStringMapVar(
-	defaultValue map[string]interface{}, keys ...string,
+	defaultValue map[string]interface{}, orderedKeys ...string,
 ) *Reloadable[map[string]interface{}] {
-	return Default.RegisterReloadableStringMapVar(defaultValue, keys...)
+	return Default.RegisterReloadableStringMapVar(defaultValue, orderedKeys...)
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
+// WARNING: a different order of keys will result in a different variable
 // Deprecated: use RegisterStringMapVar or RegisterReloadableStringMapVar instead
 func (c *Config) RegisterStringMapConfigVariable(
-	defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, keys ...string,
+	defaultValue map[string]interface{}, ptr *map[string]interface{}, isHotReloadable bool, orderedKeys ...string,
 ) {
 	c.registerStringMapVar(defaultValue, ptr, isHotReloadable, func(v map[string]interface{}) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterStringMapVar registers a not hot-reloadable string map config variable
+// WARNING: a different order of keys will result in a different variable
 func (c *Config) RegisterStringMapVar(
-	defaultValue map[string]interface{}, ptr *map[string]interface{}, keys ...string,
+	defaultValue map[string]interface{}, ptr *map[string]interface{}, orderedKeys ...string,
 ) {
 	c.registerStringMapVar(defaultValue, ptr, false, func(v map[string]interface{}) {
 		*ptr = v
-	}, keys...)
+	}, orderedKeys...)
 }
 
 // RegisterReloadableStringMapVar registers a hot-reloadable string map config variable
+// WARNING: a different order of keys will result in a different variable
 func (c *Config) RegisterReloadableStringMapVar(
-	defaultValue map[string]interface{}, keys ...string,
+	defaultValue map[string]interface{}, orderedKeys ...string,
 ) *Reloadable[map[string]interface{}] {
-	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, keys...)
+	ptr := getOrCreatePointer(c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...)
 	c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]interface{}) {
 		ptr.store(v)
-	}, keys...)
+	}, orderedKeys...)
 	return ptr
 }
 
 func (c *Config) registerStringMapVar(
-	defaultValue map[string]interface{}, ptr any, isHotReloadable bool, store func(map[string]interface{}), keys ...string,
+	defaultValue map[string]interface{}, ptr any, isHotReloadable bool, store func(map[string]interface{}), orderedKeys ...string,
 ) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
@@ -552,14 +600,14 @@ func (c *Config) registerStringMapVar(
 	configVar := configValue{
 		value:        ptr,
 		defaultValue: defaultValue,
-		keys:         keys,
+		keys:         orderedKeys,
 	}
 
 	if isHotReloadable {
-		c.appendVarToConfigMaps(keys[0], &configVar)
+		c.appendVarToConfigMaps(orderedKeys, &configVar)
 	}
 
-	for _, key := range keys {
+	for _, key := range orderedKeys {
 		if c.IsSet(key) {
 			store(c.GetStringMap(key, defaultValue))
 			return
@@ -568,7 +616,8 @@ func (c *Config) registerStringMapVar(
 	store(defaultValue)
 }
 
-func (c *Config) appendVarToConfigMaps(key string, configVar *configValue) {
+func (c *Config) appendVarToConfigMaps(keys []string, configVar *configValue) {
+	key := strings.Join(keys, ",")
 	if _, ok := c.hotReloadableConfig[key]; !ok {
 		c.hotReloadableConfig[key] = make([]*configValue, 0)
 	}
