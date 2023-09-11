@@ -15,7 +15,7 @@ func RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool,
 
 // RegisterIntVar registers a not hot-reloadable int config variable
 // WARNING: a different order of keys will result in a different variable
-func RegisterIntVar(defaultValue int, valueScale int, orderedKeys ...string) *int {
+func RegisterIntVar(defaultValue, valueScale int, orderedKeys ...string) *int {
 	return Default.RegisterIntVar(defaultValue, valueScale, orderedKeys...)
 }
 
@@ -38,7 +38,7 @@ func (c *Config) RegisterIntConfigVariable(
 
 // RegisterIntVar registers a not hot-reloadable int config variable
 // WARNING: a different order of keys will result in a different variable
-func (c *Config) RegisterIntVar(defaultValue int, valueScale int, orderedKeys ...string) *int {
+func (c *Config) RegisterIntVar(defaultValue, valueScale int, orderedKeys ...string) *int {
 	ptr := getOrCreatePointer(c.vars, c.varsMisuses, &c.varsLock, defaultValue, false, orderedKeys...).(*int)
 	c.registerIntVar(defaultValue, ptr, false, valueScale, func(v int) {
 		*ptr = v
@@ -241,7 +241,7 @@ func RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isHotReloadable
 
 // RegisterInt64Var registers a not hot-reloadable int64 config variable
 // WARNING: a different order of keys will result in a different variable
-func RegisterInt64Var(defaultValue int64, valueScale int64, orderedKeys ...string) *int64 {
+func RegisterInt64Var(defaultValue, valueScale int64, orderedKeys ...string) *int64 {
 	return Default.RegisterInt64Var(defaultValue, valueScale, orderedKeys...)
 }
 
@@ -264,7 +264,7 @@ func (c *Config) RegisterInt64ConfigVariable(
 
 // RegisterInt64Var registers a not hot-reloadable int64 config variable
 // WARNING: a different order of keys will result in a different variable
-func (c *Config) RegisterInt64Var(defaultValue int64, valueScale int64, orderedKeys ...string) *int64 {
+func (c *Config) RegisterInt64Var(defaultValue, valueScale int64, orderedKeys ...string) *int64 {
 	ptr := getOrCreatePointer(c.vars, c.varsMisuses, &c.varsLock, defaultValue, false, orderedKeys...).(*int64)
 	c.registerInt64Var(defaultValue, ptr, false, valueScale, func(v int64) {
 		*ptr = v
