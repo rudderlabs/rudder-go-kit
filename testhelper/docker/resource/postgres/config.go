@@ -14,7 +14,14 @@ func WithOptions(options ...string) Opt {
 	}
 }
 
+func WithShmSize(shmSize int64) Opt {
+	return func(c *Config) {
+		c.ShmSize = shmSize
+	}
+}
+
 type Config struct {
 	Tag     string
 	Options []string
+	ShmSize int64
 }
