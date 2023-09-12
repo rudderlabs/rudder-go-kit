@@ -2,10 +2,11 @@ package logger
 
 import (
 	"errors"
-	"github.com/rudderlabs/rudder-go-kit/config"
 	"sync"
 
 	"go.uber.org/zap/zapcore"
+
+	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
 // factoryConfig is the configuration for the logger
