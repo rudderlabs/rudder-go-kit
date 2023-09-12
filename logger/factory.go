@@ -95,7 +95,7 @@ func newConfig(config *config.Config) *factoryConfig {
 	}
 	fc.rootLevel = levelMap[config.GetString("LOG_LEVEL", "INFO")]
 	fc.enableNameInLog = config.GetBool("Logger.enableLoggerNameInLog", true)
-	config.RegisterBoolConfigVariable(false, &fc.enableStackTrace, true, "Logger.enableStackTrace")
+	fc.enableStackTrace = config.RegisterReloadableBoolVar(false, "Logger.enableStackTrace")
 	config.GetBool("Logger.enableLoggerNameInLog", true)
 
 	// colon separated key value pairs

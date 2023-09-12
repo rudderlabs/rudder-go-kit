@@ -181,7 +181,7 @@ func (l *logger) Fatal(args ...interface{}) {
 
 	// If enableStackTrace is true, Zaplogger will take care of writing stacktrace to the file.
 	// Else, we are force writing the stacktrace to the file.
-	if !l.logConfig.enableStackTrace {
+	if !l.logConfig.enableStackTrace.Load() {
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
 		stackTrace := string(byteArr[:n])
@@ -229,7 +229,7 @@ func (l *logger) Fatalf(format string, args ...interface{}) {
 
 	// If enableStackTrace is true, Zaplogger will take care of writing stacktrace to the file.
 	// Else, we are force writing the stacktrace to the file.
-	if !l.logConfig.enableStackTrace {
+	if !l.logConfig.enableStackTrace.Load() {
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
 		stackTrace := string(byteArr[:n])
@@ -277,7 +277,7 @@ func (l *logger) Fatalw(msg string, keysAndValues ...interface{}) {
 
 	// If enableStackTrace is true, Zaplogger will take care of writing stacktrace to the file.
 	// Else, we are force writing the stacktrace to the file.
-	if !l.logConfig.enableStackTrace {
+	if !l.logConfig.enableStackTrace.Load() {
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
 		stackTrace := string(byteArr[:n])

@@ -2,6 +2,7 @@ package logger
 
 import (
 	"errors"
+	"github.com/rudderlabs/rudder-go-kit/config"
 	"sync"
 
 	"go.uber.org/zap/zapcore"
@@ -9,9 +10,9 @@ import (
 
 // factoryConfig is the configuration for the logger
 type factoryConfig struct {
-	rootLevel        int  // the level for the root logger
-	enableNameInLog  bool // whether to include the logger name in the log message
-	enableStackTrace bool // for fatal logs
+	rootLevel        int                      // the level for the root logger
+	enableNameInLog  bool                     // whether to include the logger name in the log message
+	enableStackTrace *config.Reloadable[bool] // for fatal logs
 
 	levelConfig      *syncMap[string, int] // preconfigured log levels for loggers
 	levelConfigCache *syncMap[string, int] // cache of all calculated log levels for loggers
