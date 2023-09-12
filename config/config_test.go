@@ -214,41 +214,41 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 	})
 }
 
-func TestRegisterNewReloadableAPI(t *testing.T) {
+func TestNewReloadableAPI(t *testing.T) {
 	t.Run("non reloadable", func(t *testing.T) {
 		t.Run("int", func(t *testing.T) {
 			c := New()
-			v := c.RegisterIntVar(5, 1, t.Name())
+			v := c.GetIntVar(5, 1, t.Name())
 			require.Equal(t, 5, v)
 		})
 		t.Run("int64", func(t *testing.T) {
 			c := New()
-			v := c.RegisterInt64Var(5, 1, t.Name())
+			v := c.GetInt64Var(5, 1, t.Name())
 			require.EqualValues(t, 5, v)
 		})
 		t.Run("bool", func(t *testing.T) {
 			c := New()
-			v := c.RegisterBoolVar(true, t.Name())
+			v := c.GetBoolVar(true, t.Name())
 			require.True(t, v)
 		})
 		t.Run("float64", func(t *testing.T) {
 			c := New()
-			v := c.RegisterFloat64Var(0.123, t.Name())
+			v := c.GetFloat64Var(0.123, t.Name())
 			require.EqualValues(t, 0.123, v)
 		})
 		t.Run("string", func(t *testing.T) {
 			c := New()
-			v := c.RegisterStringVar("foo", t.Name())
+			v := c.GetStringVar("foo", t.Name())
 			require.Equal(t, "foo", v)
 		})
 		t.Run("duration", func(t *testing.T) {
 			c := New()
-			v := c.RegisterDurationVar(123, time.Second, t.Name())
+			v := c.GetDurationVar(123, time.Second, t.Name())
 			require.Equal(t, 123*time.Second, v)
 		})
 		t.Run("[]string", func(t *testing.T) {
 			c := New()
-			v := c.RegisterStringSliceVar([]string{"a", "b"}, t.Name())
+			v := c.GetStringSliceVar([]string{"a", "b"}, t.Name())
 			require.NotNil(t, v)
 			require.Equal(t, []string{"a", "b"}, v)
 
@@ -257,7 +257,7 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 		})
 		t.Run("map[string]interface{}", func(t *testing.T) {
 			c := New()
-			v := c.RegisterStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
+			v := c.GetStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
 			require.NotNil(t, v)
 			require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, v)
 
@@ -268,7 +268,7 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 	t.Run("reloadable", func(t *testing.T) {
 		t.Run("int", func(t *testing.T) {
 			c := New()
-			v := c.RegisterReloadableIntVar(5, 1, t.Name())
+			v := c.GetReloadableIntVar(5, 1, t.Name())
 			require.Equal(t, 5, v.Load())
 
 			c.Set(t.Name(), 10)
@@ -279,17 +279,17 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
-					"int:TestRegisterNewReloadableAPI/reloadable/int:5 - "+
-					"int:TestRegisterNewReloadableAPI/reloadable/int:10\n",
+					"int:TestNewReloadableAPI/reloadable/int:5 - "+
+					"int:TestNewReloadableAPI/reloadable/int:10\n",
 				func() {
 					// changing just the valueScale also changes the default value
-					_ = c.RegisterReloadableIntVar(5, 2, t.Name())
+					_ = c.GetReloadableIntVar(5, 2, t.Name())
 				},
 			)
 		})
 		t.Run("int64", func(t *testing.T) {
 			c := New()
-			v := c.RegisterReloadableInt64Var(5, 1, t.Name())
+			v := c.GetReloadableInt64Var(5, 1, t.Name())
 			require.EqualValues(t, 5, v.Load())
 
 			c.Set(t.Name(), 10)
@@ -300,17 +300,17 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
-					"int64:TestRegisterNewReloadableAPI/reloadable/int64:5 - "+
-					"int64:TestRegisterNewReloadableAPI/reloadable/int64:10\n",
+					"int64:TestNewReloadableAPI/reloadable/int64:5 - "+
+					"int64:TestNewReloadableAPI/reloadable/int64:10\n",
 				func() {
 					// changing just the valueScale also changes the default value
-					_ = c.RegisterReloadableInt64Var(5, 2, t.Name())
+					_ = c.GetReloadableInt64Var(5, 2, t.Name())
 				},
 			)
 		})
 		t.Run("bool", func(t *testing.T) {
 			c := New()
-			v := c.RegisterReloadableBoolVar(true, t.Name())
+			v := c.GetReloadableBoolVar(true, t.Name())
 			require.True(t, v.Load())
 
 			c.Set(t.Name(), false)
@@ -321,16 +321,16 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
-					"bool:TestRegisterNewReloadableAPI/reloadable/bool:true - "+
-					"bool:TestRegisterNewReloadableAPI/reloadable/bool:false\n",
+					"bool:TestNewReloadableAPI/reloadable/bool:true - "+
+					"bool:TestNewReloadableAPI/reloadable/bool:false\n",
 				func() {
-					_ = c.RegisterReloadableBoolVar(false, t.Name())
+					_ = c.GetReloadableBoolVar(false, t.Name())
 				},
 			)
 		})
 		t.Run("float64", func(t *testing.T) {
 			c := New()
-			v := c.RegisterReloadableFloat64Var(0.123, t.Name())
+			v := c.GetReloadableFloat64Var(0.123, t.Name())
 			require.EqualValues(t, 0.123, v.Load())
 
 			c.Set(t.Name(), 4.567)
@@ -341,16 +341,16 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
-					"float64:TestRegisterNewReloadableAPI/reloadable/float64:0.123 - "+
-					"float64:TestRegisterNewReloadableAPI/reloadable/float64:0.1234\n",
+					"float64:TestNewReloadableAPI/reloadable/float64:0.123 - "+
+					"float64:TestNewReloadableAPI/reloadable/float64:0.1234\n",
 				func() {
-					_ = c.RegisterReloadableFloat64Var(0.1234, t.Name())
+					_ = c.GetReloadableFloat64Var(0.1234, t.Name())
 				},
 			)
 		})
 		t.Run("string", func(t *testing.T) {
 			c := New()
-			v := c.RegisterReloadableStringVar("foo", t.Name())
+			v := c.GetReloadableStringVar("foo", t.Name())
 			require.Equal(t, "foo", v.Load())
 
 			c.Set(t.Name(), "bar")
@@ -361,16 +361,16 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
-					"string:TestRegisterNewReloadableAPI/reloadable/string:foo - "+
-					"string:TestRegisterNewReloadableAPI/reloadable/string:qux\n",
+					"string:TestNewReloadableAPI/reloadable/string:foo - "+
+					"string:TestNewReloadableAPI/reloadable/string:qux\n",
 				func() {
-					_ = c.RegisterReloadableStringVar("qux", t.Name())
+					_ = c.GetReloadableStringVar("qux", t.Name())
 				},
 			)
 		})
 		t.Run("duration", func(t *testing.T) {
 			c := New()
-			v := c.RegisterReloadableDurationVar(123, time.Nanosecond, t.Name())
+			v := c.GetReloadableDurationVar(123, time.Nanosecond, t.Name())
 			require.Equal(t, 123*time.Nanosecond, v.Load())
 
 			c.Set(t.Name(), 456*time.Millisecond)
@@ -381,16 +381,16 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
-					"time.Duration:TestRegisterNewReloadableAPI/reloadable/duration:123ns - "+
-					"time.Duration:TestRegisterNewReloadableAPI/reloadable/duration:2m3s\n",
+					"time.Duration:TestNewReloadableAPI/reloadable/duration:123ns - "+
+					"time.Duration:TestNewReloadableAPI/reloadable/duration:2m3s\n",
 				func() {
-					_ = c.RegisterReloadableDurationVar(123, time.Second, t.Name())
+					_ = c.GetReloadableDurationVar(123, time.Second, t.Name())
 				},
 			)
 		})
 		t.Run("[]string", func(t *testing.T) {
 			c := New()
-			v := c.RegisterReloadableStringSliceVar([]string{"a", "b"}, t.Name())
+			v := c.GetReloadableStringSliceVar([]string{"a", "b"}, t.Name())
 			require.Equal(t, []string{"a", "b"}, v.Load())
 
 			c.Set(t.Name(), []string{"c", "d"})
@@ -401,16 +401,16 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
-					"[]string:TestRegisterNewReloadableAPI/reloadable/[]string:[a b] - "+
-					"[]string:TestRegisterNewReloadableAPI/reloadable/[]string:[a b c]\n",
+					"[]string:TestNewReloadableAPI/reloadable/[]string:[a b] - "+
+					"[]string:TestNewReloadableAPI/reloadable/[]string:[a b c]\n",
 				func() {
-					_ = c.RegisterReloadableStringSliceVar([]string{"a", "b", "c"}, t.Name())
+					_ = c.GetReloadableStringSliceVar([]string{"a", "b", "c"}, t.Name())
 				},
 			)
 		})
 		t.Run("map[string]interface{}", func(t *testing.T) {
 			c := New()
-			v := c.RegisterReloadableStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
+			v := c.GetReloadableStringMapVar(map[string]interface{}{"a": 1, "b": 2}, t.Name())
 			require.Equal(t, map[string]interface{}{"a": 1, "b": 2}, v.Load())
 
 			c.Set(t.Name(), map[string]interface{}{"c": 3, "d": 4})
@@ -421,10 +421,10 @@ func TestRegisterNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"Detected misuse of config variable registered with different default values "+
-					"map[string]interface {}:TestRegisterNewReloadableAPI/reloadable/map[string]interface{}:map[a:1 b:2] - "+
-					"map[string]interface {}:TestRegisterNewReloadableAPI/reloadable/map[string]interface{}:map[a:2 b:1]\n",
+					"map[string]interface {}:TestNewReloadableAPI/reloadable/map[string]interface{}:map[a:1 b:2] - "+
+					"map[string]interface {}:TestNewReloadableAPI/reloadable/map[string]interface{}:map[a:2 b:1]\n",
 				func() {
-					_ = c.RegisterReloadableStringMapVar(map[string]interface{}{"a": 2, "b": 1}, t.Name())
+					_ = c.GetReloadableStringMapVar(map[string]interface{}{"a": 2, "b": 1}, t.Name())
 				},
 			)
 		})
