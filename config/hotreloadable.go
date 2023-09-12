@@ -748,6 +748,7 @@ func (a *Reloadable[T]) store(v T) {
 }
 
 // swapIfNotEqual is used internally to swap the value of a hot-reloadable config variable
+// if the new value is not equal to the old value
 func (a *Reloadable[T]) swapIfNotEqual(new T, compare func(old, new T) bool) (old T, swapped bool) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
