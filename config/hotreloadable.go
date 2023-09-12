@@ -7,6 +7,7 @@ import (
 )
 
 // RegisterIntConfigVariable registers int config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -16,6 +17,7 @@ func RegisterIntConfigVariable(defaultValue int, ptr *int, isHotReloadable bool,
 }
 
 // RegisterIntVar registers a not hot-reloadable int config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
@@ -23,6 +25,7 @@ func RegisterIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
 }
 
 // RegisterReloadableIntVar registers a hot-reloadable int config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterReloadableIntVar(defaultValue, valueScale int, orderedKeys ...string) *Reloadable[int] {
@@ -30,6 +33,7 @@ func RegisterReloadableIntVar(defaultValue, valueScale int, orderedKeys ...strin
 }
 
 // RegisterIntConfigVariable registers int config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -43,6 +47,7 @@ func (c *Config) RegisterIntConfigVariable(
 }
 
 // RegisterIntVar registers a not hot-reloadable int config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
@@ -54,6 +59,7 @@ func (c *Config) RegisterIntVar(defaultValue, valueScale int, orderedKeys ...str
 }
 
 // RegisterReloadableIntVar registers a hot-reloadable int config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterReloadableIntVar(defaultValue, valueScale int, orderedKeys ...string) *Reloadable[int] {
@@ -94,6 +100,7 @@ func (c *Config) registerIntVar(
 }
 
 // RegisterBoolConfigVariable registers bool config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -103,6 +110,7 @@ func RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotReloadable bo
 }
 
 // RegisterBoolVar registers a not hot-reloadable bool config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterBoolVar(defaultValue bool, orderedKeys ...string) bool {
@@ -110,6 +118,7 @@ func RegisterBoolVar(defaultValue bool, orderedKeys ...string) bool {
 }
 
 // RegisterReloadableBoolVar registers a hot-reloadable bool config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterReloadableBoolVar(defaultValue bool, orderedKeys ...string) *Reloadable[bool] {
@@ -117,6 +126,7 @@ func RegisterReloadableBoolVar(defaultValue bool, orderedKeys ...string) *Reload
 }
 
 // RegisterBoolConfigVariable registers bool config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -128,6 +138,7 @@ func (c *Config) RegisterBoolConfigVariable(defaultValue bool, ptr *bool, isHotR
 }
 
 // RegisterBoolVar registers a not hot-reloadable bool config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterBoolVar(defaultValue bool, orderedKeys ...string) bool {
@@ -139,6 +150,7 @@ func (c *Config) RegisterBoolVar(defaultValue bool, orderedKeys ...string) bool 
 }
 
 // RegisterReloadableBoolVar registers a hot-reloadable bool config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterReloadableBoolVar(defaultValue bool, orderedKeys ...string) *Reloadable[bool] {
@@ -177,6 +189,7 @@ func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable boo
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -186,6 +199,7 @@ func RegisterFloat64ConfigVariable(defaultValue float64, ptr *float64, isHotRelo
 }
 
 // RegisterFloat64Var registers a not hot-reloadable float64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
@@ -193,6 +207,7 @@ func RegisterFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
 }
 
 // RegisterReloadableFloat64Var registers a hot-reloadable float64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterReloadableFloat64Var(defaultValue float64, orderedKeys ...string) *Reloadable[float64] {
@@ -200,6 +215,7 @@ func RegisterReloadableFloat64Var(defaultValue float64, orderedKeys ...string) *
 }
 
 // RegisterFloat64ConfigVariable registers float64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -213,6 +229,7 @@ func (c *Config) RegisterFloat64ConfigVariable(
 }
 
 // RegisterFloat64Var registers a not hot-reloadable float64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
@@ -224,6 +241,7 @@ func (c *Config) RegisterFloat64Var(defaultValue float64, orderedKeys ...string)
 }
 
 // RegisterReloadableFloat64Var registers a hot-reloadable float64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterReloadableFloat64Var(defaultValue float64, orderedKeys ...string) *Reloadable[float64] {
@@ -265,6 +283,7 @@ func (c *Config) registerFloat64Var(
 }
 
 // RegisterInt64ConfigVariable registers int64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -274,6 +293,7 @@ func RegisterInt64ConfigVariable(defaultValue int64, ptr *int64, isHotReloadable
 }
 
 // RegisterInt64Var registers a not hot-reloadable int64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
@@ -281,6 +301,7 @@ func RegisterInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int
 }
 
 // RegisterReloadableInt64Var registers a hot-reloadable int64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterReloadableInt64Var(defaultValue, valueScale int64, orderedKeys ...string) *Reloadable[int64] {
@@ -288,6 +309,7 @@ func RegisterReloadableInt64Var(defaultValue, valueScale int64, orderedKeys ...s
 }
 
 // RegisterInt64ConfigVariable registers int64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -301,6 +323,7 @@ func (c *Config) RegisterInt64ConfigVariable(
 }
 
 // RegisterInt64Var registers a not hot-reloadable int64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
@@ -312,6 +335,7 @@ func (c *Config) RegisterInt64Var(defaultValue, valueScale int64, orderedKeys ..
 }
 
 // RegisterReloadableInt64Var registers a not hot-reloadable int64 config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterReloadableInt64Var(defaultValue, valueScale int64, orderedKeys ...string) *Reloadable[int64] {
@@ -353,6 +377,7 @@ func (c *Config) registerInt64Var(
 }
 
 // RegisterDurationConfigVariable registers duration config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -364,6 +389,7 @@ func RegisterDurationConfigVariable(
 }
 
 // RegisterDurationVar registers a not hot-reloadable duration config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterDurationVar(
@@ -373,6 +399,7 @@ func RegisterDurationVar(
 }
 
 // RegisterReloadableDurationVar registers a not hot-reloadable duration config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterReloadableDurationVar(defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string) *Reloadable[time.Duration] {
@@ -380,6 +407,7 @@ func RegisterReloadableDurationVar(defaultValueInTimescaleUnits int64, timeScale
 }
 
 // RegisterDurationConfigVariable registers duration config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -393,6 +421,7 @@ func (c *Config) RegisterDurationConfigVariable(
 }
 
 // RegisterDurationVar registers a not hot-reloadable duration config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterDurationVar(
@@ -406,6 +435,7 @@ func (c *Config) RegisterDurationVar(
 }
 
 // RegisterReloadableDurationVar registers a hot-reloadable duration config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterReloadableDurationVar(
@@ -450,6 +480,7 @@ func (c *Config) registerDurationVar(
 }
 
 // RegisterStringConfigVariable registers string config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -459,6 +490,7 @@ func RegisterStringConfigVariable(defaultValue string, ptr *string, isHotReloada
 }
 
 // RegisterStringVar registers a not hot-reloadable string config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterStringVar(defaultValue string, orderedKeys ...string) string {
@@ -466,6 +498,7 @@ func RegisterStringVar(defaultValue string, orderedKeys ...string) string {
 }
 
 // RegisterReloadableStringVar registers a hot-reloadable string config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterReloadableStringVar(defaultValue string, orderedKeys ...string) *Reloadable[string] {
@@ -473,6 +506,7 @@ func RegisterReloadableStringVar(defaultValue string, orderedKeys ...string) *Re
 }
 
 // RegisterStringConfigVariable registers string config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -486,6 +520,7 @@ func (c *Config) RegisterStringConfigVariable(
 }
 
 // RegisterStringVar registers a not hot-reloadable string config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterStringVar(defaultValue string, orderedKeys ...string) string {
@@ -497,6 +532,7 @@ func (c *Config) RegisterStringVar(defaultValue string, orderedKeys ...string) s
 }
 
 // RegisterReloadableStringVar registers a hot-reloadable string config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterReloadableStringVar(defaultValue string, orderedKeys ...string) *Reloadable[string] {
@@ -536,6 +572,7 @@ func (c *Config) registerStringVar(
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -545,6 +582,7 @@ func RegisterStringSliceConfigVariable(defaultValue []string, ptr *[]string, isH
 }
 
 // RegisterStringSliceVar registers a not hot-reloadable string slice config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
@@ -552,6 +590,7 @@ func RegisterStringSliceVar(defaultValue []string, orderedKeys ...string) []stri
 }
 
 // RegisterReloadableStringSliceVar registers a hot-reloadable string slice config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterReloadableStringSliceVar(defaultValue []string, orderedKeys ...string) *Reloadable[[]string] {
@@ -559,6 +598,7 @@ func RegisterReloadableStringSliceVar(defaultValue []string, orderedKeys ...stri
 }
 
 // RegisterStringSliceConfigVariable registers string slice config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -572,6 +612,7 @@ func (c *Config) RegisterStringSliceConfigVariable(
 }
 
 // RegisterStringSliceVar registers a not hot-reloadable string slice config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
@@ -583,6 +624,7 @@ func (c *Config) RegisterStringSliceVar(defaultValue []string, orderedKeys ...st
 }
 
 // RegisterReloadableStringSliceVar registers a hot-reloadable string slice config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterReloadableStringSliceVar(defaultValue []string, orderedKeys ...string) *Reloadable[[]string] {
@@ -622,6 +664,7 @@ func (c *Config) registerStringSliceVar(
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -633,6 +676,7 @@ func RegisterStringMapConfigVariable(
 }
 
 // RegisterStringMapVar registers a not hot-reloadable string map config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterStringMapVar(defaultValue map[string]interface{}, orderedKeys ...string) map[string]interface{} {
@@ -640,6 +684,7 @@ func RegisterStringMapVar(defaultValue map[string]interface{}, orderedKeys ...st
 }
 
 // RegisterReloadableStringMapVar registers a hot-reloadable string map config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func RegisterReloadableStringMapVar(
@@ -649,6 +694,7 @@ func RegisterReloadableStringMapVar(
 }
 
 // RegisterStringMapConfigVariable registers string map config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 //
@@ -662,6 +708,7 @@ func (c *Config) RegisterStringMapConfigVariable(
 }
 
 // RegisterStringMapVar registers a not hot-reloadable string map config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterStringMapVar(
@@ -675,6 +722,7 @@ func (c *Config) RegisterStringMapVar(
 }
 
 // RegisterReloadableStringMapVar registers a hot-reloadable string map config variable
+//
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) RegisterReloadableStringMapVar(
