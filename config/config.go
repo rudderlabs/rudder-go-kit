@@ -14,6 +14,23 @@
 //     1. camelCase is converted to snake_case, e.g. someVariable -> some_variable
 //     2. dots (.) are replaced with underscores (_), e.g. some.variable -> some_variable
 //     3. the resulting string is uppercased and prefixed with ${PREFIX}_ (default RSERVER_), e.g. some_variable -> RSERVER_SOME_VARIABLE
+//
+// Order of keys:
+//
+//		When registering a variable with multiple keys, the order of the keys is important as it determines the
+//		hierarchical order of the keys.
+//		The first key is the most important one, and the last key is the least important one.
+//		Example:
+//		config.RegisterDurationConfigVariable(90, &cmdTimeout, true, time.Second,
+//			"JobsDB.Router.CommandRequestTimeout",
+//			"JobsDB.CommandRequestTimeout",
+//		)
+//
+//		In the above example "JobsDB.Router.CommandRequestTimeout" is checked first. If it doesn't exist then
+//	    JobsDB.CommandRequestTimeout is checked.
+//
+//	    WARNING: for this reason, registering with the same keys but in a different order is going to return two
+//	    different variables.
 package config
 
 import (
@@ -35,7 +52,7 @@ var camelCaseMatch = regexp.MustCompile("([a-z0-9])([A-Z])")
 // regular expression matching uppercase letters contained in environment variable names
 var upperCaseMatch = regexp.MustCompile("^[A-Z0-9_]+$")
 
-// default, singleton config instance
+// Default is the singleton config instance
 var Default *Config
 
 func init() {
@@ -60,7 +77,9 @@ func WithEnvPrefix(prefix string) Opt {
 // New creates a new config instance
 func New(opts ...Opt) *Config {
 	c := &Config{
-		envPrefix: DefaultEnvPrefix,
+		envPrefix:             DefaultEnvPrefix,
+		reloadableVars:        make(map[string]any),
+		reloadableVarsMisuses: make(map[string]string),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -78,6 +97,9 @@ type Config struct {
 	envsLock                sync.RWMutex // protects the envs map below
 	envs                    map[string]string
 	envPrefix               string // prefix for environment variables
+	reloadableVars          map[string]any
+	reloadableVarsMisuses   map[string]string
+	reloadableVarsLock      sync.RWMutex // used to protect both the reloadableVars and reloadableVarsMisuses maps
 }
 
 // GetBool gets bool value from config
@@ -268,6 +290,41 @@ func (c *Config) Set(key string, value interface{}) {
 	c.v.Set(key, value)
 	c.vLock.Unlock()
 	c.onConfigChange()
+}
+
+func getReloadableMapKeys[T configTypes](v T, orderedKeys ...string) (string, string) {
+	k := fmt.Sprintf("%T:%s", v, strings.Join(orderedKeys, ","))
+	return k, fmt.Sprintf("%s:%v", k, v)
+}
+
+func getOrCreatePointer[T configTypes](
+	m map[string]any, dvs map[string]string, // this function MUST receive maps that are already initialized
+	lock *sync.RWMutex, defaultValue T, orderedKeys ...string,
+) *Reloadable[T] {
+	key, dvKey := getReloadableMapKeys(defaultValue, orderedKeys...)
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	defer func() {
+		if _, ok := dvs[key]; !ok {
+			dvs[key] = dvKey
+		}
+		if dvs[key] != dvKey {
+			panic(fmt.Errorf(
+				"Detected misuse of config variable registered with different default values %+v - %+v\n",
+				dvs[key], dvKey,
+			))
+		}
+	}()
+
+	if p, ok := m[key]; ok {
+		return p.(*Reloadable[T])
+	}
+
+	p := &Reloadable[T]{}
+	m[key] = p
+	return p
 }
 
 // bindEnv handles rudder server's unique snake case replacement by registering

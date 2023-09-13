@@ -60,7 +60,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 		for _, configVal := range configValArr {
 			value := configVal.value
 			switch value := value.(type) {
-			case *int:
+			case *int, *Reloadable[int]:
 				var _value int
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -74,11 +74,8 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(int)
 				}
 				_value = _value * configVal.multiplier.(int)
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n", key, configVal, *value, _value)
-					*value = _value
-				}
-			case *int64:
+				swapHotReloadableConfig(key, "%d", configVal, value, _value, compare[int]())
+			case *int64, *Reloadable[int64]:
 				var _value int64
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -92,11 +89,8 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(int64)
 				}
 				_value = _value * configVal.multiplier.(int64)
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %d to %d\n", key, configVal, *value, _value)
-					*value = _value
-				}
-			case *string:
+				swapHotReloadableConfig(key, "%d", configVal, value, _value, compare[int64]())
+			case *string, *Reloadable[string]:
 				var _value string
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -109,11 +103,8 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.(string)
 				}
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
-			case *time.Duration:
+				swapHotReloadableConfig(key, "%q", configVal, value, _value, compare[string]())
+			case *time.Duration, *Reloadable[time.Duration]:
 				var _value time.Duration
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -126,11 +117,8 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = time.Duration(configVal.defaultValue.(int64)) * configVal.multiplier.(time.Duration)
 				}
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
-			case *bool:
+				swapHotReloadableConfig(key, "%d", configVal, value, _value, compare[time.Duration]())
+			case *bool, *Reloadable[bool]:
 				var _value bool
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -143,11 +131,8 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.(bool)
 				}
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
-			case *float64:
+				swapHotReloadableConfig(key, "%v", configVal, value, _value, compare[bool]())
+			case *float64, *Reloadable[float64]:
 				var _value float64
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -161,11 +146,8 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 					_value = configVal.defaultValue.(float64)
 				}
 				_value = _value * configVal.multiplier.(float64)
-				if _value != *value {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
-			case *[]string:
+				swapHotReloadableConfig(key, "%v", configVal, value, _value, compare[float64]())
+			case *[]string, *Reloadable[[]string]:
 				var _value []string
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -178,11 +160,10 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.([]string)
 				}
-				if slices.Compare(_value, *value) != 0 {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
-			case *map[string]interface{}:
+				swapHotReloadableConfig(key, "%v", configVal, value, _value, func(a, b []string) bool {
+					return slices.Compare(a, b) == 0
+				})
+			case *map[string]interface{}, *Reloadable[map[string]interface{}]:
 				var _value map[string]interface{}
 				var isSet bool
 				for _, key := range configVal.keys {
@@ -195,13 +176,32 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
 				if !isSet {
 					_value = configVal.defaultValue.(map[string]interface{})
 				}
-
-				if !mapDeepEqual(_value, *value) {
-					fmt.Printf("The value of key:%s & variable:%p changed from %v to %v\n", key, configVal, *value, _value)
-					*value = _value
-				}
+				swapHotReloadableConfig(key, "%v", configVal, value, _value, func(a, b map[string]interface{}) bool {
+					return mapDeepEqual(a, b)
+				})
 			}
 		}
+	}
+}
+
+func swapHotReloadableConfig[T configTypes](
+	key, placeholder string, configVal *configValue, ptr any, newValue T,
+	compare func(T, T) bool,
+) {
+	if value, ok := ptr.(*T); ok {
+		if !compare(*value, newValue) {
+			fmt.Printf("The value of key %q & variable %p changed from "+placeholder+" to "+placeholder+"\n",
+				key, configVal, *value, newValue,
+			)
+			*value = newValue
+		}
+		return
+	}
+	reloadableValue, _ := configVal.value.(*Reloadable[T])
+	if oldValue, swapped := reloadableValue.swapIfNotEqual(newValue, compare); swapped {
+		fmt.Printf("The value of key %q & variable %p changed from "+placeholder+" to "+placeholder+"\n",
+			key, configVal, oldValue, newValue,
+		)
 	}
 }
 
@@ -225,13 +225,11 @@ func mapDeepEqual[K comparable, V any](a, b map[K]V) bool {
 	if len(a) != len(b) {
 		return false
 	}
-
 	for k, v := range a {
 		if w, ok := b[k]; !ok || !reflect.DeepEqual(v, w) {
 			return false
 		}
 	}
-
 	return true
 }
 
