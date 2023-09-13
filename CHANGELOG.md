@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.9](https://github.com/rudderlabs/rudder-go-kit/compare/v0.15.8...v0.15.9) (2023-09-13)
+
+
+### Bug Fixes
+
+* register reloadable config variables ([#108](https://github.com/rudderlabs/rudder-go-kit/issues/108)) ([2466840](https://github.com/rudderlabs/rudder-go-kit/commit/24668400448347a63bd01a34d30440186af5141c))
+
 ## [0.15.8](https://github.com/rudderlabs/rudder-go-kit/compare/v0.15.7...v0.15.8) (2023-09-11)
 
 
