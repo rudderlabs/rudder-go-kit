@@ -1,11 +1,14 @@
 package config
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func Test_Getters_Existing_and_Default(t *testing.T) {
@@ -585,4 +588,84 @@ func Test_Misc(t *testing.T) {
 
 	t.Setenv("RELEASE_NAME", "value")
 	require.Equal(t, "value", GetReleaseName())
+}
+
+func TestConfigLocking(t *testing.T) {
+
+	const (
+		timeout   = 2 * time.Second
+		configKey = "test"
+	)
+	c := New()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+
+	doWithTimeout := func(f func(), timeout time.Duration) error {
+		var err error
+		var closed bool
+		var closedMutex sync.Mutex
+		wait := make(chan struct{})
+		t := time.NewTimer(timeout)
+
+		go func() {
+			<-t.C
+			err = fmt.Errorf("timeout after %s", timeout)
+			closedMutex.Lock()
+			if !closed {
+				closed = true
+				close(wait)
+			}
+			closedMutex.Unlock()
+		}()
+
+		go func() {
+			f()
+			t.Stop()
+			closedMutex.Lock()
+			if !closed {
+				closed = true
+				close(wait)
+			}
+			closedMutex.Unlock()
+		}()
+		<-wait
+		return err
+	}
+
+	startOperation := func(name string, op func()) {
+		g.Go(func() error {
+			for {
+				select {
+				case <-ctx.Done():
+					return nil
+				default:
+					if err := doWithTimeout(op, timeout); err != nil {
+						return fmt.Errorf("%s: %w", name, err)
+					}
+				}
+			}
+		})
+	}
+
+	startOperation("set the config value", func() { c.Set(configKey, "value1") })
+	startOperation("try to read the config value using GetString", func() { _ = c.GetString(configKey, "") })
+	startOperation("try to read the config value using GetStringVar", func() { _ = c.GetStringVar(configKey, "") })
+	startOperation("try to read the config value using GetReloadableStringVar", func() {
+		r := c.GetReloadableStringVar("", configKey)
+		_ = r.Load()
+	})
+
+	g.Go(func() error {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(5 * time.Second):
+			cancel()
+			return nil
+		}
+	})
+
+	require.NoError(t, g.Wait())
+
 }
