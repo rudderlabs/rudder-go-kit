@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.10](https://github.com/rudderlabs/rudder-go-kit/compare/v0.15.9...v0.15.10) (2023-09-15)
+
+
+### Bug Fixes
+
+* config deadlock by trying to acquire a read lock twice ([#118](https://github.com/rudderlabs/rudder-go-kit/issues/118)) ([458381e](https://github.com/rudderlabs/rudder-go-kit/commit/458381e5d1121e776c0071f0e94f2c4d92ca72a7))
+
 ## [0.15.9](https://github.com/rudderlabs/rudder-go-kit/compare/v0.15.8...v0.15.9) (2023-09-13)
 
 
