@@ -63,12 +63,14 @@ func (c *Config) GetIntVar(defaultValue, valueScale int, orderedKeys ...string) 
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableIntVar(defaultValue, valueScale int, orderedKeys ...string) *Reloadable[int] {
-	ptr := getOrCreatePointer(
+	ptr, exists := getOrCreatePointer(
 		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue*valueScale, orderedKeys...,
 	)
-	c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
-		ptr.store(v)
-	}, orderedKeys...)
+	if !exists {
+		c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
+			ptr.store(v)
+		}, orderedKeys...)
+	}
 	return ptr
 }
 
@@ -152,12 +154,14 @@ func (c *Config) GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableBoolVar(defaultValue bool, orderedKeys ...string) *Reloadable[bool] {
-	ptr := getOrCreatePointer(
+	ptr, exists := getOrCreatePointer(
 		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
-	c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
-		ptr.store(v)
-	}, orderedKeys...)
+	if !exists {
+		c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
+			ptr.store(v)
+		}, orderedKeys...)
+	}
 	return ptr
 }
 
@@ -241,12 +245,14 @@ func (c *Config) GetFloat64Var(defaultValue float64, orderedKeys ...string) floa
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableFloat64Var(defaultValue float64, orderedKeys ...string) *Reloadable[float64] {
-	ptr := getOrCreatePointer(
+	ptr, exists := getOrCreatePointer(
 		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
-	c.registerFloat64Var(defaultValue, ptr, true, func(v float64) {
-		ptr.store(v)
-	}, orderedKeys...)
+	if !exists {
+		c.registerFloat64Var(defaultValue, ptr, true, func(v float64) {
+			ptr.store(v)
+		}, orderedKeys...)
+	}
 	return ptr
 }
 
@@ -333,12 +339,14 @@ func (c *Config) GetInt64Var(defaultValue, valueScale int64, orderedKeys ...stri
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableInt64Var(defaultValue, valueScale int64, orderedKeys ...string) *Reloadable[int64] {
-	ptr := getOrCreatePointer(
+	ptr, exists := getOrCreatePointer(
 		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue*valueScale, orderedKeys...,
 	)
-	c.registerInt64Var(defaultValue, ptr, true, valueScale, func(v int64) {
-		ptr.store(v)
-	}, orderedKeys...)
+	if !exists {
+		c.registerInt64Var(defaultValue, ptr, true, valueScale, func(v int64) {
+			ptr.store(v)
+		}, orderedKeys...)
+	}
 	return ptr
 }
 
@@ -433,13 +441,15 @@ func (c *Config) GetDurationVar(
 func (c *Config) GetReloadableDurationVar(
 	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
 ) *Reloadable[time.Duration] {
-	ptr := getOrCreatePointer(
+	ptr, exists := getOrCreatePointer(
 		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock,
 		time.Duration(defaultValueInTimescaleUnits)*timeScale, orderedKeys...,
 	)
-	c.registerDurationVar(defaultValueInTimescaleUnits, ptr, true, timeScale, func(v time.Duration) {
-		ptr.store(v)
-	}, orderedKeys...)
+	if !exists {
+		c.registerDurationVar(defaultValueInTimescaleUnits, ptr, true, timeScale, func(v time.Duration) {
+			ptr.store(v)
+		}, orderedKeys...)
+	}
 	return ptr
 }
 
@@ -526,12 +536,14 @@ func (c *Config) GetStringVar(defaultValue string, orderedKeys ...string) string
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableStringVar(defaultValue string, orderedKeys ...string) *Reloadable[string] {
-	ptr := getOrCreatePointer(
+	ptr, exists := getOrCreatePointer(
 		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
-	c.registerStringVar(defaultValue, ptr, true, func(v string) {
-		ptr.store(v)
-	}, orderedKeys...)
+	if !exists {
+		c.registerStringVar(defaultValue, ptr, true, func(v string) {
+			ptr.store(v)
+		}, orderedKeys...)
+	}
 	return ptr
 }
 
@@ -616,12 +628,14 @@ func (c *Config) GetStringSliceVar(defaultValue []string, orderedKeys ...string)
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableStringSliceVar(defaultValue []string, orderedKeys ...string) *Reloadable[[]string] {
-	ptr := getOrCreatePointer(
+	ptr, exists := getOrCreatePointer(
 		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
-	c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
-		ptr.store(v)
-	}, orderedKeys...)
+	if !exists {
+		c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
+			ptr.store(v)
+		}, orderedKeys...)
+	}
 	return ptr
 }
 
@@ -714,12 +728,14 @@ func (c *Config) GetStringMapVar(
 func (c *Config) GetReloadableStringMapVar(
 	defaultValue map[string]interface{}, orderedKeys ...string,
 ) *Reloadable[map[string]interface{}] {
-	ptr := getOrCreatePointer(
+	ptr, exists := getOrCreatePointer(
 		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
-	c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]interface{}) {
-		ptr.store(v)
-	}, orderedKeys...)
+	if !exists {
+		c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]interface{}) {
+			ptr.store(v)
+		}, orderedKeys...)
+	}
 	return ptr
 }
 

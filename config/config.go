@@ -305,7 +305,7 @@ func getReloadableMapKeys[T configTypes](v T, orderedKeys ...string) (string, st
 func getOrCreatePointer[T configTypes](
 	m map[string]any, dvs map[string]string, // this function MUST receive maps that are already initialized
 	lock *sync.RWMutex, defaultValue T, orderedKeys ...string,
-) *Reloadable[T] {
+) (ptr *Reloadable[T], exists bool) {
 	key, dvKey := getReloadableMapKeys(defaultValue, orderedKeys...)
 
 	lock.Lock()
@@ -324,12 +324,12 @@ func getOrCreatePointer[T configTypes](
 	}()
 
 	if p, ok := m[key]; ok {
-		return p.(*Reloadable[T])
+		return p.(*Reloadable[T]), true
 	}
 
 	p := &Reloadable[T]{}
 	m[key] = p
-	return p
+	return p, false
 }
 
 // bindEnv handles rudder server's unique snake case replacement by registering

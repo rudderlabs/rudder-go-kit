@@ -440,17 +440,21 @@ func TestGetOrCreatePointer(t *testing.T) {
 		dvs = make(map[string]string)
 		rwm sync.RWMutex
 	)
-	p1 := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
+	p1, exists := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
 	require.NotNil(t, p1)
+	require.False(t, exists)
 
-	p2 := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
+	p2, exists := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
 	require.True(t, p1 == p2)
+	require.True(t, exists)
 
-	p3 := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo")
+	p3, exists := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo")
 	require.True(t, p1 != p3)
+	require.False(t, exists)
 
-	p4 := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo", "qux")
+	p4, exists := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo", "qux")
 	require.True(t, p1 != p4)
+	require.False(t, exists)
 
 	require.PanicsWithError(t,
 		"Detected misuse of config variable registered with different default values "+
@@ -591,7 +595,6 @@ func Test_Misc(t *testing.T) {
 }
 
 func TestConfigLocking(t *testing.T) {
-
 	const (
 		timeout   = 2 * time.Second
 		configKey = "test"
@@ -667,5 +670,4 @@ func TestConfigLocking(t *testing.T) {
 	})
 
 	require.NoError(t, g.Wait())
-
 }
