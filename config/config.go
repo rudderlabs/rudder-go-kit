@@ -111,7 +111,7 @@ func GetBool(key string, defaultValue bool) (value bool) {
 func (c *Config) GetBool(key string, defaultValue bool) (value bool) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		return defaultValue
 	}
 	return c.v.GetBool(key)
@@ -126,7 +126,7 @@ func GetInt(key string, defaultValue int) (value int) {
 func (c *Config) GetInt(key string, defaultValue int) (value int) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		return defaultValue
 	}
 	return c.v.GetInt(key)
@@ -141,7 +141,7 @@ func GetStringMap(key string, defaultValue map[string]interface{}) (value map[st
 func (c *Config) GetStringMap(key string, defaultValue map[string]interface{}) (value map[string]interface{}) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		return defaultValue
 	}
 	return c.v.GetStringMap(key)
@@ -156,7 +156,7 @@ func MustGetInt(key string) (value int) {
 func (c *Config) MustGetInt(key string) (value int) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		panic(fmt.Errorf("config key %s not found", key))
 	}
 	return c.v.GetInt(key)
@@ -171,7 +171,7 @@ func GetInt64(key string, defaultValue int64) (value int64) {
 func (c *Config) GetInt64(key string, defaultValue int64) (value int64) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		return defaultValue
 	}
 	return c.v.GetInt64(key)
@@ -186,7 +186,7 @@ func GetFloat64(key string, defaultValue float64) (value float64) {
 func (c *Config) GetFloat64(key string, defaultValue float64) (value float64) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		return defaultValue
 	}
 	return c.v.GetFloat64(key)
@@ -201,7 +201,7 @@ func GetString(key, defaultValue string) (value string) {
 func (c *Config) GetString(key, defaultValue string) (value string) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		return defaultValue
 	}
 	return c.v.GetString(key)
@@ -216,7 +216,7 @@ func MustGetString(key string) (value string) {
 func (c *Config) MustGetString(key string) (value string) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		panic(fmt.Errorf("config key %s not found", key))
 	}
 	return c.v.GetString(key)
@@ -231,7 +231,7 @@ func GetStringSlice(key string, defaultValue []string) (value []string) {
 func (c *Config) GetStringSlice(key string, defaultValue []string) (value []string) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		return defaultValue
 	}
 	return c.v.GetStringSlice(key)
@@ -246,7 +246,7 @@ func GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.
 func (c *Config) GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
-	if !c.IsSet(key) {
+	if !c.isSetInternal(key) {
 		return time.Duration(defaultValueInTimescaleUnits) * timeScale
 	} else {
 		v := c.v.GetString(key)
@@ -273,6 +273,11 @@ func IsSet(key string) bool {
 func (c *Config) IsSet(key string) bool {
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
+	return c.isSetInternal(key)
+}
+
+// isSetInternal checks if config is set for a key. Caller needs to hold a read lock on vLock.
+func (c *Config) isSetInternal(key string) bool {
 	c.bindEnv(key)
 	return c.v.IsSet(key)
 }

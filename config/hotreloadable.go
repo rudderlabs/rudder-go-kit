@@ -91,7 +91,7 @@ func (c *Config) registerIntVar(
 	}
 
 	for _, key := range orderedKeys {
-		if c.IsSet(key) {
+		if c.isSetInternal(key) {
 			store(c.GetInt(key, defaultValue) * valueScale)
 			return
 		}
@@ -180,7 +180,7 @@ func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable boo
 
 	for _, key := range orderedKeys {
 		c.bindEnv(key)
-		if c.IsSet(key) {
+		if c.isSetInternal(key) {
 			store(c.GetBool(key, defaultValue))
 			return
 		}
@@ -274,7 +274,7 @@ func (c *Config) registerFloat64Var(
 
 	for _, key := range orderedKeys {
 		c.bindEnv(key)
-		if c.IsSet(key) {
+		if c.isSetInternal(key) {
 			store(c.GetFloat64(key, defaultValue))
 			return
 		}
@@ -368,7 +368,7 @@ func (c *Config) registerInt64Var(
 
 	for _, key := range orderedKeys {
 		c.bindEnv(key)
-		if c.IsSet(key) {
+		if c.isSetInternal(key) {
 			store(c.GetInt64(key, defaultValue) * valueScale)
 			return
 		}
@@ -471,7 +471,7 @@ func (c *Config) registerDurationVar(
 	}
 
 	for _, key := range orderedKeys {
-		if c.IsSet(key) {
+		if c.isSetInternal(key) {
 			store(c.GetDuration(key, defaultValueInTimescaleUnits, timeScale))
 			return
 		}
@@ -563,7 +563,7 @@ func (c *Config) registerStringVar(
 	}
 
 	for _, key := range orderedKeys {
-		if c.IsSet(key) {
+		if c.isSetInternal(key) {
 			store(c.GetString(key, defaultValue))
 			return
 		}
@@ -655,7 +655,7 @@ func (c *Config) registerStringSliceVar(
 	}
 
 	for _, key := range orderedKeys {
-		if c.IsSet(key) {
+		if c.isSetInternal(key) {
 			store(c.GetStringSlice(key, defaultValue))
 			return
 		}
@@ -755,7 +755,7 @@ func (c *Config) registerStringMapVar(
 	}
 
 	for _, key := range orderedKeys {
-		if c.IsSet(key) {
+		if c.isSetInternal(key) {
 			store(c.GetStringMap(key, defaultValue))
 			return
 		}
