@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -11,10 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	awsS3Manager "github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
 
@@ -23,35 +25,34 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
-type S3Config struct {
-	Bucket           string  `mapstructure:"bucketName"`
-	Prefix           string  `mapstructure:"Prefix"`
-	Region           *string `mapstructure:"region"`
-	Endpoint         *string `mapstructure:"endpoint"`
-	S3ForcePathStyle *bool   `mapstructure:"s3ForcePathStyle"`
-	DisableSSL       *bool   `mapstructure:"disableSSL"`
-	EnableSSE        bool    `mapstructure:"enableSSE"`
-	RegionHint       string  `mapstructure:"regionHint"`
-	UseGlue          bool    `mapstructure:"useGlue"`
+const ServiceName = "s3"
+
+type S3ManagerV2 struct {
+	*baseManager
+	config *S3Config
+
+	sessionConfig *awsutil.SessionConfig
+	client        *s3.Client
+	configMu      sync.Mutex
 }
 
 // NewS3Manager creates a new file manager for S3
-func NewS3Manager(
+func NewS3ManagerV2(
 	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
-) (*S3Manager, error) {
+) (*S3ManagerV2, error) {
 	var s3Config S3Config
 	if err := mapstructure.Decode(config, &s3Config); err != nil {
 		return nil, err
 	}
 
-	sessionConfig, err := awsutil.NewSimpleSessionConfig(config, s3.ServiceName)
+	sessionConfig, err := awsutil.NewSimpleSessionConfig(config, ServiceName)
 	if err != nil {
 		return nil, err
 	}
 
 	s3Config.RegionHint = appConfig.GetString("AWS_S3_REGION_HINT", "us-east-1")
 
-	return &S3Manager{
+	return &S3ManagerV2{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
@@ -61,8 +62,8 @@ func NewS3Manager(
 	}, nil
 }
 
-func (m *S3Manager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
-	return &s3ListSession{
+func (m *S3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+	return &s3ListSessionV2{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
 			startAfter: startAfter,
@@ -75,26 +76,27 @@ func (m *S3Manager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix 
 }
 
 // Download downloads a file from S3
-func (m *S3Manager) Download(ctx context.Context, output *os.File, key string) error {
-	sess, err := m.getSession(ctx)
+func (m *S3ManagerV2) Download(ctx context.Context, output *os.File, key string) error {
+	client, err := m.getClient(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting S3 session: %w", err)
+		return fmt.Errorf("s3 client: %w", err)
 	}
 
-	aws.NewConfig()
-
-	downloader := awsS3Manager.NewDownloader(sess)
+	downloader := s3manager.NewDownloader(client)
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	_, err = downloader.DownloadWithContext(ctx, output,
+	_, err = downloader.Download(ctx, output,
 		&s3.GetObjectInput{
 			Bucket: aws.String(m.config.Bucket),
 			Key:    aws.String(key),
 		})
+
 	if err != nil {
-		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "NoSuchKey" {
+		var nsk *types.NoSuchKey
+		if errors.As(err, &nsk) {
+			// handle NoSuchKey error
 			return ErrKeyNotFound
 		}
 		return err
@@ -103,29 +105,30 @@ func (m *S3Manager) Download(ctx context.Context, output *os.File, key string) e
 }
 
 // Upload uploads a file to S3
-func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+func (m *S3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
 	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
 
-	uploadInput := &awsS3Manager.UploadInput{
-		ACL:    aws.String("bucket-owner-full-control"),
+	uploadInput := &s3.PutObjectInput{
+		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
 		Bucket: aws.String(m.config.Bucket),
 		Key:    aws.String(fileName),
 		Body:   file,
 	}
+
 	if m.config.EnableSSE {
-		uploadInput.ServerSideEncryption = aws.String("AES256")
+		uploadInput.ServerSideEncryption = types.ServerSideEncryptionAes256
 	}
 
-	uploadSession, err := m.getSession(ctx)
+	client, err := m.getClient(ctx)
 	if err != nil {
-		return UploadedFile{}, fmt.Errorf("error starting S3 session: %w", err)
+		return UploadedFile{}, fmt.Errorf("s3 client: %w", err)
 	}
-	s3manager := awsS3Manager.NewUploader(uploadSession)
+	uploader := s3manager.NewUploader(client)
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	output, err := s3manager.UploadWithContext(ctx, uploadInput)
+	output, err := uploader.Upload(ctx, uploadInput)
 	if err != nil {
 		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "MissingRegion" {
 			err = fmt.Errorf(fmt.Sprintf(`Bucket '%s' not found.`, m.config.Bucket))
@@ -136,34 +139,30 @@ func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...strin
 	return UploadedFile{Location: output.Location, ObjectName: fileName}, err
 }
 
-func (m *S3Manager) Delete(ctx context.Context, keys []string) (err error) {
-	sess, err := m.getSession(ctx)
+func (m *S3ManagerV2) Delete(ctx context.Context, keys []string) (err error) {
+	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
 	}
 
-	var objects []*s3.ObjectIdentifier
+	var objects []types.ObjectIdentifier
 	for _, key := range keys {
-		objects = append(objects, &s3.ObjectIdentifier{Key: aws.String(key)})
+		objects = append(objects, types.ObjectIdentifier{Key: aws.String(key)})
 	}
-
-	svc := s3.New(sess)
 
 	batchSize := 1000 // max accepted by DeleteObjects API
 	chunks := lo.Chunk(objects, batchSize)
 	for _, chunk := range chunks {
-		input := &s3.DeleteObjectsInput{
+		deleteCtx, cancel := context.WithTimeout(ctx, m.getTimeout())
+		_, err := client.DeleteObjects(deleteCtx, &s3.DeleteObjectsInput{
 			Bucket: aws.String(m.config.Bucket),
-			Delete: &s3.Delete{
+			Delete: &types.Delete{
 				Objects: chunk,
 			},
-		}
-
-		deleteCtx, cancel := context.WithTimeout(ctx, m.getTimeout())
-		_, err := svc.DeleteObjectsWithContext(deleteCtx, input)
+		})
 		cancel()
-
 		if err != nil {
+			// TODO: better way to do this
 			if codeErr, ok := err.(codeError); ok {
 				m.logger.Errorf(`Error while deleting S3 objects: %v, error code: %v`, err.Error(), codeErr.Code())
 			} else {
@@ -175,7 +174,7 @@ func (m *S3Manager) Delete(ctx context.Context, keys []string) (err error) {
 	return nil
 }
 
-func (m *S3Manager) Prefix() string {
+func (m *S3ManagerV2) Prefix() string {
 	return m.config.Prefix
 }
 
@@ -184,7 +183,7 @@ GetObjectNameFromLocation gets the object name/key name from the object location
 
 	https://bucket-name.s3.amazonaws.com/key - >> key
 */
-func (m *S3Manager) GetObjectNameFromLocation(location string) (string, error) {
+func (m *S3ManagerV2) GetObjectNameFromLocation(location string) (string, error) {
 	parsedUrl, err := url.Parse(location)
 	if err != nil {
 		return "", err
@@ -197,7 +196,7 @@ func (m *S3Manager) GetObjectNameFromLocation(location string) (string, error) {
 	return trimmedURL, nil
 }
 
-func (m *S3Manager) GetDownloadKeyFromFileLocation(location string) string {
+func (m *S3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
 		fmt.Println("error while parsing location url: ", err)
@@ -210,55 +209,63 @@ func (m *S3Manager) GetDownloadKeyFromFileLocation(location string) string {
 	return trimmedURL
 }
 
-func (m *S3Manager) getSession(ctx context.Context) (*session.Session, error) {
-	m.sessionMu.Lock()
-	defer m.sessionMu.Unlock()
+func (m *S3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
+	m.configMu.Lock()
+	defer m.configMu.Unlock()
 
-	if m.session != nil {
-		return m.session, nil
+	if m.client != nil {
+		return m.client, nil
 	}
 
 	if m.config.Bucket == "" {
 		return nil, errors.New("no storage bucket configured to downloader")
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
+	defer cancel()
+
 	if !m.config.UseGlue || m.config.Region == nil {
-		getRegionSession, err := session.NewSession()
+		// cfg, err := awsconfig.LoadOptions{(ctx, awsconfig.WithRegion(m.config.RegionHint))
+		// if err != nil {
+		// 	return zero, fmt.Errorf("aws load config: %w", err)
+		// }
+
+		region, err := s3manager.GetBucketRegion(ctx, s3.New(s3.Options{
+			Region: aws.ToString(&m.config.RegionHint),
+		}), m.config.Bucket)
 		if err != nil {
 			return nil, err
-		}
-
-		ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
-		defer cancel()
-
-		region, err := awsS3Manager.GetBucketRegion(ctx, getRegionSession, m.config.Bucket, m.config.RegionHint)
-		if err != nil {
-			m.logger.Errorf("Failed to fetch AWS region for bucket %s. Error %v", m.config.Bucket, err)
-			// Failed to get Region probably due to VPC restrictions
-			// Will proceed to try with AccessKeyID and AccessKey
 		}
 		m.config.Region = aws.String(region)
 		m.sessionConfig.Region = region
 	}
 
-	var err error
-	m.session, err = awsutil.CreateSession(m.sessionConfig)
+	cnf, err := awsutil.CreateAWSConfig(ctx, m.sessionConfig)
 	if err != nil {
 		return nil, err
 	}
-	return m.session, err
+
+	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
+
+		if m.config.Endpoint != nil {
+			o.BaseEndpoint = aws.String("http://" + *m.config.Endpoint)
+		}
+
+		o.UsePathStyle = aws.ToBool(m.config.S3ForcePathStyle)
+		o.EndpointOptions.DisableHTTPS = aws.ToBool(m.config.DisableSSL)
+		if m.timeout != 0 {
+			o.HTTPClient = &http.Client{
+				Timeout: m.timeout,
+			}
+		}
+	})
+
+	m.client = client
+
+	return m.client, err
 }
 
-type S3Manager struct {
-	*baseManager
-	config *S3Config
-
-	sessionConfig *awsutil.SessionConfig
-	session       *session.Session
-	sessionMu     sync.Mutex
-}
-
-func (m *S3Manager) getTimeout() time.Duration {
+func (m *S3ManagerV2) getTimeout() time.Duration {
 	if m.timeout > 0 {
 		return m.timeout
 	}
@@ -268,15 +275,15 @@ func (m *S3Manager) getTimeout() time.Duration {
 	return defaultTimeout
 }
 
-type s3ListSession struct {
+type s3ListSessionV2 struct {
 	*baseListSession
-	manager *S3Manager
+	manager *S3ManagerV2
 
 	continuationToken *string
 	isTruncated       bool
 }
 
-func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
+func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 	manager := l.manager
 	if !l.isTruncated {
 		manager.logger.Infof("Manager is truncated: %v so returning here", l.isTruncated)
@@ -284,46 +291,36 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 	}
 	fileObjects = make([]*FileInfo, 0)
 
-	sess, err := manager.getSession(l.ctx)
+	client, err := manager.getClient(l.ctx)
 	if err != nil {
 		return []*FileInfo{}, fmt.Errorf("error starting S3 session: %w", err)
 	}
 	// Create S3 service client
-	svc := s3.New(sess)
 	listObjectsV2Input := s3.ListObjectsV2Input{
 		Bucket:  aws.String(manager.config.Bucket),
 		Prefix:  aws.String(l.prefix),
-		MaxKeys: &l.maxItems,
+		MaxKeys: int32(l.maxItems),
 		// Delimiter: aws.String("/"),
+		ContinuationToken: l.continuationToken,
 	}
 	// startAfter is to resume a paused task.
 	if l.startAfter != "" {
 		listObjectsV2Input.StartAfter = aws.String(l.startAfter)
 	}
 
-	if l.continuationToken != nil {
-		listObjectsV2Input.ContinuationToken = l.continuationToken
-	}
-
 	ctx, cancel := context.WithTimeout(l.ctx, manager.getTimeout())
 	defer cancel()
 
 	// Get the list of items
-	resp, err := svc.ListObjectsV2WithContext(ctx, &listObjectsV2Input)
+	resp, err := client.ListObjectsV2(ctx, &listObjectsV2Input)
 	if err != nil {
 		manager.logger.Errorf("Error while listing S3 objects: %v", err)
 		return
 	}
-	if resp.IsTruncated != nil {
-		l.isTruncated = *resp.IsTruncated
-	}
+	l.isTruncated = resp.IsTruncated
 	l.continuationToken = resp.NextContinuationToken
 	for _, item := range resp.Contents {
 		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
 	}
 	return
-}
-
-type codeError interface {
-	Code() string
 }

@@ -241,7 +241,25 @@ func TestFileManager(t *testing.T) {
 		destName      string
 		config        map[string]interface{}
 		otherPrefixes []string
+		s3ManagerV2   bool
 	}{
+		{
+			name:          "testing s3manager functionality - v2",
+			destName:      "S3",
+			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
+			config: map[string]interface{}{
+				"bucketName":       bucket,
+				"accessKeyID":      accessKeyId,
+				"accessKey":        secretAccessKey,
+				"enableSSE":        false,
+				"prefix":           "some-prefix",
+				"endPoint":         minioEndpoint,
+				"s3ForcePathStyle": true,
+				"disableSSL":       true,
+				"region":           region,
+			},
+			s3ManagerV2: true,
+		},
 		{
 			name:          "testing s3manager functionality",
 			destName:      "S3",
@@ -257,6 +275,7 @@ func TestFileManager(t *testing.T) {
 				"disableSSL":       true,
 				"region":           region,
 			},
+			s3ManagerV2: false,
 		},
 		{
 			name:          "testing minio functionality",
@@ -340,9 +359,10 @@ func TestFileManager(t *testing.T) {
 				t.Skip(tt.skip)
 			}
 			fm, err := filemanager.New(&filemanager.Settings{
-				Provider: tt.destName,
-				Config:   tt.config,
-				Logger:   logger.NOP,
+				Provider:    tt.destName,
+				Config:      tt.config,
+				Logger:      logger.NOP,
+				S3ManagerV2: tt.s3ManagerV2,
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -392,9 +412,10 @@ func TestFileManager(t *testing.T) {
 			}
 
 			tempFm, err := filemanager.New(&filemanager.Settings{
-				Provider: tt.destName,
-				Config:   tt.config,
-				Logger:   logger.NOP,
+				Provider:    tt.destName,
+				Config:      tt.config,
+				Logger:      logger.NOP,
+				S3ManagerV2: tt.s3ManagerV2,
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -489,9 +510,10 @@ func TestFileManager(t *testing.T) {
 			require.NoError(t, err, "expected no error while deleting object")
 			// list files again & assert if that file is still present.
 			fmNew, err := filemanager.New(&filemanager.Settings{
-				Provider: tt.destName,
-				Config:   tt.config,
-				Logger:   logger.NOP,
+				Provider:    tt.destName,
+				Config:      tt.config,
+				Logger:      logger.NOP,
+				S3ManagerV2: tt.s3ManagerV2,
 			})
 			if err != nil {
 				panic(err)
@@ -508,9 +530,10 @@ func TestFileManager(t *testing.T) {
 				t.Skip(tt.skip)
 			}
 			fm, err := filemanager.New(&filemanager.Settings{
-				Provider: tt.destName,
-				Config:   tt.config,
-				Logger:   logger.NOP,
+				Provider:    tt.destName,
+				Config:      tt.config,
+				Logger:      logger.NOP,
+				S3ManagerV2: tt.s3ManagerV2,
 			})
 			if err != nil {
 				t.Fatal(err)
