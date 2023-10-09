@@ -81,8 +81,6 @@ func (m *S3Manager) Download(ctx context.Context, output *os.File, key string) e
 		return fmt.Errorf("error starting S3 session: %w", err)
 	}
 
-	aws.NewConfig()
-
 	downloader := awsS3Manager.NewDownloader(sess)
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())

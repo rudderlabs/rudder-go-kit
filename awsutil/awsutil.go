@@ -56,7 +56,6 @@ func CreateSession(config *SessionConfig) (*session.Session, error) {
 	})
 }
 
-
 // NewSimpleSessionConfig creates a new session config using the provided config map
 func NewSimpleSessionConfig(config map[string]interface{}, serviceName string) (*SessionConfig, error) {
 	if config == nil {
