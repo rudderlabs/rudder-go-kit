@@ -3,7 +3,7 @@ module github.com/rudderlabs/rudder-go-kit
 go 1.21
 
 require (
-	cloud.google.com/go/storage v1.32.0
+	cloud.google.com/go/storage v1.33.0
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/aws/aws-sdk-go v1.45.3
 	github.com/cenkalti/backoff/v4 v4.2.1
