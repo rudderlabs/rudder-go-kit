@@ -130,7 +130,10 @@ func (m *Manager) buildPrometheusMeterProvider(c config, res *resource.Resource)
 	return sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
 		sdkmetric.WithReader(exp),
-		sdkmetric.WithView(c.meterProviderConfig.views...),
+		sdkmetric.WithView(append(
+			c.meterProviderConfig.views,
+			c.meterProviderConfig.defaultHistogramBuckets,
+		)...),
 	), nil
 }
 
@@ -163,7 +166,10 @@ func (m *Manager) buildOTLPMeterProvider(
 			exp,
 			sdkmetric.WithInterval(c.meterProviderConfig.exportsInterval),
 		)),
-		sdkmetric.WithView(c.meterProviderConfig.views...),
+		sdkmetric.WithView(append(
+			c.meterProviderConfig.views,
+			c.meterProviderConfig.defaultHistogramBuckets,
+		)...),
 	), nil
 }
 
@@ -250,13 +256,19 @@ type tracerProviderConfig struct {
 }
 
 type meterProviderConfig struct {
-	enabled               bool
-	global                bool
-	exportsInterval       time.Duration
-	views                 []sdkmetric.View
-	grpcEndpoint          *string
-	prometheusRegisterer  promClient.Registerer
-	otlpMetricGRPCOptions []otlpmetricgrpc.Option
+	enabled         bool
+	global          bool
+	exportsInterval time.Duration
+	views           []sdkmetric.View
+	// defaultHistogramBuckets is not part of the above "views" because the order
+	// by which we add views matter. We have to add the default view last because the
+	// views criteria are applied in order and the default one is the more generic.
+	// Thus, if we put it first it will be applied to all histogram instruments removing
+	// the ability to customize the buckets of specific histograms.
+	defaultHistogramBuckets sdkmetric.View
+	grpcEndpoint            *string
+	prometheusRegisterer    promClient.Registerer
+	otlpMetricGRPCOptions   []otlpmetricgrpc.Option
 }
 
 type logger interface {

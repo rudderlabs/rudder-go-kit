@@ -105,7 +105,7 @@ func WithPrometheusExporter(registerer prometheus.Registerer) MeterProviderOptio
 // WithDefaultHistogramBucketBoundaries lets you overwrite the default buckets for all histograms.
 func WithDefaultHistogramBucketBoundaries(boundaries []float64) MeterProviderOption {
 	return func(c *meterProviderConfig) {
-		c.views = append(c.views, sdkmetric.NewView(
+		c.defaultHistogramBuckets = sdkmetric.NewView(
 			sdkmetric.Instrument{
 				Kind: sdkmetric.InstrumentKindHistogram,
 			},
@@ -114,7 +114,7 @@ func WithDefaultHistogramBucketBoundaries(boundaries []float64) MeterProviderOpt
 					Boundaries: boundaries,
 				},
 			},
-		))
+		)
 	}
 }
 
