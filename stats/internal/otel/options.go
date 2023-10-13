@@ -7,7 +7,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/metric/aggregation"
 )
 
 type (
@@ -106,20 +105,14 @@ func WithPrometheusExporter(registerer prometheus.Registerer) MeterProviderOptio
 // WithDefaultHistogramBucketBoundaries lets you overwrite the default buckets for all histograms.
 func WithDefaultHistogramBucketBoundaries(boundaries []float64) MeterProviderOption {
 	return func(c *meterProviderConfig) {
-		c.defaultAggregationSelector = func(ik sdkmetric.InstrumentKind) aggregation.Aggregation {
-			switch ik {
-			case sdkmetric.InstrumentKindCounter, sdkmetric.InstrumentKindUpDownCounter,
-				sdkmetric.InstrumentKindObservableCounter, sdkmetric.InstrumentKindObservableUpDownCounter:
-				return aggregation.Sum{}
-			case sdkmetric.InstrumentKindObservableGauge:
-				return aggregation.LastValue{}
-			case sdkmetric.InstrumentKindHistogram:
-				return aggregation.ExplicitBucketHistogram{
+		c.views = append(c.views, sdkmetric.NewView(
+			sdkmetric.Instrument{},
+			sdkmetric.Stream{
+				Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 					Boundaries: boundaries,
-				}
-			}
-			panic("unknown instrument kind")
-		}
+				},
+			},
+		))
 	}
 }
 
@@ -137,7 +130,7 @@ func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries 
 			Kind:  sdkmetric.InstrumentKindHistogram,
 		},
 		sdkmetric.Stream{
-			Aggregation: aggregation.ExplicitBucketHistogram{
+			Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: boundaries,
 			},
 		},

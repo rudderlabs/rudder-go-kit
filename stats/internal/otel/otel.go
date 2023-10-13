@@ -123,11 +123,6 @@ func (m *Manager) buildPrometheusMeterProvider(c config, res *resource.Resource)
 		prometheus.WithRegisterer(c.meterProviderConfig.prometheusRegisterer),
 		prometheus.WithLogger(c.logger),
 	}
-	if c.meterProviderConfig.defaultAggregationSelector != nil {
-		exporterOptions = append(exporterOptions,
-			prometheus.WithAggregationSelector(c.meterProviderConfig.defaultAggregationSelector),
-		)
-	}
 	exp, err := prometheus.New(exporterOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("prometheus: failed to create metric exporter: %w", err)
@@ -156,11 +151,6 @@ func (m *Manager) buildOTLPMeterProvider(
 	}
 	if len(c.meterProviderConfig.otlpMetricGRPCOptions) > 0 {
 		meterProviderOptions = append(meterProviderOptions, c.meterProviderConfig.otlpMetricGRPCOptions...)
-	}
-	if c.meterProviderConfig.defaultAggregationSelector != nil {
-		meterProviderOptions = append(meterProviderOptions,
-			otlpmetricgrpc.WithAggregationSelector(c.meterProviderConfig.defaultAggregationSelector),
-		)
 	}
 	exp, err := otlpmetricgrpc.New(ctx, meterProviderOptions...)
 	if err != nil {
@@ -260,14 +250,13 @@ type tracerProviderConfig struct {
 }
 
 type meterProviderConfig struct {
-	enabled                    bool
-	global                     bool
-	exportsInterval            time.Duration
-	views                      []sdkmetric.View
-	grpcEndpoint               *string
-	prometheusRegisterer       promClient.Registerer
-	defaultAggregationSelector sdkmetric.AggregationSelector
-	otlpMetricGRPCOptions      []otlpmetricgrpc.Option
+	enabled               bool
+	global                bool
+	exportsInterval       time.Duration
+	views                 []sdkmetric.View
+	grpcEndpoint          *string
+	prometheusRegisterer  promClient.Registerer
+	otlpMetricGRPCOptions []otlpmetricgrpc.Option
 }
 
 type logger interface {
