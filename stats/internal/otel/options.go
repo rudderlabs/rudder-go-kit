@@ -106,7 +106,9 @@ func WithPrometheusExporter(registerer prometheus.Registerer) MeterProviderOptio
 func WithDefaultHistogramBucketBoundaries(boundaries []float64) MeterProviderOption {
 	return func(c *meterProviderConfig) {
 		c.views = append(c.views, sdkmetric.NewView(
-			sdkmetric.Instrument{},
+			sdkmetric.Instrument{
+				Kind: sdkmetric.InstrumentKindHistogram,
+			},
 			sdkmetric.Stream{
 				Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 					Boundaries: boundaries,

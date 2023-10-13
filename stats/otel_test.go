@@ -23,7 +23,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/httputil"
@@ -44,7 +44,7 @@ var globalDefaultAttrs = []*promClient.LabelPair{
 	{Name: ptr("service_version"), Value: ptr("v1.2.3")},
 	{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
 	{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-	{Name: ptr("telemetry_sdk_version"), Value: ptr("1.16.0")},
+	{Name: ptr("telemetry_sdk_version"), Value: ptr("1.19.0")},
 }
 
 func TestOTelMeasurementInvalidOperations(t *testing.T) {
