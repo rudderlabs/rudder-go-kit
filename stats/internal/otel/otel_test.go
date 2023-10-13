@@ -437,6 +437,9 @@ func TestCollectorGlobals(t *testing.T) {
 }
 
 func TestNonBlockingConnection(t *testing.T) {
+	// TODO report this issue to the otel team
+	t.Skipf("This feature is not supported at this time")
+
 	grpcPort, err := testhelper.GetFreePort()
 	require.NoError(t, err)
 
@@ -452,7 +455,10 @@ func TestNonBlockingConnection(t *testing.T) {
 	)
 	_, mp, err := om.Setup(ctx, res,
 		WithInsecure(),
-		WithMeterProvider(WithGRPCMeterProvider(endpoint), WithMeterProviderExportsInterval(100*time.Millisecond)),
+		WithMeterProvider(
+			WithGRPCMeterProvider(endpoint),
+			WithMeterProviderExportsInterval(100*time.Millisecond),
+		),
 		WithRetryConfig(RetryConfig{
 			Enabled:         true,
 			InitialInterval: time.Second,

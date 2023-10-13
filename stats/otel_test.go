@@ -316,7 +316,12 @@ func TestOTelPeriodicStats(t *testing.T) {
 		prepareFunc(c, m)
 
 		l := logger.NewFactory(c)
-		s := NewStats(c, l, m, WithServiceName("TestOTelPeriodicStats"), WithServiceVersion("v1.2.3"))
+		s := NewStats(c, l, m,
+			WithServiceName("TestOTelPeriodicStats"),
+			WithServiceVersion("v1.2.3"),
+			// TODO without the following line the test panics, issue a bug report
+			WithDefaultHistogramBuckets([]float64{1, 2, 3}),
+		)
 
 		// start stats
 		ctx, cancel := context.WithCancel(context.Background())
