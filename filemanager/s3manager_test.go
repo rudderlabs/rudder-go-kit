@@ -106,7 +106,7 @@ func TestGetSessionWithAccessKeys(t *testing.T) {
 			Region:      "someRegion",
 		},
 	}
-	awsSession, err := s3Manager.getSession(context.TODO())
+	awsSession, err := s3Manager.GetSession(context.TODO())
 	assert.Nil(t, err)
 	assert.NotNil(t, awsSession)
 	assert.NotNil(t, s3Manager.session)
@@ -127,7 +127,7 @@ func TestGetSessionWithIAMRole(t *testing.T) {
 			Region:     "someRegion",
 		},
 	}
-	awsSession, err := s3Manager.getSession(context.TODO())
+	awsSession, err := s3Manager.GetSession(context.TODO())
 	assert.Nil(t, err)
 	assert.NotNil(t, awsSession)
 	assert.NotNil(t, s3Manager.session)
