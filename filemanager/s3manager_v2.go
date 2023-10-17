@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/smithy-go"
+
 	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -33,10 +35,10 @@ type S3ManagerV2 struct {
 
 	sessionConfig *awsutil.SessionConfig
 	client        *s3.Client
-	configMu      sync.Mutex
+	clientMu      sync.Mutex
 }
 
-// NewS3Manager creates a new file manager for S3
+// NewS3ManagerV2 creates a new file manager for S3 using v2 aws sdk
 func NewS3ManagerV2(
 	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
 ) (*S3ManagerV2, error) {
@@ -130,8 +132,9 @@ func (m *S3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...str
 
 	output, err := uploader.Upload(ctx, uploadInput)
 	if err != nil {
-		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "MissingRegion" {
-			err = fmt.Errorf(fmt.Sprintf(`Bucket '%s' not found.`, m.config.Bucket))
+		var regionError *aws.MissingRegionError
+		if errors.As(err, &regionError) {
+			err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
 		}
 		return UploadedFile{}, err
 	}
@@ -142,7 +145,7 @@ func (m *S3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...str
 func (m *S3ManagerV2) Delete(ctx context.Context, keys []string) (err error) {
 	client, err := m.getClient(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting S3 session: %w", err)
+		return fmt.Errorf("s3 client: %w", err)
 	}
 
 	var objects []types.ObjectIdentifier
@@ -162,12 +165,13 @@ func (m *S3ManagerV2) Delete(ctx context.Context, keys []string) (err error) {
 		})
 		cancel()
 		if err != nil {
-			// TODO: better way to do this
-			if codeErr, ok := err.(codeError); ok {
-				m.logger.Errorf(`Error while deleting S3 objects: %v, error code: %v`, err.Error(), codeErr.Code())
+			var apiErr smithy.APIError
+			if errors.As(err, &apiErr) {
+				m.logger.Errorf(`Error while deleting S3 objects: %v, error code: %q`, err.Error(), apiErr.ErrorCode())
 			} else {
 				m.logger.Errorf(`Error while deleting S3 objects: %v`, err.Error())
 			}
+
 			return err
 		}
 	}
@@ -210,8 +214,8 @@ func (m *S3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 }
 
 func (m *S3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
-	m.configMu.Lock()
-	defer m.configMu.Unlock()
+	m.clientMu.Lock()
+	defer m.clientMu.Unlock()
 
 	if m.client != nil {
 		return m.client, nil
@@ -225,11 +229,6 @@ func (m *S3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	defer cancel()
 
 	if !m.config.UseGlue || m.config.Region == nil {
-		// cfg, err := awsconfig.LoadOptions{(ctx, awsconfig.WithRegion(m.config.RegionHint))
-		// if err != nil {
-		// 	return zero, fmt.Errorf("aws load config: %w", err)
-		// }
-
 		region, err := s3manager.GetBucketRegion(ctx, s3.New(s3.Options{
 			Region: aws.ToString(&m.config.RegionHint),
 		}), m.config.Bucket)
@@ -246,7 +245,6 @@ func (m *S3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	}
 
 	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
-
 		if m.config.Endpoint != nil {
 			o.BaseEndpoint = aws.String("http://" + *m.config.Endpoint)
 		}
@@ -293,9 +291,9 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 
 	client, err := manager.getClient(l.ctx)
 	if err != nil {
-		return []*FileInfo{}, fmt.Errorf("error starting S3 session: %w", err)
+		return []*FileInfo{}, fmt.Errorf("s3 client: %w", err)
 	}
-	// Create S3 service client
+
 	listObjectsV2Input := s3.ListObjectsV2Input{
 		Bucket:  aws.String(manager.config.Bucket),
 		Prefix:  aws.String(l.prefix),

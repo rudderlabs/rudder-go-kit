@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
@@ -34,9 +35,14 @@ func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, er
 }
 
 func createDefaultConfig(ctx context.Context, config *SessionConfig) (aws.Config, error) {
+	customClient := awshttp.NewBuildableClient()
+	if config.Timeout != nil {
+		customClient.WithTimeout(*config.Timeout)
+	}
+
 	return awsconfig.LoadDefaultConfig(ctx,
 		awsconfig.WithRegion(config.Region),
-		// awsconfig.WithTimeout(config.Timeout),
+		awsconfig.WithHTTPClient(customClient),
 	)
 }
 

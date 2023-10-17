@@ -76,7 +76,7 @@ func (m *S3Manager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix 
 
 // Download downloads a file from S3
 func (m *S3Manager) Download(ctx context.Context, output *os.File, key string) error {
-	sess, err := m.getSession(ctx)
+	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
 	}
@@ -114,7 +114,7 @@ func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...strin
 		uploadInput.ServerSideEncryption = aws.String("AES256")
 	}
 
-	uploadSession, err := m.getSession(ctx)
+	uploadSession, err := m.GetSession(ctx)
 	if err != nil {
 		return UploadedFile{}, fmt.Errorf("error starting S3 session: %w", err)
 	}
@@ -135,7 +135,7 @@ func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...strin
 }
 
 func (m *S3Manager) Delete(ctx context.Context, keys []string) (err error) {
-	sess, err := m.getSession(ctx)
+	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
 	}
@@ -177,6 +177,10 @@ func (m *S3Manager) Prefix() string {
 	return m.config.Prefix
 }
 
+func (m *S3Manager) Bucket() string {
+	return m.config.Bucket
+}
+
 /*
 GetObjectNameFromLocation gets the object name/key name from the object location url
 
@@ -208,7 +212,7 @@ func (m *S3Manager) GetDownloadKeyFromFileLocation(location string) string {
 	return trimmedURL
 }
 
-func (m *S3Manager) getSession(ctx context.Context) (*session.Session, error) {
+func (m *S3Manager) GetSession(ctx context.Context) (*session.Session, error) {
 	m.sessionMu.Lock()
 	defer m.sessionMu.Unlock()
 
@@ -282,7 +286,7 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 	}
 	fileObjects = make([]*FileInfo, 0)
 
-	sess, err := manager.getSession(l.ctx)
+	sess, err := manager.GetSession(l.ctx)
 	if err != nil {
 		return []*FileInfo{}, fmt.Errorf("error starting S3 session: %w", err)
 	}
