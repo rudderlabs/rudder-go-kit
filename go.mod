@@ -17,8 +17,8 @@ require (
 	github.com/minio/minio-go/v7 v7.0.63
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
-	github.com/prometheus/client_golang v1.15.1
-	github.com/prometheus/client_model v0.4.0
+	github.com/prometheus/client_golang v1.17.0
+	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16
 	github.com/prometheus/common v0.44.0
 	github.com/samber/lo v1.38.1
 	github.com/shirou/gopsutil/v3 v3.23.9
@@ -99,7 +99,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/rs/xid v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
