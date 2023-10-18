@@ -40,7 +40,6 @@ func TestPartitionLocker(t *testing.T) {
 	})
 
 	t.Run("Try to lock the same partition twice", func(t *testing.T) {
-
 		type l struct {
 			locker sync.PartitionLocker
 		}
