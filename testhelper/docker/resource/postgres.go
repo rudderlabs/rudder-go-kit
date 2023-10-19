@@ -32,7 +32,7 @@ type PostgresResource struct {
 func SetupPostgres(pool *dockertest.Pool, d cleaner, opts ...func(*postgres.Config)) (*PostgresResource, error) {
 	c := &postgres.Config{
 		Tag:     "15-alpine",
-		ShmSize: 512 * bytesize.MB,
+		ShmSize: 128 * bytesize.MB,
 	}
 	for _, opt := range opts {
 		opt(c)
