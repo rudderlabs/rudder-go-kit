@@ -454,7 +454,9 @@ func TestOTelPeriodicStats(t *testing.T) {
 			c.Set("RuntimeStats.enableCPUStats", false)
 			c.Set("RuntimeStats.enabledMemStats", false)
 			c.Set("RuntimeStats.enableGCStats", false)
-			m.GetRegistry(metric.PublishedMetrics).MustGetGauge(TestMeasurement{tablePrefix: "table", workspace: "workspace", destType: "destType"}).Set(1.0)
+			m.GetRegistry(metric.PublishedMetrics).MustGetGauge(
+				TestMeasurement{tablePrefix: "table", workspace: "workspace", destType: "destType"},
+			).Set(1.0)
 		}, []expectation{
 			{name: "test_measurement_table", tags: []*promClient.LabelPair{
 				{Name: ptr("destType"), Value: ptr("destType")},
