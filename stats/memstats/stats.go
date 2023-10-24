@@ -175,6 +175,8 @@ func New(opts ...Opts) *Store {
 	return s
 }
 
+func (ms *Store) NewTracer(_ string) stats.Tracer { return nil }
+
 // NewStat implements stats.Stats
 func (ms *Store) NewStat(name, statType string) (m stats.Measurement) {
 	return ms.NewTaggedStat(name, statType, nil)
