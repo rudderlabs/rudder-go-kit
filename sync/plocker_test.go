@@ -38,4 +38,23 @@ func TestPartitionLocker(t *testing.T) {
 		wg.Wait()
 		require.Equalf(t, goroutines, counter, "it should have incremented the counter %d times", goroutines)
 	})
+
+	t.Run("Try to lock the same partition twice", func(t *testing.T) {
+		type l struct {
+			locker sync.PartitionLocker
+		}
+		var s l
+		s.locker = *sync.NewPartitionLocker()
+		var locks int
+		const id = "id"
+		s.locker.Lock(id)
+		go func() {
+			s.locker.Lock(id)
+			locks = locks + 1
+			s.locker.Unlock(id)
+		}()
+		require.Never(t, func() bool { return locks == 1 }, 100*time.Millisecond, 1*time.Millisecond)
+		s.locker.Unlock(id)
+		require.Eventually(t, func() bool { return locks == 1 }, 100*time.Millisecond, 1*time.Millisecond)
+	})
 }
