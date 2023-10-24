@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/alexcesaro/statsd.v2"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -22,12 +23,16 @@ type statsdStats struct {
 	logger                     logger.Logger
 	backgroundCollectionCtx    context.Context
 	backgroundCollectionCancel func()
+
+	tracer trace.Tracer // TODO fix hack!
 }
 
 func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
 	if !s.config.enabled.Load() {
 		return nil
 	}
+
+	s.tracer = trace.NewNoopTracerProvider().Tracer(defaultTracerName) // TODO fix hack!
 
 	s.state.conn = statsd.Address(s.statsdConfig.statsdServerURL)
 	// since, we don't want setup to be a blocking call, creating a separate `go routine` for retry to get statsd client.
@@ -71,6 +76,10 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 
 	return nil
 }
+
+// NewTracer creates a new Tracer
+// @TODO fix hack!
+func (s *statsdStats) NewTracer(_ string) Tracer { return &tracer{tracer: s.tracer} }
 
 func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opts ...statsd.Option) (*statsd.Client, error) {
 	bo := backoff.NewExponentialBackOff()

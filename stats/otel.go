@@ -15,13 +15,16 @@ import (
 	"github.com/spf13/cast"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
 )
 
 const (
-	defaultMeterName = ""
+	defaultMeterName  = ""
+	defaultTracerName = ""
 )
 
 // otelStats is an OTel-specific adapter that follows the Stats contract
@@ -29,6 +32,9 @@ type otelStats struct {
 	config        statsConfig
 	otelConfig    otelStatsConfig
 	resourceAttrs map[string]struct{}
+
+	tracerProvider      trace.TracerProvider
+	traceBaseAttributes []TraceKeyValue // @TODO use stats.Tags here?
 
 	meter        metric.Meter
 	counters     map[string]metric.Int64Counter
@@ -77,6 +83,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 
 	options := []otel.Option{otel.WithInsecure(), otel.WithLogger(s.logger)}
 	if s.otelConfig.tracesEndpoint != "" {
+		s.traceBaseAttributes = attrs
 		options = append(options, otel.WithTracerProvider(
 			s.otelConfig.tracesEndpoint,
 			s.otelConfig.tracingSamplingRate,
@@ -109,9 +116,14 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	} else {
 		return fmt.Errorf("no metrics endpoint or prometheus exporter enabled")
 	}
-	_, mp, err := s.otelManager.Setup(ctx, res, options...)
+	tp, mp, err := s.otelManager.Setup(ctx, res, options...)
 	if err != nil {
 		return fmt.Errorf("failed to setup open telemetry: %w", err)
+	}
+
+	s.tracerProvider = tp
+	if s.tracerProvider == nil {
+		s.tracerProvider = trace.NewNoopTracerProvider()
 	}
 
 	s.meter = mp.Meter(defaultMeterName)
@@ -193,6 +205,32 @@ func (s *otelStats) Stop() {
 		}
 		<-s.httpServerShutdownComplete
 	}
+}
+
+// NewTracer allows you to create a tracer for creating spans
+// @TODO make it so that the same tracer isn't initialized each time?
+func (s *otelStats) NewTracer(name string) Tracer {
+	if name == "" {
+		name = defaultTracerName
+	}
+
+	var attrs []attribute.KeyValue
+	if len(s.traceBaseAttributes) > 0 {
+		attrs = append(attrs, s.traceBaseAttributes...)
+	}
+	if s.config.serviceName != "" {
+		attrs = append(attrs, semconv.ServiceNameKey.String(s.config.serviceName))
+	}
+
+	opts := []trace.TracerOption{
+		trace.WithInstrumentationVersion(s.config.serviceVersion),
+	}
+	if len(attrs) > 0 {
+		opts = append(opts, trace.WithInstrumentationAttributes(attrs...))
+	}
+
+	t := s.tracerProvider.Tracer(name, opts...)
+	return &tracer{tracer: t}
 }
 
 // NewStat creates a new Measurement with provided Name and Type

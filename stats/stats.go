@@ -50,6 +50,8 @@ type Stats interface {
 
 	NewSampledTaggedStat(name, statType string, tags Tags) Measurement
 
+	NewTracer(name string) Tracer
+
 	// Start starts the stats service and the collection of periodic stats.
 	Start(ctx context.Context, goFactory GoRoutineFactory) error
 
