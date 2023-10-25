@@ -72,7 +72,7 @@ func TestMetrics(t *testing.T) {
 				var om Manager
 				tp, mp, err := om.Setup(ctx, res,
 					WithInsecure(),
-					WithTracerProvider(grpcEndpoint, 1.0),
+					WithTracerProvider(grpcEndpoint, WithTracingSamplingRate(1.0)),
 					WithMeterProvider(
 						WithGRPCMeterProvider(grpcEndpoint),
 						WithMeterProviderExportsInterval(100*time.Millisecond),
@@ -427,7 +427,7 @@ func TestCollectorGlobals(t *testing.T) {
 	require.NoError(t, err)
 	tp, mp, err := om.Setup(ctx, res,
 		WithInsecure(),
-		WithTracerProvider(endpoint, 1.0, WithGlobalTracerProvider()),
+		WithTracerProvider(endpoint, WithTracingSamplingRate(1.0), WithGlobalTracerProvider()),
 		WithMeterProvider(WithGRPCMeterProvider(endpoint), WithGlobalMeterProvider()),
 	)
 	require.NoError(t, err)
