@@ -57,28 +57,44 @@ func (m *Manager) Setup(
 	}
 
 	if c.tracerProviderConfig.enabled {
-		tracerProviderOptions := []otlptracegrpc.Option{
-			otlptracegrpc.WithEndpoint(c.tracesEndpoint),
-			otlptracegrpc.WithRetry(otlptracegrpc.RetryConfig{
-				Enabled:         c.retryConfig.Enabled,
-				InitialInterval: c.retryConfig.InitialInterval,
-				MaxInterval:     c.retryConfig.MaxInterval,
-				MaxElapsedTime:  c.retryConfig.MaxElapsedTime,
-			}),
-		}
-		if c.withInsecure {
-			tracerProviderOptions = append(tracerProviderOptions, otlptracegrpc.WithInsecure())
-		}
-		traceExporter, err := otlptracegrpc.New(ctx, tracerProviderOptions...)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create trace exporter: %w", err)
+		if c.tracerProviderConfig.customSpanExporter != nil {
+			opts := []sdktrace.TracerProviderOption{
+				sdktrace.WithSampler(sdktrace.TraceIDRatioBased(c.tracerProviderConfig.samplingRate)),
+			}
+			if c.tracerProviderConfig.withSyncer {
+				opts = append(opts, sdktrace.WithSyncer(c.tracerProviderConfig.customSpanExporter))
+			} else {
+				opts = append(opts, sdktrace.WithBatcher(c.tracerProviderConfig.customSpanExporter))
+			}
+			m.tp = sdktrace.NewTracerProvider(opts...)
+		} else {
+			tracerProviderOptions := []otlptracegrpc.Option{
+				otlptracegrpc.WithEndpoint(c.tracesEndpoint),
+				otlptracegrpc.WithRetry(otlptracegrpc.RetryConfig{
+					Enabled:         c.retryConfig.Enabled,
+					InitialInterval: c.retryConfig.InitialInterval,
+					MaxInterval:     c.retryConfig.MaxInterval,
+					MaxElapsedTime:  c.retryConfig.MaxElapsedTime,
+				}),
+			}
+			if c.withInsecure {
+				tracerProviderOptions = append(tracerProviderOptions, otlptracegrpc.WithInsecure())
+			}
+			traceExporter, err := otlptracegrpc.New(ctx, tracerProviderOptions...)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to create trace exporter: %w", err)
+			}
+
+			m.tp = sdktrace.NewTracerProvider(
+				sdktrace.WithResource(res),
+				sdktrace.WithSpanProcessor(sdktrace.NewBatchSpanProcessor(traceExporter)),
+				sdktrace.WithSampler(sdktrace.TraceIDRatioBased(c.tracerProviderConfig.samplingRate)),
+			)
 		}
 
-		m.tp = sdktrace.NewTracerProvider(
-			sdktrace.WithSampler(sdktrace.TraceIDRatioBased(c.tracerProviderConfig.samplingRate)),
-			sdktrace.WithResource(res),
-			sdktrace.WithSpanProcessor(sdktrace.NewBatchSpanProcessor(traceExporter)),
-		)
+		if c.tracerProviderConfig.textMapPropagator != nil {
+			otel.SetTextMapPropagator(c.tracerProviderConfig.textMapPropagator)
+		}
 
 		if c.tracerProviderConfig.global {
 			otel.SetTracerProvider(m.tp)
@@ -94,10 +110,6 @@ func (m *Manager) Setup(
 		if c.meterProviderConfig.global {
 			otel.SetMeterProvider(m.mp)
 		}
-	}
-
-	if c.textMapPropagator != nil {
-		otel.SetTextMapPropagator(c.textMapPropagator)
 	}
 
 	return m.tp, m.mp, nil
@@ -244,22 +256,20 @@ type config struct {
 	retryConfig  *RetryConfig
 	withInsecure bool
 
-	*sdktrace.TracerProvider
-	*sdkmetric.MeterProvider
-
 	tracesEndpoint       string
 	tracerProviderConfig tracerProviderConfig
 	meterProviderConfig  meterProviderConfig
-
-	textMapPropagator propagation.TextMapPropagator
 
 	logger logger
 }
 
 type tracerProviderConfig struct {
-	enabled      bool
-	global       bool
-	samplingRate float64
+	enabled            bool
+	global             bool
+	samplingRate       float64
+	textMapPropagator  propagation.TextMapPropagator
+	customSpanExporter SpanExporter
+	withSyncer         bool
 }
 
 type meterProviderConfig struct {
