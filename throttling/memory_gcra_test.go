@@ -20,7 +20,7 @@ func TestMemoryGCRA(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, limit, "it should be able to fill the bucket (burst)")
 
-		// next request should be allowed after 4 seconds
+		// next request should be allowed after 5 seconds
 		start := time.Now()
 		var allowed bool
 
