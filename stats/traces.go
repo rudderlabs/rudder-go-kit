@@ -14,14 +14,14 @@ type TraceCode uint32
 
 const (
 	// TraceErrorUnset is the default status code.
-	TraceErrorUnset TraceCode = TraceCode(codes.Unset)
+	TraceErrorUnset = TraceCode(codes.Unset)
 
 	// TraceErrorError indicates the operation contains an error.
-	TraceErrorError TraceCode = TraceCode(codes.Error)
+	TraceErrorError = TraceCode(codes.Error)
 
 	// TraceErrorOk indicates operation has been validated by an Application developers
 	// or Operator to have completed successfully, or contain no error.
-	TraceErrorOk TraceCode = TraceCode(codes.Ok)
+	TraceErrorOk = TraceCode(codes.Ok)
 )
 
 type TraceKeyValue = attribute.KeyValue
@@ -34,16 +34,16 @@ const (
 	// SpanKindUnspecified is an unspecified SpanKind and is not a valid
 	// SpanKind. SpanKindUnspecified should be replaced with SpanKindInternal
 	// if it is received.
-	SpanKindUnspecified TraceSpanKind = TraceSpanKind(trace.SpanKindUnspecified)
+	SpanKindUnspecified = trace.SpanKindUnspecified
 	// SpanKindInternal is a SpanKind for a Span that represents an internal
 	// operation within an application.
-	SpanKindInternal TraceSpanKind = TraceSpanKind(trace.SpanKindInternal)
+	SpanKindInternal = trace.SpanKindInternal
 	// SpanKindServer is a SpanKind for a Span that represents the operation
 	// of handling a request from a client.
-	SpanKindServer TraceSpanKind = TraceSpanKind(trace.SpanKindServer)
+	SpanKindServer = trace.SpanKindServer
 	// SpanKindClient is a SpanKind for a Span that represents the operation
 	// of client making a request to a server.
-	SpanKindClient TraceSpanKind = TraceSpanKind(trace.SpanKindClient)
+	SpanKindClient = trace.SpanKindClient
 	// SpanKindProducer is a SpanKind for a Span that represents the operation
 	// of a producer sending a message to a message broker. Unlike
 	// SpanKindClient and SpanKindServer, there is often no direct
@@ -51,12 +51,12 @@ const (
 	// SpanKindProducer Span will end once the message is accepted by the
 	// message broker which might not overlap with the processing of that
 	// message.
-	SpanKindProducer TraceSpanKind = TraceSpanKind(trace.SpanKindProducer)
+	SpanKindProducer = trace.SpanKindProducer
 	// SpanKindConsumer is a SpanKind for a Span that represents the operation
 	// of a consumer receiving a message from a message broker. Like
 	// SpanKindProducer Spans, there is often no direct relationship between
 	// this Span and the Span that produced the message.
-	SpanKindConsumer TraceSpanKind = TraceSpanKind(trace.SpanKindConsumer)
+	SpanKindConsumer = trace.SpanKindConsumer
 )
 
 type Tracer interface {
