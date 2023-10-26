@@ -41,7 +41,7 @@ func TestStatsMiddleware(t *testing.T) {
 			defer cancel()
 			router := chi.NewRouter()
 			router.Use(
-				chiware.StatMiddleware(ctx, router, mockStats, component, options...),
+				chiware.StatMiddleware(ctx, mockStats, component, options...),
 			)
 			router.MethodFunc(expectedMethod, pathTemplate, handler)
 
