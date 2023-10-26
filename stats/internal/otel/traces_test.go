@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/spanmodel"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
-	"testing"
-	"time"
+
+	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/spanmodel"
 )
 
 func TestTraces(t *testing.T) {
