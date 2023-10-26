@@ -78,6 +78,20 @@ func (mr *MockStatsMockRecorder) NewTaggedStat(arg0, arg1, arg2 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTaggedStat", reflect.TypeOf((*MockStats)(nil).NewTaggedStat), arg0, arg1, arg2)
 }
 
+// NewTracer mocks base method.
+func (m *MockStats) NewTracer(arg0 string) stats.Tracer {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewTracer", arg0)
+	ret0, _ := ret[0].(stats.Tracer)
+	return ret0
+}
+
+// NewTracer indicates an expected call of NewTracer.
+func (mr *MockStatsMockRecorder) NewTracer(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTracer", reflect.TypeOf((*MockStats)(nil).NewTracer), arg0)
+}
+
 // Start mocks base method.
 func (m *MockStats) Start(arg0 context.Context, arg1 stats.GoRoutineFactory) error {
 	m.ctrl.T.Helper()
