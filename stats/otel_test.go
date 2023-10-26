@@ -23,7 +23,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/httputil"
@@ -44,7 +44,7 @@ var globalDefaultAttrs = []*promClient.LabelPair{
 	{Name: ptr("service_version"), Value: ptr("v1.2.3")},
 	{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
 	{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-	{Name: ptr("telemetry_sdk_version"), Value: ptr("1.16.0")},
+	{Name: ptr("telemetry_sdk_version"), Value: ptr("1.19.0")},
 }
 
 func TestOTelMeasurementInvalidOperations(t *testing.T) {
@@ -316,7 +316,10 @@ func TestOTelPeriodicStats(t *testing.T) {
 		prepareFunc(c, m)
 
 		l := logger.NewFactory(c)
-		s := NewStats(c, l, m, WithServiceName("TestOTelPeriodicStats"), WithServiceVersion("v1.2.3"))
+		s := NewStats(c, l, m,
+			WithServiceName("TestOTelPeriodicStats"),
+			WithServiceVersion("v1.2.3"),
+		)
 
 		// start stats
 		ctx, cancel := context.WithCancel(context.Background())
@@ -449,7 +452,9 @@ func TestOTelPeriodicStats(t *testing.T) {
 			c.Set("RuntimeStats.enableCPUStats", false)
 			c.Set("RuntimeStats.enabledMemStats", false)
 			c.Set("RuntimeStats.enableGCStats", false)
-			m.GetRegistry(metric.PublishedMetrics).MustGetGauge(TestMeasurement{tablePrefix: "table", workspace: "workspace", destType: "destType"}).Set(1.0)
+			m.GetRegistry(metric.PublishedMetrics).MustGetGauge(
+				TestMeasurement{tablePrefix: "table", workspace: "workspace", destType: "destType"},
+			).Set(1.0)
 		}, []expectation{
 			{name: "test_measurement_table", tags: []*promClient.LabelPair{
 				{Name: ptr("destType"), Value: ptr("destType")},
