@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.16.0...v0.16.1) (2023-10-26)
+
+
+### Miscellaneous
+
+* add a docker resource for minio ([#169](https://github.com/rudderlabs/rudder-go-kit/issues/169)) ([5ce4b79](https://github.com/rudderlabs/rudder-go-kit/commit/5ce4b79a2b4c9401faed07e28f914552fc506fad))
+* updating pr template ([#175](https://github.com/rudderlabs/rudder-go-kit/issues/175)) ([af9bd26](https://github.com/rudderlabs/rudder-go-kit/commit/af9bd261c82da73247efbd058b2406189c3e1f20))
+
 ## [0.16.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.15.13...v0.16.0) (2023-10-26)
 
 
