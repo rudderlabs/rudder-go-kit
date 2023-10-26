@@ -89,6 +89,11 @@ type TraceSpan interface {
 	End() // @TODO add options (e.g. labels, timestamp, span kind, etc...)
 }
 
+// NewTracerFromOpenTelemetry creates a new go-kit Tracer from an OpenTelemetry Tracer.
+func NewTracerFromOpenTelemetry(t trace.Tracer) Tracer {
+	return &tracer{tracer: t}
+}
+
 type tracer struct {
 	tracer trace.Tracer
 }
