@@ -84,10 +84,11 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	options := []otel.Option{otel.WithInsecure(), otel.WithLogger(s.logger)}
 	if s.otelConfig.tracesEndpoint != "" {
 		s.traceBaseAttributes = attrs
-		options = append(options, otel.WithTracerProvider(
-			s.otelConfig.tracesEndpoint,
-			s.otelConfig.tracingSamplingRate,
-		))
+		options = append(options,
+			otel.WithTracerProvider(s.otelConfig.tracesEndpoint,
+				otel.WithTracingSamplingRate(s.otelConfig.tracingSamplingRate),
+			),
+		)
 	}
 
 	meterProviderOptions := []otel.MeterProviderOption{
