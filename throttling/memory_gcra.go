@@ -54,7 +54,9 @@ func (g *gcra) getLimiter(key string, burst, rate, period int64) (*throttled.GCR
 			return nil, fmt.Errorf("could not create rate limiter: %w", err)
 		}
 		rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
-		g.store.Put(key, rl, time.Duration(period)*time.Second)
+		// rate limiter should be cached for (burst/rate)*period seconds
+		// e.g. if burst is 100 and rate is 10/sec, then the rate limiter should be cached for 10 seconds
+		g.store.Put(key, rl, time.Duration((burst/rate)*period)*time.Second)
 	}
 
 	return rl, nil
