@@ -34,7 +34,7 @@ type otelStats struct {
 	resourceAttrs map[string]struct{}
 
 	tracerProvider      trace.TracerProvider
-	traceBaseAttributes []TraceKeyValue // @TODO use stats.Tags here?
+	traceBaseAttributes []attribute.KeyValue
 
 	meter        metric.Meter
 	counters     map[string]metric.Int64Counter

@@ -14,11 +14,12 @@ import (
 func TestStats(t *testing.T) {
 	now := time.Now()
 
-	store := memstats.New(
+	store, err := memstats.New(
 		memstats.WithNow(func() time.Time {
 			return now
 		}),
 	)
+	require.NoError(t, err)
 
 	commonTags := stats.Tags{"tag1": "value1"}
 
