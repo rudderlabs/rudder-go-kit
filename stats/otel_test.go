@@ -854,7 +854,7 @@ func TestInvalidInstrument(t *testing.T) {
 	newStats := func(t *testing.T, match string) *otelStats {
 		ctrl := gomock.NewController(t)
 		l := mock_logger.NewMockLogger(ctrl)
-		l.EXPECT().Warnf(&containsMatcher{value: match}, gomock.Any()).Times(1)
+		l.EXPECT().Warnf(containsMatcher(match), gomock.Any()).Times(1)
 
 		enabled := atomic.Bool{}
 		enabled.Store(true)
@@ -1001,11 +1001,9 @@ func newLoggerSpyFactory(l logger.Logger) loggerFactory {
 	return &loggerSpyFactory{spy: l}
 }
 
-type containsMatcher struct {
-	value string
-}
+type containsMatcher string
 
-func (m containsMatcher) String() string { return m.value }
+func (m containsMatcher) String() string { return string(m) }
 func (m containsMatcher) Matches(arg interface{}) bool {
-	return strings.Contains(arg.(string), m.value)
+	return strings.Contains(arg.(string), string(m))
 }
