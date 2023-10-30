@@ -276,7 +276,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger)
 		return &otelCounter{counter: instr, otelMeasurement: om}
 	case GaugeType:
-		return s.getGauge(s.meter, name, om.attributes, newTags.String())
+		return s.getGauge(name, om.attributes, newTags.String())
 	case TimerType:
 		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
 		return &otelTimer{timer: instr, otelMeasurement: om}
@@ -289,7 +289,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 }
 
 func (s *otelStats) getGauge(
-	meter metric.Meter, name string, attributes []attribute.KeyValue, tagsKey string,
+	name string, attributes []attribute.KeyValue, tagsKey string,
 ) *otelGauge {
 	var (
 		ok     bool
@@ -307,23 +307,27 @@ func (s *otelStats) getGauge(
 	}
 
 	if !ok {
-		g, err := meter.Float64ObservableGauge(name)
-		if err != nil {
-			panic(fmt.Errorf("failed to create gauge %s: %w", name, err))
-		}
 		og = &otelGauge{otelMeasurement: &otelMeasurement{
 			genericMeasurement: genericMeasurement{statType: GaugeType},
 			attributes:         attributes,
 		}}
-		_, err = meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
-			if value := og.getValue(); value != nil {
-				o.ObserveFloat64(g, cast.ToFloat64(value), metric.WithAttributes(attributes...))
-			}
-			return nil
-		}, g)
+
+		g, err := s.meter.Float64ObservableGauge(name)
 		if err != nil {
-			panic(fmt.Errorf("failed to register callback for gauge %s: %w", name, err))
+			s.logger.Warnf("failed to create gauge %s: %v", name, err)
+			g, _ = s.noopMeter.Float64ObservableGauge(name)
+		} else {
+			_, err = s.meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+				if value := og.getValue(); value != nil {
+					o.ObserveFloat64(g, cast.ToFloat64(value), metric.WithAttributes(attributes...))
+				}
+				return nil
+			}, g)
+			if err != nil {
+				panic(fmt.Errorf("failed to register callback for gauge %s: %w", name, err))
+			}
 		}
+
 		s.gauges[mapKey] = og
 	}
 
