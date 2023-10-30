@@ -1004,6 +1004,6 @@ func newLoggerSpyFactory(l logger.Logger) loggerFactory {
 type containsMatcher string
 
 func (m containsMatcher) String() string { return string(m) }
-func (m containsMatcher) Matches(arg interface{}) bool {
+func (m containsMatcher) Matches(arg any) bool {
 	return strings.Contains(arg.(string), string(m))
 }
