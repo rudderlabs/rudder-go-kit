@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/ory/dockertest/v3"
 	"github.com/prometheus/client_golang/prometheus"
 	promClient "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
@@ -32,7 +33,9 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
 	statsTest "github.com/rudderlabs/rudder-go-kit/stats/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
+	dockerRes "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
 const (
@@ -847,6 +850,54 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 		&promClient.LabelPair{Name: ptr("job"), Value: ptr(t.Name())},
 		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr(t.Name())},
 	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
+}
+
+func TestZipkin(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	zipkin, err := dockerRes.SetupZipkin(pool, t)
+	require.NoError(t, err)
+
+	prometheusPort, err := testhelper.GetFreePort()
+	require.NoError(t, err)
+
+	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
+
+	c := config.New()
+	c.Set("INSTANCE_ID", t.Name())
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("RuntimeStats.enabled", false)
+	c.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	c.Set("OpenTelemetry.traces.samplingRate", 1.0)
+	c.Set("OpenTelemetry.traces.withSyncer", true)
+	c.Set("OpenTelemetry.traces.withZipkin", true)
+	// @TODO remove the fact that the metrics have to be up and we can't use traces alone
+	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	c.Set("OpenTelemetry.metrics.prometheus.port", prometheusPort)
+	l := logger.NewFactory(c)
+	m := metric.NewManager()
+	s := NewStats(c, l, m, WithServiceName(t.Name()))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
+	t.Cleanup(s.Stop)
+
+	_, span := s.NewTracer("my-tracer").Start(
+		ctx, "my-span", SpanKindServer, time.Now(), Tags{"foo": "bar"},
+	)
+	time.Sleep(123 * time.Millisecond)
+	span.End()
+
+	zipkinSpansURL := zipkinURL + "?serviceName=" + t.Name()
+	getSpansReq, err := http.NewRequest(http.MethodGet, zipkinSpansURL, nil)
+	require.NoError(t, err)
+
+	spansBody := assert.RequireEventuallyResponse(
+		t, http.StatusOK, getSpansReq, 10*time.Second, 100*time.Millisecond,
+	)
+	require.Equal(t, `["my-span"]`, spansBody)
 }
 
 func getDataPoint[T any](ctx context.Context, t *testing.T, rdr sdkmetric.Reader, name string, idx int) (zero T) {

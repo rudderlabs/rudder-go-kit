@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cast"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
 
@@ -84,9 +85,20 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	options := []otel.Option{otel.WithInsecure(), otel.WithLogger(s.logger)}
 	if s.otelConfig.tracesEndpoint != "" {
 		s.traceBaseAttributes = attrs
+		tpOpts := []otel.TracerProviderOption{
+			otel.WithTracingSamplingRate(s.otelConfig.tracingSamplingRate),
+		}
+		fmt.Println("with sampling rate", s.otelConfig.tracingSamplingRate)
+		if s.otelConfig.withTracingSyncer {
+			tpOpts = append(tpOpts, otel.WithTracingSyncer())
+		}
+		if s.otelConfig.withZipkin {
+			tpOpts = append(tpOpts, otel.WithZipkin())
+		}
 		options = append(options,
-			otel.WithTracerProvider(s.otelConfig.tracesEndpoint,
-				otel.WithTracingSamplingRate(s.otelConfig.tracingSamplingRate),
+			otel.WithTracerProvider(s.otelConfig.tracesEndpoint, tpOpts...),
+			otel.WithTextMapPropagator(
+				propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}),
 			),
 		)
 	}
@@ -406,6 +418,8 @@ func buildOTelInstrument[T any](
 type otelStatsConfig struct {
 	tracesEndpoint           string
 	tracingSamplingRate      float64
+	withTracingSyncer        bool
+	withZipkin               bool
 	metricsEndpoint          string
 	metricsExportInterval    time.Duration
 	enablePrometheusExporter bool

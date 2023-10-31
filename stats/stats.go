@@ -112,6 +112,8 @@ func NewStats(
 			otelConfig: otelStatsConfig{
 				tracesEndpoint:           config.GetString("OpenTelemetry.traces.endpoint", ""),
 				tracingSamplingRate:      config.GetFloat64("OpenTelemetry.traces.samplingRate", 0.1),
+				withTracingSyncer:        config.GetBool("OpenTelemetry.traces.withSyncer", false),
+				withZipkin:               config.GetBool("OpenTelemetry.traces.withZipkin", false),
 				metricsEndpoint:          config.GetString("OpenTelemetry.metrics.endpoint", ""),
 				metricsExportInterval:    config.GetDuration("OpenTelemetry.metrics.exportInterval", 5, time.Second),
 				enablePrometheusExporter: config.GetBool("OpenTelemetry.metrics.prometheus.enabled", false),

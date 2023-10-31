@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
+	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -15,6 +17,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/spanmodel"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
 func TestTraces(t *testing.T) {
@@ -64,4 +68,48 @@ func TestTraces(t *testing.T) {
 		},
 	}, data.Attributes)
 	require.Equal(t, "Ok", data.Status.Code)
+}
+
+func TestZipkin(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	zipkin, err := resource.SetupZipkin(pool, t)
+	require.NoError(t, err)
+
+	res, err := NewResource(t.Name(), "v1.2.3",
+		attribute.String("instanceName", "my-instance-id"),
+	)
+	require.NoError(t, err)
+
+	var (
+		om        Manager
+		ctx       = context.Background()
+		zipkinURL = "http://localhost:" + zipkin.Port + "/api/v2/spans"
+	)
+	tp, _, err := om.Setup(ctx, res,
+		WithTracerProvider(zipkinURL,
+			WithTracingSamplingRate(1.0),
+			WithTracingSyncer(),
+			WithZipkin(),
+		),
+		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{}, propagation.Baggage{},
+		)),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
+
+	_, span := tp.Tracer("my-tracer").Start(ctx, "my-span")
+	time.Sleep(123 * time.Millisecond)
+	span.End()
+
+	zipkinSpansURL := zipkinURL + "?serviceName=" + t.Name()
+	getSpansReq, err := http.NewRequest(http.MethodGet, zipkinSpansURL, nil)
+	require.NoError(t, err)
+
+	spansBody := assert.RequireEventuallyResponse(
+		t, http.StatusOK, getSpansReq, 10*time.Second, 100*time.Millisecond,
+	)
+	require.Equal(t, `["my-span"]`, spansBody)
 }

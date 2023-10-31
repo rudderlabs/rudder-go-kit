@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/zipkin"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -58,15 +59,16 @@ func (m *Manager) Setup(
 
 	if c.tracerProviderConfig.enabled {
 		if c.tracerProviderConfig.customSpanExporter != nil {
-			opts := []sdktrace.TracerProviderOption{
-				sdktrace.WithSampler(sdktrace.TraceIDRatioBased(c.tracerProviderConfig.samplingRate)),
+			m.tp = sdktrace.NewTracerProvider(m.buildTracerProviderOptions(
+				&c, res, c.tracerProviderConfig.customSpanExporter)...,
+			)
+		} else if c.tracerProviderConfig.withZipkin {
+			traceExporter, err := zipkin.New(c.tracesEndpoint)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to create zipkin trace exporter: %w", err)
 			}
-			if c.tracerProviderConfig.withSyncer {
-				opts = append(opts, sdktrace.WithSyncer(c.tracerProviderConfig.customSpanExporter))
-			} else {
-				opts = append(opts, sdktrace.WithBatcher(c.tracerProviderConfig.customSpanExporter))
-			}
-			m.tp = sdktrace.NewTracerProvider(opts...)
+
+			m.tp = sdktrace.NewTracerProvider(m.buildTracerProviderOptions(&c, res, traceExporter)...)
 		} else {
 			tracerProviderOptions := []otlptracegrpc.Option{
 				otlptracegrpc.WithEndpoint(c.tracesEndpoint),
@@ -85,11 +87,7 @@ func (m *Manager) Setup(
 				return nil, nil, fmt.Errorf("failed to create trace exporter: %w", err)
 			}
 
-			m.tp = sdktrace.NewTracerProvider(
-				sdktrace.WithResource(res),
-				sdktrace.WithSpanProcessor(sdktrace.NewBatchSpanProcessor(traceExporter)),
-				sdktrace.WithSampler(sdktrace.TraceIDRatioBased(c.tracerProviderConfig.samplingRate)),
-			)
+			m.tp = sdktrace.NewTracerProvider(m.buildTracerProviderOptions(&c, res, traceExporter)...)
 		}
 
 		if c.tracerProviderConfig.textMapPropagator != nil {
@@ -113,6 +111,24 @@ func (m *Manager) Setup(
 	}
 
 	return m.tp, m.mp, nil
+}
+
+func (m *Manager) buildTracerProviderOptions(
+	c *config,
+	res *resource.Resource, exp sdktrace.SpanExporter,
+) []sdktrace.TracerProviderOption {
+	opts := []sdktrace.TracerProviderOption{
+		sdktrace.WithResource(res),
+		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(c.tracerProviderConfig.samplingRate)),
+	}
+
+	if c.tracerProviderConfig.withSyncer {
+		opts = append(opts, sdktrace.WithSyncer(exp))
+	} else {
+		opts = append(opts, sdktrace.WithSpanProcessor(sdktrace.NewBatchSpanProcessor(exp)))
+	}
+
+	return opts
 }
 
 func (m *Manager) buildMeterProvider(
@@ -270,6 +286,7 @@ type tracerProviderConfig struct {
 	textMapPropagator  propagation.TextMapPropagator
 	customSpanExporter SpanExporter
 	withSyncer         bool
+	withZipkin         bool
 }
 
 type meterProviderConfig struct {

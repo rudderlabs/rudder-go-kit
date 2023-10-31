@@ -58,6 +58,7 @@ const (
 )
 
 type Tracer interface {
+	SpanFromContext(context.Context) TraceSpan
 	Start( // @TODO add other options
 		ctx context.Context, spanName string, spanKind SpanKind,
 		timestamp time.Time, tags Tags,
@@ -94,6 +95,10 @@ func NewTracerFromOpenTelemetry(t trace.Tracer) Tracer {
 
 type tracer struct {
 	tracer trace.Tracer
+}
+
+func (t *tracer) SpanFromContext(ctx context.Context) TraceSpan {
+	return &span{span: trace.SpanFromContext(ctx)}
 }
 
 func (t *tracer) Start(
