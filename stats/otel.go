@@ -86,6 +86,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	if s.otelConfig.tracesEndpoint != "" {
 		s.traceBaseAttributes = attrs
 		tpOpts := []otel.TracerProviderOption{
+			otel.WithGlobalTracerProvider(), // @TODO why is this necessary to record spans got with trace.SpanFromContext(ctx)?
 			otel.WithTracingSamplingRate(s.otelConfig.tracingSamplingRate),
 		}
 		if s.otelConfig.withTracingSyncer {

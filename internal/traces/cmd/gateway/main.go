@@ -3,76 +3,81 @@ package main
 import (
 	"context"
 	"io"
-	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
-	"go.opentelemetry.io/otel/exporters/zipkin"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
-	"go.opentelemetry.io/otel/trace"
+
+	"github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/logger"
+	kitstats "github.com/rudderlabs/rudder-go-kit/stats"
+	"github.com/rudderlabs/rudder-go-kit/stats/metric"
 )
 
-const zipkinURL = "http://localhost:9411/api/v2/spans"
+const (
+	serviceName = "gateway"
+	zipkinURL   = "http://localhost:9411/api/v2/spans"
+)
 
 func main() {
-	logger := log.New(os.Stderr, "gateway", log.Ldate|log.Ltime|log.Llongfile)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer cancel()
 
-	tp, err := initTracer(zipkinURL, logger)
+	conf := config.Default
+	conf.Set("INSTANCE_ID", serviceName)
+	conf.Set("OpenTelemetry.enabled", true)
+	conf.Set("RuntimeStats.enabled", false)
+	conf.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	conf.Set("OpenTelemetry.traces.samplingRate", 1.0)
+	conf.Set("OpenTelemetry.traces.withSyncer", true)
+	conf.Set("OpenTelemetry.traces.withZipkin", true)
+	conf.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	conf.Set("OpenTelemetry.metrics.prometheus.port", 8888)
+	l := logger.NewFactory(conf)
+	m := metric.NewManager()
+	log := l.NewLogger()
+
+	stats := kitstats.NewStats(conf, l, m, kitstats.WithServiceName(serviceName))
+	err := stats.Start(ctx, kitstats.DefaultGoRoutineFactory)
 	if err != nil {
-		logger.Fatal(err)
+		log.Errorf("Error starting stats: %v", err)
+		return
 	}
-	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
-			logger.Printf("Error shutting down tracer provider: %v", err)
-		}
-	}()
 
-	usernameKey := attribute.Key("username")
+	defer stats.Stop()
+
+	tracer := stats.NewTracer("my-tracer")
+	_, span := tracer.Start(ctx, "my-span", kitstats.SpanKindServer, time.Now(), kitstats.Tags{"foo": "bar"})
+	time.Sleep(123 * time.Millisecond)
+	span.End()
 
 	helloHandler := func(w http.ResponseWriter, req *http.Request) {
+		log.Infof("Handling request: %v", req.URL.Path)
+
 		ctx := req.Context()
-		span := trace.SpanFromContext(ctx)
+		span := tracer.SpanFromContext(ctx)
 		bag := baggage.FromContext(ctx)
-		usernameAttr := usernameKey.String(bag.Member("username").Value())
-		span.AddEvent("handling this...", trace.WithAttributes(usernameAttr))
+
+		spanTags := kitstats.Tags{"username": bag.Member("username").Value()}
+		span.AddEvent("handling this...", spanTags, time.Now(), false)
+		span.End()
 
 		_, _ = io.WriteString(w, "Hello, world!\n")
 	}
 
 	otelHandler := otelhttp.NewHandler(http.HandlerFunc(helloHandler), "Hello")
 
-	http.Handle("/hello", otelHandler)
-	err = http.ListenAndServe(":7777", nil) //nolint:gosec // Ignoring G114: Use of net/http serve function that has no support for setting timeouts.
-	if err != nil {
-		logger.Fatal(err)
-	}
-}
+	httpSrv := http.Server{Addr: ":7777", Handler: otelHandler}
+	go func() {
+		<-ctx.Done()
+		log.Infof("Context cancelled: %v", ctx.Err())
+		_ = httpSrv.Shutdown(context.Background())
+	}()
 
-func initTracer(url string, logger *log.Logger) (*sdktrace.TracerProvider, error) {
-	exporter, err := zipkin.New(url, zipkin.WithLogger(logger))
-	if err != nil {
-		return nil, err
+	if err = httpSrv.ListenAndServe(); err != nil {
+		log.Errorf("Listen and serve: %v", err)
 	}
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithSyncer(exporter),
-		sdktrace.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL, semconv.ServiceName("ExampleService"),
-		)),
-	)
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(
-		propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{}, propagation.Baggage{},
-		),
-	)
-	return tp, nil
 }
