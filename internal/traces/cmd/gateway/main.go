@@ -5,12 +5,13 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/baggage"
-	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/zipkin"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -18,14 +19,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+const zipkinURL = "http://localhost:9411/api/v2/spans"
+
 func main() {
-	tp, err := initTracer()
+	logger := log.New(os.Stderr, "gateway", log.Ldate|log.Ltime|log.Llongfile)
+
+	tp, err := initTracer(zipkinURL, logger)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	defer func() {
 		if err := tp.Shutdown(context.Background()); err != nil {
-			log.Printf("Error shutting down tracer provider: %v", err)
+			logger.Printf("Error shutting down tracer provider: %v", err)
 		}
 	}()
 
@@ -46,12 +51,12 @@ func main() {
 	http.Handle("/hello", otelHandler)
 	err = http.ListenAndServe(":7777", nil) //nolint:gosec // Ignoring G114: Use of net/http serve function that has no support for setting timeouts.
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 }
 
-func initTracer() (*sdktrace.TracerProvider, error) {
-	exporter, err := stdout.New(stdout.WithPrettyPrint())
+func initTracer(url string, logger *log.Logger) (*sdktrace.TracerProvider, error) {
+	exporter, err := zipkin.New(url, zipkin.WithLogger(logger))
 	if err != nil {
 		return nil, err
 	}
