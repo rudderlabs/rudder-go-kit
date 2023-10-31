@@ -88,7 +88,6 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		tpOpts := []otel.TracerProviderOption{
 			otel.WithTracingSamplingRate(s.otelConfig.tracingSamplingRate),
 		}
-		fmt.Println("with sampling rate", s.otelConfig.tracingSamplingRate)
 		if s.otelConfig.withTracingSyncer {
 			tpOpts = append(tpOpts, otel.WithTracingSyncer())
 		}
