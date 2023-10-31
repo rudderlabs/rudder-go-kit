@@ -864,20 +864,20 @@ func TestZipkin(t *testing.T) {
 
 	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
 
-	c := config.New()
-	c.Set("INSTANCE_ID", t.Name())
-	c.Set("OpenTelemetry.enabled", true)
-	c.Set("RuntimeStats.enabled", false)
-	c.Set("OpenTelemetry.traces.endpoint", zipkinURL)
-	c.Set("OpenTelemetry.traces.samplingRate", 1.0)
-	c.Set("OpenTelemetry.traces.withSyncer", true)
-	c.Set("OpenTelemetry.traces.withZipkin", true)
+	conf := config.New()
+	conf.Set("INSTANCE_ID", t.Name())
+	conf.Set("OpenTelemetry.enabled", true)
+	conf.Set("RuntimeStats.enabled", false)
+	conf.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	conf.Set("OpenTelemetry.traces.samplingRate", 1.0)
+	conf.Set("OpenTelemetry.traces.withSyncer", true)
+	conf.Set("OpenTelemetry.traces.withZipkin", true)
 	// @TODO remove the fact that the metrics have to be up and we can't use traces alone
-	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
-	c.Set("OpenTelemetry.metrics.prometheus.port", prometheusPort)
-	l := logger.NewFactory(c)
+	conf.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	conf.Set("OpenTelemetry.metrics.prometheus.port", prometheusPort)
+	l := logger.NewFactory(conf)
 	m := metric.NewManager()
-	s := NewStats(c, l, m, WithServiceName(t.Name()))
+	s := NewStats(conf, l, m, WithServiceName(t.Name()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
