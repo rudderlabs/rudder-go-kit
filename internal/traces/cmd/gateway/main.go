@@ -50,9 +50,6 @@ func main() {
 	defer stats.Stop()
 
 	tracer := stats.NewTracer("my-tracer")
-	_, span := tracer.Start(ctx, "my-span", kitstats.SpanKindServer, time.Now(), kitstats.Tags{"foo": "bar"})
-	time.Sleep(123 * time.Millisecond)
-	span.End()
 
 	helloHandler := func(w http.ResponseWriter, req *http.Request) {
 		log.Infof("Handling request: %v", req.URL.Path)
@@ -63,7 +60,13 @@ func main() {
 
 		spanTags := kitstats.Tags{"username": bag.Member("username").Value()}
 		span.AddEvent("handling this...", spanTags, time.Now(), false)
-		span.End()
+
+		// sleep for some time in between
+		time.Sleep(123 * time.Millisecond)
+
+		_, child := tracer.Start(ctx, "my-child", kitstats.SpanKindServer, time.Now(), kitstats.Tags{"foo": "bar"})
+		time.Sleep(200 * time.Millisecond)
+		child.End()
 
 		_, _ = io.WriteString(w, "Hello, world!\n")
 	}
