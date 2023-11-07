@@ -21,7 +21,7 @@ require (
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0
 	github.com/samber/lo v1.38.1
-	github.com/shirou/gopsutil/v3 v3.23.9
+	github.com/shirou/gopsutil/v3 v3.23.10
 	github.com/spf13/cast v1.5.1
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
