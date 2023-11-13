@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cast"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
@@ -31,6 +32,7 @@ type otelStats struct {
 	resourceAttrs map[string]struct{}
 
 	meter        metric.Meter
+	noopMeter    metric.Meter
 	counters     map[string]metric.Int64Counter
 	countersMu   sync.Mutex
 	gauges       map[string]*otelGauge
@@ -115,6 +117,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	}
 
 	s.meter = mp.Meter(defaultMeterName)
+	s.noopMeter = noop.NewMeterProvider().Meter(defaultMeterName)
 	if s.otelConfig.enablePrometheusExporter && s.otelConfig.prometheusMetricsPort > 0 {
 		s.httpServerShutdownComplete = make(chan struct{})
 		s.httpServer = &http.Server{
@@ -270,15 +273,15 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 
 	switch statType {
 	case CountType:
-		instr := buildOTelInstrument(s.meter, name, s.counters, &s.countersMu)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger)
 		return &otelCounter{counter: instr, otelMeasurement: om}
 	case GaugeType:
-		return s.getGauge(s.meter, name, om.attributes, newTags.String())
+		return s.getGauge(name, om.attributes, newTags.String())
 	case TimerType:
-		instr := buildOTelInstrument(s.meter, name, s.timers, &s.timersMu)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
 		return &otelTimer{timer: instr, otelMeasurement: om}
 	case HistogramType:
-		instr := buildOTelInstrument(s.meter, name, s.histograms, &s.histogramsMu)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
 		return &otelHistogram{histogram: instr, otelMeasurement: om}
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
@@ -286,7 +289,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 }
 
 func (s *otelStats) getGauge(
-	meter metric.Meter, name string, attributes []attribute.KeyValue, tagsKey string,
+	name string, attributes []attribute.KeyValue, tagsKey string,
 ) *otelGauge {
 	var (
 		ok     bool
@@ -304,23 +307,27 @@ func (s *otelStats) getGauge(
 	}
 
 	if !ok {
-		g, err := meter.Float64ObservableGauge(name)
-		if err != nil {
-			panic(fmt.Errorf("failed to create gauge %s: %w", name, err))
-		}
 		og = &otelGauge{otelMeasurement: &otelMeasurement{
 			genericMeasurement: genericMeasurement{statType: GaugeType},
 			attributes:         attributes,
 		}}
-		_, err = meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
-			if value := og.getValue(); value != nil {
-				o.ObserveFloat64(g, cast.ToFloat64(value), metric.WithAttributes(attributes...))
-			}
-			return nil
-		}, g)
+
+		g, err := s.meter.Float64ObservableGauge(name)
 		if err != nil {
-			panic(fmt.Errorf("failed to register callback for gauge %s: %w", name, err))
+			s.logger.Warnf("failed to create gauge %s: %v", name, err)
+			g, _ = s.noopMeter.Float64ObservableGauge(name)
+		} else {
+			_, err = s.meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+				if value := og.getValue(); value != nil {
+					o.ObserveFloat64(g, cast.ToFloat64(value), metric.WithAttributes(attributes...))
+				}
+				return nil
+			}, g)
+			if err != nil {
+				panic(fmt.Errorf("failed to register callback for gauge %s: %w", name, err))
+			}
 		}
+
 		s.gauges[mapKey] = og
 	}
 
@@ -328,7 +335,9 @@ func (s *otelStats) getGauge(
 }
 
 func buildOTelInstrument[T any](
-	meter metric.Meter, name string, m map[string]T, mu *sync.Mutex,
+	meter, noopMeter metric.Meter,
+	name string, m map[string]T, mu *sync.Mutex,
+	l logger.Logger,
 ) T {
 	var (
 		ok    bool
@@ -348,14 +357,18 @@ func buildOTelInstrument[T any](
 		var value interface{}
 		switch any(m).(type) {
 		case map[string]metric.Int64Counter:
-			value, err = meter.Int64Counter(name)
+			if value, err = meter.Int64Counter(name); err != nil {
+				value, _ = noopMeter.Int64Counter(name)
+			}
 		case map[string]metric.Float64Histogram:
-			value, err = meter.Float64Histogram(name)
+			if value, err = meter.Float64Histogram(name); err != nil {
+				value, _ = noopMeter.Float64Histogram(name)
+			}
 		default:
 			panic(fmt.Errorf("unknown instrument type %T", instr))
 		}
 		if err != nil {
-			panic(fmt.Errorf("failed to create instrument %T(%s): %w", instr, name, err))
+			l.Warnf("failed to create instrument %T(%s): %v", instr, name, err)
 		}
 		instr = value.(T)
 		m[name] = instr

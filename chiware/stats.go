@@ -28,7 +28,7 @@ func RedactUnknownPaths(redactUnknownPaths bool) Option {
 	}
 }
 
-func StatMiddleware(ctx context.Context, router chi.Router, s stats.Stats, component string, options ...Option) func(http.Handler) http.Handler {
+func StatMiddleware(ctx context.Context, s stats.Stats, component string, options ...Option) func(http.Handler) http.Handler {
 	conf := config{
 		redactUnknownPaths: true,
 	}

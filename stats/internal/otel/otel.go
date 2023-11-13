@@ -14,7 +14,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel/prometheus"
@@ -123,26 +123,18 @@ func (m *Manager) buildPrometheusMeterProvider(c config, res *resource.Resource)
 		prometheus.WithRegisterer(c.meterProviderConfig.prometheusRegisterer),
 		prometheus.WithLogger(c.logger),
 	}
-	if c.meterProviderConfig.defaultAggregationSelector != nil {
-		exporterOptions = append(exporterOptions,
-			prometheus.WithAggregationSelector(c.meterProviderConfig.defaultAggregationSelector),
-		)
-	}
 	exp, err := prometheus.New(exporterOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("prometheus: failed to create metric exporter: %w", err)
 	}
-	return sdkmetric.NewMeterProvider(
-		sdkmetric.WithResource(res),
-		sdkmetric.WithReader(exp),
-		sdkmetric.WithView(c.meterProviderConfig.views...),
-	), nil
+
+	return sdkmetric.NewMeterProvider(m.getMeterProviderOptions(c, res, exp)...), nil
 }
 
 func (m *Manager) buildOTLPMeterProvider(
 	ctx context.Context, c config, res *resource.Resource,
 ) (*sdkmetric.MeterProvider, error) {
-	meterProviderOptions := []otlpmetricgrpc.Option{
+	opts := []otlpmetricgrpc.Option{
 		otlpmetricgrpc.WithEndpoint(*c.meterProviderConfig.grpcEndpoint),
 		otlpmetricgrpc.WithRetry(otlpmetricgrpc.RetryConfig{
 			Enabled:         c.retryConfig.Enabled,
@@ -152,29 +144,40 @@ func (m *Manager) buildOTLPMeterProvider(
 		}),
 	}
 	if c.withInsecure {
-		meterProviderOptions = append(meterProviderOptions, otlpmetricgrpc.WithInsecure())
+		opts = append(opts, otlpmetricgrpc.WithInsecure())
 	}
 	if len(c.meterProviderConfig.otlpMetricGRPCOptions) > 0 {
-		meterProviderOptions = append(meterProviderOptions, c.meterProviderConfig.otlpMetricGRPCOptions...)
+		opts = append(opts, c.meterProviderConfig.otlpMetricGRPCOptions...)
 	}
-	if c.meterProviderConfig.defaultAggregationSelector != nil {
-		meterProviderOptions = append(meterProviderOptions,
-			otlpmetricgrpc.WithAggregationSelector(c.meterProviderConfig.defaultAggregationSelector),
-		)
-	}
-	exp, err := otlpmetricgrpc.New(ctx, meterProviderOptions...)
+	exp, err := otlpmetricgrpc.New(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("otlp: failed to create metric exporter: %w", err)
 	}
 
-	return sdkmetric.NewMeterProvider(
+	reader := sdkmetric.NewPeriodicReader(
+		exp,
+		sdkmetric.WithInterval(c.meterProviderConfig.exportsInterval),
+	)
+
+	return sdkmetric.NewMeterProvider(m.getMeterProviderOptions(c, res, reader)...), nil
+}
+
+func (m *Manager) getMeterProviderOptions(c config, res *resource.Resource, r sdkmetric.Reader) []sdkmetric.Option {
+	opts := []sdkmetric.Option{
 		sdkmetric.WithResource(res),
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(
-			exp,
-			sdkmetric.WithInterval(c.meterProviderConfig.exportsInterval),
-		)),
-		sdkmetric.WithView(c.meterProviderConfig.views...),
-	), nil
+		sdkmetric.WithReader(r),
+	}
+	var views []sdkmetric.View
+	if len(c.meterProviderConfig.views) > 0 {
+		views = append(views, c.meterProviderConfig.views...)
+	}
+	if c.meterProviderConfig.defaultHistogramBuckets != nil {
+		views = append(views, c.meterProviderConfig.defaultHistogramBuckets)
+	}
+	if len(views) > 0 {
+		opts = append(opts, sdkmetric.WithView(views...))
+	}
+	return opts
 }
 
 // Shutdown allows you to gracefully clean up after the OTel manager (e.g. close underlying gRPC connection)
@@ -260,14 +263,19 @@ type tracerProviderConfig struct {
 }
 
 type meterProviderConfig struct {
-	enabled                    bool
-	global                     bool
-	exportsInterval            time.Duration
-	views                      []sdkmetric.View
-	grpcEndpoint               *string
-	prometheusRegisterer       promClient.Registerer
-	defaultAggregationSelector sdkmetric.AggregationSelector
-	otlpMetricGRPCOptions      []otlpmetricgrpc.Option
+	enabled         bool
+	global          bool
+	exportsInterval time.Duration
+	views           []sdkmetric.View
+	// defaultHistogramBuckets is not part of the above "views" because the order
+	// by which we add views matter. We have to add the default view last because the
+	// views criteria are applied in order and the default one is the more generic.
+	// Thus, if we put it first it will be applied to all histogram instruments removing
+	// the ability to customize the buckets of specific histograms.
+	defaultHistogramBuckets sdkmetric.View
+	grpcEndpoint            *string
+	prometheusRegisterer    promClient.Registerer
+	otlpMetricGRPCOptions   []otlpmetricgrpc.Option
 }
 
 type logger interface {
