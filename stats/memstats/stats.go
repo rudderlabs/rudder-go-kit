@@ -2,6 +2,7 @@ package memstats
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -31,6 +32,19 @@ type Measurement struct {
 	sum       float64
 	values    []float64
 	durations []time.Duration
+}
+
+// Metric captures the name, tags and value(s) depending on type.
+//
+//	For Count and Gauge, Value is used.
+//	For Histogram, Values is used.
+//	For Timer, Durations is used.
+type Metric struct {
+	Name      string
+	Tags      stats.Tags
+	Value     float64         // Count, Gauge
+	Values    []float64       // Histogram
+	Durations []time.Duration // Timer
 }
 
 func (m *Measurement) LastValue() float64 {
@@ -209,6 +223,69 @@ func (ms *Store) Get(name string, tags stats.Tags) *Measurement {
 	defer ms.mu.Unlock()
 
 	return ms.byKey[ms.getKey(name, tags)]
+}
+
+// GetAll returns the metric for all name/tags register in the store.
+func (ms *Store) GetAll() []Metric {
+	return ms.getAllByName("")
+}
+
+// GetByName returns the metric for each tag variation with the given name.
+func (ms *Store) GetByName(name string) []Metric {
+	if name == "" {
+		panic("name cannot be empty")
+	}
+	return ms.getAllByName(name)
+}
+
+func (ms *Store) getAllByName(name string) []Metric {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	metrics := make([]Metric, 0, len(ms.byKey))
+	keys := make([]string, 0, len(ms.byKey))
+	for k, m := range ms.byKey {
+		if name != "" && m.name != name {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+	for _, key := range keys {
+		m := ms.byKey[key]
+		switch m.mType {
+		case stats.CountType:
+			metrics = append(metrics, Metric{
+				Name:  m.name,
+				Tags:  m.tags,
+				Value: m.LastValue(),
+			})
+		case stats.GaugeType:
+			metrics = append(metrics, Metric{
+				Name:  m.name,
+				Tags:  m.tags,
+				Value: m.LastValue(),
+			})
+		case stats.HistogramType:
+			metrics = append(metrics, Metric{
+				Name:   m.name,
+				Tags:   m.tags,
+				Values: m.Values(),
+			})
+		case stats.TimerType:
+			metrics = append(metrics, Metric{
+				Name:      m.name,
+				Tags:      m.tags,
+				Durations: m.Durations(),
+			})
+		default:
+			panic("unknown measurement type:" + m.mType)
+		}
+	}
+
+	return metrics
 }
 
 // Start implements stats.Stats
