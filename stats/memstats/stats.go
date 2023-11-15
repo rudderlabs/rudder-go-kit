@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cast"
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
@@ -242,18 +243,13 @@ func (ms *Store) getAllByName(name string) []Metric {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
-	metrics := make([]Metric, 0, len(ms.byKey))
-	keys := make([]string, 0, len(ms.byKey))
-	for k, m := range ms.byKey {
-		if name != "" && m.name != name {
-			continue
-		}
-		keys = append(keys, k)
-	}
+	keys := lo.Filter(lo.Keys(ms.byKey), func(k string, index int) bool {
+		return name == "" || ms.byKey[k].name == name
+	})
 	sort.SliceStable(keys, func(i, j int) bool {
 		return keys[i] < keys[j]
 	})
-	for _, key := range keys {
+	return lo.Map(keys, func(key string, index int) Metric {
 		m := ms.byKey[key]
 		switch m.mType {
 		case stats.CountType, stats.GaugeType:
@@ -263,23 +259,21 @@ func (ms *Store) getAllByName(name string) []Metric {
 				Value: m.LastValue(),
 			}
 		case stats.HistogramType:
-			metrics = append(metrics, Metric{
+			return Metric{
 				Name:   m.name,
 				Tags:   m.tags,
 				Values: m.Values(),
-			})
+			}
 		case stats.TimerType:
-			metrics = append(metrics, Metric{
+			return Metric{
 				Name:      m.name,
 				Tags:      m.tags,
 				Durations: m.Durations(),
-			})
+			}
 		default:
 			panic("unknown measurement type:" + m.mType)
 		}
-	}
-
-	return metrics
+	})
 }
 
 // Start implements stats.Stats
