@@ -256,18 +256,12 @@ func (ms *Store) getAllByName(name string) []Metric {
 	for _, key := range keys {
 		m := ms.byKey[key]
 		switch m.mType {
-		case stats.CountType:
-			metrics = append(metrics, Metric{
+		case stats.CountType, stats.GaugeType:
+			return Metric{
 				Name:  m.name,
 				Tags:  m.tags,
 				Value: m.LastValue(),
-			})
-		case stats.GaugeType:
-			metrics = append(metrics, Metric{
-				Name:  m.name,
-				Tags:  m.tags,
-				Value: m.LastValue(),
-			})
+			}
 		case stats.HistogramType:
 			metrics = append(metrics, Metric{
 				Name:   m.name,
