@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.16.4...v0.17.0) (2023-11-16)
+
+
+### Features
+
+* provide memstat methods to assist on testing (pipe-538) ([#210](https://github.com/rudderlabs/rudder-go-kit/issues/210)) ([8150925](https://github.com/rudderlabs/rudder-go-kit/commit/81509250ac6dc58b3d778559e38491a43ce52ae0))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.47.8 to 1.47.10 ([#208](https://github.com/rudderlabs/rudder-go-kit/issues/208)) ([52204ef](https://github.com/rudderlabs/rudder-go-kit/commit/52204efc12adf4d302b2857fb7c995f73cfb8cd3))
+
 ## [0.16.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.16.3...v0.16.4) (2023-11-10)
 
 
