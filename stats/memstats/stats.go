@@ -2,9 +2,11 @@ package memstats
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cast"
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
@@ -31,6 +33,19 @@ type Measurement struct {
 	sum       float64
 	values    []float64
 	durations []time.Duration
+}
+
+// Metric captures the name, tags and value(s) depending on type.
+//
+//	For Count and Gauge, Value is used.
+//	For Histogram, Values is used.
+//	For Timer, Durations is used.
+type Metric struct {
+	Name      string
+	Tags      stats.Tags
+	Value     float64         // Count, Gauge
+	Values    []float64       // Histogram
+	Durations []time.Duration // Timer
 }
 
 func (m *Measurement) LastValue() float64 {
@@ -209,6 +224,56 @@ func (ms *Store) Get(name string, tags stats.Tags) *Measurement {
 	defer ms.mu.Unlock()
 
 	return ms.byKey[ms.getKey(name, tags)]
+}
+
+// GetAll returns the metric for all name/tags register in the store.
+func (ms *Store) GetAll() []Metric {
+	return ms.getAllByName("")
+}
+
+// GetByName returns the metric for each tag variation with the given name.
+func (ms *Store) GetByName(name string) []Metric {
+	if name == "" {
+		panic("name cannot be empty")
+	}
+	return ms.getAllByName(name)
+}
+
+func (ms *Store) getAllByName(name string) []Metric {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	keys := lo.Filter(lo.Keys(ms.byKey), func(k string, index int) bool {
+		return name == "" || ms.byKey[k].name == name
+	})
+	sort.SliceStable(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+	return lo.Map(keys, func(key string, index int) Metric {
+		m := ms.byKey[key]
+		switch m.mType {
+		case stats.CountType, stats.GaugeType:
+			return Metric{
+				Name:  m.name,
+				Tags:  m.tags,
+				Value: m.LastValue(),
+			}
+		case stats.HistogramType:
+			return Metric{
+				Name:   m.name,
+				Tags:   m.tags,
+				Values: m.Values(),
+			}
+		case stats.TimerType:
+			return Metric{
+				Name:      m.name,
+				Tags:      m.tags,
+				Durations: m.Durations(),
+			}
+		default:
+			panic("unknown measurement type:" + m.mType)
+		}
+	})
 }
 
 // Start implements stats.Stats
