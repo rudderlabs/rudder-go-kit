@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.17.0...v0.18.0) (2023-11-17)
+
+
+### Features
+
+* fields for labels and non-sugared structured logging ([#202](https://github.com/rudderlabs/rudder-go-kit/issues/202)) ([205700e](https://github.com/rudderlabs/rudder-go-kit/commit/205700ee149520d093a4e2af556f00e097776e77))
+
 ## [0.17.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.16.4...v0.17.0) (2023-11-16)
 
 
