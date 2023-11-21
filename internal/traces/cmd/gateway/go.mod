@@ -7,7 +7,7 @@ toolchain go1.21.3
 replace github.com/rudderlabs/rudder-go-kit => ../../../../
 
 require (
-	github.com/rudderlabs/rudder-go-kit v0.16.3
+	github.com/rudderlabs/rudder-go-kit v0.18.1
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.45.0
 	go.opentelemetry.io/otel v1.19.0
 )
