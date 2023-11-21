@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.18.0...v0.18.1) (2023-11-21)
+
+
+### Miscellaneous
+
+* update otel ([#219](https://github.com/rudderlabs/rudder-go-kit/issues/219)) ([7a59061](https://github.com/rudderlabs/rudder-go-kit/commit/7a59061743a17da77a580a96194bfab569b221c0))
+
 ## [0.18.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.17.0...v0.18.0) (2023-11-17)
 
 
