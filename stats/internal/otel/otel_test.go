@@ -38,7 +38,7 @@ var (
 		{Name: ptr("service_version"), Value: ptr("v1.2.3")},
 		{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
 		{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-		{Name: ptr("telemetry_sdk_version"), Value: ptr("1.19.0")},
+		{Name: ptr("telemetry_sdk_version"), Value: ptr(otel.Version())},
 		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
 	}
 	globalGRPCDefaultAttrs = append(globalDefaultAttrs,
