@@ -5,16 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
-	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/spanmodel"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
-	"sort"
+
 	"github.com/samber/lo"
 	"github.com/spf13/cast"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+
 	"github.com/rudderlabs/rudder-go-kit/stats"
+	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/spanmodel"
 )
 
 var _ stats.Stats = (*Store)(nil)
