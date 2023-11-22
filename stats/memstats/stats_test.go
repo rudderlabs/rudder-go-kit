@@ -14,22 +14,17 @@ import (
 func TestStats(t *testing.T) {
 	now := time.Now()
 
-	store, err := memstats.New(
-		memstats.WithNow(func() time.Time {
-			return now
-		}),
-	)
-	require.NoError(t, err)
-
 	commonTags := stats.Tags{"tag1": "value1"}
 
 	t.Run("test Count", func(t *testing.T) {
 		name := "testCount"
-		store := memstats.New(
+		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
 				return now
 			}),
 		)
+		require.NoError(t, err)
+
 		m := store.NewTaggedStat(name, stats.CountType, commonTags)
 
 		m.Increment()
@@ -57,11 +52,13 @@ func TestStats(t *testing.T) {
 
 	t.Run("test Gauge", func(t *testing.T) {
 		name := "testGauge"
-		store := memstats.New(
+		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
 				return now
 			}),
 		)
+		require.NoError(t, err)
+
 		m := store.NewTaggedStat(name, stats.GaugeType, commonTags)
 
 		m.Gauge(1.0)
@@ -89,11 +86,12 @@ func TestStats(t *testing.T) {
 
 	t.Run("test Histogram", func(t *testing.T) {
 		name := "testHistogram"
-		store := memstats.New(
+		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
 				return now
 			}),
 		)
+		require.NoError(t, err)
 
 		m := store.NewTaggedStat(name, stats.HistogramType, commonTags)
 
@@ -122,11 +120,12 @@ func TestStats(t *testing.T) {
 
 	t.Run("test Timer", func(t *testing.T) {
 		name := "testTimer"
-		store := memstats.New(
+		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
 				return now
 			}),
 		)
+		require.NoError(t, err)
 
 		m := store.NewTaggedStat(name, stats.TimerType, commonTags)
 
@@ -172,11 +171,12 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("invalid operations", func(t *testing.T) {
-		store := memstats.New(
+		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
 				return now
 			}),
 		)
+		require.NoError(t, err)
 
 		require.PanicsWithValue(t, "operation Count not supported for measurement type:gauge", func() {
 			store.NewTaggedStat("invalid_count", stats.GaugeType, commonTags).Count(1)
@@ -206,11 +206,12 @@ func TestStats(t *testing.T) {
 	})
 
 	t.Run("no op", func(t *testing.T) {
-		store := memstats.New(
+		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
 				return now
 			}),
 		)
+		require.NoError(t, err)
 
 		require.NoError(t, store.Start(context.Background(), stats.DefaultGoRoutineFactory))
 		store.Stop()
@@ -220,11 +221,12 @@ func TestStats(t *testing.T) {
 
 	t.Run("no tags", func(t *testing.T) {
 		name := "no_tags"
-		store := memstats.New(
+		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
 				return now
 			}),
 		)
+		require.NoError(t, err)
 
 		m := store.NewStat(name, stats.CountType)
 
@@ -247,11 +249,12 @@ func TestStats(t *testing.T) {
 		name1 := "name_1"
 		name2 := "name_2"
 
-		store := memstats.New(
+		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
 				return now
 			}),
 		)
+		require.NoError(t, err)
 
 		m1 := store.NewStat(name1, stats.CountType)
 		m1.Increment()
