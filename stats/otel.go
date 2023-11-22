@@ -15,10 +15,11 @@ import (
 	"github.com/spf13/cast"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-
+	noopMetric "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
+	noopTrace "go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
@@ -138,11 +139,11 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 
 	s.tracerProvider = tp
 	if s.tracerProvider == nil {
-		s.tracerProvider = trace.NewNoopTracerProvider()
+		s.tracerProvider = noopTrace.NewTracerProvider()
 	}
 
 	s.meter = mp.Meter(defaultMeterName)
-	s.noopMeter = noop.NewMeterProvider().Meter(defaultMeterName)
+	s.noopMeter = noopMetric.NewMeterProvider().Meter(defaultMeterName)
 	if s.otelConfig.enablePrometheusExporter && s.otelConfig.prometheusMetricsPort > 0 {
 		s.httpServerShutdownComplete = make(chan struct{})
 		s.httpServer = &http.Server{
