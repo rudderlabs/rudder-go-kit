@@ -67,7 +67,11 @@ func main() {
 		// sleep for some time in between
 		time.Sleep(123 * time.Millisecond)
 
-		_, child := tracer.Start(ctx, "my-recv-child", kitstats.SpanKindServer, time.Now(), kitstats.Tags{"foo": "bar"})
+		_, child := tracer.Start(ctx, "my-recv-child", kitstats.SpanKindServer, time.Now(), kitstats.Tags{
+			"tag1": "value1",
+			"tag2": "value2",
+			"tag3": "value3",
+		})
 		time.Sleep(200 * time.Millisecond)
 		child.End()
 
