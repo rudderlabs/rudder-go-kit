@@ -18,7 +18,8 @@ func TestLimiter(t *testing.T) {
 	t.Run("without priority", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
-		ms := memstats.New()
+		ms, err := memstats.New()
+		require.NoError(t, err)
 
 		statsTriggerCh := make(chan time.Time)
 		triggerFn := func() <-chan time.Time {
@@ -69,7 +70,8 @@ func TestLimiter(t *testing.T) {
 	t.Run("with priority", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
-		ms := memstats.New()
+		ms, err := memstats.New()
+		require.NoError(t, err)
 
 		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, ms)
 		var counterLow int
@@ -110,7 +112,8 @@ func TestLimiter(t *testing.T) {
 	t.Run("with dynamic priority", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
-		ms := memstats.New()
+		ms, err := memstats.New()
+		require.NoError(t, err)
 
 		sleepTime := 1 * time.Millisecond
 		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, ms, miscsync.WithLimiterDynamicPeriod(sleepTime/100))
