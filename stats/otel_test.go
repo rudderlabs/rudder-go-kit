@@ -21,6 +21,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelMetric "go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -47,7 +48,7 @@ var globalDefaultAttrs = []*promClient.LabelPair{
 	{Name: ptr("service_version"), Value: ptr("v1.2.3")},
 	{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
 	{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-	{Name: ptr("telemetry_sdk_version"), Value: ptr("1.19.0")},
+	{Name: ptr("telemetry_sdk_version"), Value: ptr(otel.Version())},
 }
 
 func TestOTelMeasurementInvalidOperations(t *testing.T) {
@@ -900,6 +901,53 @@ func TestZipkin(t *testing.T) {
 	require.Equal(t, `["my-span"]`, spansBody)
 }
 
+func TestInvalidInstrument(t *testing.T) {
+	newStats := func(t *testing.T, match string) *otelStats {
+		ctrl := gomock.NewController(t)
+		l := mock_logger.NewMockLogger(ctrl)
+		l.EXPECT().Warnf(containsMatcher(match), gomock.Any()).Times(1)
+
+		enabled := atomic.Bool{}
+		enabled.Store(true)
+
+		return &otelStats{
+			config:    statsConfig{enabled: &enabled},
+			meter:     sdkmetric.NewMeterProvider().Meter(""),
+			noopMeter: noop.NewMeterProvider().Meter(""),
+			logger:    l,
+		}
+	}
+
+	t.Run("counter", func(t *testing.T) {
+		s := newStats(t, "failed to create instrument")
+		require.NotPanics(t, func() {
+			m := s.getMeasurement("_#@!?", CountType, nil)
+			m.Increment()
+		})
+	})
+	t.Run("gauge", func(t *testing.T) {
+		s := newStats(t, "failed to create gauge")
+		require.NotPanics(t, func() {
+			m := s.getMeasurement("_#@!?", GaugeType, nil)
+			m.Gauge(123)
+		})
+	})
+	t.Run("timer", func(t *testing.T) {
+		s := newStats(t, "failed to create instrument")
+		require.NotPanics(t, func() {
+			m := s.getMeasurement("_#@!?", TimerType, nil)
+			m.SendTiming(123 * time.Millisecond)
+		})
+	})
+	t.Run("histogram", func(t *testing.T) {
+		s := newStats(t, "failed to create instrument")
+		require.NotPanics(t, func() {
+			m := s.getMeasurement("_#@!?", HistogramType, nil)
+			m.Observe(123)
+		})
+	})
+}
+
 func getDataPoint[T any](ctx context.Context, t *testing.T, rdr sdkmetric.Reader, name string, idx int) (zero T) {
 	t.Helper()
 	rm := metricdata.ResourceMetrics{}
@@ -1002,4 +1050,11 @@ func (f loggerSpyFactory) NewLogger() logger.Logger { return f.spy }
 
 func newLoggerSpyFactory(l logger.Logger) loggerFactory {
 	return &loggerSpyFactory{spy: l}
+}
+
+type containsMatcher string
+
+func (m containsMatcher) String() string { return string(m) }
+func (m containsMatcher) Matches(arg any) bool {
+	return strings.Contains(arg.(string), string(m))
 }

@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"io"
 	"os"
 	"strings"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
-// default factory instance
+// Default factory instance
 var Default *Factory
 
 func init() {
@@ -32,13 +33,15 @@ func NewFactory(config *config.Config, options ...Option) *Factory {
 		option.apply(f)
 	}
 	f.zap = newZapLogger(config, f.config)
+	f.sugaredZap = f.zap.Sugar()
 	return f
 }
 
 // Factory is a factory for creating new loggers
 type Factory struct {
-	config *factoryConfig
-	zap    *zap.SugaredLogger
+	config     *factoryConfig
+	zap        *zap.Logger
+	sugaredZap *zap.SugaredLogger
 }
 
 // NewLogger creates a new logger using the default logger factory
@@ -49,8 +52,9 @@ func NewLogger() Logger {
 // NewLogger creates a new logger
 func (f *Factory) NewLogger() Logger {
 	return &logger{
-		logConfig: f.config,
-		zap:       f.zap,
+		logConfig:  f.config,
+		zap:        f.zap,
+		sugaredZap: f.sugaredZap,
 	}
 }
 
@@ -73,7 +77,7 @@ func SetLogLevel(name, levelStr string) error {
 func (f *Factory) SetLogLevel(name, levelStr string) error {
 	err := f.config.SetLogLevel(name, levelStr)
 	if err != nil {
-		f.zap.Info(f.config.levelConfig)
+		f.sugaredZap.Info(f.config.levelConfig)
 	}
 	return err
 }
@@ -86,6 +90,7 @@ func Sync() {
 // Sync flushes the loggers' output buffers
 func (f *Factory) Sync() {
 	_ = f.zap.Sync()
+	_ = f.sugaredZap.Sync()
 }
 
 func newConfig(config *config.Config) *factoryConfig {
@@ -124,10 +129,14 @@ func newConfig(config *config.Config) *factoryConfig {
 }
 
 // newZapLogger configures the zap logger based on the config provide in config.toml
-func newZapLogger(config *config.Config, fc *factoryConfig) *zap.SugaredLogger {
+func newZapLogger(config *config.Config, fc *factoryConfig) *zap.Logger {
 	var cores []zapcore.Core
 	if config.GetBool("Logger.enableConsole", true) {
-		writer := zapcore.Lock(os.Stdout)
+		var writeSyncer zapcore.WriteSyncer = os.Stdout
+		if config.GetBool("Logger.discardConsole", false) {
+			writeSyncer = &discarder{}
+		}
+		writer := zapcore.Lock(writeSyncer)
 		core := zapcore.NewCore(zapEncoder(config, config.GetBool("Logger.consoleJsonFormat", false)), writer, zapcore.DebugLevel)
 		cores = append(cores, core)
 	}
@@ -155,8 +164,7 @@ func newZapLogger(config *config.Config, fc *factoryConfig) *zap.SugaredLogger {
 		options = append(options, zap.WithClock(fc.clock))
 	}
 
-	zapLogger := zap.New(combinedCore, options...)
-	return zapLogger.Sugar()
+	return zap.New(combinedCore, options...)
 }
 
 // zapEncoder configures the output of the log
@@ -174,3 +182,8 @@ func zapEncoder(config *config.Config, json bool) zapcore.Encoder {
 	}
 	return zapcore.NewConsoleEncoder(encoderConfig)
 }
+
+type discarder struct{}
+
+func (d *discarder) Sync() error                 { return nil }
+func (d *discarder) Write(b []byte) (int, error) { return io.Discard.Write(b) }
