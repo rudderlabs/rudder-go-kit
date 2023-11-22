@@ -6,7 +6,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"time"
+
+	"go.opentelemetry.io/otel/propagation"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/baggage"
@@ -51,7 +54,7 @@ func main() {
 
 	tracer := stats.NewTracer("my-tracer")
 
-	helloHandler := func(w http.ResponseWriter, req *http.Request) {
+	myRecvHandler := func(w http.ResponseWriter, req *http.Request) {
 		log.Infof("Handling request: %v", req.URL.Path)
 
 		ctx := req.Context()
@@ -64,14 +67,31 @@ func main() {
 		// sleep for some time in between
 		time.Sleep(123 * time.Millisecond)
 
-		_, child := tracer.Start(ctx, "my-child", kitstats.SpanKindServer, time.Now(), kitstats.Tags{"foo": "bar"})
+		_, child := tracer.Start(ctx, "my-recv-child", kitstats.SpanKindServer, time.Now(), kitstats.Tags{"foo": "bar"})
 		time.Sleep(200 * time.Millisecond)
 		child.End()
+
+		mapCarrier := propagation.MapCarrier{}
+		tc := propagation.TraceContext{}
+		tc.Inject(ctx, mapCarrier)
+
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Errorf("Error getting CWD: %v", err)
+			return
+		}
+
+		err = os.WriteFile(path.Join(cwd, "../trace-context.txt"), []byte(mapCarrier["traceparent"]), 0o644)
+		if err != nil {
+			log.Errorf("Error writing trace-context.txt: %v", err)
+			return
+		}
+		log.Infof("TraceContext: %v", mapCarrier)
 
 		_, _ = io.WriteString(w, "Hello, world!\n")
 	}
 
-	otelHandler := otelhttp.NewHandler(http.HandlerFunc(helloHandler), "Hello")
+	otelHandler := otelhttp.NewHandler(http.HandlerFunc(myRecvHandler), "my-recv")
 
 	httpSrv := http.Server{Addr: ":7777", Handler: otelHandler}
 	go func() {

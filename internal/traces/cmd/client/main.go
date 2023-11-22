@@ -19,7 +19,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-const serverURL = "http://localhost:7777/hello"
+const serverURL = "http://localhost:7777/hello-world"
 
 func main() {
 	logger := log.New(os.Stderr, "client", log.Ldate|log.Ltime|log.Llongfile)
