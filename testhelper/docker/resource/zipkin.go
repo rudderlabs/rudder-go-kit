@@ -57,6 +57,9 @@ func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
 
 		return nil
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for zipkin to be ready: %w", err)
+	}
 
 	return &ZipkinResource{
 		Port: zipkin.GetPort("9411/tcp"),
