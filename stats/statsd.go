@@ -10,6 +10,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"gopkg.in/alexcesaro/statsd.v2"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -32,7 +33,7 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 		return nil
 	}
 
-	s.tracer = trace.NewNoopTracerProvider().Tracer(defaultTracerName) // TODO fix hack!
+	s.tracer = noop.NewTracerProvider().Tracer(defaultTracerName) // TODO fix hack!
 
 	s.state.conn = statsd.Address(s.statsdConfig.statsdServerURL)
 	// since, we don't want setup to be a blocking call, creating a separate `go routine` for retry to get statsd client.
