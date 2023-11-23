@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -146,3 +147,12 @@ func (s *span) SetStatus(code SpanStatus, description string) {
 func (s *span) SpanContext() SpanContext { return s.span.SpanContext() }
 func (s *span) SetAttributes(t Tags)     { s.span.SetAttributes(t.otelAttributes()...) }
 func (s *span) End()                     { s.span.End() }
+
+// GetTraceParentFromContext returns the traceparent header from the context
+func GetTraceParentFromContext(ctx context.Context) string {
+	mapCarrier := propagation.MapCarrier{}
+	(propagation.TraceContext{}).Inject(ctx, mapCarrier)
+
+	traceParent, _ := mapCarrier["traceparent"]
+	return traceParent
+}
