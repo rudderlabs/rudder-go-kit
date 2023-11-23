@@ -50,11 +50,11 @@ install-tools:
 	go install mvdan.cc/gofumpt@latest
 	go install gotest.tools/gotestsum@v1.8.2
 	go install golang.org/x/tools/cmd/goimports@latest
+	bash ./internal/scripts/install-golangci-lint.sh v1.55.2
 
 .PHONY: lint
 lint: fmt ## Run linters on all go files
-	docker run --rm -v $(shell pwd):/app:ro -w /app golangci/golangci-lint:v1.54.2 bash -e -c \
-		'golangci-lint run -v --timeout 5m'
+	golangci-lint run -v --timeout 5m
 
 .PHONY: fmt
 fmt: install-tools ## Formats all go files
