@@ -148,11 +148,22 @@ func (s *span) SpanContext() SpanContext { return s.span.SpanContext() }
 func (s *span) SetAttributes(t Tags)     { s.span.SetAttributes(t.otelAttributes()...) }
 func (s *span) End()                     { s.span.End() }
 
+const (
+	traceParentHeader = "traceparent"
+)
+
 // GetTraceParentFromContext returns the traceparent header from the context
 func GetTraceParentFromContext(ctx context.Context) string {
 	mapCarrier := propagation.MapCarrier{}
 	(propagation.TraceContext{}).Inject(ctx, mapCarrier)
 
-	traceParent, _ := mapCarrier["traceparent"]
+	traceParent, _ := mapCarrier[traceParentHeader]
 	return traceParent
+}
+
+// InjectTraceParentIntoContext injects the traceparent header into the context
+func InjectTraceParentIntoContext(ctx context.Context, traceParent string) context.Context {
+	return (propagation.TraceContext{}).Extract(ctx, propagation.MapCarrier{
+		traceParentHeader: traceParent,
+	})
 }
