@@ -156,9 +156,7 @@ const (
 func GetTraceParentFromContext(ctx context.Context) string {
 	mapCarrier := propagation.MapCarrier{}
 	(propagation.TraceContext{}).Inject(ctx, mapCarrier)
-
-	traceParent, _ := mapCarrier[traceParentHeader]
-	return traceParent
+	return mapCarrier[traceParentHeader]
 }
 
 // InjectTraceParentIntoContext injects the traceparent header into the context
