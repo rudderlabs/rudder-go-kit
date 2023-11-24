@@ -24,9 +24,11 @@ var _ stats.Stats = (*Store)(nil)
 var _ stats.Measurement = (*Measurement)(nil)
 
 type Store struct {
-	mu                sync.Mutex
-	byKey             map[string]*Measurement
-	now               func() time.Time
+	mu    sync.Mutex
+	byKey map[string]*Measurement
+	now   func() time.Time
+
+	withTracing       bool
 	tracingBuffer     *bytes.Buffer
 	tracingTimestamps bool
 	tracerProvider    trace.TracerProvider
@@ -187,6 +189,12 @@ func WithNow(nowFn func() time.Time) Opts {
 	}
 }
 
+func WithTracing() Opts {
+	return func(s *Store) {
+		s.withTracing = true
+	}
+}
+
 func WithTracingTimestamps() Opts {
 	return func(s *Store) {
 		s.tracingTimestamps = true
@@ -201,10 +209,14 @@ func New(opts ...Opts) (*Store, error) {
 	for _, opt := range opts {
 		opt(s)
 	}
+	if !s.withTracing {
+		return s, nil
+	}
 
-	traceBuffer := &bytes.Buffer{}
+	s.tracingBuffer = &bytes.Buffer{}
+
 	tracingOpts := []stdouttrace.Option{
-		stdouttrace.WithWriter(traceBuffer),
+		stdouttrace.WithWriter(s.tracingBuffer),
 		stdouttrace.WithPrettyPrint(),
 	}
 	if !s.tracingTimestamps {
@@ -215,8 +227,6 @@ func New(opts ...Opts) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot create trace exporter: %w", err)
 	}
-
-	s.tracingBuffer = traceBuffer
 	s.tracerProvider = sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithSyncer(traceExporter),
