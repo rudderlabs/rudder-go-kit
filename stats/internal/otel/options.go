@@ -85,6 +85,7 @@ func WithTracingSyncer() TracerProviderOption {
 }
 
 // WithZipkin allows to set the tracer provider to use Zipkin
+// This means that the SDK will send the data to Zipkin directly instead of using the collector.
 func WithZipkin() TracerProviderOption {
 	return func(c *tracerProviderConfig) {
 		c.withZipkin = true
