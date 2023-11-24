@@ -38,6 +38,8 @@ type otelStats struct {
 
 	tracerProvider      trace.TracerProvider
 	traceBaseAttributes []attribute.KeyValue
+	tracerMap           map[string]Tracer
+	tracerMapMu         sync.Mutex
 
 	meter        metric.Meter
 	noopMeter    metric.Meter
@@ -228,10 +230,18 @@ func (s *otelStats) Stop() {
 }
 
 // NewTracer allows you to create a tracer for creating spans
-// @TODO make it so that the same tracer isn't initialized each time?
 func (s *otelStats) NewTracer(name string) Tracer {
 	if name == "" {
 		name = defaultTracerName
+	}
+
+	s.tracerMapMu.Lock()
+	defer s.tracerMapMu.Unlock()
+
+	if s.tracerMap == nil {
+		s.tracerMap = make(map[string]Tracer)
+	} else if t, ok := s.tracerMap[name]; ok {
+		return t
 	}
 
 	var attrs []attribute.KeyValue
@@ -249,8 +259,10 @@ func (s *otelStats) NewTracer(name string) Tracer {
 		opts = append(opts, trace.WithInstrumentationAttributes(attrs...))
 	}
 
-	t := s.tracerProvider.Tracer(name, opts...)
-	return &tracer{tracer: t}
+	s.tracerMap[name] = &tracer{
+		tracer: s.tracerProvider.Tracer(name, opts...),
+	}
+	return s.tracerMap[name]
 }
 
 // NewStat creates a new Measurement with provided Name and Type
