@@ -860,9 +860,6 @@ func TestZipkin(t *testing.T) {
 	zipkin, err := dockerRes.SetupZipkin(pool, t)
 	require.NoError(t, err)
 
-	prometheusPort, err := testhelper.GetFreePort()
-	require.NoError(t, err)
-
 	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
 
 	conf := config.New()
@@ -873,9 +870,6 @@ func TestZipkin(t *testing.T) {
 	conf.Set("OpenTelemetry.traces.samplingRate", 1.0)
 	conf.Set("OpenTelemetry.traces.withSyncer", true)
 	conf.Set("OpenTelemetry.traces.withZipkin", true)
-	// @TODO remove the fact that the metrics have to be up and we can't use traces alone
-	conf.Set("OpenTelemetry.metrics.prometheus.enabled", true)
-	conf.Set("OpenTelemetry.metrics.prometheus.port", prometheusPort)
 	l := logger.NewFactory(conf)
 	m := metric.NewManager()
 	s := NewStats(conf, l, m, WithServiceName(t.Name()))
