@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,9 +20,10 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
 )
 
-var _ stats.Stats = (*Store)(nil)
-
-var _ stats.Measurement = (*Measurement)(nil)
+var (
+	_ stats.Stats       = (*Store)(nil)
+	_ stats.Measurement = (*Measurement)(nil)
+)
 
 type Store struct {
 	mu    sync.Mutex
@@ -276,8 +278,24 @@ func (ms *Store) Get(name string, tags stats.Tags) *Measurement {
 }
 
 func (ms *Store) Spans() ([]tracemodel.Span, error) {
+	split := strings.Split(ms.tracingBuffer.String(), "}\n{")
+	if len(split) == 0 {
+		return nil, nil
+	}
+
+	// the split is going to eat a few curly brackets, so we need to add them back
+	for i, s := range split {
+		if i == 0 {
+			split[i] = s + "},"
+		} else if i == len(split)-1 {
+			split[i] = "{" + s
+		} else {
+			split[i] = "{" + s + "},"
+		}
+	}
+
 	var spans []tracemodel.Span
-	err := json.Unmarshal(ms.tracingBuffer.Bytes(), &spans)
+	err := json.Unmarshal([]byte("["+strings.Join(split, "")+"]"), &spans)
 	return spans, err
 }
 

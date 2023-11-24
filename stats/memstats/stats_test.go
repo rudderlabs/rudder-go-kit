@@ -279,4 +279,73 @@ func TestStats(t *testing.T) {
 			Durations: []time.Duration{time.Second},
 		}}, store.GetAll())
 	})
+
+	t.Run("with tracing", func(t *testing.T) {
+		store, err := memstats.New(
+			memstats.WithNow(func() time.Time {
+				return now
+			}),
+			memstats.WithTracing(),
+		)
+		require.NoError(t, err)
+
+		tracer := store.NewTracer("my-tracer")
+		ctx, span1 := tracer.Start(context.Background(), "span1", stats.SpanKindInternal, stats.SpanWithTags(stats.Tags{
+			"tag1": "value1",
+			"tag2": "value2",
+		}))
+
+		_, span2 := tracer.Start(ctx, "span2", stats.SpanKindInternal, stats.SpanWithTags(stats.Tags{"tag3": "value3"}))
+		time.Sleep(time.Millisecond)
+		span2.End()
+		time.Sleep(time.Millisecond)
+		span1.End()
+
+		spans, err := store.Spans()
+		require.NoError(t, err)
+
+		require.Len(t, spans, 2)
+		// The data is extracted from stdout so the order is reversed
+		require.Equal(t, "span2", spans[0].Name)
+		require.Equal(t, "span1", spans[1].Name)
+		require.True(t, spans[0].StartTime.IsZero())
+		require.True(t, spans[1].StartTime.IsZero())
+		// checking hierarchy
+		require.Equal(t, spans[1].SpanContext.SpanID, spans[0].Parent.SpanID)
+	})
+
+	t.Run("with tracing timestamps", func(t *testing.T) {
+		store, err := memstats.New(
+			memstats.WithNow(func() time.Time {
+				return now
+			}),
+			memstats.WithTracing(),
+			memstats.WithTracingTimestamps(),
+		)
+		require.NoError(t, err)
+
+		tracer := store.NewTracer("my-tracer")
+		ctx, span1 := tracer.Start(context.Background(), "span1", stats.SpanKindInternal, stats.SpanWithTags(stats.Tags{
+			"tag1": "value1",
+			"tag2": "value2",
+		}))
+
+		_, span2 := tracer.Start(ctx, "span2", stats.SpanKindInternal, stats.SpanWithTags(stats.Tags{"tag3": "value3"}))
+		time.Sleep(time.Millisecond)
+		span2.End()
+		time.Sleep(time.Millisecond)
+		span1.End()
+
+		spans, err := store.Spans()
+		require.NoError(t, err)
+
+		require.Len(t, spans, 2)
+		// The data is extracted from stdout so the order is reversed
+		require.Equal(t, "span2", spans[0].Name)
+		require.Equal(t, "span1", spans[1].Name)
+		require.False(t, spans[0].StartTime.IsZero())
+		require.False(t, spans[1].StartTime.IsZero())
+		// checking hierarchy
+		require.Equal(t, spans[1].SpanContext.SpanID, spans[0].Parent.SpanID)
+	})
 }
