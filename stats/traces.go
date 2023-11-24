@@ -60,15 +60,14 @@ const (
 
 type Tracer interface {
 	SpanFromContext(context.Context) TraceSpan
-	Start( // @TODO add other options
-		ctx context.Context, spanName string, spanKind SpanKind,
-		timestamp time.Time, tags Tags,
+	Start(
+		ctx context.Context, spanName string, spanKind SpanKind, options ...SpanOption,
 	) (context.Context, TraceSpan)
 }
 
 type TraceSpan interface {
 	// AddEvent adds an event with the provided name and options.
-	AddEvent(name string, tags Tags, timestamp time.Time, stackTrace bool)
+	AddEvent(name string, options ...SpanOption)
 
 	// SetStatus sets the status of the Span in the form of a code and a
 	// description, provided the status hasn't already been set to a higher
@@ -86,7 +85,7 @@ type TraceSpan interface {
 	SetAttributes(tags Tags)
 
 	// End terminates the span
-	End() // @TODO add options (e.g. labels, timestamp, span kind, etc...)
+	End()
 }
 
 // NewTracerFromOpenTelemetry creates a new go-kit Tracer from an OpenTelemetry Tracer.
@@ -102,42 +101,70 @@ func (t *tracer) SpanFromContext(ctx context.Context) TraceSpan {
 	return &span{span: trace.SpanFromContext(ctx)}
 }
 
-func (t *tracer) Start(
-	ctx context.Context, spanName string, spanKind SpanKind,
-	timestamp time.Time, tags Tags,
-) (context.Context, TraceSpan) {
-	var opts []trace.SpanStartOption
-	if !timestamp.IsZero() {
-		opts = append(opts, trace.WithTimestamp(timestamp))
-	}
-	if spanKind != SpanKindUnspecified {
-		opts = append(opts, trace.WithSpanKind(spanKind))
-	}
-	if len(tags) > 0 {
-		opts = append(opts, trace.WithAttributes(tags.otelAttributes()...))
+func (t *tracer) Start(ctx context.Context, spanName string, spanKind SpanKind, opts ...SpanOption) (
+	context.Context, TraceSpan,
+) {
+	var sc spanConfig
+	for _, opt := range opts {
+		opt(&sc)
 	}
 
-	ctx, s := t.tracer.Start(ctx, spanName, opts...)
+	var startOpts []trace.SpanStartOption
+	if len(sc.tags) > 0 {
+		startOpts = append(startOpts, trace.WithAttributes(sc.tags.otelAttributes()...))
+	}
+	if !sc.timestamp.IsZero() {
+		startOpts = append(startOpts, trace.WithTimestamp(sc.timestamp))
+	}
+	if spanKind != SpanKindUnspecified {
+		startOpts = append(startOpts, trace.WithSpanKind(spanKind))
+	}
+
+	ctx, s := t.tracer.Start(ctx, spanName, startOpts...)
 	return ctx, &span{span: s}
+}
+
+type spanConfig struct {
+	tags      Tags
+	timestamp time.Time
+}
+
+// SpanOption can be used with span.Start() and span.AddEvent()
+type SpanOption func(*spanConfig)
+
+// SpanWithTags sets the tags for the span
+func SpanWithTags(tags Tags) SpanOption {
+	return func(c *spanConfig) {
+		c.tags = tags
+	}
+}
+
+// SpanWithTimestamp sets the timestamp for the span
+func SpanWithTimestamp(timestamp time.Time) SpanOption {
+	return func(c *spanConfig) {
+		c.timestamp = timestamp
+	}
 }
 
 type span struct {
 	span trace.Span
 }
 
-func (s *span) AddEvent(name string, tags Tags, timestamp time.Time, stackTrace bool) {
-	var opts []trace.EventOption
-	if len(tags) > 0 {
-		opts = append(opts, trace.WithAttributes(tags.otelAttributes()...))
-	}
-	if !timestamp.IsZero() {
-		opts = append(opts, trace.WithTimestamp(timestamp))
-	}
-	if stackTrace {
-		opts = append(opts, trace.WithStackTrace(true))
+func (s *span) AddEvent(name string, opts ...SpanOption) {
+	var sc spanConfig
+	for _, opt := range opts {
+		opt(&sc)
 	}
 
-	s.span.AddEvent(name, opts...)
+	var eventOpts []trace.EventOption
+	if len(sc.tags) > 0 {
+		eventOpts = append(eventOpts, trace.WithAttributes(sc.tags.otelAttributes()...))
+	}
+	if !sc.timestamp.IsZero() {
+		eventOpts = append(eventOpts, trace.WithTimestamp(sc.timestamp))
+	}
+
+	s.span.AddEvent(name, eventOpts...)
 }
 
 func (s *span) SetStatus(code SpanStatus, description string) {

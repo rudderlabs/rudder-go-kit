@@ -886,7 +886,7 @@ func TestZipkin(t *testing.T) {
 	t.Cleanup(s.Stop)
 
 	_, span := s.NewTracer("my-tracer").Start(
-		ctx, "my-span", SpanKindServer, time.Now(), Tags{"foo": "bar"},
+		ctx, "my-span", SpanKindServer, SpanWithTimestamp(time.Now()), SpanWithTags(Tags{"foo": "bar"}),
 	)
 	time.Sleep(123 * time.Millisecond)
 	span.End()

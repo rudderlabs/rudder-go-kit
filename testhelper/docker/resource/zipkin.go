@@ -11,21 +11,23 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
 
+const zipkinPort = "9411"
+
 type ZipkinResource struct {
 	Port string
 }
 
 func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
-	zipkinPort, err := testhelper.GetFreePort()
+	freePort, err := testhelper.GetFreePort()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get free port: %w", err)
 	}
 
 	zipkin, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "openzipkin/zipkin",
-		ExposedPorts: []string{"9411"},
+		ExposedPorts: []string{zipkinPort},
 		PortBindings: map[docker.Port][]docker.PortBinding{
-			"9411/tcp": {{HostPort: strconv.Itoa(zipkinPort)}},
+			zipkinPort + "/tcp": {{HostPort: strconv.Itoa(freePort)}},
 		},
 	})
 	if err != nil {
@@ -37,7 +39,7 @@ func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
 		}
 	})
 
-	zipkinHealthURL := "http://localhost:" + strconv.Itoa(zipkinPort) + "/health"
+	zipkinHealthURL := "http://localhost:" + strconv.Itoa(freePort) + "/health"
 	healthReq, err := http.NewRequest(http.MethodGet, zipkinHealthURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create zipkin health request: %w", err)
@@ -62,6 +64,6 @@ func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
 	}
 
 	return &ZipkinResource{
-		Port: zipkin.GetPort("9411/tcp"),
+		Port: zipkin.GetPort(zipkinPort + "/tcp"),
 	}, nil
 }
