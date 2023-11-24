@@ -70,7 +70,7 @@ func TestTraces(t *testing.T) {
 	require.Equal(t, "Ok", data.Status.Code)
 }
 
-func TestZipkin(t *testing.T) {
+func TestZipkinIntegration(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 

@@ -85,7 +85,7 @@ func WithTracingSyncer() TracerProviderOption {
 }
 
 // WithZipkin allows to set the tracer provider to use Zipkin
-func WithZipkin() TracerProviderOption { // @TODO add zipkin integration test
+func WithZipkin() TracerProviderOption {
 	return func(c *tracerProviderConfig) {
 		c.withZipkin = true
 	}
