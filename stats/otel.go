@@ -140,10 +140,11 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		s.tracerProvider = noopTrace.NewTracerProvider()
 	}
 
+	s.noopMeter = noopMetric.NewMeterProvider().Meter(defaultMeterName)
 	if mp != nil {
 		s.meter = mp.Meter(defaultMeterName)
 	} else {
-		s.meter = noopMetric.NewMeterProvider().Meter(defaultMeterName)
+		s.meter = s.noopMeter
 	}
 
 	if s.otelConfig.enablePrometheusExporter && s.otelConfig.prometheusMetricsPort > 0 {
