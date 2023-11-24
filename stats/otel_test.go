@@ -889,9 +889,7 @@ func TestZipkin(t *testing.T) {
 	getSpansReq, err := http.NewRequest(http.MethodGet, zipkinSpansURL, nil)
 	require.NoError(t, err)
 
-	spansBody := assert.RequireEventuallyResponse(
-		t, http.StatusOK, getSpansReq, 10*time.Second, 100*time.Millisecond,
-	)
+	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getSpansReq)
 	require.Equal(t, `["my-span"]`, spansBody)
 }
 

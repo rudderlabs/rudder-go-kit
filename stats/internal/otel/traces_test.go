@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
@@ -107,8 +108,6 @@ func TestZipkinIntegration(t *testing.T) {
 	getSpansReq, err := http.NewRequest(http.MethodGet, zipkinSpansURL, nil)
 	require.NoError(t, err)
 
-	spansBody := assert.RequireEventuallyResponse(
-		t, http.StatusOK, getSpansReq, 10*time.Second, 100*time.Millisecond,
-	)
+	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getSpansReq)
 	require.Equal(t, `["my-span"]`, spansBody)
 }

@@ -76,9 +76,7 @@ func TestAsyncTracePropagation(t *testing.T) {
 	getSpansReq, err := http.NewRequest(http.MethodGet, zipkingTracesURL, nil)
 	require.NoError(t, err)
 
-	spansBody := assert.RequireEventuallyResponse(
-		t, http.StatusOK, getSpansReq, 10*time.Second, 100*time.Millisecond,
-	)
+	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getSpansReq)
 
 	var traces [][]tracemodel.ZipkinTrace
 	require.NoError(t, json.Unmarshal([]byte(spansBody), &traces))
