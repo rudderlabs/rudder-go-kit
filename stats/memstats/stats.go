@@ -16,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
-	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/spanmodel"
 )
 
 var _ stats.Stats = (*Store)(nil)
@@ -275,8 +274,8 @@ func (ms *Store) Get(name string, tags stats.Tags) *Measurement {
 	return ms.byKey[ms.getKey(name, tags)]
 }
 
-func (ms *Store) Spans() ([]spanmodel.Span, error) {
-	var spans []spanmodel.Span
+func (ms *Store) Spans() ([]tracemodel.Span, error) {
+	var spans []tracemodel.Span
 	err := json.Unmarshal(ms.tracingBuffer.Bytes(), &spans)
 	return spans, err
 }

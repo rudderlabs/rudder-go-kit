@@ -89,7 +89,6 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	if s.otelConfig.tracesEndpoint != "" {
 		s.traceBaseAttributes = attrs
 		tpOpts := []otel.TracerProviderOption{
-			otel.WithGlobalTracerProvider(), // @TODO why is this necessary to record spans got with trace.SpanFromContext(ctx)?
 			otel.WithTracingSamplingRate(s.otelConfig.tracingSamplingRate),
 		}
 		if s.otelConfig.withTracingSyncer {
@@ -129,9 +128,8 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		options = append(options, otel.WithMeterProvider(append(meterProviderOptions,
 			otel.WithPrometheusExporter(s.prometheusRegisterer),
 		)...))
-	} else {
-		return fmt.Errorf("no metrics endpoint or prometheus exporter enabled")
 	}
+
 	tp, mp, err := s.otelManager.Setup(ctx, res, options...)
 	if err != nil {
 		return fmt.Errorf("failed to setup open telemetry: %w", err)
@@ -142,8 +140,12 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		s.tracerProvider = noopTrace.NewTracerProvider()
 	}
 
-	s.meter = mp.Meter(defaultMeterName)
-	s.noopMeter = noopMetric.NewMeterProvider().Meter(defaultMeterName)
+	if mp != nil {
+		s.meter = mp.Meter(defaultMeterName)
+	} else {
+		s.meter = noopMetric.NewMeterProvider().Meter(defaultMeterName)
+	}
+
 	if s.otelConfig.enablePrometheusExporter && s.otelConfig.prometheusMetricsPort > 0 {
 		s.httpServerShutdownComplete = make(chan struct{})
 		s.httpServer = &http.Server{

@@ -16,7 +16,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/spanmodel"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
@@ -57,14 +56,14 @@ func TestTraces(t *testing.T) {
 	time.Sleep(123 * time.Millisecond)
 	span.End()
 
-	var data spanmodel.Span
+	var data tracemodel.Span
 	require.NoError(t, json.Unmarshal(buf.Bytes(), &data))
 	require.Equal(t, "my-span", data.Name)
 	require.Equal(t, "my-tracer", data.InstrumentationLibrary.Name)
-	require.Equal(t, []spanmodel.Attributes{
+	require.Equal(t, []tracemodel.Attributes{
 		{
 			Key:   "foo",
-			Value: spanmodel.Value{Type: "STRING", Value: "bar"},
+			Value: tracemodel.Value{Type: "STRING", Value: "bar"},
 		},
 	}, data.Attributes)
 	require.Equal(t, "Ok", data.Status.Code)

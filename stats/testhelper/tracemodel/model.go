@@ -1,4 +1,4 @@
-package spanmodel
+package tracemodel
 
 import "time"
 
