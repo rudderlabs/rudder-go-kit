@@ -49,7 +49,7 @@ func TestSpanFromContext(t *testing.T) {
 
 	ctx, span := tracer.Start(context.Background(), "my-span-01", SpanKindInternal)
 	spanFromCtx := tracer.SpanFromContext(ctx)
-	require.Equalf(t, span, spanFromCtx, "SpanFromContext should return the span from the context")
+	require.Equalf(t, span, spanFromCtx, "SpanFromContext should return the same span as the one from Start()")
 
 	// let's add the attributes to the span from the ctx, we should see them on zipkin for the same span
 	spanFromCtx.SetStatus(SpanStatusError, "some bad error")
