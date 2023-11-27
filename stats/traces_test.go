@@ -10,6 +10,7 @@ import (
 
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -19,6 +20,65 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
+func TestSpanFromContext(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	zipkin, err := resource.SetupZipkin(pool, t)
+	require.NoError(t, err)
+
+	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
+	zipkinTracesURL := "http://localhost:" + zipkin.Port + "/api/v2/traces?serviceName=" + t.Name()
+
+	c := config.New()
+	c.Set("INSTANCE_ID", t.Name())
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("RuntimeStats.enabled", false)
+	c.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	c.Set("OpenTelemetry.traces.samplingRate", 1.0)
+	c.Set("OpenTelemetry.traces.withSyncer", true)
+	c.Set("OpenTelemetry.traces.withZipkin", true)
+	stats := NewStats(c, logger.NewFactory(c), metric.NewManager(),
+		WithServiceName(t.Name()), WithServiceVersion("1.2.3"),
+	)
+	t.Cleanup(stats.Stop)
+
+	require.NoError(t, stats.Start(context.Background(), DefaultGoRoutineFactory))
+
+	tracer := stats.NewTracer("my-tracer")
+
+	ctx, span := tracer.Start(context.Background(), "my-span-01", SpanKindInternal)
+	spanFromCtx := tracer.SpanFromContext(ctx)
+	require.Equalf(t, span, spanFromCtx, "SpanFromContext should return the span from the context")
+
+	// let's add the attributes to the span from the ctx, we should see them on zipkin for the same span
+	spanFromCtx.SetAttributes(Tags{"key1": "value1"})
+	span.End()
+
+	getTracesReq, err := http.NewRequest(http.MethodGet, zipkinTracesURL, nil)
+	require.NoError(t, err)
+
+	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getTracesReq)
+
+	var traces [][]tracemodel.ZipkinTrace
+	require.NoError(t, json.Unmarshal([]byte(spansBody), &traces))
+
+	require.Len(t, traces, 1)
+	require.Len(t, traces[0], 1)
+	require.Equal(t, traces[0][0].Name, "my-span-01")
+	require.Equal(t, map[string]string{
+		"key1":                   "value1", // if this is present then the attributes were added to the span
+		"instanceName":           t.Name(),
+		"service.name":           t.Name(),
+		"service.version":        "1.2.3",
+		"otel.library.name":      "my-tracer",
+		"otel.library.version":   "1.2.3",
+		"telemetry.sdk.language": "go",
+		"telemetry.sdk.name":     "opentelemetry",
+		"telemetry.sdk.version":  otel.Version(),
+	}, traces[0][0].Tags)
+}
+
 func TestAsyncTracePropagation(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
@@ -27,7 +87,7 @@ func TestAsyncTracePropagation(t *testing.T) {
 	require.NoError(t, err)
 
 	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
-	zipkingTracesURL := "http://localhost:" + zipkin.Port + "/api/v2/traces?serviceName=" + t.Name()
+	zipkinTracesURL := "http://localhost:" + zipkin.Port + "/api/v2/traces?serviceName=" + t.Name()
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
@@ -73,10 +133,10 @@ func TestAsyncTracePropagation(t *testing.T) {
 	)
 
 	// let's check that the spans have the expected hierarchy on zipkin as well
-	getSpansReq, err := http.NewRequest(http.MethodGet, zipkingTracesURL, nil)
+	getTracesReq, err := http.NewRequest(http.MethodGet, zipkinTracesURL, nil)
 	require.NoError(t, err)
 
-	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getSpansReq)
+	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getTracesReq)
 
 	var traces [][]tracemodel.ZipkinTrace
 	require.NoError(t, json.Unmarshal([]byte(spansBody), &traces))
