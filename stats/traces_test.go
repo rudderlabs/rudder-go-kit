@@ -53,6 +53,10 @@ func TestSpanFromContext(t *testing.T) {
 
 	// let's add the attributes to the span from the ctx, we should see them on zipkin for the same span
 	spanFromCtx.SetAttributes(Tags{"key1": "value1"})
+	spanFromCtx.AddEvent("some-event",
+		SpanWithTags(Tags{"key2": "value2"}),
+		SpanWithTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC)),
+	)
 	span.End()
 
 	getTracesReq, err := http.NewRequest(http.MethodGet, zipkinTracesURL, nil)
@@ -77,6 +81,11 @@ func TestSpanFromContext(t *testing.T) {
 		"telemetry.sdk.name":     "opentelemetry",
 		"telemetry.sdk.version":  otel.Version(),
 	}, traces[0][0].Tags)
+
+	// checking the annotations coming from the AddEvent() call
+	require.Len(t, traces[0][0].Annotations, 1)
+	require.EqualValues(t, traces[0][0].Annotations[0].Timestamp, 1577934245000000)
+	require.Equal(t, traces[0][0].Annotations[0].Value, `some-event: {"key2":"value2"}`)
 }
 
 func TestAsyncTracePropagation(t *testing.T) {
