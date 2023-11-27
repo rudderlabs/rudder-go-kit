@@ -158,3 +158,35 @@ func TestAsyncTracePropagation(t *testing.T) {
 	require.NotEmpty(t, traces[0][1].ParentID)
 	require.Equal(t, traces[0][0].ID, traces[0][1].ParentID)
 }
+
+func TestZipkinDownIsNotBlocking(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	zipkin, err := resource.SetupZipkin(pool, t)
+	require.NoError(t, err)
+
+	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
+
+	c := config.New()
+	c.Set("INSTANCE_ID", t.Name())
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("RuntimeStats.enabled", false)
+	c.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	c.Set("OpenTelemetry.traces.samplingRate", 1.0)
+	c.Set("OpenTelemetry.traces.withSyncer", true)
+	c.Set("OpenTelemetry.traces.withZipkin", true)
+	stats := NewStats(c, logger.NewFactory(c), metric.NewManager(), WithServiceName(t.Name()))
+	t.Cleanup(stats.Stop)
+
+	require.NoError(t, stats.Start(context.Background(), DefaultGoRoutineFactory))
+
+	tracer := stats.NewTracer("my-tracer")
+	require.NoError(t, zipkin.Purge())
+
+	start := time.Now()
+	_, span := tracer.Start(context.Background(), "my-span-01", SpanKindInternal)
+	span.End()
+
+	require.Less(t, time.Since(start), 10*time.Millisecond, "tracing API should not block if zipkin is down")
+}

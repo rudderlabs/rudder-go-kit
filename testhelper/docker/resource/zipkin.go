@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
@@ -15,6 +16,28 @@ const zipkinPort = "9411"
 
 type ZipkinResource struct {
 	Port string
+
+	pool     *dockertest.Pool
+	resource *dockertest.Resource
+	purged   bool
+	purgedMu sync.Mutex
+}
+
+func (z *ZipkinResource) Purge() error {
+	z.purgedMu.Lock()
+	defer z.purgedMu.Unlock()
+
+	if z.purged {
+		return nil
+	}
+
+	if err := z.pool.Purge(z.resource); err != nil {
+		return err
+	}
+
+	z.purged = true
+
+	return nil
 }
 
 func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
@@ -33,8 +56,14 @@ func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to start zipkin: %w", err)
 	}
+
+	resource := &ZipkinResource{
+		pool:     pool,
+		resource: zipkin,
+		Port:     zipkin.GetPort(zipkinPort + "/tcp"),
+	}
 	d.Cleanup(func() {
-		if err := pool.Purge(zipkin); err != nil {
+		if err := resource.Purge(); err != nil {
 			d.Log("Could not purge zipkin resource:", err)
 		}
 	})
@@ -63,7 +92,5 @@ func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
 		return nil, fmt.Errorf("failed to wait for zipkin to be ready: %w", err)
 	}
 
-	return &ZipkinResource{
-		Port: zipkin.GetPort(zipkinPort + "/tcp"),
-	}, nil
+	return resource, nil
 }
