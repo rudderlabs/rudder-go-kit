@@ -306,17 +306,28 @@ func TestStats(t *testing.T) {
 		time.Sleep(time.Millisecond)
 		span1.End()
 
+		_, unrelatedSpan := tracer.Start(
+			context.Background(), "unrelatedSpan", stats.SpanKindInternal, stats.SpanWithTags(stats.Tags{
+				"tag4": "value4",
+			}),
+		)
+		time.Sleep(time.Millisecond)
+		unrelatedSpan.End()
+
 		spans, err = store.Spans()
 		require.NoError(t, err)
 
-		require.Len(t, spans, 2)
-		// The data is extracted from stdout so the order is reversed
+		require.Len(t, spans, 3)
 		require.Equal(t, "span2", spans[0].Name)
 		require.Equal(t, "span1", spans[1].Name)
+		require.Equal(t, "unrelatedSpan", spans[2].Name)
 		require.True(t, spans[0].StartTime.IsZero())
 		require.True(t, spans[1].StartTime.IsZero())
+		require.True(t, spans[2].StartTime.IsZero())
 		// checking hierarchy
 		require.Equal(t, spans[1].SpanContext.SpanID, spans[0].Parent.SpanID)
+		require.NotEmpty(t, spans[2].SpanContext.SpanID, spans[0].Parent.SpanID)
+		require.NotEmpty(t, spans[2].SpanContext.SpanID, spans[1].Parent.SpanID)
 	})
 
 	t.Run("with tracing timestamps", func(t *testing.T) {
