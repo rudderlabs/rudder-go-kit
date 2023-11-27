@@ -905,7 +905,10 @@ func TestZipkin(t *testing.T) {
 	require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
 	t.Cleanup(s.Stop)
 
-	_, span := s.NewTracer("my-tracer").Start(
+	tracer := s.NewTracer("my-tracer")
+	require.Equalf(t, tracer, s.NewTracer("my-tracer"), "tracer should be cached")
+
+	_, span := tracer.Start(
 		ctx, "my-span", SpanKindServer, SpanWithTimestamp(time.Now()), SpanWithTags(Tags{"foo": "bar"}),
 	)
 	time.Sleep(123 * time.Millisecond)
