@@ -9,6 +9,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/memstats"
+	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
 )
 
 func TestStats(t *testing.T) {
@@ -328,6 +329,34 @@ func TestStats(t *testing.T) {
 		require.Equal(t, spans[1].SpanContext.SpanID, spans[0].Parent.SpanID)
 		require.NotEmpty(t, spans[2].SpanContext.SpanID, spans[0].Parent.SpanID)
 		require.NotEmpty(t, spans[2].SpanContext.SpanID, spans[1].Parent.SpanID)
+		// checking attributes
+		require.ElementsMatchf(t, []tracemodel.Attributes{{
+			Key: "tag3",
+			Value: tracemodel.Value{
+				Type:  "STRING",
+				Value: "value3",
+			},
+		}}, spans[0].Attributes, "span2 attributes: %+v", spans[0].Attributes)
+		require.ElementsMatchf(t, []tracemodel.Attributes{{
+			Key: "tag1",
+			Value: tracemodel.Value{
+				Type:  "STRING",
+				Value: "value1",
+			},
+		}, {
+			Key: "tag2",
+			Value: tracemodel.Value{
+				Type:  "STRING",
+				Value: "value2",
+			},
+		}}, spans[1].Attributes, "span1 attributes: %+v", spans[1].Attributes)
+		require.ElementsMatchf(t, []tracemodel.Attributes{{
+			Key: "tag4",
+			Value: tracemodel.Value{
+				Type:  "STRING",
+				Value: "value4",
+			},
+		}}, spans[2].Attributes, "unrelatedSpan attributes: %+v", spans[2].Attributes)
 	})
 
 	t.Run("with tracing timestamps", func(t *testing.T) {
