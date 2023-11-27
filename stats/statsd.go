@@ -34,7 +34,7 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 	}
 
 	// tracing not supported when using stats with StatsD
-	s.tracer = noop.NewTracerProvider().Tracer(defaultTracerName)
+	s.tracer = noop.NewTracerProvider().Tracer("")
 
 	s.state.conn = statsd.Address(s.statsdConfig.statsdServerURL)
 	// since, we don't want setup to be a blocking call, creating a separate `go routine` for retry to get statsd client.

@@ -26,8 +26,7 @@ import (
 )
 
 const (
-	defaultMeterName  = ""
-	defaultTracerName = ""
+	defaultMeterName = ""
 )
 
 // otelStats is an OTel-specific adapter that follows the Stats contract
@@ -231,10 +230,6 @@ func (s *otelStats) Stop() {
 
 // NewTracer allows you to create a tracer for creating spans
 func (s *otelStats) NewTracer(name string) Tracer {
-	if name == "" {
-		name = defaultTracerName
-	}
-
 	s.tracerMapMu.Lock()
 	defer s.tracerMapMu.Unlock()
 
