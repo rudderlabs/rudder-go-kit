@@ -52,6 +52,7 @@ func TestSpanFromContext(t *testing.T) {
 	require.Equalf(t, span, spanFromCtx, "SpanFromContext should return the span from the context")
 
 	// let's add the attributes to the span from the ctx, we should see them on zipkin for the same span
+	spanFromCtx.SetStatus(SpanStatusError, "some bad error")
 	spanFromCtx.SetAttributes(Tags{"key1": "value1"})
 	spanFromCtx.AddEvent("some-event",
 		SpanWithTags(Tags{"key2": "value2"}),
@@ -71,12 +72,14 @@ func TestSpanFromContext(t *testing.T) {
 	require.Len(t, traces[0], 1)
 	require.Equal(t, traces[0][0].Name, "my-span-01")
 	require.Equal(t, map[string]string{
-		"key1":                   "value1", // if this is present then the attributes were added to the span
+		"error":                  "some bad error", // this is coming from the span that we got from the ctx
+		"key1":                   "value1",         // this is coming from the span that we got from the ctx
 		"instanceName":           t.Name(),
 		"service.name":           t.Name(),
 		"service.version":        "1.2.3",
 		"otel.library.name":      "my-tracer",
 		"otel.library.version":   "1.2.3",
+		"otel.status_code":       "ERROR", // this is coming from the span that we got from the ctx
 		"telemetry.sdk.language": "go",
 		"telemetry.sdk.name":     "opentelemetry",
 		"telemetry.sdk.version":  otel.Version(),
