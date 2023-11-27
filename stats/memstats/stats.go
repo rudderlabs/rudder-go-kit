@@ -278,10 +278,11 @@ func (ms *Store) Get(name string, tags stats.Tags) *Measurement {
 }
 
 func (ms *Store) Spans() ([]tracemodel.Span, error) {
-	split := strings.Split(ms.tracingBuffer.String(), "}\n{")
-	if len(split) == 0 {
+	if ms.tracingBuffer.Len() == 0 {
 		return nil, nil
 	}
+
+	split := strings.Split(ms.tracingBuffer.String(), "}\n{")
 
 	// the split is going to eat a few curly brackets, so we need to add them back
 	for i, s := range split {

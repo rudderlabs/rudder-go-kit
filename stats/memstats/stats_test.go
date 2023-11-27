@@ -289,6 +289,11 @@ func TestStats(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		// we haven't done anything yet, so there should be no spans
+		spans, err := store.Spans()
+		require.NoError(t, err)
+		require.Nil(t, spans)
+
 		tracer := store.NewTracer("my-tracer")
 		ctx, span1 := tracer.Start(context.Background(), "span1", stats.SpanKindInternal, stats.SpanWithTags(stats.Tags{
 			"tag1": "value1",
@@ -301,7 +306,7 @@ func TestStats(t *testing.T) {
 		time.Sleep(time.Millisecond)
 		span1.End()
 
-		spans, err := store.Spans()
+		spans, err = store.Spans()
 		require.NoError(t, err)
 
 		require.Len(t, spans, 2)
