@@ -853,6 +853,32 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 }
 
+func TestNoopTracingNoPanics(t *testing.T) {
+	freePort, err := testhelper.GetFreePort()
+	require.NoError(t, err)
+
+	conf := config.New()
+	conf.Set("INSTANCE_ID", t.Name())
+	conf.Set("OpenTelemetry.enabled", true)
+	conf.Set("RuntimeStats.enabled", false)
+	conf.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	conf.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+	l := logger.NewFactory(conf)
+	m := metric.NewManager()
+	s := NewStats(conf, l, m, WithServiceName(t.Name()))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
+	t.Cleanup(s.Stop)
+
+	_, span := s.NewTracer("my-tracer").Start(
+		ctx, "my-span", SpanKindServer, SpanWithTimestamp(time.Now()), SpanWithTags(Tags{"foo": "bar"}),
+	)
+	time.Sleep(123 * time.Millisecond)
+	span.End()
+}
+
 func TestZipkin(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)

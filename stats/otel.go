@@ -138,7 +138,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	}
 
 	s.tracerProvider = tp
-	if s.tracerProvider == nil {
+	if tp == nil {
 		s.tracerProvider = noopTrace.NewTracerProvider()
 	}
 
