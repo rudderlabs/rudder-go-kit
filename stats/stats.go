@@ -11,6 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -109,6 +110,7 @@ func NewStats(
 			logger:                   loggerFactory.NewLogger().Child("stats"),
 			prometheusRegisterer:     registerer,
 			prometheusGatherer:       gatherer,
+			tracerProvider:           noop.NewTracerProvider(),
 			otelConfig: otelStatsConfig{
 				tracesEndpoint:           config.GetString("OpenTelemetry.traces.endpoint", ""),
 				tracingSamplingRate:      config.GetFloat64("OpenTelemetry.traces.samplingRate", 0.1),
@@ -129,6 +131,7 @@ func NewStats(
 		logger:                     loggerFactory.NewLogger().Child("stats"),
 		backgroundCollectionCtx:    backgroundCollectionCtx,
 		backgroundCollectionCancel: backgroundCollectionCancel,
+		tracer:                     noop.NewTracerProvider().Tracer(""),
 		statsdConfig: statsdConfig{
 			tagsFormat:          config.GetString("statsTagsFormat", "influxdb"),
 			statsdServerURL:     config.GetString("STATSD_SERVER_URL", "localhost:8125"),

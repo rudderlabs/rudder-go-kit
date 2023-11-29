@@ -19,7 +19,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
-	noopTrace "go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
@@ -136,9 +135,8 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		return fmt.Errorf("failed to setup open telemetry: %w", err)
 	}
 
-	s.tracerProvider = tp
-	if tp == nil {
-		s.tracerProvider = noopTrace.NewTracerProvider()
+	if tp != nil {
+		s.tracerProvider = tp
 	}
 
 	s.noopMeter = noopMetric.NewMeterProvider().Meter(defaultMeterName)

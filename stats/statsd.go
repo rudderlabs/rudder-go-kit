@@ -10,7 +10,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 	"gopkg.in/alexcesaro/statsd.v2"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -25,6 +24,7 @@ type statsdStats struct {
 	backgroundCollectionCtx    context.Context
 	backgroundCollectionCancel func()
 
+	// tracing not supported when using stats with StatsD
 	tracer trace.Tracer
 }
 
@@ -32,9 +32,6 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 	if !s.config.enabled.Load() {
 		return nil
 	}
-
-	// tracing not supported when using stats with StatsD
-	s.tracer = noop.NewTracerProvider().Tracer("")
 
 	s.state.conn = statsd.Address(s.statsdConfig.statsdServerURL)
 	// since, we don't want setup to be a blocking call, creating a separate `go routine` for retry to get statsd client.
