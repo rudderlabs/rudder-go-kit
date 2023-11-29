@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
@@ -212,6 +213,7 @@ func New(opts ...Opts) (*Store, error) {
 		opt(s)
 	}
 	if !s.withTracing {
+		s.tracerProvider = noop.NewTracerProvider()
 		return s, nil
 	}
 
