@@ -44,6 +44,11 @@ func TestTagsType(t *testing.T) {
 
 func TestUnstartedShouldNotPanicWhileTracing(t *testing.T) {
 	require.NotPanics(t, func() {
+		tr := Default.NewTracer("test")
+		_, span := tr.Start(context.Background(), "span-name", SpanKindInternal)
+		span.End()
+	})
+	require.NotPanics(t, func() {
 		d := NewStats(config.Default, logger.Default, svcMetric.Instance)
 		tr := d.NewTracer("test")
 		_, span := tr.Start(context.Background(), "span-name", SpanKindInternal)
