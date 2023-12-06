@@ -9,6 +9,7 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 
+	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
 
@@ -80,7 +81,7 @@ func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
 			return fmt.Errorf("failed to get zipkin health: %w", err)
 		}
 
-		defer func() { _ = resp.Body.Close() }()
+		defer func() { httputil.CloseResponse(resp) }()
 
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("zipkin health returned status code %d", resp.StatusCode)
