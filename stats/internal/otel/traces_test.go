@@ -26,7 +26,6 @@ func TestTraces(t *testing.T) {
 	ctx := context.Background()
 	exp, err := stdouttrace.New(
 		stdouttrace.WithPrettyPrint(),
-		stdouttrace.WithoutTimestamps(),
 		stdouttrace.WithWriter(buf),
 	)
 	require.NoError(t, err)
@@ -68,6 +67,7 @@ func TestTraces(t *testing.T) {
 		},
 	}, data.Attributes)
 	require.Equal(t, "Ok", data.Status.Code)
+	require.InDelta(t, 123, data.EndTime.Sub(data.StartTime).Milliseconds(), 50)
 }
 
 func TestZipkinIntegration(t *testing.T) {
