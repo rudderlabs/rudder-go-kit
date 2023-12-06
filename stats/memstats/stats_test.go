@@ -376,9 +376,7 @@ func TestStats(t *testing.T) {
 		}))
 
 		_, span2 := tracer.Start(ctx, "span2", stats.SpanKindInternal, stats.SpanWithTags(stats.Tags{"tag3": "value3"}))
-		time.Sleep(time.Millisecond)
 		span2.End()
-		time.Sleep(time.Millisecond)
 		span1.End()
 
 		spans, err := store.Spans()
