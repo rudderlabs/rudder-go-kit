@@ -327,8 +327,8 @@ func TestStats(t *testing.T) {
 		require.True(t, spans[2].StartTime.IsZero())
 		// checking hierarchy
 		require.Equal(t, spans[1].SpanContext.SpanID, spans[0].Parent.SpanID)
-		require.NotEmpty(t, spans[2].SpanContext.SpanID, spans[0].Parent.SpanID)
-		require.NotEmpty(t, spans[2].SpanContext.SpanID, spans[1].Parent.SpanID)
+		require.NotEqual(t, spans[2].SpanContext.SpanID, spans[0].Parent.SpanID)
+		require.NotEqual(t, spans[2].SpanContext.SpanID, spans[1].Parent.SpanID)
 		// checking attributes
 		require.ElementsMatchf(t, []tracemodel.Attributes{{
 			Key: "tag3",
