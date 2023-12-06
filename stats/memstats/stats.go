@@ -284,21 +284,13 @@ func (ms *Store) Spans() ([]tracemodel.Span, error) {
 		return nil, nil
 	}
 
-	split := strings.Split(ms.tracingBuffer.String(), "}\n{")
-
-	// the split is going to eat a few curly brackets, so we need to add them back
-	for i, s := range split {
-		if i == 0 {
-			split[i] = s + "},"
-		} else if i == len(split)-1 {
-			split[i] = "{" + s
-		} else {
-			split[i] = "{" + s + "},"
-		}
-	}
+	// adding missing curly brackets and converting to a valid JSON array
+	jsonData := "[" + ms.tracingBuffer.String() + "]"
+	jsonData = strings.Replace(jsonData, "}\n{", "},{", -1)
 
 	var spans []tracemodel.Span
-	err := json.Unmarshal([]byte("["+strings.Join(split, "")+"]"), &spans)
+	err := json.Unmarshal([]byte(jsonData), &spans)
+
 	return spans, err
 }
 
