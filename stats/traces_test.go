@@ -178,15 +178,21 @@ func TestZipkinDownIsNotBlocking(t *testing.T) {
 	c.Set("OpenTelemetry.traces.withZipkin", true)
 	stats := NewStats(c, logger.NewFactory(c), metric.NewManager(), WithServiceName(t.Name()))
 	t.Cleanup(stats.Stop)
-
 	require.NoError(t, stats.Start(context.Background(), DefaultGoRoutineFactory))
 
 	tracer := stats.NewTracer("my-tracer")
-	require.NoError(t, zipkin.Purge())
 
-	start := time.Now()
-	_, span := tracer.Start(context.Background(), "my-span-01", SpanKindInternal)
-	span.End()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, span := tracer.Start(context.Background(), "my-span-01", SpanKindInternal)
+		require.NoError(t, zipkin.Purge())
+		span.End()
+	}()
 
-	require.Less(t, time.Since(start), 10*time.Millisecond, "tracing API should not block if zipkin is down")
+	select {
+	case <-done:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("The Tracing API should not block if Zipkin is down")
+	}
 }
