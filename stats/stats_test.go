@@ -49,7 +49,7 @@ func TestUnstartedShouldNotPanicWhileTracing(t *testing.T) {
 		span.End()
 	})
 	require.NotPanics(t, func() {
-		d := NewStats(config.Default, logger.Default, svcMetric.Instance)
+		d := NewStats(config.New(), logger.Default, svcMetric.Instance)
 		tr := d.NewTracer("test")
 		_, span := tr.Start(context.Background(), "span-name", SpanKindInternal)
 		span.End()
