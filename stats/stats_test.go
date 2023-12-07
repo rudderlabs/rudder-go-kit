@@ -1,9 +1,14 @@
 package stats
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/logger"
+	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
 )
 
 func TestTagsType(t *testing.T) {
@@ -34,5 +39,19 @@ func TestTagsType(t *testing.T) {
 		emptyTags := Tags{}
 		require.Nil(t, emptyTags.Strings())
 		require.Equal(t, "", emptyTags.String())
+	})
+}
+
+func TestUnstartedShouldNotPanicWhileTracing(t *testing.T) {
+	require.NotPanics(t, func() {
+		tr := Default.NewTracer("test")
+		_, span := tr.Start(context.Background(), "span-name", SpanKindInternal)
+		span.End()
+	})
+	require.NotPanics(t, func() {
+		d := NewStats(config.New(), logger.Default, svcMetric.Instance)
+		tr := d.NewTracer("test")
+		_, span := tr.Start(context.Background(), "span-name", SpanKindInternal)
+		span.End()
 	})
 }

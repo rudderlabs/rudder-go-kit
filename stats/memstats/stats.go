@@ -1,25 +1,40 @@
 package memstats
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cast"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
+	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
 )
 
-var _ stats.Stats = (*Store)(nil)
-
-var _ stats.Measurement = (*Measurement)(nil)
+var (
+	_ stats.Stats       = (*Store)(nil)
+	_ stats.Measurement = (*Measurement)(nil)
+)
 
 type Store struct {
 	mu    sync.Mutex
 	byKey map[string]*Measurement
 	now   func() time.Time
+
+	withTracing       bool
+	tracingBuffer     *bytes.Buffer
+	tracingTimestamps bool
+	tracerProvider    trace.TracerProvider
 }
 
 type Measurement struct {
@@ -177,17 +192,55 @@ func WithNow(nowFn func() time.Time) Opts {
 	}
 }
 
-func New(opts ...Opts) *Store {
+func WithTracing() Opts {
+	return func(s *Store) {
+		s.withTracing = true
+	}
+}
+
+func WithTracingTimestamps() Opts {
+	return func(s *Store) {
+		s.tracingTimestamps = true
+	}
+}
+
+func New(opts ...Opts) (*Store, error) {
 	s := &Store{
 		byKey: make(map[string]*Measurement),
 		now:   time.Now,
 	}
-
 	for _, opt := range opts {
 		opt(s)
 	}
+	if !s.withTracing {
+		s.tracerProvider = noop.NewTracerProvider()
+		return s, nil
+	}
 
-	return s
+	s.tracingBuffer = &bytes.Buffer{}
+
+	tracingOpts := []stdouttrace.Option{
+		stdouttrace.WithWriter(s.tracingBuffer),
+		stdouttrace.WithPrettyPrint(),
+	}
+	if !s.tracingTimestamps {
+		tracingOpts = append(tracingOpts, stdouttrace.WithoutTimestamps())
+	}
+
+	traceExporter, err := stdouttrace.New(tracingOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create trace exporter: %w", err)
+	}
+	s.tracerProvider = sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithSyncer(traceExporter),
+	)
+
+	return s, nil
+}
+
+func (ms *Store) NewTracer(name string) stats.Tracer {
+	return stats.NewTracerFromOpenTelemetry(ms.tracerProvider.Tracer(name))
 }
 
 // NewStat implements stats.Stats
@@ -224,6 +277,21 @@ func (ms *Store) Get(name string, tags stats.Tags) *Measurement {
 	defer ms.mu.Unlock()
 
 	return ms.byKey[ms.getKey(name, tags)]
+}
+
+func (ms *Store) Spans() ([]tracemodel.Span, error) {
+	if ms.tracingBuffer.Len() == 0 {
+		return nil, nil
+	}
+
+	// adding missing curly brackets and converting to a valid JSON array
+	jsonData := "[" + ms.tracingBuffer.String() + "]"
+	jsonData = strings.Replace(jsonData, "}\n{", "},{", -1)
+
+	var spans []tracemodel.Span
+	err := json.Unmarshal([]byte(jsonData), &spans)
+
+	return spans, err
 }
 
 // GetAll returns the metric for all name/tags register in the store.

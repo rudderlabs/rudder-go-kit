@@ -11,6 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -49,6 +50,8 @@ type Stats interface {
 	// Deprecated: use NewTaggedStat instead
 
 	NewSampledTaggedStat(name, statType string, tags Tags) Measurement
+
+	NewTracer(name string) Tracer
 
 	// Start starts the stats service and the collection of periodic stats.
 	Start(ctx context.Context, goFactory GoRoutineFactory) error
@@ -107,9 +110,12 @@ func NewStats(
 			logger:                   loggerFactory.NewLogger().Child("stats"),
 			prometheusRegisterer:     registerer,
 			prometheusGatherer:       gatherer,
+			tracerProvider:           noop.NewTracerProvider(),
 			otelConfig: otelStatsConfig{
 				tracesEndpoint:           config.GetString("OpenTelemetry.traces.endpoint", ""),
 				tracingSamplingRate:      config.GetFloat64("OpenTelemetry.traces.samplingRate", 0.1),
+				withTracingSyncer:        config.GetBool("OpenTelemetry.traces.withSyncer", false),
+				withZipkin:               config.GetBool("OpenTelemetry.traces.withZipkin", false),
 				metricsEndpoint:          config.GetString("OpenTelemetry.metrics.endpoint", ""),
 				metricsExportInterval:    config.GetDuration("OpenTelemetry.metrics.exportInterval", 5, time.Second),
 				enablePrometheusExporter: config.GetBool("OpenTelemetry.metrics.prometheus.enabled", false),
@@ -125,6 +131,7 @@ func NewStats(
 		logger:                     loggerFactory.NewLogger().Child("stats"),
 		backgroundCollectionCtx:    backgroundCollectionCtx,
 		backgroundCollectionCancel: backgroundCollectionCancel,
+		tracer:                     noop.NewTracerProvider().Tracer(""),
 		statsdConfig: statsdConfig{
 			tagsFormat:          config.GetString("statsTagsFormat", "influxdb"),
 			statsdServerURL:     config.GetString("STATSD_SERVER_URL", "localhost:8125"),
