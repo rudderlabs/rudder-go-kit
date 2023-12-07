@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.19.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.18.1...v0.19.0) (2023-12-07)
+
+
+### Features
+
+* tracing support ([#231](https://github.com/rudderlabs/rudder-go-kit/issues/231)) ([e9a89cb](https://github.com/rudderlabs/rudder-go-kit/commit/e9a89cb152569af509f1a8c17e6b5ced1abce809))
+
+
+### Miscellaneous
+
+* dependabot otel group ([#221](https://github.com/rudderlabs/rudder-go-kit/issues/221)) ([fb71ca8](https://github.com/rudderlabs/rudder-go-kit/commit/fb71ca81f8ea4d6a5962dfbfb4ffed361f7c0c2e))
+* **deps:** bump cloud.google.com/go/storage from 1.34.1 to 1.35.1 ([#222](https://github.com/rudderlabs/rudder-go-kit/issues/222)) ([678bc3b](https://github.com/rudderlabs/rudder-go-kit/commit/678bc3b3969c5ef03d1c539c42e7f750514fd37d))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.47.10 to 1.48.11 ([#240](https://github.com/rudderlabs/rudder-go-kit/issues/240)) ([abf3583](https://github.com/rudderlabs/rudder-go-kit/commit/abf3583f84a1c21f5c6f63ade72ce4e411586a72))
+* **deps:** bump google.golang.org/api from 0.150.0 to 0.153.0 ([#242](https://github.com/rudderlabs/rudder-go-kit/issues/242)) ([628c035](https://github.com/rudderlabs/rudder-go-kit/commit/628c0357b83a5fa9f946aacc4dcd8b9b96d0000c))
+* golangci-lint no docker ([#228](https://github.com/rudderlabs/rudder-go-kit/issues/228)) ([080bc69](https://github.com/rudderlabs/rudder-go-kit/commit/080bc69aa5dde0131c9d0b8dd6f49f12f016e0ee))
+
 ## [0.18.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.18.0...v0.18.1) (2023-11-21)
 
 
