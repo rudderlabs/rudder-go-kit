@@ -7,6 +7,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 type (
@@ -16,6 +17,8 @@ type (
 	TracerProviderOption func(providerConfig *tracerProviderConfig)
 	// MeterProviderOption allows to configure the meter provider
 	MeterProviderOption func(providerConfig *meterProviderConfig)
+	// SpanExporter can be used to set a custom span exporter (e.g. for testing purposes)
+	SpanExporter = sdktrace.SpanExporter
 )
 
 // WithRetryConfig allows to set the retry configuration
@@ -37,22 +40,55 @@ func WithInsecure() Option {
 // e.g. propagation.TraceContext{}
 func WithTextMapPropagator(tmp propagation.TextMapPropagator) Option {
 	return func(c *config) {
-		c.textMapPropagator = tmp
+		c.tracerProviderConfig.textMapPropagator = tmp
+	}
+}
+
+// WithCustomTracerProvider forces the usage of a custom exporter for the tracer provider
+func WithCustomTracerProvider(se SpanExporter, opts ...TracerProviderOption) Option {
+	return func(c *config) {
+		c.tracerProviderConfig.enabled = true
+		c.tracerProviderConfig.customSpanExporter = se
+		for _, opt := range opts {
+			opt(&c.tracerProviderConfig)
+		}
 	}
 }
 
 // WithTracerProvider allows to set the tracer provider and specify if it should be the global one
-// It is also possible to configure the sampling rate:
-// samplingRate >= 1 will always sample.
-// samplingRate < 0 is treated as zero.
-func WithTracerProvider(endpoint string, samplingRate float64, opts ...TracerProviderOption) Option {
+func WithTracerProvider(endpoint string, opts ...TracerProviderOption) Option {
 	return func(c *config) {
-		c.tracesEndpoint = endpoint
 		c.tracerProviderConfig.enabled = true
-		c.tracerProviderConfig.samplingRate = samplingRate
+		c.tracesEndpoint = endpoint
 		for _, opt := range opts {
 			opt(&c.tracerProviderConfig)
 		}
+	}
+}
+
+// WithTracingSamplingRate allows to set the sampling rate for the tracer provider
+// samplingRate >= 1 will always sample.
+// samplingRate < 0 is treated as zero.
+func WithTracingSamplingRate(rate float64) TracerProviderOption {
+	return func(c *tracerProviderConfig) {
+		c.samplingRate = rate
+	}
+}
+
+// WithTracingSyncer lets you register the exporter with a synchronous SimpleSpanProcessor (e.g. instead of a batching
+// asynchronous one).
+// NOT RECOMMENDED FOR PRODUCTION USE (use for testing and debugging only).
+func WithTracingSyncer() TracerProviderOption {
+	return func(c *tracerProviderConfig) {
+		c.withSyncer = true
+	}
+}
+
+// WithZipkin allows to set the tracer provider to use Zipkin
+// This means that the SDK will send the data to Zipkin directly instead of using the collector.
+func WithZipkin() TracerProviderOption {
+	return func(c *tracerProviderConfig) {
+		c.withZipkin = true
 	}
 }
 

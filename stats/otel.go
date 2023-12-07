@@ -15,7 +15,10 @@ import (
 	"github.com/spf13/cast"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/metric/noop"
+	noopMetric "go.opentelemetry.io/otel/metric/noop"
+	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
@@ -30,6 +33,11 @@ type otelStats struct {
 	config        statsConfig
 	otelConfig    otelStatsConfig
 	resourceAttrs map[string]struct{}
+
+	tracerProvider      trace.TracerProvider
+	traceBaseAttributes []attribute.KeyValue
+	tracerMap           map[string]Tracer
+	tracerMapMu         sync.Mutex
 
 	meter        metric.Meter
 	noopMeter    metric.Meter
@@ -79,10 +87,22 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 
 	options := []otel.Option{otel.WithInsecure(), otel.WithLogger(s.logger)}
 	if s.otelConfig.tracesEndpoint != "" {
-		options = append(options, otel.WithTracerProvider(
-			s.otelConfig.tracesEndpoint,
-			s.otelConfig.tracingSamplingRate,
-		))
+		s.traceBaseAttributes = attrs
+		tpOpts := []otel.TracerProviderOption{
+			otel.WithTracingSamplingRate(s.otelConfig.tracingSamplingRate),
+		}
+		if s.otelConfig.withTracingSyncer {
+			tpOpts = append(tpOpts, otel.WithTracingSyncer())
+		}
+		if s.otelConfig.withZipkin {
+			tpOpts = append(tpOpts, otel.WithZipkin())
+		}
+		options = append(options,
+			otel.WithTracerProvider(s.otelConfig.tracesEndpoint, tpOpts...),
+			otel.WithTextMapPropagator(
+				propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}),
+			),
+		)
 	}
 
 	meterProviderOptions := []otel.MeterProviderOption{
@@ -108,16 +128,24 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		options = append(options, otel.WithMeterProvider(append(meterProviderOptions,
 			otel.WithPrometheusExporter(s.prometheusRegisterer),
 		)...))
-	} else {
-		return fmt.Errorf("no metrics endpoint or prometheus exporter enabled")
 	}
-	_, mp, err := s.otelManager.Setup(ctx, res, options...)
+
+	tp, mp, err := s.otelManager.Setup(ctx, res, options...)
 	if err != nil {
 		return fmt.Errorf("failed to setup open telemetry: %w", err)
 	}
 
-	s.meter = mp.Meter(defaultMeterName)
-	s.noopMeter = noop.NewMeterProvider().Meter(defaultMeterName)
+	if tp != nil {
+		s.tracerProvider = tp
+	}
+
+	s.noopMeter = noopMetric.NewMeterProvider().Meter(defaultMeterName)
+	if mp != nil {
+		s.meter = mp.Meter(defaultMeterName)
+	} else {
+		s.meter = s.noopMeter
+	}
+
 	if s.otelConfig.enablePrometheusExporter && s.otelConfig.prometheusMetricsPort > 0 {
 		s.httpServerShutdownComplete = make(chan struct{})
 		s.httpServer = &http.Server{
@@ -196,6 +224,38 @@ func (s *otelStats) Stop() {
 		}
 		<-s.httpServerShutdownComplete
 	}
+}
+
+// NewTracer allows you to create a tracer for creating spans
+func (s *otelStats) NewTracer(name string) Tracer {
+	s.tracerMapMu.Lock()
+	defer s.tracerMapMu.Unlock()
+
+	if s.tracerMap == nil {
+		s.tracerMap = make(map[string]Tracer)
+	} else if t, ok := s.tracerMap[name]; ok {
+		return t
+	}
+
+	var attrs []attribute.KeyValue
+	if len(s.traceBaseAttributes) > 0 {
+		attrs = append(attrs, s.traceBaseAttributes...)
+	}
+	if s.config.serviceName != "" {
+		attrs = append(attrs, semconv.ServiceNameKey.String(s.config.serviceName))
+	}
+
+	opts := []trace.TracerOption{
+		trace.WithInstrumentationVersion(s.config.serviceVersion),
+	}
+	if len(attrs) > 0 {
+		opts = append(opts, trace.WithInstrumentationAttributes(attrs...))
+	}
+
+	s.tracerMap[name] = &tracer{
+		tracer: s.tracerProvider.Tracer(name, opts...),
+	}
+	return s.tracerMap[name]
 }
 
 // NewStat creates a new Measurement with provided Name and Type
@@ -380,6 +440,8 @@ func buildOTelInstrument[T any](
 type otelStatsConfig struct {
 	tracesEndpoint           string
 	tracingSamplingRate      float64
+	withTracingSyncer        bool
+	withZipkin               bool
 	metricsEndpoint          string
 	metricsExportInterval    time.Duration
 	enablePrometheusExporter bool

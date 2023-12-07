@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/alexcesaro/statsd.v2"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -22,6 +23,9 @@ type statsdStats struct {
 	logger                     logger.Logger
 	backgroundCollectionCtx    context.Context
 	backgroundCollectionCancel func()
+
+	// tracing not supported when using stats with StatsD
+	tracer trace.Tracer
 }
 
 func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
@@ -71,6 +75,9 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 
 	return nil
 }
+
+// NewTracer creates a new Tracer
+func (s *statsdStats) NewTracer(_ string) Tracer { return &tracer{tracer: s.tracer} }
 
 func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opts ...statsd.Option) (*statsd.Client, error) {
 	bo := backoff.NewExponentialBackOff()
