@@ -20,7 +20,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0
-	github.com/samber/lo v1.38.1
+	github.com/samber/lo v1.39.0
 	github.com/shirou/gopsutil/v3 v3.23.11
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.18.1
