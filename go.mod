@@ -23,7 +23,7 @@ require (
 	github.com/samber/lo v1.39.0
 	github.com/shirou/gopsutil/v3 v3.23.11
 	github.com/spf13/cast v1.6.0
-	github.com/spf13/viper v1.18.1
+	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.8.4
 	github.com/throttled/throttled/v2 v2.12.0
 	github.com/zenizh/go-capturer v0.0.0-20211219060012-52ea6c8fed04
