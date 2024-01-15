@@ -1,4 +1,4 @@
-package resource
+package minio
 
 import (
 	"context"
@@ -11,10 +11,10 @@ import (
 	"github.com/ory/dockertest/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
-	minioconfig "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/minio"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
-type MinioResource struct {
+type Resource struct {
 	BucketName      string
 	AccessKeyID     string
 	AccessKeySecret string
@@ -23,7 +23,7 @@ type MinioResource struct {
 	Client          *minio.Client
 }
 
-func (mr *MinioResource) ToFileManagerConfig(prefix string) map[string]any {
+func (mr *Resource) ToFileManagerConfig(prefix string) map[string]any {
 	return map[string]any{
 		"bucketName":       mr.BucketName,
 		"accessKeyID":      mr.AccessKeyID,
@@ -39,16 +39,15 @@ func (mr *MinioResource) ToFileManagerConfig(prefix string) map[string]any {
 	}
 }
 
-func SetupMinio(pool *dockertest.Pool, d Cleaner, opts ...func(*minioconfig.Config)) (*MinioResource, error) {
+func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	const (
 		bucket          = "rudder-saas"
 		region          = "us-east-1"
 		accessKeyId     = "MYACCESSKEY"
 		secretAccessKey = "MYSECRETKEY"
-		prefix          = "some-prefix"
 	)
 
-	c := &minioconfig.Config{
+	c := &Config{
 		Tag:     "latest",
 		Options: []string{},
 	}
@@ -108,7 +107,7 @@ func SetupMinio(pool *dockertest.Pool, d Cleaner, opts ...func(*minioconfig.Conf
 		return nil, fmt.Errorf("could not create bucket %q: %w", bucket, err)
 	}
 
-	return &MinioResource{
+	return &Resource{
 		BucketName:      bucket,
 		AccessKeyID:     accessKeyId,
 		AccessKeySecret: secretAccessKey,
