@@ -1,4 +1,4 @@
-package resource
+package redis
 
 import (
 	"context"
@@ -8,34 +8,36 @@ import (
 	"github.com/go-redis/redis/v8"
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
+
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
-// WithRedisTag is used to specify a custom tag that is used when pulling the Redis image from the container registry
-func WithRedisTag(tag string) RedisOption {
+// WithTag is used to specify a custom tag that is used when pulling the Redis image from the container registry
+func WithTag(tag string) Option {
 	return func(c *redisConfig) {
 		c.tag = tag
 	}
 }
 
-// WithRedisCmdArg is used to specify the save argument when running the container.
-func WithRedisCmdArg(key, value string) RedisOption {
+// WithCmdArg is used to specify the save argument when running the container.
+func WithCmdArg(key, value string) Option {
 	return func(c *redisConfig) {
 		c.cmdArgs = append(c.cmdArgs, key, value)
 	}
 }
 
-// WithRedisEnv is used to pass environment variables to the container.
-func WithRedisEnv(envs ...string) RedisOption {
+// WithEnv is used to pass environment variables to the container.
+func WithEnv(envs ...string) Option {
 	return func(c *redisConfig) {
 		c.envs = envs
 	}
 }
 
-type RedisResource struct {
+type Resource struct {
 	Addr string
 }
 
-type RedisOption func(*redisConfig)
+type Option func(*redisConfig)
 
 type redisConfig struct {
 	tag     string
@@ -43,9 +45,9 @@ type redisConfig struct {
 	cmdArgs []string
 }
 
-func SetupRedis(ctx context.Context, pool *dockertest.Pool, d Cleaner, opts ...RedisOption) (*RedisResource, error) {
+func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	conf := redisConfig{
-		tag: "6.2-alpine",
+		tag: "6",
 	}
 	for _, opt := range opts {
 		opt(&conf)
@@ -61,21 +63,21 @@ func SetupRedis(ctx context.Context, pool *dockertest.Pool, d Cleaner, opts ...R
 	}
 
 	// pulls a redis image, creates a container based on it and runs it
-	redisContainer, err := pool.RunWithOptions(runOptions)
+	container, err := pool.RunWithOptions(runOptions)
 	if err != nil {
 		return nil, err
 	}
 	d.Cleanup(func() {
-		if err := pool.Purge(redisContainer); err != nil {
+		if err := pool.Purge(container); err != nil {
 			d.Log("Could not purge resource:", err)
 		}
 	})
 
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
-	redisAddress := fmt.Sprintf("localhost:%s", redisContainer.GetPort("6379/tcp"))
+	addr := fmt.Sprintf("localhost:%s", container.GetPort("6379/tcp"))
 	err = pool.Retry(func() error {
 		redisClient := redis.NewClient(&redis.Options{
-			Addr: redisAddress,
+			Addr: addr,
 		})
 		_, err := redisClient.Ping(ctx).Result()
 		return err
@@ -84,5 +86,5 @@ func SetupRedis(ctx context.Context, pool *dockertest.Pool, d Cleaner, opts ...R
 		return nil, err
 	}
 
-	return &RedisResource{Addr: redisAddress}, nil
+	return &Resource{Addr: addr}, nil
 }
