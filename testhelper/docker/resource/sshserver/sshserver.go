@@ -3,7 +3,6 @@ package sshserver
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,22 +20,7 @@ type Option func(*config)
 type config struct {
 	publicKeyPath      string
 	username, password string
-
-	network *dc.Network
-	logger  resource.Logger
-}
-
-func (c *config) defaults() {
-	if c.logger == nil {
-		c.logger = &resource.NOPLogger{}
-	}
-}
-
-// WithPublicKeyPath sets the public key path to use for the SSH server.
-func WithPublicKeyPath(publicKeyPath string) Option {
-	return func(c *config) {
-		c.publicKeyPath = publicKeyPath
-	}
+	network            *dc.Network
 }
 
 // WithCredentials sets the username and password to use for the SSH server.
@@ -47,6 +31,13 @@ func WithCredentials(username, password string) Option {
 	}
 }
 
+// WithPublicKeyPath sets the public key path to use for the SSH server.
+func WithPublicKeyPath(publicKeyPath string) Option {
+	return func(c *config) {
+		c.publicKeyPath = publicKeyPath
+	}
+}
+
 // WithDockerNetwork sets the Docker network to use for the SSH server.
 func WithDockerNetwork(network *dc.Network) Option {
 	return func(c *config) {
@@ -54,15 +45,8 @@ func WithDockerNetwork(network *dc.Network) Option {
 	}
 }
 
-// WithLogger sets the logger to use for the SSH server.
-func WithLogger(logger resource.Logger) Option {
-	return func(c *config) {
-		c.logger = logger
-	}
-}
-
 type Resource struct {
-	Port string
+	Port int
 
 	container *dockertest.Resource
 }
@@ -72,7 +56,6 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	for _, opt := range opts {
 		opt(&c)
 	}
-	c.defaults()
 
 	network := c.network
 	if c.network == nil {
@@ -88,13 +71,12 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		})
 	}
 
-	portInt, err := kithelper.GetFreePort()
+	port, err := kithelper.GetFreePort()
 	if err != nil {
 		return nil, err
 	}
 
 	var (
-		port    = fmt.Sprintf("%s/tcp", strconv.Itoa(portInt))
 		mounts  []string
 		envVars = []string{
 			"SUDO_ACCESS=false",
@@ -120,7 +102,9 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		NetworkID:  network.ID,
 		Hostname:   "sshserver",
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			exposedPort + "/tcp": {{HostIP: "sshserver", HostPort: port}},
+			exposedPort + "/tcp": {
+				{HostIP: "sshserver", HostPort: fmt.Sprintf("%d", port)},
+			},
 		},
 		Env:    envVars,
 		Mounts: mounts,
@@ -148,22 +132,22 @@ loop:
 				StdOut: buf,
 			})
 			if err != nil {
-				c.logger.Log("could not exec into SSH server:", err)
+				cln.Log("could not exec into SSH server:", err)
 				continue
 			}
 			if exitCode != 0 {
-				c.logger.Log("invalid exit code while exec-ing into SSH server:", exitCode)
+				cln.Log("invalid exit code while exec-ing into SSH server:", exitCode)
 				continue
 			}
 			if buf.String() == "" {
-				c.logger.Log("SSH server not ready yet")
+				cln.Log("SSH server not ready yet")
 				continue
 			}
 			if !strings.Contains(buf.String(), "Server listening on :: port "+exposedPort) {
-				c.logger.Log("SSH server not listening on port yet")
+				cln.Log("SSH server not listening on port yet")
 				continue
 			}
-			c.logger.Log("SSH server is ready:", exposedPort, "=>", container.GetPort(exposedPort+"/tcp"))
+			cln.Log("SSH server is ready:", exposedPort, "=>", container.GetPort(exposedPort+"/tcp"))
 			break loop
 		case <-timeout:
 			return nil, fmt.Errorf("ssh server not health within timeout")
@@ -171,7 +155,7 @@ loop:
 	}
 
 	return &Resource{
-		Port:      container.GetPort(exposedPort + "/tcp"),
+		Port:      port,
 		container: container,
 	}, nil
 }
