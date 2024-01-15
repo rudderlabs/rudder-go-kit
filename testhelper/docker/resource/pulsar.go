@@ -14,7 +14,7 @@ type PulsarResource struct {
 	AdminURL string
 }
 
-func SetupPulsar(pool *dockertest.Pool, d cleaner, opts ...pulsar.Opt) (*PulsarResource, error) {
+func SetupPulsar(pool *dockertest.Pool, d Cleaner, opts ...pulsar.Opt) (*PulsarResource, error) {
 	c := &pulsar.Config{
 		Tag: "3.0.0",
 	}

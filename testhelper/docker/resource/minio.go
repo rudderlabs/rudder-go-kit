@@ -39,7 +39,7 @@ func (mr *MinioResource) ToFileManagerConfig(prefix string) map[string]any {
 	}
 }
 
-func SetupMinio(pool *dockertest.Pool, d cleaner, opts ...func(*minioconfig.Config)) (*MinioResource, error) {
+func SetupMinio(pool *dockertest.Pool, d Cleaner, opts ...func(*minioconfig.Config)) (*MinioResource, error) {
 	const (
 		bucket          = "rudder-saas"
 		region          = "us-east-1"

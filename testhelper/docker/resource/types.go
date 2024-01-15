@@ -1,10 +1,15 @@
 package resource
 
-type logger interface {
+type Logger interface {
 	Log(...interface{})
 }
 
-type cleaner interface {
+type Cleaner interface {
 	Cleanup(func())
-	logger
+	Logger
 }
+
+type NOPLogger struct{}
+
+// Log for the NOP Logger does nothing.
+func (*NOPLogger) Log(...interface{}) {}

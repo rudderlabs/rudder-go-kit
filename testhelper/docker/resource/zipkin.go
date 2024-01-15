@@ -41,7 +41,7 @@ func (z *ZipkinResource) Purge() error {
 	return nil
 }
 
-func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
+func SetupZipkin(pool *dockertest.Pool, d Cleaner) (*ZipkinResource, error) {
 	freePort, err := testhelper.GetFreePort()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get free port: %w", err)

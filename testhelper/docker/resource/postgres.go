@@ -29,7 +29,7 @@ type PostgresResource struct {
 	Port     string
 }
 
-func SetupPostgres(pool *dockertest.Pool, d cleaner, opts ...func(*postgres.Config)) (*PostgresResource, error) {
+func SetupPostgres(pool *dockertest.Pool, d Cleaner, opts ...func(*postgres.Config)) (*PostgresResource, error) {
 	c := &postgres.Config{
 		Tag:     "15-alpine",
 		ShmSize: 128 * bytesize.MB,
