@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.19.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.19.0...v0.19.1) (2024-01-16)
+
+
+### Miscellaneous
+
+* **deps:** bump cloud.google.com/go/storage from 1.35.1 to 1.36.0 ([#256](https://github.com/rudderlabs/rudder-go-kit/issues/256)) ([4b52787](https://github.com/rudderlabs/rudder-go-kit/commit/4b527871b246a5d5f64cb27b65c0969d83900df7))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.48.11 to 1.49.3 ([#254](https://github.com/rudderlabs/rudder-go-kit/issues/254)) ([02553b0](https://github.com/rudderlabs/rudder-go-kit/commit/02553b005fa808003eaf0f508ecd40c5a37c7c58))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.49.13 to 1.49.21 ([#284](https://github.com/rudderlabs/rudder-go-kit/issues/284)) ([2374e4e](https://github.com/rudderlabs/rudder-go-kit/commit/2374e4e5b253e4b248206df3be36eda119d4b9ce))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.49.3 to 1.49.13 ([#272](https://github.com/rudderlabs/rudder-go-kit/issues/272)) ([29b58db](https://github.com/rudderlabs/rudder-go-kit/commit/29b58db5479ff928a153e139429dfd702f1ae72c))
+* **deps:** bump github.com/go-chi/chi/v5 from 5.0.10 to 5.0.11 ([#264](https://github.com/rudderlabs/rudder-go-kit/issues/264)) ([9352abb](https://github.com/rudderlabs/rudder-go-kit/commit/9352abbefe6f701b18a04144d0dc73ba98bee891))
+* **deps:** bump github.com/minio/minio-go/v7 from 7.0.63 to 7.0.65 ([#239](https://github.com/rudderlabs/rudder-go-kit/issues/239)) ([35377d2](https://github.com/rudderlabs/rudder-go-kit/commit/35377d2edc88f9820809fcc19d86e666538d52e5))
+* **deps:** bump github.com/minio/minio-go/v7 from 7.0.65 to 7.0.66 ([#257](https://github.com/rudderlabs/rudder-go-kit/issues/257)) ([06ded85](https://github.com/rudderlabs/rudder-go-kit/commit/06ded8555711681833dafba4b74400a282ee7082))
+* **deps:** bump github.com/prometheus/client_golang from 1.17.0 to 1.18.0 ([#268](https://github.com/rudderlabs/rudder-go-kit/issues/268)) ([0131533](https://github.com/rudderlabs/rudder-go-kit/commit/01315335f9508f2d8eb8565b9316a30a6a0553aa))
+* **deps:** bump github.com/prometheus/common from 0.45.0 to 0.46.0 ([#285](https://github.com/rudderlabs/rudder-go-kit/issues/285)) ([dffa4a3](https://github.com/rudderlabs/rudder-go-kit/commit/dffa4a3a76897189403e7ac3e74cd5d78f8136ea))
+* **deps:** bump github.com/samber/lo from 1.38.1 to 1.39.0 ([#246](https://github.com/rudderlabs/rudder-go-kit/issues/246)) ([2ecde55](https://github.com/rudderlabs/rudder-go-kit/commit/2ecde5526b0e5f0e637ec0bf35708bfa714217dd))
+* **deps:** bump github.com/shirou/gopsutil/v3 from 3.23.10 to 3.23.11 ([#247](https://github.com/rudderlabs/rudder-go-kit/issues/247)) ([5b86382](https://github.com/rudderlabs/rudder-go-kit/commit/5b8638271d8db8a479273c28b2214b270467e7a5))
+* **deps:** bump github.com/shirou/gopsutil/v3 from 3.23.11 to 3.23.12 ([#271](https://github.com/rudderlabs/rudder-go-kit/issues/271)) ([264aeff](https://github.com/rudderlabs/rudder-go-kit/commit/264aeff695c5ab7a913817c5b0b2636a8cf20eef))
+* **deps:** bump github.com/spf13/cast from 1.5.1 to 1.6.0 ([#233](https://github.com/rudderlabs/rudder-go-kit/issues/233)) ([230fb2a](https://github.com/rudderlabs/rudder-go-kit/commit/230fb2ad6594a0b7dca350d6a2fd736d0e65a067))
+* **deps:** bump github.com/spf13/viper from 1.17.0 to 1.18.1 ([#248](https://github.com/rudderlabs/rudder-go-kit/issues/248)) ([558fe3c](https://github.com/rudderlabs/rudder-go-kit/commit/558fe3c6311be3b7b1c4e1178740974ca5a8f1e6))
+* **deps:** bump github.com/spf13/viper from 1.18.1 to 1.18.2 ([#269](https://github.com/rudderlabs/rudder-go-kit/issues/269)) ([afd2a42](https://github.com/rudderlabs/rudder-go-kit/commit/afd2a428a33f60cb9cc51eb21505c81450037942))
+* **deps:** bump golang.org/x/crypto from 0.16.0 to 0.17.0 ([#258](https://github.com/rudderlabs/rudder-go-kit/issues/258)) ([556a590](https://github.com/rudderlabs/rudder-go-kit/commit/556a59089877492a76862c1b0ebe5b88ff0048ea))
+* **deps:** bump golang.org/x/oauth2 from 0.14.0 to 0.15.0 ([#241](https://github.com/rudderlabs/rudder-go-kit/issues/241)) ([be46957](https://github.com/rudderlabs/rudder-go-kit/commit/be469578280a82f6340d2c696ceb47f5856e5cae))
+* **deps:** bump golang.org/x/oauth2 from 0.15.0 to 0.16.0 ([#280](https://github.com/rudderlabs/rudder-go-kit/issues/280)) ([e59d900](https://github.com/rudderlabs/rudder-go-kit/commit/e59d9001400e1e830f3a9d2be6477e750e0a9bab))
+* **deps:** bump golang.org/x/sync from 0.5.0 to 0.6.0 ([#276](https://github.com/rudderlabs/rudder-go-kit/issues/276)) ([9680814](https://github.com/rudderlabs/rudder-go-kit/commit/968081407280b77de8f89fe81fdaf9c0948b8ec4))
+* **deps:** bump google.golang.org/api from 0.153.0 to 0.154.0 ([#251](https://github.com/rudderlabs/rudder-go-kit/issues/251)) ([bb154bc](https://github.com/rudderlabs/rudder-go-kit/commit/bb154bcb6dc96112df978d0950ec543b006d202d))
+* **deps:** bump google.golang.org/api from 0.154.0 to 0.156.0 ([#282](https://github.com/rudderlabs/rudder-go-kit/issues/282)) ([425c1b8](https://github.com/rudderlabs/rudder-go-kit/commit/425c1b8bafc550b12b9cb1af708242ace20fbb38))
+* **deps:** bump google.golang.org/protobuf from 1.31.0 to 1.32.0 ([#267](https://github.com/rudderlabs/rudder-go-kit/issues/267)) ([32287c9](https://github.com/rudderlabs/rudder-go-kit/commit/32287c94196b88876b5079e670ff668cc11fe6e0))
+
 ## [0.19.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.18.1...v0.19.0) (2023-12-07)
 
 
