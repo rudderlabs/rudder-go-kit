@@ -46,7 +46,6 @@ type SASLConfig struct {
 }
 
 type config struct {
-	logger                     resource.Logger
 	brokers                    uint
 	saslConfig                 *SASLConfig
 	network                    *dc.Network
@@ -56,19 +55,9 @@ type config struct {
 }
 
 func (c *config) defaults() {
-	if c.logger == nil {
-		c.logger = &resource.NOPLogger{}
-	}
 	if c.brokers < 1 {
 		c.brokers = 1
 	}
-}
-
-// WithLogger allows to set a logger that prints debugging information
-func WithLogger(l resource.Logger) Option {
-	return withOption{setup: func(c *config) {
-		c.logger = l
-	}}
 }
 
 // WithBrokers allows to set the number of brokers in the cluster
@@ -193,7 +182,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		}
 	})
 
-	c.logger.Log("Zookeeper localhost port", zookeeperContainer.GetPort("2181/tcp"))
+	cln.Log("Zookeeper localhost port", zookeeperContainer.GetPort("2181/tcp"))
 
 	envVariables := []string{
 		"KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181",
@@ -241,7 +230,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 
 		envVariables = append(envVariables, "KAFKA_SCHEMA_REGISTRY_URL=schemaregistry:8081")
 		schemaRegistryURL = fmt.Sprintf("http://localhost:%d", srPort)
-		c.logger.Log("Schema Registry on", schemaRegistryURL)
+		cln.Log("Schema Registry on", schemaRegistryURL)
 	}
 
 	bootstrapServers := ""
@@ -326,7 +315,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			return nil, err
 		}
 		localhostPort := fmt.Sprintf("%d/tcp", localhostPortInt)
-		c.logger.Log("Kafka broker localhost port", i+1, localhostPort)
+		cln.Log("Kafka broker localhost port", i+1, localhostPort)
 
 		nodeID := fmt.Sprintf("%d", i+1)
 		hostname := "kafka" + nodeID

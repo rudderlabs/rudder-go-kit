@@ -22,6 +22,7 @@ require (
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.46.0
 	github.com/samber/lo v1.39.0
+	github.com/segmentio/kafka-go v0.4.47
 	github.com/shirou/gopsutil/v3 v3.23.12
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.18.2
@@ -50,6 +51,7 @@ require (
 require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/kr/fs v0.1.0 // indirect
+	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pkg/sftp v1.13.6 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1 // indirect
