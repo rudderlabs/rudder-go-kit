@@ -66,7 +66,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		}
 		cln.Cleanup(func() {
 			if err := pool.Client.RemoveNetwork(network.ID); err != nil {
-				cln.Log(fmt.Errorf("could not remove sshserver_network: %w", err))
+				cln.Log(fmt.Sprintf("could not remove sshserver_network: %v", err))
 			}
 		})
 	}
