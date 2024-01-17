@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/sqlutil"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	pgdocker "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/postgres"
 )
 
 func TestPrintRowsToTable(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
-	postgres, err := resource.SetupPostgres(pool, t)
+	postgres, err := pgdocker.Setup(pool, t)
 	require.NoError(t, err)
 
 	_, err = postgres.DB.Exec(`CREATE TABLE users (
