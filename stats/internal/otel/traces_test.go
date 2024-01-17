@@ -18,7 +18,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/zipkin"
 )
 
 func TestTraces(t *testing.T) {
@@ -74,7 +74,7 @@ func TestZipkinIntegration(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkin, err := resource.SetupZipkin(pool, t)
+	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
 	res, err := NewResource(t.Name(), "v1.2.3",
@@ -85,7 +85,7 @@ func TestZipkinIntegration(t *testing.T) {
 	var (
 		om        Manager
 		ctx       = context.Background()
-		zipkinURL = "http://localhost:" + zipkin.Port + "/api/v2/spans"
+		zipkinURL = "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
 	)
 	tp, _, err := om.Setup(ctx, res,
 		WithTracerProvider(zipkinURL,

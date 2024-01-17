@@ -36,7 +36,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
-	dockerRes "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/zipkin"
 )
 
 const (
@@ -883,10 +883,10 @@ func TestZipkin(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkin, err := dockerRes.SetupZipkin(pool, t)
+	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
-	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
+	zipkinURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
 
 	conf := config.New()
 	conf.Set("INSTANCE_ID", t.Name())
