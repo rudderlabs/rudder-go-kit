@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,6 +25,9 @@ import (
 	"github.com/segmentio/kafka-go/sasl/plain"
 	"github.com/segmentio/kafka-go/sasl/scram"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/ssh"
+
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/sshserver"
 )
 
 func TestResource(t *testing.T) {
@@ -69,14 +73,6 @@ func TestWithSASL(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	network, err := pool.Client.CreateNetwork(dc.CreateNetworkOptions{Name: "test_network"})
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := pool.Client.RemoveNetwork(network.ID); err != nil {
-			t.Logf("Error while removing Docker network: %v", err)
-		}
-	})
-
 	path, err := os.Getwd()
 	require.NoError(t, err)
 
@@ -94,10 +90,7 @@ func TestWithSASL(t *testing.T) {
 	for _, hashType := range hashTypes {
 		t.Run(hashType, func(t *testing.T) {
 			var mechanism sasl.Mechanism
-			containerOptions := []Option{
-				WithBrokers(1),
-				WithNetwork(network),
-			}
+			containerOptions := []Option{WithBrokers(1)}
 
 			switch hashType {
 			case "scramPlainText":
@@ -245,6 +238,90 @@ func TestAvroSchemaRegistry(t *testing.T) {
 	deser, err := avro.NewGenericDeserializer(schemaRegistryClient, serde.ValueSerde, avro.NewDeserializerConfig())
 	require.NoError(t, err)
 	consumeUserMsg(t, deser)
+}
+
+func TestSSH(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	// Start shared Docker network
+	network, err := pool.Client.CreateNetwork(dc.CreateNetworkOptions{Name: "kafka_network"})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := pool.Client.RemoveNetwork(network.ID); err != nil {
+			t.Logf("Error while removing Docker network: %v", err)
+		}
+	})
+
+	// Start Kafka cluster with ZooKeeper and three brokers
+	_, err = Setup(pool, t,
+		WithBrokers(1),
+		WithNetwork(network),
+		WithoutDockerHostListeners(),
+	)
+	require.NoError(t, err)
+
+	// Let's setup the SSH server
+	publicKeyPath, err := filepath.Abs("./testdata/ssh/test_key.pub")
+	require.NoError(t, err)
+	sshServer, err := sshserver.Setup(pool, t,
+		sshserver.WithPublicKeyPath(publicKeyPath),
+		sshserver.WithCredentials("linuxserver.io", ""),
+		sshserver.WithDockerNetwork(network),
+	)
+	require.NoError(t, err)
+	sshServerHost := fmt.Sprintf("localhost:%d", sshServer.Port)
+	t.Logf("SSH server is listening on %s", sshServerHost)
+
+	// Prepare SSH configuration
+	privateKey, err := os.ReadFile("./testdata/ssh/test_key")
+	require.NoError(t, err)
+
+	signer, err := ssh.ParsePrivateKey(privateKey)
+	require.NoError(t, err)
+
+	sshConfig := &ssh.ClientConfig{
+		User:            "linuxserver.io",
+		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		Timeout:         10 * time.Second,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // skipcq: GSC-G106
+	}
+	transport := &kafka.Transport{
+		DialTimeout: 10 * time.Second,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			sshClient, err := ssh.Dial("tcp", sshServerHost, sshConfig)
+			if err != nil {
+				return nil, fmt.Errorf("cannot dial SSH host %q: %w", sshServerHost, err)
+			}
+
+			conn, err := sshClient.Dial(network, address)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"cannot dial address %q over SSH (host %q): %w", address, sshServerHost, err,
+				)
+			}
+			return conn, nil
+		},
+	}
+
+	// Setup writer
+	w := &kafka.Writer{
+		Addr:                   kafka.TCP("kafka1:9092"),
+		Balancer:               &kafka.LeastBytes{},
+		AllowAutoTopicCreation: true,
+		Transport:              transport,
+	}
+	t.Cleanup(func() { _ = w.Close() })
+
+	require.Eventually(t, func() bool {
+		err := w.WriteMessages(context.Background(),
+			kafka.Message{Topic: "my-topic", Key: []byte("foo"), Value: []byte("bar!")},
+		)
+		if err != nil {
+			t.Logf("failed to write messages: %s", err)
+		}
+		return err == nil
+	}, 30*time.Second, 500*time.Millisecond)
 }
 
 func registerSchema(
