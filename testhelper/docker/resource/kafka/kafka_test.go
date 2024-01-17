@@ -8,15 +8,12 @@ import (
 	"testing"
 	"time"
 
-	dc "github.com/ory/dockertest/v3/docker"
-
-	"github.com/segmentio/kafka-go/sasl/plain"
-
-	"github.com/segmentio/kafka-go/sasl"
-	"github.com/segmentio/kafka-go/sasl/scram"
-
 	"github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl"
+	"github.com/segmentio/kafka-go/sasl/plain"
+	"github.com/segmentio/kafka-go/sasl/scram"
 	"github.com/stretchr/testify/require"
 )
 
