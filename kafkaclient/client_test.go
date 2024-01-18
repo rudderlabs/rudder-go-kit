@@ -111,10 +111,8 @@ func TestProducerBatchConsumerGroup(t *testing.T) {
 		ClientID:     "producer-01",
 		WriteTimeout: 5 * time.Second,
 		ReadTimeout:  5 * time.Second,
-	}
-	if testing.Verbose() {
-		producerConf.Logger = &testLogger{t}
-		producerConf.ErrorLogger = producerConf.Logger
+		Logger:       newKafkaLogger(t, false),
+		ErrorLogger:  newKafkaLogger(t, true),
 	}
 	p, err := c.NewProducer(producerConf)
 	require.NoError(t, err)
@@ -134,10 +132,8 @@ func TestProducerBatchConsumerGroup(t *testing.T) {
 		StartOffset:         FirstOffset,
 		CommitInterval:      time.Second, // to make the test faster instead of committing each single message
 		FetchBatchesMaxWait: 10 * time.Second,
-	}
-	if testing.Verbose() {
-		consumerConf.Logger = &testLogger{t}
-		consumerConf.ErrorLogger = consumerConf.Logger
+		Logger:              newKafkaLogger(t, false),
+		ErrorLogger:         newKafkaLogger(t, true),
 	}
 	consume := func(c *Consumer, id string, count *int32) {
 		defer gracefulTermination.Done()
@@ -240,11 +236,9 @@ func TestConsumer_Partition(t *testing.T) {
 
 	// Produce X messages in a single batch
 	producerConf := ProducerConfig{
-		ClientID: "producer-01",
-	}
-	if testing.Verbose() {
-		producerConf.Logger = &testLogger{t}
-		producerConf.ErrorLogger = producerConf.Logger
+		ClientID:    "producer-01",
+		Logger:      newKafkaLogger(t, false),
+		ErrorLogger: newKafkaLogger(t, true),
 	}
 	p, err := c.NewProducer(producerConf)
 	require.NoError(t, err)
@@ -263,10 +257,8 @@ func TestConsumer_Partition(t *testing.T) {
 		StartOffset:         FirstOffset,
 		CommitInterval:      time.Second, // to make the test faster instead of committing each single message
 		FetchBatchesMaxWait: 10 * time.Second,
-	}
-	if testing.Verbose() {
-		consumerConf.Logger = &testLogger{t}
-		consumerConf.ErrorLogger = consumerConf.Logger
+		Logger:              newKafkaLogger(t, false),
+		ErrorLogger:         newKafkaLogger(t, true),
 	}
 	consume := func(c *Consumer, id string, count *int32) {
 		defer gracefulTermination.Done()
@@ -384,10 +376,9 @@ func TestWithSASL(t *testing.T) {
 				return err == nil
 			}, defaultTestTimeout, 250*time.Millisecond)
 
-			var producerConf ProducerConfig
-			if testing.Verbose() {
-				producerConf.Logger = &testLogger{t}
-				producerConf.ErrorLogger = producerConf.Logger
+			producerConf := ProducerConfig{
+				Logger:      newKafkaLogger(t, false),
+				ErrorLogger: newKafkaLogger(t, true),
 			}
 			p, err := c.NewProducer(producerConf)
 			require.NoError(t, err)
@@ -498,10 +489,10 @@ func TestProducer_Timeout(t *testing.T) {
 	require.Equal(t, []testutil.TopicPartition{{Topic: t.Name(), Partition: 0}}, topics)
 
 	// Produce X messages in a single batch
-	producerConf := ProducerConfig{ClientID: "producer-01"}
-	if testing.Verbose() {
-		producerConf.Logger = &testLogger{t}
-		producerConf.ErrorLogger = producerConf.Logger
+	producerConf := ProducerConfig{
+		ClientID:    "producer-01",
+		Logger:      newKafkaLogger(t, false),
+		ErrorLogger: newKafkaLogger(t, true),
 	}
 	p, err := c.NewProducer(producerConf)
 	require.NoError(t, err)
@@ -567,10 +558,10 @@ func TestIsProducerErrTemporary(t *testing.T) {
 	require.Equal(t, []testutil.TopicPartition{{Topic: t.Name(), Partition: 0}}, topics)
 
 	// Produce X messages in a single batch
-	producerConf := ProducerConfig{ClientID: "producer-01"}
-	if testing.Verbose() {
-		producerConf.Logger = &testLogger{t}
-		producerConf.ErrorLogger = producerConf.Logger
+	producerConf := ProducerConfig{
+		ClientID:    "producer-01",
+		Logger:      newKafkaLogger(t, false),
+		ErrorLogger: newKafkaLogger(t, true),
 	}
 	p, err := c.NewProducer(producerConf)
 	require.NoError(t, err)
@@ -641,10 +632,8 @@ func TestConfluentAzureCloud(t *testing.T) {
 	producerConf := ProducerConfig{
 		ClientID:     "producer-01",
 		WriteTimeout: 30 * time.Second,
-	}
-	if testing.Verbose() {
-		producerConf.Logger = &testLogger{t}
-		producerConf.ErrorLogger = producerConf.Logger
+		Logger:       newKafkaLogger(t, false),
+		ErrorLogger:  newKafkaLogger(t, true),
 	}
 	p, err := c.NewProducer(
 		producerConf,
@@ -686,10 +675,8 @@ func TestAzureEventHubsCloud(t *testing.T) {
 	producerConf := ProducerConfig{
 		ClientID:     "producer-01",
 		WriteTimeout: 30 * time.Second,
-	}
-	if testing.Verbose() {
-		producerConf.Logger = &testLogger{t}
-		producerConf.ErrorLogger = producerConf.Logger
+		Logger:       newKafkaLogger(t, false),
+		ErrorLogger:  newKafkaLogger(t, true),
 	}
 	p, err := c.NewProducer(producerConf)
 	require.NoError(t, err)
@@ -784,10 +771,10 @@ func TestSSH(t *testing.T) {
 	require.Equal(t, []testutil.TopicPartition{{Topic: t.Name(), Partition: 0}}, topics)
 
 	// Check producer
-	producerConf := ProducerConfig{ClientID: "producer-01"}
-	if testing.Verbose() {
-		producerConf.Logger = &testLogger{t}
-		producerConf.ErrorLogger = producerConf.Logger
+	producerConf := ProducerConfig{
+		ClientID:    "producer-01",
+		Logger:      newKafkaLogger(t, false),
+		ErrorLogger: newKafkaLogger(t, true),
 	}
 	p, err := c.NewProducer(producerConf)
 	require.NoError(t, err)
@@ -860,4 +847,16 @@ type testLogger struct{ *testing.T }
 func (l *testLogger) Printf(format string, args ...interface{}) {
 	l.Helper()
 	l.Logf(format, args...)
+}
+
+func (l *testLogger) Infof(format string, args ...interface{}) {
+	l.Printf("[INFO] "+format, args...)
+}
+
+func (l *testLogger) Errorf(format string, args ...interface{}) {
+	l.Printf("[ERROR] "+format, args...)
+}
+
+func newKafkaLogger(t *testing.T, isErrorLogger bool) *KafkaLogger {
+	return &KafkaLogger{Logger: &testLogger{t}, IsErrorLogger: isErrorLogger}
 }
