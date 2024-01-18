@@ -18,7 +18,7 @@ import (
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rudderlabs/rudder-go-kit/broker/kafka/testutil"
+	"github.com/rudderlabs/rudder-go-kit/kafkaclient/testutil"
 	dockerKafka "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/kafka"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/sshserver"
 )
