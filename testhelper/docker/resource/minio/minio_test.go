@@ -21,7 +21,9 @@ func TestMinioResource(t *testing.T) {
 	minioResource, err := Setup(pool, t)
 	require.NoError(t, err)
 
-	_, err = minioResource.Client.FPutObject(context.Background(), minioResource.BucketName, prefix+"/"+objectName, "testdata/minio.object", minio.PutObjectOptions{})
+	_, err = minioResource.Client.FPutObject(context.Background(),
+		minioResource.BucketName, prefix+"/"+objectName, "testdata/minio.object", minio.PutObjectOptions{},
+	)
 	require.NoError(t, err)
 	c := minioResource.ToFileManagerConfig("some-prefix")
 
