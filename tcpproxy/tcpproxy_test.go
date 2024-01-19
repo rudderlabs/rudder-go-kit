@@ -38,16 +38,20 @@ func TestProxy(t *testing.T) {
 	go proxy.Start(t)
 	t.Cleanup(proxy.Stop)
 
-	var resp *http.Response
+	var (
+		body       []byte
+		statusCode int
+	)
 	require.Eventually(t, func() bool {
-		resp, err = http.Get("http://" + proxy.LocalAddr)
+		resp, err := http.Get("http://" + proxy.LocalAddr)
 		defer func() { httputil.CloseResponse(resp) }()
+		if err == nil {
+			statusCode = resp.StatusCode
+			body, err = io.ReadAll(resp.Body)
+		}
 		return err == nil
 	}, 5*time.Second, 10*time.Millisecond, "failed to connect to proxy")
 
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, statusCode)
 	require.Equal(t, "Hello, world!", string(body))
 }
