@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
 
@@ -40,6 +41,7 @@ func TestProxy(t *testing.T) {
 	var resp *http.Response
 	require.Eventually(t, func() bool {
 		resp, err = http.Get("http://" + proxy.LocalAddr)
+		defer func() { httputil.CloseResponse(resp) }()
 		return err == nil
 	}, 5*time.Second, 10*time.Millisecond, "failed to connect to proxy")
 
