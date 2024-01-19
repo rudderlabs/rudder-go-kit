@@ -613,7 +613,7 @@ func TestWriteErrors(t *testing.T) {
 	require.True(t, IsProducerErrTemporary(err))
 }
 
-func TestConfluentAzureCloud(t *testing.T) {
+func TestConfluentCloud(t *testing.T) {
 	kafkaHost := os.Getenv("TEST_KAFKA_CONFLUENT_CLOUD_HOST")
 	confluentCloudKey := os.Getenv("TEST_KAFKA_CONFLUENT_CLOUD_KEY")
 	confluentCloudSecret := os.Getenv("TEST_KAFKA_CONFLUENT_CLOUD_SECRET")
@@ -642,7 +642,7 @@ func TestConfluentAzureCloud(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	// the topic needs to be created beforehand via the ConfluentCloud admin panel
-	err = p.Publish(ctx, Message{Key: []byte("key-01"), Value: []byte("value-01"), Topic: t.Name()})
+	err = p.Publish(ctx, Message{Key: []byte("key-01"), Value: []byte("value-01"), Topic: "TestConfluentAzureCloud"})
 	cancel()
 	require.NoError(t, err)
 
