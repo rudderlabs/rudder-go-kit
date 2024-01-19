@@ -23,13 +23,14 @@ type Proxy struct {
 }
 
 func (p *Proxy) Start(t testing.TB) {
+	p.stop = make(chan struct{})
+
 	p.wg.Add(1)
 	defer p.wg.Done()
 
 	listener, err := net.Listen("tcp", p.LocalAddr)
 	require.NoError(t, err)
 
-	p.stop = make(chan struct{})
 	p.wg.Add(1)
 	go func() {
 		<-p.stop
