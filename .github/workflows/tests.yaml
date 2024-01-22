@@ -22,8 +22,8 @@ jobs:
       - run: go mod download # Not required, used to segregate module download vs test times
       - run: make test exclude="(kafkaclient|testhelper)"
       - uses: codecov/codecov-action@v2
-  package-unit:
-    name: Package Unit
+  test-package:
+    name: Test package
     runs-on: 'ubuntu-20.04'
     strategy:
       fail-fast: false
@@ -39,7 +39,7 @@ jobs:
           check-latest: true
       - run: go version
       - run: go mod download
-      - name: Package Unit [ ${{ matrix.package }} ]
+      - name: Test package [ ${{ matrix.package }} ]
         env:
           TEST_KAFKA_CONFLUENT_CLOUD_HOST: ${{ secrets.TEST_KAFKA_CONFLUENT_CLOUD_HOST }}
           TEST_KAFKA_CONFLUENT_CLOUD_KEY: ${{ secrets.TEST_KAFKA_CONFLUENT_CLOUD_KEY }}
