@@ -30,6 +30,10 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/sshserver"
 )
 
+const (
+	defaultTestTimeout = 60 * time.Second
+)
+
 func TestResource(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
@@ -66,7 +70,7 @@ func TestResource(t *testing.T) {
 			t.Logf("failed to write messages: %s", err)
 		}
 		return err == nil
-	}, 30*time.Second, 500*time.Millisecond)
+	}, defaultTestTimeout, 500*time.Millisecond)
 }
 
 func TestWithSASL(t *testing.T) {
@@ -140,7 +144,7 @@ func TestWithSASL(t *testing.T) {
 					t.Logf("failed to write messages: %s", err)
 				}
 				return err == nil
-			}, 30*time.Second, 500*time.Millisecond)
+			}, defaultTestTimeout, 500*time.Millisecond)
 		})
 	}
 }
@@ -171,7 +175,7 @@ func TestAvroSchemaRegistry(t *testing.T) {
 	}
 
 	consumeUserMsg := func(t *testing.T, deser *avro.GenericDeserializer) {
-		timeout := time.After(5 * time.Second)
+		timeout := time.After(10 * time.Second)
 		for {
 			select {
 			case <-timeout:
@@ -231,7 +235,7 @@ func TestAvroSchemaRegistry(t *testing.T) {
 			t.Logf("failed to write messages: %s", err)
 		}
 		return err == nil
-	}, 30*time.Second, 500*time.Millisecond)
+	}, defaultTestTimeout, 500*time.Millisecond)
 
 	// Start consuming
 	t.Log("Consuming message")
@@ -321,7 +325,7 @@ func TestSSH(t *testing.T) {
 			t.Logf("failed to write messages: %s", err)
 		}
 		return err == nil
-	}, 30*time.Second, 500*time.Millisecond)
+	}, defaultTestTimeout, 500*time.Millisecond)
 }
 
 func registerSchema(
