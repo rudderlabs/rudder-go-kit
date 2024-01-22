@@ -340,7 +340,7 @@ func registerSchema(
 	require.Eventuallyf(t, func() bool {
 		schemaID, err = c.Register(schemaName, si, true)
 		return err == nil
-	}, 30*time.Second, 100*time.Millisecond, "failed to register schema %s: %v", schemaName, err)
+	}, defaultTestTimeout, time.Second, "failed to register schema %s: %v", schemaName, err)
 
 	schema = string(buf)
 	return
