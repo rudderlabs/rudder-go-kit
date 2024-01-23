@@ -667,7 +667,7 @@ func TestAzureEventHubsCloud(t *testing.T) {
 
 	c, err := NewAzureEventHubs([]string{kafkaHost}, azureEventHubsConnString, Config{
 		ClientID:    "some-client",
-		DialTimeout: time.Minute,
+		DialTimeout: 45 * time.Second,
 	})
 	require.NoError(t, err)
 	require.NoError(t, c.Ping(context.Background()))
