@@ -338,7 +338,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		}
 		containers[i], err = pool.RunWithOptions(&dockertest.RunOptions{
 			Repository: "bitnami/kafka",
-			Tag:        "3.6-debian-11",
+			Tag:        "3.6.0",
 			NetworkID:  network.ID,
 			Hostname:   hostname,
 			PortBindings: map[dc.Port][]dc.PortBinding{
