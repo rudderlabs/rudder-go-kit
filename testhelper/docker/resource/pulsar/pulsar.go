@@ -14,7 +14,7 @@ type Resource struct {
 	AdminURL string
 }
 
-func SetupPulsar(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, error) {
+func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, error) {
 	c := &Config{
 		Tag: "3.1.2",
 	}

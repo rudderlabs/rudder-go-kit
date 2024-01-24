@@ -14,7 +14,7 @@ func TestPulsar(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	pulsarContainer, err := SetupPulsar(pool, t)
+	pulsarContainer, err := Setup(pool, t)
 	require.NoError(t, err)
 
 	res, err := http.Head(pulsarContainer.AdminURL + "/admin/v2/namespaces/public/default")
