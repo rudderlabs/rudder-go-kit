@@ -8,6 +8,7 @@ updates:
       opentelemetry:
         patterns:
           - "go.opentelemetry.io/otel*"
+          - "go.opentelemetry.io/otel/sdk"
           - "go.opentelemetry.io/collector*"
           - "github.com/open-telemetry/o*-collector-contrib/*"
           - "go.opentelemetry.io/contrib/instrumentation/*"
