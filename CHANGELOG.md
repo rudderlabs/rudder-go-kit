@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.20.1...v0.20.2) (2024-01-30)
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/docker/docker from 20.10.17+incompatible to 20.10.27+incompatible ([#305](https://github.com/rudderlabs/rudder-go-kit/issues/305)) ([460b812](https://github.com/rudderlabs/rudder-go-kit/commit/460b812cce81302205992c233e2df9f8a3ca2237))
+
 ## [0.20.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.20.0...v0.20.1) (2024-01-30)
 
 
