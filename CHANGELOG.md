@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.20.0...v0.20.1) (2024-01-30)
+
+
+### Miscellaneous
+
+* go mod tidy ([#303](https://github.com/rudderlabs/rudder-go-kit/issues/303)) ([9997004](https://github.com/rudderlabs/rudder-go-kit/commit/999700448e7d24dd589fce94ac9b7aa5456b6e02))
+
 ## [0.20.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.19.1...v0.20.0) (2024-01-30)
 
 
