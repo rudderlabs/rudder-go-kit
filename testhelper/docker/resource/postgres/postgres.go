@@ -1,4 +1,4 @@
-package resource
+package postgres
 
 import (
 	"database/sql"
@@ -10,7 +10,7 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/bytesize"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/postgres"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 	postgresDefaultPassword = "password"
 )
 
-type PostgresResource struct {
+type Resource struct {
 	DB       *sql.DB
 	DBDsn    string
 	Database string
@@ -29,8 +29,8 @@ type PostgresResource struct {
 	Port     string
 }
 
-func SetupPostgres(pool *dockertest.Pool, d cleaner, opts ...func(*postgres.Config)) (*PostgresResource, error) {
-	c := &postgres.Config{
+func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
+	c := &Config{
 		Tag:     "15-alpine",
 		ShmSize: 128 * bytesize.MB,
 	}
@@ -80,7 +80,7 @@ func SetupPostgres(pool *dockertest.Pool, d cleaner, opts ...func(*postgres.Conf
 	if err != nil {
 		return nil, err
 	}
-	return &PostgresResource{
+	return &Resource{
 		DB:       db,
 		DBDsn:    dbDSN,
 		Database: postgresDefaultDB,

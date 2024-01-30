@@ -20,5 +20,36 @@ jobs:
 
       - run: go version
       - run: go mod download # Not required, used to segregate module download vs test times
-      - run: make test
-      - uses: codecov/codecov-action@v2
+      - run: make test exclude="(kafkaclient|testhelper)"
+      - uses: codecov/codecov-action@v3
+  test-package:
+    name: Test package
+    runs-on: 'ubuntu-20.04'
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - kafkaclient
+          - testhelper
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '~1.21'
+          check-latest: true
+      - run: go version
+      - run: go mod download
+      - name: Test package [ ${{ matrix.package }} ]
+        env:
+          TEST_KAFKA_CONFLUENT_CLOUD_HOST: ${{ secrets.TEST_KAFKA_CONFLUENT_CLOUD_HOST }}
+          TEST_KAFKA_CONFLUENT_CLOUD_KEY: ${{ secrets.TEST_KAFKA_CONFLUENT_CLOUD_KEY }}
+          TEST_KAFKA_CONFLUENT_CLOUD_SECRET: ${{ secrets.TEST_KAFKA_CONFLUENT_CLOUD_SECRET }}
+          TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_HOST: ${{ secrets.TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_HOST }}
+          TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_EVENTHUB_NAME: ${{ secrets.TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_EVENTHUB_NAME }}
+          TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_CONNECTION_STRING: ${{ secrets.TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_CONNECTION_STRING }}
+        run: make test exclude="${{ matrix.exclude }}" package=${{ matrix.package }}
+      - name: Sanitize name for Artifact
+        run: |
+          name=$(echo -n "${{ matrix.package }}" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
+          echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
+      - uses: codecov/codecov-action@v3

@@ -1,4 +1,4 @@
-package resource
+package zipkin
 
 import (
 	"fmt"
@@ -11,11 +11,12 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
-const zipkinPort = "9411"
+const port = "9411"
 
-type ZipkinResource struct {
+type Resource struct {
 	Port string
 
 	pool     *dockertest.Pool
@@ -24,7 +25,7 @@ type ZipkinResource struct {
 	purgedMu sync.Mutex
 }
 
-func (z *ZipkinResource) Purge() error {
+func (z *Resource) Purge() error {
 	z.purgedMu.Lock()
 	defer z.purgedMu.Unlock()
 
@@ -41,7 +42,7 @@ func (z *ZipkinResource) Purge() error {
 	return nil
 }
 
-func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
+func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
 	freePort, err := testhelper.GetFreePort()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get free port: %w", err)
@@ -49,22 +50,22 @@ func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
 
 	zipkin, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "openzipkin/zipkin",
-		ExposedPorts: []string{zipkinPort},
+		ExposedPorts: []string{port},
 		PortBindings: map[docker.Port][]docker.PortBinding{
-			zipkinPort + "/tcp": {{HostPort: strconv.Itoa(freePort)}},
+			port + "/tcp": {{HostPort: strconv.Itoa(freePort)}},
 		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to start zipkin: %w", err)
 	}
 
-	resource := &ZipkinResource{
+	res := &Resource{
 		pool:     pool,
 		resource: zipkin,
-		Port:     zipkin.GetPort(zipkinPort + "/tcp"),
+		Port:     zipkin.GetPort(port + "/tcp"),
 	}
 	d.Cleanup(func() {
-		if err := resource.Purge(); err != nil {
+		if err := res.Purge(); err != nil {
 			d.Log("Could not purge zipkin resource:", err)
 		}
 	})
@@ -93,5 +94,5 @@ func SetupZipkin(pool *dockertest.Pool, d cleaner) (*ZipkinResource, error) {
 		return nil, fmt.Errorf("failed to wait for zipkin to be ready: %w", err)
 	}
 
-	return resource, nil
+	return res, nil
 }

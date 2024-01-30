@@ -17,18 +17,18 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
 	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/zipkin"
 )
 
 func TestSpanFromContext(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkin, err := resource.SetupZipkin(pool, t)
+	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
-	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
-	zipkinTracesURL := "http://localhost:" + zipkin.Port + "/api/v2/traces?serviceName=" + t.Name()
+	zipkinURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
+	zipkinTracesURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/traces?serviceName=" + t.Name()
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
@@ -95,11 +95,11 @@ func TestAsyncTracePropagation(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkin, err := resource.SetupZipkin(pool, t)
+	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
-	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
-	zipkinTracesURL := "http://localhost:" + zipkin.Port + "/api/v2/traces?serviceName=" + t.Name()
+	zipkinURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
+	zipkinTracesURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/traces?serviceName=" + t.Name()
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
@@ -163,10 +163,10 @@ func TestZipkinDownIsNotBlocking(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkin, err := resource.SetupZipkin(pool, t)
+	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
-	zipkinURL := "http://localhost:" + zipkin.Port + "/api/v2/spans"
+	zipkinURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
@@ -186,7 +186,7 @@ func TestZipkinDownIsNotBlocking(t *testing.T) {
 	go func() {
 		defer close(done)
 		_, span := tracer.Start(context.Background(), "my-span-01", SpanKindInternal)
-		require.NoError(t, zipkin.Purge())
+		require.NoError(t, zipkinContainer.Purge())
 		span.End()
 	}()
 

@@ -7,7 +7,7 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	redisdocker "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/redis"
 )
 
 type tester interface {
@@ -33,7 +33,7 @@ func newLimiter(t tester, opts ...Option) *Limiter {
 
 func bootstrapRedis(ctx context.Context, t tester, pool *dockertest.Pool) *redis.Client {
 	t.Helper()
-	redisContainer, err := resource.SetupRedis(ctx, pool, t)
+	redisContainer, err := redisdocker.Setup(ctx, pool, t)
 	require.NoError(t, err)
 
 	rc := redis.NewClient(&redis.Options{

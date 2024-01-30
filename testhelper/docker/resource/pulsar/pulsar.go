@@ -1,4 +1,4 @@
-package resource
+package pulsar
 
 import (
 	"bytes"
@@ -6,17 +6,17 @@ import (
 
 	"github.com/ory/dockertest/v3"
 
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/pulsar"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
-type PulsarResource struct {
+type Resource struct {
 	URL      string
 	AdminURL string
 }
 
-func SetupPulsar(pool *dockertest.Pool, d cleaner, opts ...pulsar.Opt) (*PulsarResource, error) {
-	c := &pulsar.Config{
-		Tag: "3.0.0",
+func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, error) {
+	c := &Config{
+		Tag: "3.1.2",
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -56,7 +56,7 @@ func SetupPulsar(pool *dockertest.Pool, d cleaner, opts ...pulsar.Opt) (*PulsarR
 	}); err != nil {
 		return nil, err
 	}
-	return &PulsarResource{
+	return &Resource{
 		URL:      url,
 		AdminURL: adminURL,
 	}, nil

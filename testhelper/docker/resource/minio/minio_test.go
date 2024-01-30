@@ -1,4 +1,4 @@
-package resource_test
+package minio
 
 import (
 	"context"
@@ -9,17 +9,21 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/filemanager"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
 func TestMinioResource(t *testing.T) {
 	const prefix = "some-prefix"
 	const objectName = "minio.object"
+
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
-	minioResource, err := resource.SetupMinio(pool, t)
+
+	minioResource, err := Setup(pool, t)
 	require.NoError(t, err)
-	_, err = minioResource.Client.FPutObject(context.Background(), minioResource.BucketName, prefix+"/"+objectName, "testdata/minio.object", minio.PutObjectOptions{})
+
+	_, err = minioResource.Client.FPutObject(context.Background(),
+		minioResource.BucketName, prefix+"/"+objectName, "testdata/minio.object", minio.PutObjectOptions{},
+	)
 	require.NoError(t, err)
 	c := minioResource.ToFileManagerConfig("some-prefix")
 
