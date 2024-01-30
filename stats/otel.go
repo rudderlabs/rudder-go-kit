@@ -17,7 +17,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	noopMetric "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
