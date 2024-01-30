@@ -21,7 +21,7 @@ jobs:
       - run: go version
       - run: go mod download # Not required, used to segregate module download vs test times
       - run: make test exclude="(kafkaclient|testhelper)"
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v3
   test-package:
     name: Test package
     runs-on: 'ubuntu-20.04'
@@ -52,4 +52,4 @@ jobs:
         run: |
           name=$(echo -n "${{ matrix.package }}" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v3
