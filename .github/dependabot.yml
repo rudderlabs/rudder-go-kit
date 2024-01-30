@@ -5,7 +5,7 @@ updates:
     schedule:
       interval: "daily"
     groups:
-      otel:
+      opentelemetry:
         patterns:
           - "go.opentelemetry.io/otel*"
           - "go.opentelemetry.io/collector*"
