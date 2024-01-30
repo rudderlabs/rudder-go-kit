@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.20.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.19.1...v0.20.0) (2024-01-30)
+
+
+### Features
+
+* kafka client and containers ([#287](https://github.com/rudderlabs/rudder-go-kit/issues/287)) ([00cba9d](https://github.com/rudderlabs/rudder-go-kit/commit/00cba9dbb04b6ff9807dcf6a3d2a35acf8137b49))
+
+
+### Miscellaneous
+
+* adding sdk to otel group ([#301](https://github.com/rudderlabs/rudder-go-kit/issues/301)) ([7385e0d](https://github.com/rudderlabs/rudder-go-kit/commit/7385e0db3c14ab99e922d97db3ddc392c48b8997))
+* dependabot otel ([#296](https://github.com/rudderlabs/rudder-go-kit/issues/296)) ([67b2cc4](https://github.com/rudderlabs/rudder-go-kit/commit/67b2cc40fb946214087f4f229fa44662786afaa1))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.49.21 to 1.49.24 ([#293](https://github.com/rudderlabs/rudder-go-kit/issues/293)) ([f220d47](https://github.com/rudderlabs/rudder-go-kit/commit/f220d47f85adeb9993de47cc139e37f9bea505f8))
+* **deps:** bump the opentelemetry group with 5 updates ([#297](https://github.com/rudderlabs/rudder-go-kit/issues/297)) ([781ad78](https://github.com/rudderlabs/rudder-go-kit/commit/781ad78d96047b39314d69094bcdad3320816f95))
+
 ## [0.19.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.19.0...v0.19.1) (2024-01-16)
 
 
