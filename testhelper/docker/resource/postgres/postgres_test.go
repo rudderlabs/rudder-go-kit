@@ -1,4 +1,4 @@
-package postgres_test
+package postgres
 
 import (
 	"database/sql"
@@ -7,8 +7,6 @@ import (
 
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
-
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/postgres"
 )
 
 func TestPostgres(t *testing.T) {
@@ -17,7 +15,7 @@ func TestPostgres(t *testing.T) {
 
 	for i := 1; i <= 6; i++ {
 		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
-			postgresContainer, err := postgres.Setup(pool, t)
+			postgresContainer, err := Setup(pool, t)
 			require.NoError(t, err)
 			defer func() { _ = postgresContainer.DB.Close() }()
 
@@ -34,9 +32,9 @@ func TestPostgres(t *testing.T) {
 
 	t.Run("with test failure", func(t *testing.T) {
 		cl := &testCleaner{T: t, failed: true}
-		r, err := postgres.Setup(pool, cl)
+		r, err := Setup(pool, cl)
 		require.NoError(t, err)
-		err = pool.Client.StopContainer(r.ContainerID, 10)
+		err = pool.Client.StopContainer(r.containerID, 10)
 		require.NoError(t, err)
 		cl.cleanup()
 		require.Contains(t, cl.logs, "postgres container state: {Status:exited")

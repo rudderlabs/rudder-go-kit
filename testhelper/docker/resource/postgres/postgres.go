@@ -30,8 +30,8 @@ type Resource struct {
 	Host     string
 	Port     string
 
-	ContainerName string
-	ContainerID   string
+	containerName string
+	containerID   string
 }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
@@ -138,7 +138,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		Password:      postgresDefaultPassword,
 		Host:          "localhost",
 		Port:          postgresContainer.GetPort("5432/tcp"),
-		ContainerName: postgresContainer.Container.Name,
-		ContainerID:   postgresContainer.Container.ID,
+		containerName: postgresContainer.Container.Name,
+		containerID:   postgresContainer.Container.ID,
 	}, nil
 }
