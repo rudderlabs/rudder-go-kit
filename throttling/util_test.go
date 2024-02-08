@@ -15,6 +15,7 @@ type tester interface {
 	Log(...interface{})
 	Errorf(format string, args ...interface{})
 	Fatalf(format string, args ...any)
+	Failed() bool
 	FailNow()
 	Cleanup(f func())
 }
