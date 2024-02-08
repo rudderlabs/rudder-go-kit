@@ -20,8 +20,22 @@ func WithShmSize(shmSize int64) Opt {
 	}
 }
 
+func WithMemory(memory int64) Opt {
+	return func(c *Config) {
+		c.Memory = memory
+	}
+}
+
+func WithOOMKillDisable(disable bool) Opt {
+	return func(c *Config) {
+		c.OOMKillDisable = disable
+	}
+}
+
 type Config struct {
-	Tag     string
-	Options []string
-	ShmSize int64
+	Tag            string
+	Options        []string
+	ShmSize        int64
+	Memory         int64
+	OOMKillDisable bool
 }
