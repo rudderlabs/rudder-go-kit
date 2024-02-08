@@ -4,9 +4,14 @@ type Logger interface {
 	Log(...interface{})
 }
 
+type FailIndicator interface {
+	Failed() bool
+}
+
 type Cleaner interface {
 	Cleanup(func())
 	Logger
+	FailIndicator
 }
 
 type NOPLogger struct{}
