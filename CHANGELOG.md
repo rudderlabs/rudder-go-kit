@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.20.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.20.2...v0.20.3) (2024-02-08)
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.50.6 to 1.50.13 ([#321](https://github.com/rudderlabs/rudder-go-kit/issues/321)) ([596e29b](https://github.com/rudderlabs/rudder-go-kit/commit/596e29b826e8eb120830af6eeeda37a7c861fd55))
+* **deps:** bump github.com/opencontainers/runc from 1.1.5 to 1.1.12 ([#309](https://github.com/rudderlabs/rudder-go-kit/issues/309)) ([669e348](https://github.com/rudderlabs/rudder-go-kit/commit/669e348887e7ef1f63500afe438f9444187aeac1))
+* **deps:** bump github.com/shirou/gopsutil/v3 from 3.23.12 to 3.24.1 ([#312](https://github.com/rudderlabs/rudder-go-kit/issues/312)) ([7feeef4](https://github.com/rudderlabs/rudder-go-kit/commit/7feeef4535b383bb1c3d190d2cf229421376cdcd))
+* **deps:** bump golang.org/x/crypto from 0.18.0 to 0.19.0 ([#320](https://github.com/rudderlabs/rudder-go-kit/issues/320)) ([3f0d228](https://github.com/rudderlabs/rudder-go-kit/commit/3f0d2283d1ee33a7e9930a2f48045c8ca4b2b039))
+* **deps:** bump google.golang.org/api from 0.160.0 to 0.162.0 ([#315](https://github.com/rudderlabs/rudder-go-kit/issues/315)) ([84fa993](https://github.com/rudderlabs/rudder-go-kit/commit/84fa993a5ef5bcc8b9a9c510a7ab2c7ccb5787b5))
+* unexpected EOF errors with postgres container ([#319](https://github.com/rudderlabs/rudder-go-kit/issues/319)) ([0d8857b](https://github.com/rudderlabs/rudder-go-kit/commit/0d8857ba6fc3e8181588c00a518bfdc51d1bf86e))
+
 ## [0.20.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.20.1...v0.20.2) (2024-01-30)
 
 
