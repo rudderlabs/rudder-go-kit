@@ -26,7 +26,7 @@ require (
 	github.com/prometheus/common v0.46.0
 	github.com/samber/lo v1.39.0
 	github.com/segmentio/kafka-go v0.4.47
-	github.com/shirou/gopsutil/v3 v3.23.12
+	github.com/shirou/gopsutil/v3 v3.24.1
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.8.4
