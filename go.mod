@@ -46,7 +46,7 @@ require (
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	golang.org/x/oauth2 v0.16.0
 	golang.org/x/sync v0.6.0
-	google.golang.org/api v0.162.0
+	google.golang.org/api v0.163.0
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
