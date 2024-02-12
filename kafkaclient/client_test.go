@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -698,32 +699,32 @@ func TestAzureEventHubsCloud(t *testing.T) {
 }
 
 func TestConsumerACK(t *testing.T) {
-	// Prepare cluster - Zookeeper + 3 Kafka brokers
+	// Prepare cluster - Zookeeper + 2 Kafka brokers
 	// We need more than one broker, or we'll be stuck with a "GROUP_COORDINATOR_NOT_AVAILABLE" error
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
 	kafkaContainer, err := dockerKafka.Setup(pool, t,
-		dockerKafka.WithBrokers(1))
+		dockerKafka.WithBrokers(2))
 	require.NoError(t, err)
 
 	addresses := make([]string, 0, len(kafkaContainer.Ports))
 	for i := 0; i < len(kafkaContainer.Ports); i++ {
-		addresses = append(addresses, fmt.Sprintf("localhost:%s", kafkaContainer.Ports[i]))
+		addresses = append(addresses, net.JoinHostPort("localhost", kafkaContainer.Ports[i]))
 	}
-	c, err := New("tcp", addresses, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
+	kafkaClient, err := New("tcp", addresses, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
 	require.NoError(t, err)
 
 	var (
 		noOfMessages = 10
 		ctx, cancel  = context.WithCancel(context.Background())
-		tc           = testutil.NewWithDialer(c.dialer, c.network, c.addresses...)
+		tc           = testutil.NewWithDialer(kafkaClient.dialer, kafkaClient.network, kafkaClient.addresses...)
 	)
 
 	t.Cleanup(cancel)
 
 	// Check connectivity and try to create the desired topic until the brokers are up and running (max 30s)
-	require.NoError(t, c.Ping(ctx))
+	require.NoError(t, kafkaClient.Ping(ctx))
 	require.Eventually(t, func() bool {
 		err := tc.CreateTopic(ctx, t.Name(), 1, 1) // partitions = 1, replication factor = 1
 		if err != nil {
@@ -754,18 +755,10 @@ func TestConsumerACK(t *testing.T) {
 		Logger:       newKafkaLogger(t, false),
 		ErrorLogger:  newKafkaLogger(t, true),
 	}
-	p, err := c.NewProducer(producerConf)
+	producer, err := kafkaClient.NewProducer(producerConf)
 	require.NoError(t, err)
-	publishMessages(ctx, t, p, noOfMessages)
+	publishMessages(ctx, t, producer, noOfMessages)
 
-	// Starting consumers with group-01 and FirstOffset
-	var (
-		// The ticker is used so that the test won't end as long as we keep getting messages since the consumers
-		// will reset the ticker each time they receive a message
-		tickerMu    sync.Mutex
-		tickerReset = 10 * time.Second
-		ticker      = time.NewTicker(30 * time.Second)
-	)
 	consumerConf := ConsumerConfig{
 		GroupID:             "group-01",
 		StartOffset:         FirstOffset,
@@ -774,9 +767,9 @@ func TestConsumerACK(t *testing.T) {
 		Logger:              newKafkaLogger(t, false),
 		ErrorLogger:         newKafkaLogger(t, true),
 	}
-	consume := func(c *Consumer, id string, count int32) []Message {
-		messages := make([]Message, 0, count)
-		for count > 0 {
+	consume := func(c *Consumer, id string, noOfMsgsToConsume int) []Message {
+		messages := make([]Message, 0, noOfMsgsToConsume)
+		for noOfMsgsToConsume > 0 {
 			msg, err := c.Receive(ctx)
 			if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
 				t.Logf("Closing %s: %v", id, err)
@@ -784,10 +777,7 @@ func TestConsumerACK(t *testing.T) {
 			}
 			require.NoError(t, err)
 			t.Logf("Got a message on %s", id)
-			tickerMu.Lock()
-			ticker.Reset(tickerReset)
-			tickerMu.Unlock()
-			count--
+			noOfMsgsToConsume--
 			require.NoError(t, c.Ack(ctx, msg))
 			messages = append(messages, msg)
 		}
@@ -800,34 +790,34 @@ func TestConsumerACK(t *testing.T) {
 			t.Logf("Error closing %s: %v", id, err)
 		}
 	}
-
-	consumer := c.NewConsumer(t.Name(), consumerConf)
+	consumer := kafkaClient.NewConsumer(t.Name(), consumerConf)
 	closeConsumer(consumer, "consumer") // closing consumer
 
-	publishMessages(ctx, t, p, noOfMessages) // publishing messages
-
-	ackCount := int32(noOfMessages) / 2
-	require.Greater(t, ackCount, int32(0))
+	ackCount := noOfMessages / 2
+	require.Greater(t, ackCount, 0)
 	count := 0
-	consumer = c.NewConsumer(t.Name(), consumerConf)    // re-creating consumer
-	messages := consume(consumer, "consumer", ackCount) // consuming only half messages
+	consumer = kafkaClient.NewConsumer(t.Name(), consumerConf) // re-creating consumer
+	messages := consume(consumer, "consumer", ackCount)        // consuming only half messages
+	require.Equal(t, ackCount, len(messages))
 	for _, msg := range messages {
 		require.Equal(t, fmt.Sprintf("key-%d", count), string(msg.Key))
 		require.Equal(t, fmt.Sprintf("value-%d", count), string(msg.Value))
 		count++
 	}
-
 	closeConsumer(consumer, "consumer") // closing consumer
 
-	remainingCount := int32(noOfMessages) - ackCount
-	require.Greater(t, remainingCount, int32(0))
-	consumer = c.NewConsumer(t.Name(), consumerConf)         // re-creating consumer
-	messages = consume(consumer, "consumer", remainingCount) // consuming the rest of the messages
+	remainingCount := noOfMessages - ackCount
+	require.Greater(t, remainingCount, 0)
+	consumer = kafkaClient.NewConsumer(t.Name(), consumerConf) // re-creating consumer
+	messages = consume(consumer, "consumer", remainingCount)   // consuming the rest of the messages
+	require.Equal(t, remainingCount, len(messages))
 	for _, msg := range messages {
 		require.Equal(t, fmt.Sprintf("key-%d", count), string(msg.Key))
 		require.Equal(t, fmt.Sprintf("value-%d", count), string(msg.Value))
 		count++
 	}
+	closeConsumer(consumer, "consumer") // closing consumer
+	require.Equal(t, noOfMessages, count)
 }
 
 func TestSSH(t *testing.T) {
