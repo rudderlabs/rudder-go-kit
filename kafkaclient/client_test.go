@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -699,20 +698,16 @@ func TestAzureEventHubsCloud(t *testing.T) {
 }
 
 func TestConsumerACK(t *testing.T) {
-	// Prepare cluster - Zookeeper + 2 Kafka brokers
-	// We need more than one broker, or we'll be stuck with a "GROUP_COORDINATOR_NOT_AVAILABLE" error
+	// Prepare cluster - Zookeeper + 1 Kafka brokers
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
 	kafkaContainer, err := dockerKafka.Setup(pool, t,
-		dockerKafka.WithBrokers(2))
+		dockerKafka.WithBrokers(1))
 	require.NoError(t, err)
 
-	addresses := make([]string, 0, len(kafkaContainer.Ports))
-	for i := 0; i < len(kafkaContainer.Ports); i++ {
-		addresses = append(addresses, net.JoinHostPort("localhost", kafkaContainer.Ports[i]))
-	}
-	kafkaClient, err := New("tcp", addresses, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
+	kafkaHost := fmt.Sprintf("localhost:%s", kafkaContainer.Ports[0])
+	kafkaClient, err := New("tcp", []string{"bad-host", kafkaHost}, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
 	require.NoError(t, err)
 
 	var (
@@ -792,6 +787,7 @@ func TestConsumerACK(t *testing.T) {
 	}
 	consumer := kafkaClient.NewConsumer(t.Name(), consumerConf)
 	closeConsumer(consumer, "consumer") // closing consumer
+	// we're doing this in order to have a subscription on the topic for retention
 
 	ackCount := noOfMessages / 2
 	require.Greater(t, ackCount, 0)
