@@ -103,3 +103,15 @@ func (c *Consumer) Receive(ctx context.Context) (Message, error) {
 		Timestamp: msg.Time,
 	}, nil
 }
+
+func (c *Consumer) Ack(ctx context.Context, msgs ...Message) error {
+	internalMsgs := make([]kafka.Message, 0, len(msgs))
+	for _, msg := range msgs {
+		internalMsgs = append(internalMsgs, kafka.Message{
+			Topic:     msg.Topic,
+			Partition: int(msg.Partition),
+			Offset:    msg.Offset,
+		})
+	}
+	return c.reader.CommitMessages(ctx, internalMsgs...)
+}
