@@ -18,15 +18,21 @@ type Resource struct {
 }
 
 type config struct {
-	Repository   string
-	Tag          string
-	ExposedPorts []string
-	Env          []string
+	repository   string
+	tag          string
+	exposedPorts []string
+	env          []string
 }
 
 func WithConfigBackendURL(url string) func(*config) {
 	return func(conf *config) {
-		conf.Env = []string{fmt.Sprintf("CONFIG_BACKEND_URL=%s", url)}
+		conf.env = []string{fmt.Sprintf("CONFIG_BACKEND_URL=%s", url)}
+	}
+}
+
+func WithDockerImageTag(tag string) func(*config) {
+	return func(conf *config) {
+		conf.tag = tag
 	}
 }
 
@@ -35,10 +41,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 	// pulls an image first to make sure we don't have an old cached version locally,
 	// then it creates a container based on it and runs it
 	conf := &config{
-		Repository:   "rudderstack/rudder-transformer",
-		Tag:          "latest",
-		ExposedPorts: []string{"9090"},
-		Env: []string{
+		repository:   "rudderstack/rudder-transformer",
+		tag:          "latest",
+		exposedPorts: []string{"9090"},
+		env: []string{
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 		},
 	}
@@ -48,17 +54,17 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 	}
 
 	err := pool.Client.PullImage(docker.PullImageOptions{
-		Repository: conf.Repository,
-		Tag:        conf.Tag,
+		Repository: conf.repository,
+		Tag:        conf.tag,
 	}, docker.AuthConfiguration{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 	transformerContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   conf.Repository,
-		Tag:          conf.Tag,
-		ExposedPorts: conf.ExposedPorts,
-		Env:          conf.Env,
+		Repository:   conf.repository,
+		Tag:          conf.tag,
+		ExposedPorts: conf.exposedPorts,
+		Env:          conf.env,
 	})
 	if err != nil {
 		return nil, err
@@ -81,7 +87,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 			return err
 		}
 		defer func() { httputil.CloseResponse(resp) }()
-		if resp.StatusCode != 200 {
+		if resp.StatusCode != http.StatusOK {
 			return errors.New(resp.Status)
 		}
 		return nil
