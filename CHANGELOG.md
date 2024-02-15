@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.21.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.20.3...v0.21.0) (2024-02-15)
+
+
+### Features
+
+* add ack to kafka client ([#327](https://github.com/rudderlabs/rudder-go-kit/issues/327)) ([b4e3c34](https://github.com/rudderlabs/rudder-go-kit/commit/b4e3c34b07ae1b3ba73c7dbd4af379c0b20f7f95))
+
+
+### Miscellaneous
+
+* add docker resource for transformer ([#334](https://github.com/rudderlabs/rudder-go-kit/issues/334)) ([3c98aaf](https://github.com/rudderlabs/rudder-go-kit/commit/3c98aafd6f08ba5e00200cb86dbe0a02ae4cdfec))
+* **deps:** bump the opentelemetry group with 9 updates ([#322](https://github.com/rudderlabs/rudder-go-kit/issues/322)) ([111bd3b](https://github.com/rudderlabs/rudder-go-kit/commit/111bd3b3038448c835d091c077de27de6e38dc99))
+
 ## [0.20.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.20.2...v0.20.3) (2024-02-08)
 
 
