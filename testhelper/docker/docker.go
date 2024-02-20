@@ -2,6 +2,7 @@ package docker
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/ory/dockertest/v3/docker"
@@ -19,4 +20,11 @@ func GetHostPort(t testing.TB, port string, container *docker.Container) int {
 		}
 	}
 	return 0
+}
+
+// ToInternalDockerHost replaces localhost and 127.0.0.1 with host.docker.internal
+func ToInternalDockerHost(url string) string {
+	url = strings.ReplaceAll(url, "localhost", "host.docker.internal")
+	url = strings.ReplaceAll(url, "127.0.0.1", "host.docker.internal")
+	return url
 }
