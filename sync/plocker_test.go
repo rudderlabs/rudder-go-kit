@@ -2,6 +2,7 @@ package sync_test
 
 import (
 	gsync "sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,16 +46,16 @@ func TestPartitionLocker(t *testing.T) {
 		}
 		var s l
 		s.locker = *sync.NewPartitionLocker()
-		var locks int
+		var locks atomic.Int64
 		const id = "id"
 		s.locker.Lock(id)
 		go func() {
 			s.locker.Lock(id)
-			locks = locks + 1
+			locks.Store(locks.Add(1))
 			s.locker.Unlock(id)
 		}()
-		require.Never(t, func() bool { return locks == 1 }, 100*time.Millisecond, 1*time.Millisecond)
+		require.Never(t, func() bool { return locks.Load() == 1 }, 100*time.Millisecond, 1*time.Millisecond)
 		s.locker.Unlock(id)
-		require.Eventually(t, func() bool { return locks == 1 }, 100*time.Millisecond, 1*time.Millisecond)
+		require.Eventually(t, func() bool { return locks.Load() == 1 }, 100*time.Millisecond, 1*time.Millisecond)
 	})
 }

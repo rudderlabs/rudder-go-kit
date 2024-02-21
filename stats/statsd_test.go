@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -103,8 +105,8 @@ func TestStatsdMeasurementInvalidOperations(t *testing.T) {
 }
 
 func TestStatsdMeasurementOperations(t *testing.T) {
-	var lastReceived string
-	server := newStatsdServer(t, func(s string) { lastReceived = s })
+	var lastReceived atomic.Value
+	server := newStatsdServer(t, func(s string) { lastReceived.Store(s) })
 	defer server.Close()
 
 	c := config.New()
@@ -128,7 +130,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-counter", stats.CountType).Increment()
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-counter,instanceName=test:1|c"
+			return lastReceived.Load() == "test-counter,instanceName=test:1|c"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -136,7 +138,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-counter", stats.CountType).Count(10)
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-counter,instanceName=test:10|c"
+			return lastReceived.Load() == "test-counter,instanceName=test:10|c"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -144,7 +146,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-gauge", stats.GaugeType).Gauge(1234)
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-gauge,instanceName=test:1234|g"
+			return lastReceived.Load() == "test-gauge,instanceName=test:1234|g"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -152,7 +154,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-timer-1", stats.TimerType).SendTiming(10 * time.Second)
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-timer-1,instanceName=test:10000|ms"
+			return lastReceived.Load() == "test-timer-1,instanceName=test:10000|ms"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -160,7 +162,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-timer-2", stats.TimerType).Since(time.Now())
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-timer-2,instanceName=test:0|ms"
+			return lastReceived.Load() == "test-timer-2,instanceName=test:0|ms"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -170,44 +172,44 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		}()
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-timer-4,instanceName=test:0|ms"
+			return lastReceived.Load() == "test-timer-4,instanceName=test:0|ms"
 		}, 2*time.Second, time.Millisecond)
 	})
 
 	t.Run("histogram", func(t *testing.T) {
 		s.NewStat("test-hist-1", stats.HistogramType).Observe(1.2)
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-hist-1,instanceName=test:1.2|h"
+			return lastReceived.Load() == "test-hist-1,instanceName=test:1.2|h"
 		}, 2*time.Second, time.Millisecond)
 	})
 
 	t.Run("tagged stats", func(t *testing.T) {
 		s.NewTaggedStat("test-tagged", stats.CountType, stats.Tags{"key": "value"}).Increment()
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-tagged,instanceName=test,key=value:1|c"
+			return lastReceived.Load() == "test-tagged,instanceName=test,key=value:1|c"
 		}, 2*time.Second, time.Millisecond)
 
 		// same measurement name, different measurement type
 		s.NewTaggedStat("test-tagged", stats.GaugeType, stats.Tags{"key": "value"}).Gauge(22)
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-tagged,instanceName=test,key=value:22|g"
+			return lastReceived.Load() == "test-tagged,instanceName=test,key=value:22|g"
 		}, 2*time.Second, time.Millisecond)
 	})
 
 	t.Run("sampled stats", func(t *testing.T) {
-		lastReceived = ""
+		lastReceived.Store("")
 		// use the same, non-sampled counter first to make sure we don't get it from cache when we request the sampled one
 		counter := s.NewTaggedStat("test-tagged-sampled", stats.CountType, stats.Tags{"key": "value"})
 		counter.Increment()
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "test-tagged-sampled,instanceName=test,key=value:1|c"
+			return lastReceived.Load() == "test-tagged-sampled,instanceName=test,key=value:1|c"
 		}, 2*time.Second, time.Millisecond)
 
 		counterSampled := s.NewSampledTaggedStat("test-tagged-sampled", stats.CountType, stats.Tags{"key": "value"})
 		counterSampled.Increment()
 		require.Eventually(t, func() bool {
-			if lastReceived == "test-tagged-sampled,instanceName=test,key=value:1|c|@0.5" {
+			if lastReceived.Load() == "test-tagged-sampled,instanceName=test,key=value:1|c|@0.5" {
 				return true
 			}
 			// playing with probabilities, we might or might not get the sample (0.5 -> 50% chance)
@@ -220,7 +222,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("", stats.CountType).Increment()
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "novalue,instanceName=test:1|c"
+			return lastReceived.Load() == "novalue,instanceName=test:1|c"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -228,7 +230,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewTaggedStat(" ", stats.GaugeType, stats.Tags{"key": "value", "": "value2"}).Gauge(22)
 
 		require.Eventually(t, func() bool {
-			return lastReceived == "novalue,instanceName=test,key=value:22|g"
+			return lastReceived.Load() == "novalue,instanceName=test,key=value:22|g"
 		}, 2*time.Second, time.Millisecond)
 	})
 }
@@ -236,11 +238,14 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 func TestStatsdPeriodicStats(t *testing.T) {
 	runTest := func(t *testing.T, prepareFunc func(c *config.Config, m metric.Manager), expected []string) {
 		var received []string
+		var receivedMu sync.RWMutex
 		server := newStatsdServer(t, func(s string) {
 			if i := strings.Index(s, ":"); i > 0 {
 				s = s[:i]
 			}
+			receivedMu.Lock()
 			received = append(received, s)
+			receivedMu.Unlock()
 		})
 		defer server.Close()
 
@@ -264,6 +269,9 @@ func TestStatsdPeriodicStats(t *testing.T) {
 		defer s.Stop()
 
 		require.Eventually(t, func() bool {
+			receivedMu.RLock()
+			defer receivedMu.RUnlock()
+
 			if len(received) != len(expected) {
 				return false
 			}
@@ -358,8 +366,8 @@ func TestStatsdPeriodicStats(t *testing.T) {
 }
 
 func TestStatsdExcludedTags(t *testing.T) {
-	var lastReceived string
-	server := newStatsdServer(t, func(s string) { lastReceived = s })
+	var lastReceived atomic.Value
+	server := newStatsdServer(t, func(s string) { lastReceived.Store(s) })
 	defer server.Close()
 
 	c := config.New()
@@ -382,7 +390,7 @@ func TestStatsdExcludedTags(t *testing.T) {
 	c.Set("statsExcludedTags", []string{"workspaceId"})
 	s.NewTaggedStat("test-workspaceId", stats.CountType, stats.Tags{"workspaceId": "value"}).Increment()
 	require.Eventually(t, func() bool {
-		return lastReceived == "test-workspaceId,instanceName=test:1|c"
+		return lastReceived.Load() == "test-workspaceId,instanceName=test:1|c"
 	}, 2*time.Second, time.Millisecond)
 }
 
