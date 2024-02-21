@@ -16,16 +16,19 @@ func TestMemoryGCRA(t *testing.T) {
 		rate := int64(1)
 		period := int64(1)
 
-		limit, err := l.limit(context.Background(), "key", burst+rate, burst, rate, period)
+		allowed, err := l.limit(context.Background(), "key", burst+rate, burst, rate, period)
 		require.NoError(t, err)
-		require.True(t, limit, "it should be able to fill the bucket (burst)")
+		require.True(t, allowed, "it should be able to fill the bucket (burst)")
 
 		// next request should be allowed after 5 seconds
 		start := time.Now()
 
 		require.Eventually(t, func() bool {
 			allowed, err := l.limit(context.Background(), "key", burst, burst, rate, period)
-			require.NoError(t, err)
+			if err != nil {
+				t.Logf("Memory GCRA error: %v", err)
+				return false
+			}
 			return allowed
 		}, 10*time.Second, 1*time.Second, "next request should be eventually allowed")
 

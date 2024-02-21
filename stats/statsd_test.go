@@ -9,10 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
-
-	"go.uber.org/atomic"
 
 	"github.com/stretchr/testify/require"
 
@@ -106,7 +105,7 @@ func TestStatsdMeasurementInvalidOperations(t *testing.T) {
 }
 
 func TestStatsdMeasurementOperations(t *testing.T) {
-	var lastReceived atomic.String
+	var lastReceived atomic.Value
 	server := newStatsdServer(t, func(s string) { lastReceived.Store(s) })
 	defer server.Close()
 
@@ -272,6 +271,7 @@ func TestStatsdPeriodicStats(t *testing.T) {
 		require.Eventually(t, func() bool {
 			receivedMu.RLock()
 			defer receivedMu.RUnlock()
+
 			if len(received) != len(expected) {
 				return false
 			}
@@ -366,7 +366,7 @@ func TestStatsdPeriodicStats(t *testing.T) {
 }
 
 func TestStatsdExcludedTags(t *testing.T) {
-	var lastReceived atomic.String
+	var lastReceived atomic.Value
 	server := newStatsdServer(t, func(s string) { lastReceived.Store(s) })
 	defer server.Close()
 
