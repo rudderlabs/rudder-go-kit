@@ -50,14 +50,18 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 	goFactory.Go(func() {
 		if err != nil {
 			s.logger.Info("retrying StatsD client creation in the background...")
+			s.state.client.statsdMu.Lock()
 			s.state.client.statsd, err = s.getNewStatsdClientWithExpoBackoff(ctx, s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags())
+			s.state.client.statsdMu.Unlock()
 			if err != nil {
 				s.config.enabled.Store(false)
 				s.logger.Errorf("error while creating new StatsD client, giving up: %v", err)
 			} else {
 				s.state.clientsLock.Lock()
 				for _, client := range s.state.pendingClients {
+					client.statsdMu.Lock()
 					client.statsd = s.state.client.statsd.Clone(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags(), statsd.Tags(client.tags...), statsd.SampleRate(client.samplingRate))
+					client.statsdMu.Unlock()
 				}
 
 				s.logger.Info("StatsD client setup succeeded.")
@@ -195,7 +199,9 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 			tagVals := newTags.Strings()
 			taggedClient = &statsdClient{samplingRate: samplingRate, tags: tagVals}
 			if s.state.connEstablished {
+				taggedClient.statsdMu.Lock()
 				taggedClient.statsd = s.state.client.statsd.Clone(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags(), statsd.Tags(tagVals...), statsd.SampleRate(samplingRate))
+				taggedClient.statsdMu.Unlock()
 			} else {
 				// new statsd clients will be created when connection is established for all pending clients
 				s.state.pendingClients[taggedClientKey] = taggedClient
@@ -268,15 +274,15 @@ func (c *statsdConfig) statsdTagsFormat() statsd.Option {
 }
 
 type statsdState struct {
-	conn            statsd.Option
-	client          *statsdClient
-	connEstablished bool
-	rc              runtimeStatsCollector
-	mc              metricStatsCollector
+	conn   statsd.Option
+	client *statsdClient
+	rc     runtimeStatsCollector
+	mc     metricStatsCollector
 
-	clientsLock    sync.RWMutex
-	clients        map[string]*statsdClient
-	pendingClients map[string]*statsdClient
+	clientsLock     sync.RWMutex // protects the following
+	connEstablished bool
+	clients         map[string]*statsdClient
+	pendingClients  map[string]*statsdClient
 }
 
 // statsdClient is a wrapper around statsd.Client.
@@ -285,10 +291,15 @@ type statsdState struct {
 type statsdClient struct {
 	samplingRate float32
 	tags         []string
-	statsd       *statsd.Client
+
+	statsdMu sync.RWMutex // protects the following
+	statsd   *statsd.Client
 }
 
 // ready returns true if the statsd client is ready to be used (not nil).
 func (sc *statsdClient) ready() bool {
+	sc.statsdMu.RLock()
+	defer sc.statsdMu.RUnlock()
+
 	return sc.statsd != nil
 }

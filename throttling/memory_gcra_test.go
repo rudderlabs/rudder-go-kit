@@ -22,10 +22,9 @@ func TestMemoryGCRA(t *testing.T) {
 
 		// next request should be allowed after 5 seconds
 		start := time.Now()
-		var allowed bool
 
 		require.Eventually(t, func() bool {
-			allowed, err = l.limit(context.Background(), "key", burst, burst, rate, period)
+			allowed, err := l.limit(context.Background(), "key", burst, burst, rate, period)
 			require.NoError(t, err)
 			return allowed
 		}, 10*time.Second, 1*time.Second, "next request should be eventually allowed")
