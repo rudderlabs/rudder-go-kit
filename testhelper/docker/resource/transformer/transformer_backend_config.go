@@ -3,7 +3,8 @@ package transformer
 import (
 	"fmt"
 	"net/http"
-	"strings"
+
+	kithttptest "github.com/rudderlabs/rudder-go-kit/testhelper/httptest"
 
 	"github.com/google/uuid"
 )
@@ -13,41 +14,38 @@ const (
 	versionIDKey           = "versionId"
 )
 
-type mockHttpServer struct {
-	Transformations map[string]string
+func NewTestBackendConfigServer(transformations map[string]string) *kithttptest.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc(getByVersionIdEndPoint, getByVersionIdHandler(transformations))
+	return kithttptest.NewServer(mux)
 }
 
-func (m *mockHttpServer) handleGetByVersionId(w http.ResponseWriter, r *http.Request) {
-	transformationVersionId := r.URL.Query().Get(versionIDKey)
-	transformationCode, ok := m.Transformations[transformationVersionId]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	transformationCode = sanitiseTransformationCode(transformationCode)
-	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte(fmt.Sprintf(`{
-		"id": "%s",
+func getByVersionIdHandler(transformations map[string]string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		transformationVersionId := r.URL.Query().Get(versionIDKey)
+		transformationCode, ok := transformations[transformationVersionId]
+		if !ok {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, err := w.Write([]byte(fmt.Sprintf(`{
+		"id": %q,
 		"createdAt": "2023-03-27T11:40:00.894Z",
 		"updatedAt": "2023-03-27T11:40:00.894Z",
-		"versionId": "%s",
+		"versionId": %q,
 		"name": "Add Transformed field",
 		"description": "",
-		"code": "%s",
+		"code": %q,
 		"secretsVersion": null,
 		"codeVersion": "1",
 		"language": "javascript",
 		"imports": [],
 		"secrets": {}
 	}`, uuid.NewString(), transformationVersionId, transformationCode)))
-	if err != nil {
-		return
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = fmt.Errorf("error writing response: %v", err)
+			return
+		}
 	}
-	w.WriteHeader(http.StatusInternalServerError)
-}
-
-func sanitiseTransformationCode(transformationCode string) string {
-	sanitisedTransformationCode := strings.ReplaceAll(transformationCode, "\t", " ")
-	sanitisedTransformationCode = strings.ReplaceAll(sanitisedTransformationCode, "\n", "\\n")
-	return sanitisedTransformationCode
 }

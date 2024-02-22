@@ -11,16 +11,16 @@ import (
 // This is useful when you want to access the test http server from within a docker container.
 func NewServer(handler http.Handler) *Server {
 	ts := newUnStartedServer(handler)
-	ts.Start()
+	ts.start()
 	return ts
 }
 
-// Simple net/httptest.Server wrapper
+// Server wraps net/httptest.Server to listen on all network interfaces
 type Server struct {
 	*nethttptest.Server
 }
 
-func (s *Server) Start() {
+func (s *Server) start() {
 	s.Server.Start()
 	_, port, err := net.SplitHostPort(s.Listener.Addr().String())
 	if err != nil {
@@ -37,11 +37,13 @@ func newUnStartedServer(handler http.Handler) *Server {
 }
 
 func newListener() net.Listener {
-	l, err := net.Listen("tcp", "0.0.0.0:0")
-	if err != nil {
-		if l, err = net.Listen("tcp6", "[::]:0"); err != nil {
-			panic(fmt.Sprintf("httptest: failed to listen on a port: %v", err))
-		}
+	listener, tcpError := net.Listen("tcp", "0.0.0.0:0")
+	if tcpError == nil {
+		return listener
 	}
-	return l
+	listener, tcp6Error := net.Listen("tcp6", "[::]:0")
+	if tcp6Error == nil {
+		return listener
+	}
+	panic(fmt.Sprintf("httptest: failed to start listener on a port for tcp (%v) and tcp6 (%v)", tcpError, tcp6Error))
 }

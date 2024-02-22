@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	kithttptest "github.com/rudderlabs/rudder-go-kit/testhelper/httptest"
+	"github.com/samber/lo"
 
 	dockerTestHelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 
@@ -30,46 +30,35 @@ type config struct {
 	extraHosts   []string
 }
 
-func (c *config) updateBackendConfigURL(url string) {
-	found := false
-	for i, env := range c.envs {
-		if strings.HasPrefix(env, "CONFIG_BACKEND_URL=") {
-			found = true
-			c.envs[i] = fmt.Sprintf("CONFIG_BACKEND_URL=%s", url)
-		}
-	}
-	if !found {
-		c.envs = append(c.envs, fmt.Sprintf("CONFIG_BACKEND_URL=%s", url))
-	}
+func (c *config) setBackendConfigURL(url string) {
+	c.envs = append(
+		lo.Filter(c.envs, func(s string, _ int) bool {
+			return !strings.HasPrefix(s, "CONFIG_BACKEND_URL=")
+		}),
+		"CONFIG_BACKEND_URL="+url)
 }
 
-// WithTransformations will mock BE config to set transformation for given transformation versionID to transformation function map
+// WithUserTransformations will mock BE config to set transformation for given transformation versionID to transformation function map
 //
 // - events with transformationVersionID not present in map will not be transformed and transformer will return 404 for those requests
 //
-// - WithTransformations should not be used with WithConfigBackendURL option
+// - WithUserTransformations should not be used with WithConfigBackendURL option
 //
 // - only javascript transformation functions are supported
 //
 // e.g.
 //
-//	WithTransformations(map[string]string{
+//	WithUserTransformations(map[string]string{
 //				"transform-version-id-1": `export function transformEvent(event, metadata) {
 //											event.transformed=true
 //											return event;
 //										}`,
 //			})
-func WithTransformations(transformations map[string]string, cleaner resource.Cleaner) func(*config) {
+func WithUserTransformations(transformations map[string]string, cleaner resource.Cleaner) func(*config) {
 	return func(conf *config) {
-		mux := http.NewServeMux()
-		mockBackendConfigServer := &mockHttpServer{Transformations: transformations}
-		mux.HandleFunc(getByVersionIdEndPoint, mockBackendConfigServer.handleGetByVersionId)
-		backendConfigSvc := kithttptest.NewServer(mux)
+		backendConfigSvc := NewTestBackendConfigServer(transformations)
 
-		conf.updateBackendConfigURL(dockerTestHelper.ToInternalDockerHost(backendConfigSvc.URL))
-		if conf.extraHosts == nil {
-			conf.extraHosts = make([]string, 0)
-		}
+		conf.setBackendConfigURL(dockerTestHelper.ToInternalDockerHost(backendConfigSvc.URL))
 		conf.extraHosts = append(conf.extraHosts, "host.docker.internal:host-gateway")
 		cleaner.Cleanup(func() {
 			backendConfigSvc.Close()
@@ -78,10 +67,10 @@ func WithTransformations(transformations map[string]string, cleaner resource.Cle
 }
 
 // WithConfigBackendURL lets transformer use custom backend config server for transformations
-// WithConfigBackendURL should not be used with WithTransformations option
+// WithConfigBackendURL should not be used with WithUserTransformations option
 func WithConfigBackendURL(url string) func(*config) {
 	return func(conf *config) {
-		conf.updateBackendConfigURL(url)
+		conf.setBackendConfigURL(url)
 	}
 }
 
