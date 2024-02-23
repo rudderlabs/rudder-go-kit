@@ -67,7 +67,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	}
 
 	d.Cleanup(func() {
-		if d.Failed() {
+		if d.Failed() && c.PrintLogsOnError {
 			if c, found := pool.ContainerByName(postgresContainer.Container.Name); found {
 				d.Log(fmt.Sprintf("%q postgres container state: %+v", c.Container.Name, c.Container.State))
 				b := bytes.NewBufferString("")

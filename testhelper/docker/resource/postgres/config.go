@@ -32,10 +32,17 @@ func WithOOMKillDisable(disable bool) Opt {
 	}
 }
 
+func WithPrintLogsOnError(printLogsOnError bool) Opt {
+	return func(c *Config) {
+		c.PrintLogsOnError = printLogsOnError
+	}
+}
+
 type Config struct {
-	Tag            string
-	Options        []string
-	ShmSize        int64
-	Memory         int64
-	OOMKillDisable bool
+	Tag              string
+	Options          []string
+	ShmSize          int64
+	Memory           int64
+	OOMKillDisable   bool
+	PrintLogsOnError bool
 }

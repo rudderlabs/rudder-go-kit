@@ -34,7 +34,7 @@ func TestPostgres(t *testing.T) {
 
 	t.Run("with test failure", func(t *testing.T) {
 		cl := &testCleaner{T: t, failed: true}
-		r, err := postgres.Setup(pool, cl)
+		r, err := postgres.Setup(pool, cl, postgres.WithPrintLogsOnError(true))
 		require.NoError(t, err)
 		err = pool.Client.StopContainer(r.ContainerID, 10)
 		require.NoError(t, err)
