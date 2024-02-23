@@ -4,6 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+
+	"github.com/samber/lo"
+
+	dockerTestHelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
@@ -21,12 +26,51 @@ type config struct {
 	repository   string
 	tag          string
 	exposedPorts []string
-	env          []string
+	envs         []string
+	extraHosts   []string
 }
 
+func (c *config) setBackendConfigURL(url string) {
+	c.envs = append(
+		lo.Filter(c.envs, func(s string, _ int) bool {
+			return !strings.HasPrefix(s, "CONFIG_BACKEND_URL=")
+		}),
+		"CONFIG_BACKEND_URL="+url)
+}
+
+// WithUserTransformations will mock BE config to set transformation for given transformation versionID to transformation function map
+//
+// - events with transformationVersionID not present in map will not be transformed and transformer will return 404 for those requests
+//
+// - WithUserTransformations should not be used with WithConfigBackendURL option
+//
+// - only javascript transformation functions are supported
+//
+// e.g.
+//
+//	WithUserTransformations(map[string]string{
+//				"transform-version-id-1": `export function transformEvent(event, metadata) {
+//											event.transformed=true
+//											return event;
+//										}`,
+//			})
+func WithUserTransformations(transformations map[string]string, cleaner resource.Cleaner) func(*config) {
+	return func(conf *config) {
+		backendConfigSvc := NewTestBackendConfigServer(transformations)
+
+		conf.setBackendConfigURL(dockerTestHelper.ToInternalDockerHost(backendConfigSvc.URL))
+		conf.extraHosts = append(conf.extraHosts, "host.docker.internal:host-gateway")
+		cleaner.Cleanup(func() {
+			backendConfigSvc.Close()
+		})
+	}
+}
+
+// WithConfigBackendURL lets transformer use custom backend config server for transformations
+// WithConfigBackendURL should not be used with WithUserTransformations option
 func WithConfigBackendURL(url string) func(*config) {
 	return func(conf *config) {
-		conf.env = []string{fmt.Sprintf("CONFIG_BACKEND_URL=%s", url)}
+		conf.setBackendConfigURL(url)
 	}
 }
 
@@ -44,7 +88,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 		repository:   "rudderstack/rudder-transformer",
 		tag:          "latest",
 		exposedPorts: []string{"9090"},
-		env: []string{
+		envs: []string{
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 		},
 	}
@@ -64,7 +108,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 		Repository:   conf.repository,
 		Tag:          conf.tag,
 		ExposedPorts: conf.exposedPorts,
-		Env:          conf.env,
+		Env:          conf.envs,
+		ExtraHosts:   conf.extraHosts,
 	})
 	if err != nil {
 		return nil, err

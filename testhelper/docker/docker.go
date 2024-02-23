@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"regexp"
 	"strconv"
 	"testing"
 
@@ -19,4 +20,9 @@ func GetHostPort(t testing.TB, port string, container *docker.Container) int {
 		}
 	}
 	return 0
+}
+
+// ToInternalDockerHost replaces localhost and 127.0.0.1 with host.docker.internal
+func ToInternalDockerHost(url string) string {
+	return regexp.MustCompile(`(localhost|127\.0\.0\.1)`).ReplaceAllString(url, "host.docker.internal")
 }
