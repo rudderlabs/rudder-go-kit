@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.22.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.21.1...v0.22.0) (2024-02-23)
+
+
+### Features
+
+* add mock config BE support for transformer ([#344](https://github.com/rudderlabs/rudder-go-kit/issues/344)) ([d48fc68](https://github.com/rudderlabs/rudder-go-kit/commit/d48fc68b3dc78f1be50c73aa3353a8dd4ab76821))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.50.21 to 1.50.23 ([#348](https://github.com/rudderlabs/rudder-go-kit/issues/348)) ([c4ec5d6](https://github.com/rudderlabs/rudder-go-kit/commit/c4ec5d62a9401df4bcc953cbf9513b24a747a2ab))
+* **deps:** bump go.uber.org/zap from 1.26.0 to 1.27.0 ([#346](https://github.com/rudderlabs/rudder-go-kit/issues/346)) ([fba3feb](https://github.com/rudderlabs/rudder-go-kit/commit/fba3feb3cd7b7e0697223ef3e22a871ae1afbb14))
+* **deps:** bump google.golang.org/api from 0.165.0 to 0.166.0 ([#349](https://github.com/rudderlabs/rudder-go-kit/issues/349)) ([659369d](https://github.com/rudderlabs/rudder-go-kit/commit/659369d50b731c05f305f839510925144f5418e2))
+
 ## [0.21.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.21.0...v0.21.1) (2024-02-21)
 
 
