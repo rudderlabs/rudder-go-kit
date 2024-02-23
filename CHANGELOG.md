@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.23.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.22.0...v0.23.0) (2024-02-23)
+
+
+### Features
+
+* add async.SingleSender and a new docker resource for mysql ([#333](https://github.com/rudderlabs/rudder-go-kit/issues/333)) ([063ec10](https://github.com/rudderlabs/rudder-go-kit/commit/063ec102da7e1431dd0c27e45c46239a6ac67d40))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.50.23 to 1.50.24 ([#352](https://github.com/rudderlabs/rudder-go-kit/issues/352)) ([1515334](https://github.com/rudderlabs/rudder-go-kit/commit/15153344b7bb9d9e6291c8309711705a475600ea))
+* **deps:** bump github.com/prometheus/common from 0.47.0 to 0.48.0 ([#351](https://github.com/rudderlabs/rudder-go-kit/issues/351)) ([f44e67c](https://github.com/rudderlabs/rudder-go-kit/commit/f44e67c4c9fc633fd177c5c5d7918c6d5766fb7c))
+
 ## [0.22.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.21.1...v0.22.0) (2024-02-23)
 
 
