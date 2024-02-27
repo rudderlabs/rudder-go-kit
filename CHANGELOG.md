@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.0...v0.23.1) (2024-02-27)
+
+
+### Miscellaneous
+
+* close postgres db on cleanup ([#357](https://github.com/rudderlabs/rudder-go-kit/issues/357)) ([85f29b5](https://github.com/rudderlabs/rudder-go-kit/commit/85f29b52ecdece8ecca3002402e1c6cf8f154001))
+
 ## [0.23.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.22.0...v0.23.0) (2024-02-23)
 
 
