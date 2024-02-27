@@ -79,6 +79,7 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		redisClient := redis.NewClient(&redis.Options{
 			Addr: addr,
 		})
+		defer func() { _ = redisClient.Close() }()
 		_, err := redisClient.Ping(ctx).Result()
 		return err
 	})
