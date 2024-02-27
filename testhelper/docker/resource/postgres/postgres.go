@@ -65,6 +65,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	if err != nil {
 		return nil, err
 	}
+	var db *sql.DB
 
 	d.Cleanup(func() {
 		if d.Failed() && c.PrintLogsOnError {
@@ -86,13 +87,16 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		if err := pool.Purge(postgresContainer); err != nil {
 			d.Log("Could not purge resource:", err)
 		}
+		if db != nil {
+			_ = db.Close()
+		}
 	})
 
 	dbDSN := fmt.Sprintf(
 		"postgres://%s:%s@localhost:%s/%s?sslmode=disable",
 		postgresDefaultUser, postgresDefaultPassword, postgresContainer.GetPort("5432/tcp"), postgresDefaultDB,
 	)
-	var db *sql.DB
+
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	err = pool.Retry(func() (err error) {
 		// 1. use pg_isready
