@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.23.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.1...v0.23.2) (2024-03-04)
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.50.24 to 1.50.30 ([#366](https://github.com/rudderlabs/rudder-go-kit/issues/366)) ([6255c36](https://github.com/rudderlabs/rudder-go-kit/commit/6255c36051d664b1d58b19462913735261809369))
+* **deps:** bump google.golang.org/api from 0.166.0 to 0.167.0 ([#356](https://github.com/rudderlabs/rudder-go-kit/issues/356)) ([6982111](https://github.com/rudderlabs/rudder-go-kit/commit/69821111eea4b85afbe29c5891b517cde3acf466))
+* **deps:** bump the opentelemetry group with 9 updates ([#354](https://github.com/rudderlabs/rudder-go-kit/issues/354)) ([f4fb7b4](https://github.com/rudderlabs/rudder-go-kit/commit/f4fb7b4c1f36503e361952d7b305dcc840d4249c))
+
 ## [0.23.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.0...v0.23.1) (2024-02-27)
 
 
