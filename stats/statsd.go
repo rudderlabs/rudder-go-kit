@@ -50,8 +50,15 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 	goFactory.Go(func() {
 		if err != nil {
 			s.logger.Info("retrying StatsD client creation in the background...")
+			var c *statsd.Client
+			c, err = s.getNewStatsdClientWithExpoBackoff(
+				ctx,
+				s.state.conn,
+				s.statsdConfig.statsdTagsFormat(),
+				s.statsdConfig.statsdDefaultTags(),
+			)
 			s.state.client.statsdMu.Lock()
-			s.state.client.statsd, err = s.getNewStatsdClientWithExpoBackoff(ctx, s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags())
+			s.state.client.statsd = c
 			s.state.client.statsdMu.Unlock()
 			if err != nil {
 				s.config.enabled.Store(false)
@@ -60,7 +67,13 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 				s.state.clientsLock.Lock()
 				for _, client := range s.state.pendingClients {
 					client.statsdMu.Lock()
-					client.statsd = s.state.client.statsd.Clone(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags(), statsd.Tags(client.tags...), statsd.SampleRate(client.samplingRate))
+					client.statsd = s.state.client.statsd.Clone(
+						s.state.conn,
+						s.statsdConfig.statsdTagsFormat(),
+						s.statsdConfig.statsdDefaultTags(),
+						statsd.Tags(client.tags...),
+						statsd.SampleRate(client.samplingRate),
+					)
 					client.statsdMu.Unlock()
 				}
 
@@ -200,7 +213,13 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 			taggedClient = &statsdClient{samplingRate: samplingRate, tags: tagVals}
 			if s.state.connEstablished {
 				taggedClient.statsdMu.Lock()
-				taggedClient.statsd = s.state.client.statsd.Clone(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags(), statsd.Tags(tagVals...), statsd.SampleRate(samplingRate))
+				taggedClient.statsd = s.state.client.statsd.Clone(
+					s.state.conn,
+					s.statsdConfig.statsdTagsFormat(),
+					s.statsdConfig.statsdDefaultTags(),
+					statsd.Tags(tagVals...),
+					statsd.SampleRate(samplingRate),
+				)
 				taggedClient.statsdMu.Unlock()
 			} else {
 				// new statsd clients will be created when connection is established for all pending clients
