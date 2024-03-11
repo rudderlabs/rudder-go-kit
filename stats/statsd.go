@@ -57,14 +57,12 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 				s.statsdConfig.statsdTagsFormat(),
 				s.statsdConfig.statsdDefaultTags(),
 			)
-			s.state.client.statsdMu.Lock()
-			s.state.client.statsd = c
-			s.state.client.statsdMu.Unlock()
 			if err != nil {
 				s.config.enabled.Store(false)
 				s.logger.Errorf("error while creating new StatsD client, giving up: %v", err)
 			} else {
 				s.state.clientsLock.Lock()
+				s.state.client.statsd = c
 				for _, client := range s.state.pendingClients {
 					client.statsdMu.Lock()
 					client.statsd = s.state.client.statsd.Clone(
@@ -165,7 +163,7 @@ func (s *statsdStats) Stop() {
 
 // NewStat creates a new Measurement with provided Name and Type
 func (s *statsdStats) NewStat(name, statType string) (m Measurement) {
-	return s.newStatsdMeasurement(name, statType, s.state.client)
+	return s.internalNewTaggedStat(name, statType, nil, 1)
 }
 
 func (s *statsdStats) NewTaggedStat(Name, StatType string, tags Tags) (m Measurement) {
