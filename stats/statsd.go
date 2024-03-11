@@ -117,7 +117,7 @@ func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opt
 
 func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {
 	gaugeFunc := func(key string, val uint64) {
-		s.state.client.statsd.Gauge("runtime_"+key, val)
+		s.NewStat("runtime_"+key, GaugeType).Gauge(val)
 	}
 	s.state.rc = newRuntimeStatsCollector(gaugeFunc)
 	s.state.rc.PauseDur = time.Duration(s.config.periodicStatsConfig.statsCollectionInterval) * time.Second
@@ -316,9 +316,8 @@ type statsdClient struct {
 }
 
 // ready returns true if the statsd client is ready to be used (not nil).
+//
+// statsdMu.RLock should be held when calling this method.
 func (sc *statsdClient) ready() bool {
-	sc.statsdMu.RLock()
-	defer sc.statsdMu.RUnlock()
-
 	return sc.statsd != nil
 }

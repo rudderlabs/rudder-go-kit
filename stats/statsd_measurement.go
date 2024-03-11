@@ -25,6 +25,8 @@ type statsdCounter struct {
 }
 
 func (c *statsdCounter) Count(n int) {
+	c.client.statsdMu.RLock()
+	defer c.client.statsdMu.RUnlock()
 	if c.skip() {
 		return
 	}
@@ -33,6 +35,8 @@ func (c *statsdCounter) Count(n int) {
 
 // Increment increases the stat by 1. Is the Equivalent of Count(1). Only applies to CountType stats
 func (c *statsdCounter) Increment() {
+	c.client.statsdMu.RLock()
+	defer c.client.statsdMu.RUnlock()
 	if c.skip() {
 		return
 	}
@@ -46,6 +50,8 @@ type statsdGauge struct {
 
 // Gauge records an absolute value for this stat. Only applies to GaugeType stats
 func (g *statsdGauge) Gauge(value interface{}) {
+	g.client.statsdMu.RLock()
+	defer g.client.statsdMu.RUnlock()
 	if g.skip() {
 		return
 	}
@@ -61,6 +67,8 @@ type statsdTimer struct {
 // Start starts a new timing for this stat. Only applies to TimerType stats
 // Deprecated: Use concurrent safe SendTiming() instead
 func (t *statsdTimer) Start() {
+	t.client.statsdMu.RLock()
+	defer t.client.statsdMu.RUnlock()
 	if t.skip() {
 		return
 	}
@@ -71,6 +79,8 @@ func (t *statsdTimer) Start() {
 // End send the time elapsed since the Start()  call of this stat. Only applies to TimerType stats
 // Deprecated: Use concurrent safe SendTiming() instead
 func (t *statsdTimer) End() {
+	t.client.statsdMu.RLock()
+	defer t.client.statsdMu.RUnlock()
 	if t.skip() || t.timing == nil {
 		return
 	}
@@ -84,6 +94,8 @@ func (t *statsdTimer) Since(start time.Time) {
 
 // SendTiming sends a timing for this stat. Only applies to TimerType stats
 func (t *statsdTimer) SendTiming(duration time.Duration) {
+	t.client.statsdMu.RLock()
+	defer t.client.statsdMu.RUnlock()
 	if t.skip() {
 		return
 	}
@@ -107,6 +119,8 @@ type statsdHistogram struct {
 
 // Observe sends an observation
 func (h *statsdHistogram) Observe(value float64) {
+	h.client.statsdMu.RLock()
+	defer h.client.statsdMu.RUnlock()
 	if h.skip() {
 		return
 	}
