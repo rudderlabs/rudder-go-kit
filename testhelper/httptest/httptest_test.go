@@ -43,3 +43,41 @@ func TestServer(t *testing.T) {
 	require.Equal(t, http.StatusOK, statusCode)
 	require.Equal(t, "Hello, world!", string(body))
 }
+
+func TestUnStartedServer(t *testing.T) {
+	// create a server which is not started
+	httpUnStartedServer := kithttptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("Hello, world!"))
+	}))
+
+	var (
+		body       []byte
+		statusCode int
+	)
+	require.Never(t, func() bool {
+		resp, err := http.Get(httpUnStartedServer.URL)
+		defer func() { httputil.CloseResponse(resp) }()
+		if err == nil {
+			statusCode = resp.StatusCode
+			body, err = io.ReadAll(resp.Body)
+		}
+		return err == nil
+	}, 5*time.Second, time.Second, "connected to an un-started server")
+
+	// start the server now
+	httpUnStartedServer.Start()
+	defer httpUnStartedServer.Close()
+
+	require.Eventually(t, func() bool {
+		resp, err := http.Get(httpUnStartedServer.URL)
+		defer func() { httputil.CloseResponse(resp) }()
+		if err == nil {
+			statusCode = resp.StatusCode
+			body, err = io.ReadAll(resp.Body)
+		}
+		return err == nil
+	}, 5*time.Second, time.Second, "failed to connect to server")
+
+	require.Equal(t, http.StatusOK, statusCode)
+	require.Equal(t, "Hello, world!", string(body))
+}
