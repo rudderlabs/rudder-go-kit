@@ -50,7 +50,7 @@ require (
 	golang.org/x/oauth2 v0.17.0
 	golang.org/x/sync v0.6.0
 	google.golang.org/api v0.167.0
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
