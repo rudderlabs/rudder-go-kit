@@ -56,7 +56,7 @@ func (c *config) setBackendConfigURL(url string) {
 //			})
 func WithUserTransformations(transformations map[string]string, cleaner resource.Cleaner) func(*config) {
 	return func(conf *config) {
-		backendConfigSvc := NewTestBackendConfigServer(transformations)
+		backendConfigSvc := newTestBackendConfigServer(transformations)
 
 		conf.setBackendConfigURL(dockerTestHelper.ToInternalDockerHost(backendConfigSvc.URL))
 		conf.extraHosts = append(conf.extraHosts, "host.docker.internal:host-gateway")
@@ -78,7 +78,7 @@ func WithConnectionToHostEnabled() func(*config) {
 // WithConfigBackendURL should not be used with WithUserTransformations option
 func WithConfigBackendURL(url string) func(*config) {
 	return func(conf *config) {
-		conf.setBackendConfigURL(url)
+		conf.setBackendConfigURL(dockerTestHelper.ToInternalDockerHost(url))
 	}
 }
 
