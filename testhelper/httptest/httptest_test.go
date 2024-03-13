@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 
 func TestUnStartedServer(t *testing.T) {
 	// create a server which is not started
-	httpUnStartedServer := kithttptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	httpUnStartedServer := kithttptest.NewUnStartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("Hello, world!"))
 	}))
 
@@ -55,12 +55,8 @@ func TestUnStartedServer(t *testing.T) {
 		statusCode int
 	)
 	require.Never(t, func() bool {
-		resp, err := http.Get(httpUnStartedServer.URL)
+		resp, err := http.Get("http://" + httpUnStartedServer.Listener.Addr().String())
 		defer func() { httputil.CloseResponse(resp) }()
-		if err == nil {
-			statusCode = resp.StatusCode
-			body, err = io.ReadAll(resp.Body)
-		}
 		return err == nil
 	}, 5*time.Second, time.Second, "connected to an un-started server")
 
