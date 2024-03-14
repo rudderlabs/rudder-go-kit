@@ -15,6 +15,8 @@ type statsdMeasurement struct {
 }
 
 // skip returns true if the stat should be skipped (stats disabled or client not ready)
+//
+// m.client.statsdMu.RLock should be held when calling this method.
 func (m *statsdMeasurement) skip() bool {
 	return !m.enabled || !m.client.ready()
 }

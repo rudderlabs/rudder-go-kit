@@ -210,7 +210,6 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 			tagVals := newTags.Strings()
 			taggedClient = &statsdClient{samplingRate: samplingRate, tags: tagVals}
 			if s.state.connEstablished {
-				taggedClient.statsdMu.Lock()
 				taggedClient.statsd = s.state.client.statsd.Clone(
 					s.state.conn,
 					s.statsdConfig.statsdTagsFormat(),
@@ -218,7 +217,6 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 					statsd.Tags(tagVals...),
 					statsd.SampleRate(samplingRate),
 				)
-				taggedClient.statsdMu.Unlock()
 			} else {
 				// new statsd clients will be created when connection is established for all pending clients
 				s.state.pendingClients[taggedClientKey] = taggedClient
@@ -315,7 +313,7 @@ type statsdClient struct {
 
 // ready returns true if the statsd client is ready to be used (not nil).
 //
-// statsdMu.RLock should be held when calling this method.
+// sc.statsdMu.RLock should be held when calling this method.
 func (sc *statsdClient) ready() bool {
 	return sc.statsd != nil
 }
