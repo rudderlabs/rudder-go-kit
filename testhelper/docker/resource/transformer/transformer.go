@@ -8,7 +8,7 @@ import (
 
 	"github.com/samber/lo"
 
-	dockerTestHelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
+	dockertesthelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
@@ -58,7 +58,7 @@ func WithUserTransformations(transformations map[string]string, cleaner resource
 	return func(conf *config) {
 		backendConfigSvc := newTestBackendConfigServer(transformations)
 
-		conf.setBackendConfigURL(dockerTestHelper.ToInternalDockerHost(backendConfigSvc.URL))
+		conf.setBackendConfigURL(dockertesthelper.ToInternalDockerHost(backendConfigSvc.URL))
 		conf.extraHosts = append(conf.extraHosts, "host.docker.internal:host-gateway")
 		cleaner.Cleanup(func() {
 			backendConfigSvc.Close()
@@ -78,7 +78,7 @@ func WithConnectionToHostEnabled() func(*config) {
 // WithConfigBackendURL should not be used with WithUserTransformations option
 func WithConfigBackendURL(url string) func(*config) {
 	return func(conf *config) {
-		conf.setBackendConfigURL(dockerTestHelper.ToInternalDockerHost(url))
+		conf.setBackendConfigURL(dockertesthelper.ToInternalDockerHost(url))
 	}
 }
 

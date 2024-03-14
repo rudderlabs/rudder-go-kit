@@ -58,7 +58,7 @@ func TestUnStartedServer(t *testing.T) {
 		resp, err := http.Get("http://" + httpUnStartedServer.Listener.Addr().String())
 		defer func() { httputil.CloseResponse(resp) }()
 		return err == nil
-	}, 5*time.Second, time.Second, "connected to an un-started server")
+	}, 5*time.Second, 10*time.Millisecond, "connected to an un-started server")
 
 	// start the server now
 	httpUnStartedServer.Start()
@@ -72,7 +72,7 @@ func TestUnStartedServer(t *testing.T) {
 			body, err = io.ReadAll(resp.Body)
 		}
 		return err == nil
-	}, 5*time.Second, time.Second, "failed to connect to server")
+	}, 2*time.Second, 100*time.Millisecond, "failed to connect to server")
 
 	require.Equal(t, http.StatusOK, statusCode)
 	require.Equal(t, "Hello, world!", string(body))
