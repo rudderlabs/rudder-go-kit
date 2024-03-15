@@ -14,10 +14,15 @@ const (
 	versionIDKey           = "versionId"
 )
 
-func NewTestBackendConfigServer(transformations map[string]string) *kithttptest.Server {
+func newTestBackendConfigServer(transformations map[string]string) *kithttptest.Server {
+	return kithttptest.NewServer(NewTransformerBackendConfigHandler(transformations))
+}
+
+// NewTransformerBackendConfigHandler returns http request handler to handle all backend config requests by transformer
+func NewTransformerBackendConfigHandler(transformations map[string]string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(getByVersionIdEndPoint, getByVersionIdHandler(transformations))
-	return kithttptest.NewServer(mux)
+	return mux
 }
 
 func getByVersionIdHandler(transformations map[string]string) func(http.ResponseWriter, *http.Request) {

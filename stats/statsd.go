@@ -50,17 +50,28 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 	goFactory.Go(func() {
 		if err != nil {
 			s.logger.Info("retrying StatsD client creation in the background...")
-			s.state.client.statsdMu.Lock()
-			s.state.client.statsd, err = s.getNewStatsdClientWithExpoBackoff(ctx, s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags())
-			s.state.client.statsdMu.Unlock()
+			var c *statsd.Client
+			c, err = s.getNewStatsdClientWithExpoBackoff(
+				ctx,
+				s.state.conn,
+				s.statsdConfig.statsdTagsFormat(),
+				s.statsdConfig.statsdDefaultTags(),
+			)
 			if err != nil {
 				s.config.enabled.Store(false)
 				s.logger.Errorf("error while creating new StatsD client, giving up: %v", err)
 			} else {
 				s.state.clientsLock.Lock()
+				s.state.client.statsd = c
 				for _, client := range s.state.pendingClients {
 					client.statsdMu.Lock()
-					client.statsd = s.state.client.statsd.Clone(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags(), statsd.Tags(client.tags...), statsd.SampleRate(client.samplingRate))
+					client.statsd = s.state.client.statsd.Clone(
+						s.state.conn,
+						s.statsdConfig.statsdTagsFormat(),
+						s.statsdConfig.statsdDefaultTags(),
+						statsd.Tags(client.tags...),
+						statsd.SampleRate(client.samplingRate),
+					)
 					client.statsdMu.Unlock()
 				}
 
@@ -104,7 +115,7 @@ func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opt
 
 func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {
 	gaugeFunc := func(key string, val uint64) {
-		s.state.client.statsd.Gauge("runtime_"+key, val)
+		s.NewStat("runtime_"+key, GaugeType).Gauge(val)
 	}
 	s.state.rc = newRuntimeStatsCollector(gaugeFunc)
 	s.state.rc.PauseDur = time.Duration(s.config.periodicStatsConfig.statsCollectionInterval) * time.Second
@@ -152,7 +163,7 @@ func (s *statsdStats) Stop() {
 
 // NewStat creates a new Measurement with provided Name and Type
 func (s *statsdStats) NewStat(name, statType string) (m Measurement) {
-	return s.newStatsdMeasurement(name, statType, s.state.client)
+	return s.internalNewTaggedStat(name, statType, nil, 1)
 }
 
 func (s *statsdStats) NewTaggedStat(Name, StatType string, tags Tags) (m Measurement) {
@@ -199,9 +210,13 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 			tagVals := newTags.Strings()
 			taggedClient = &statsdClient{samplingRate: samplingRate, tags: tagVals}
 			if s.state.connEstablished {
-				taggedClient.statsdMu.Lock()
-				taggedClient.statsd = s.state.client.statsd.Clone(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags(), statsd.Tags(tagVals...), statsd.SampleRate(samplingRate))
-				taggedClient.statsdMu.Unlock()
+				taggedClient.statsd = s.state.client.statsd.Clone(
+					s.state.conn,
+					s.statsdConfig.statsdTagsFormat(),
+					s.statsdConfig.statsdDefaultTags(),
+					statsd.Tags(tagVals...),
+					statsd.SampleRate(samplingRate),
+				)
 			} else {
 				// new statsd clients will be created when connection is established for all pending clients
 				s.state.pendingClients[taggedClientKey] = taggedClient
@@ -297,9 +312,8 @@ type statsdClient struct {
 }
 
 // ready returns true if the statsd client is ready to be used (not nil).
+//
+// sc.statsdMu.RLock should be held when calling this method.
 func (sc *statsdClient) ready() bool {
-	sc.statsdMu.RLock()
-	defer sc.statsdMu.RUnlock()
-
 	return sc.statsd != nil
 }
