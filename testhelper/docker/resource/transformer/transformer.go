@@ -8,7 +8,7 @@ import (
 
 	"github.com/samber/lo"
 
-	dockerTestHelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
+	dockertesthelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
@@ -56,9 +56,9 @@ func (c *config) setBackendConfigURL(url string) {
 //			})
 func WithUserTransformations(transformations map[string]string, cleaner resource.Cleaner) func(*config) {
 	return func(conf *config) {
-		backendConfigSvc := NewTestBackendConfigServer(transformations)
+		backendConfigSvc := newTestBackendConfigServer(transformations)
 
-		conf.setBackendConfigURL(dockerTestHelper.ToInternalDockerHost(backendConfigSvc.URL))
+		conf.setBackendConfigURL(dockertesthelper.ToInternalDockerHost(backendConfigSvc.URL))
 		conf.extraHosts = append(conf.extraHosts, "host.docker.internal:host-gateway")
 		cleaner.Cleanup(func() {
 			backendConfigSvc.Close()
@@ -66,11 +66,19 @@ func WithUserTransformations(transformations map[string]string, cleaner resource
 	}
 }
 
+// WithConnectionToHostEnabled lets transformer container connect with the host machine
+// i.e. transformer container will be able to access localhost of the host machine
+func WithConnectionToHostEnabled() func(*config) {
+	return func(conf *config) {
+		conf.extraHosts = append(conf.extraHosts, "host.docker.internal:host-gateway")
+	}
+}
+
 // WithConfigBackendURL lets transformer use custom backend config server for transformations
 // WithConfigBackendURL should not be used with WithUserTransformations option
 func WithConfigBackendURL(url string) func(*config) {
 	return func(conf *config) {
-		conf.setBackendConfigURL(url)
+		conf.setBackendConfigURL(dockertesthelper.ToInternalDockerHost(url))
 	}
 }
 
