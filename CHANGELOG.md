@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.23.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.1...v0.23.2) (2024-03-15)
+
+
+### Bug Fixes
+
+* indefinite function runs inside mutex lock ([#372](https://github.com/rudderlabs/rudder-go-kit/issues/372)) ([0c2c23b](https://github.com/rudderlabs/rudder-go-kit/commit/0c2c23b8fdc319163d6a3570de6e89ff7833ef53))
+
+
+### Miscellaneous
+
+* **deps:** bump cloud.google.com/go/storage from 1.38.0 to 1.39.1 ([#377](https://github.com/rudderlabs/rudder-go-kit/issues/377)) ([a520f91](https://github.com/rudderlabs/rudder-go-kit/commit/a520f915165cc5b6ce2e8081d2cf5b030c7e88fe))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.50.24 to 1.50.30 ([#366](https://github.com/rudderlabs/rudder-go-kit/issues/366)) ([6255c36](https://github.com/rudderlabs/rudder-go-kit/commit/6255c36051d664b1d58b19462913735261809369))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.50.30 to 1.50.38 ([#378](https://github.com/rudderlabs/rudder-go-kit/issues/378)) ([dfefeec](https://github.com/rudderlabs/rudder-go-kit/commit/dfefeecc9ad7c58fdb22147fdc458f99584b9f10))
+* **deps:** bump github.com/minio/minio-go/v7 from 7.0.67 to 7.0.69 ([#373](https://github.com/rudderlabs/rudder-go-kit/issues/373)) ([77ee989](https://github.com/rudderlabs/rudder-go-kit/commit/77ee9890647c1c04a90af60514a8441f53c625e5))
+* **deps:** bump github.com/prometheus/common from 0.48.0 to 0.50.0 ([#371](https://github.com/rudderlabs/rudder-go-kit/issues/371)) ([4c6d4b6](https://github.com/rudderlabs/rudder-go-kit/commit/4c6d4b6169a15dbe930e2d87958a2962fc1a99b4))
+* **deps:** bump github.com/shirou/gopsutil/v3 from 3.24.1 to 3.24.2 ([#369](https://github.com/rudderlabs/rudder-go-kit/issues/369)) ([1b4cc97](https://github.com/rudderlabs/rudder-go-kit/commit/1b4cc9725fabc6ddddabb9d71f0d102de1553915))
+* **deps:** bump github.com/stretchr/testify from 1.8.4 to 1.9.0 ([#379](https://github.com/rudderlabs/rudder-go-kit/issues/379)) ([0ec92af](https://github.com/rudderlabs/rudder-go-kit/commit/0ec92afe6a6cb7a19af3271190fd58849d9f3024))
+* **deps:** bump google.golang.org/api from 0.166.0 to 0.167.0 ([#356](https://github.com/rudderlabs/rudder-go-kit/issues/356)) ([6982111](https://github.com/rudderlabs/rudder-go-kit/commit/69821111eea4b85afbe29c5891b517cde3acf466))
+* **deps:** bump the opentelemetry group with 9 updates ([#354](https://github.com/rudderlabs/rudder-go-kit/issues/354)) ([f4fb7b4](https://github.com/rudderlabs/rudder-go-kit/commit/f4fb7b4c1f36503e361952d7b305dcc840d4249c))
+* export config BE handler for transformer, and unstarted http test server ([#374](https://github.com/rudderlabs/rudder-go-kit/issues/374)) ([018b6f7](https://github.com/rudderlabs/rudder-go-kit/commit/018b6f742d4b65be1f9fd3b453e083a79470999f))
+
 ## [0.23.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.0...v0.23.1) (2024-02-27)
 
 
