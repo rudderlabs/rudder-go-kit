@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.23.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.2...v0.23.3) (2024-03-25)
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.50.38 to 1.51.6 ([#391](https://github.com/rudderlabs/rudder-go-kit/issues/391)) ([be9d6c1](https://github.com/rudderlabs/rudder-go-kit/commit/be9d6c1ac86bf38c9f0614b102767cfd2e92ae43))
+* **deps:** bump github.com/docker/docker from 20.10.27+incompatible to 24.0.9+incompatible ([#385](https://github.com/rudderlabs/rudder-go-kit/issues/385)) ([1ce09ad](https://github.com/rudderlabs/rudder-go-kit/commit/1ce09adb73211eaad26a2ed79cc269611a7234b9))
+* **deps:** bump github.com/prometheus/common from 0.50.0 to 0.51.1 ([#392](https://github.com/rudderlabs/rudder-go-kit/issues/392)) ([3f4ce58](https://github.com/rudderlabs/rudder-go-kit/commit/3f4ce58c076d89b22964ff48ad5982cc0b221f87))
+* **deps:** bump google.golang.org/api from 0.167.0 to 0.171.0 ([#389](https://github.com/rudderlabs/rudder-go-kit/issues/389)) ([4f23940](https://github.com/rudderlabs/rudder-go-kit/commit/4f23940b0dc518f5c0120fd2dd769de13592dff9))
+
 ## [0.23.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.1...v0.23.2) (2024-03-15)
 
 
