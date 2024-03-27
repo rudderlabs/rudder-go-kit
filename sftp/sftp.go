@@ -19,23 +19,62 @@ const (
 
 // SSHConfig represents the configuration for SSH connection
 type SSHConfig struct {
-	Hostname   string
+	Host       string
 	Port       int
-	Username   string
+	User       string
 	AuthMethod string
 	PrivateKey string
 	Password   string // Password for password-based authentication
 }
 
-// SFTPClient represents an SFTP client
-type SFTPClient struct {
+// SSHClient interface abstracts the SSH client
+type SSHClient interface {
+	Dial(network, addr string, config *ssh.ClientConfig) (*ssh.Client, error)
+}
+
+// SFTPClient interface abstracts the SFTP client
+type SFTPClient interface {
+	CreateNew(client *ssh.Client) (*sftp.Client, error)
+	UploadFile(localFilePath, remoteDir string) error
+	DownloadFile(remoteFilePath, localDir string) error
+	DeleteFile(remoteFilePath string) error
+}
+
+// SSHClientImpl is a real implementation of SSHClient
+type SSHClientImpl struct{}
+
+// Dial establishes an SSH connection
+func (r *SSHClientImpl) Dial(network, addr string, config *ssh.ClientConfig) (*ssh.Client, error) {
+	return ssh.Dial(network, addr, config)
+}
+
+// SFTPClientImpl is a real implementation of SFTPClient
+type SFTPClientImpl struct {
 	client *sftp.Client
 }
 
+// Create creates a file on the remote server
+func (r *SFTPClientImpl) Create(remoteFilePath string) (io.WriteCloser, error) {
+	return r.client.Create(remoteFilePath)
+}
+
+// Create creates an SFTP client from an existing SSH client
+func (r *SFTPClientImpl) CreateNew(client *ssh.Client) (*sftp.Client, error) {
+	return sftp.NewClient(client)
+}
+
 // NewSSHClient establishes an SSH connection and returns an SSH client
-func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
+func NewSSHClient(config *SSHConfig, client SSHClient) (*ssh.Client, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config should not be nil")
+	}
+
+	if config.Host == "" {
+		return nil, fmt.Errorf("host should not be empty")
+	}
+
+	if config.User == "" {
+		return nil, fmt.Errorf("user should not be empty")
 	}
 
 	var authMethods []ssh.AuthMethod
@@ -44,7 +83,6 @@ func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
 	case PasswordAuth:
 		authMethods = []ssh.AuthMethod{ssh.Password(config.Password)}
 	case KeyAuth:
-
 		privateKey, err := ssh.ParsePrivateKey([]byte(config.PrivateKey))
 		if err != nil {
 			return nil, err
@@ -55,30 +93,41 @@ func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
 	}
 
 	sshConfig := &ssh.ClientConfig{
-		User:            config.Username,
+		User:            config.User,
 		Auth:            authMethods,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Use it only for testing purposes. Not recommended for production.
 	}
 
-	sshClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", config.Hostname, config.Port), sshConfig)
-	if err != nil {
-		return nil, err
+	if client == nil {
+		// Use real implementation if client is not provided
+		client = &SSHClientImpl{}
 	}
-
+	sshClient, err := client.Dial("tcp", fmt.Sprintf("%s:%d", config.Host, config.Port), sshConfig)
+	if err != nil {
+		return nil, fmt.Errorf("cannot dial SSH host %q: %w", config.Host, err)
+	}
 	return sshClient, nil
 }
 
-// NewSFTPClient creates a new SFTP client from an existing SSH client
-func NewSFTPClient(sshClient *ssh.Client) (*SFTPClient, error) {
-	sftpClient, err := sftp.NewClient(sshClient)
-	if err != nil {
-		return nil, err
+func NewSFTPClient(sshClient *ssh.Client, client SFTPClient) (*SFTPClientImpl, error) {
+	if client == nil {
+		// Use real implementation if client is not provided
+		realClient := &SFTPClientImpl{}
+		sftpClient, err := realClient.CreateNew(sshClient)
+		if err != nil {
+			return nil, err // Return the error
+		}
+		return &SFTPClientImpl{client: sftpClient}, nil
 	}
-	return &SFTPClient{client: sftpClient}, nil
+	sftpClient, err := client.CreateNew(sshClient)
+	if err != nil {
+		return nil, err // Return the error
+	}
+	return &SFTPClientImpl{client: sftpClient}, nil
 }
 
 // UploadFile uploads a file to the remote server
-func (s *SFTPClient) UploadFile(localFilePath, remoteDir string) error {
+func (r *SFTPClientImpl) UploadFile(localFilePath, remoteDir string) error {
 	localFile, err := os.Open(localFilePath)
 	if err != nil {
 		return err
@@ -86,7 +135,7 @@ func (s *SFTPClient) UploadFile(localFilePath, remoteDir string) error {
 	defer localFile.Close()
 
 	remoteFileName := filepath.Join(remoteDir, filepath.Base(localFilePath))
-	remoteFile, err := s.client.Create(remoteFileName)
+	remoteFile, err := r.client.Create(remoteFileName)
 	if err != nil {
 		return err
 	}
@@ -102,8 +151,8 @@ func (s *SFTPClient) UploadFile(localFilePath, remoteDir string) error {
 }
 
 // DownloadFile downloads a file from the remote server
-func (s *SFTPClient) DownloadFile(remoteFilePath, localDir string) error {
-	remoteFile, err := s.client.Open(remoteFilePath)
+func (r *SFTPClientImpl) DownloadFile(remoteFilePath, localDir string) error {
+	remoteFile, err := r.client.Open(remoteFilePath)
 	if err != nil {
 		return err
 	}
@@ -126,8 +175,8 @@ func (s *SFTPClient) DownloadFile(remoteFilePath, localDir string) error {
 }
 
 // DeleteFile deletes a file on the remote server
-func (s *SFTPClient) DeleteFile(remoteFilePath string) error {
-	err := s.client.Remove(remoteFilePath)
+func (r *SFTPClientImpl) DeleteFile(remoteFilePath string) error {
+	err := r.client.Remove(remoteFilePath)
 	if err != nil {
 		return err
 	}
