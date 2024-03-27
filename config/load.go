@@ -2,9 +2,7 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -17,7 +15,9 @@ func (c *Config) load() {
 	c.hotReloadableConfig = make(map[string][]*configValue)
 	c.envs = make(map[string]string)
 
-	if err := godotenv.Load(); err != nil && !isTest() {
+	logErrors := getEnv("CONFIG_LOG_ERRORS", "false") == "true"
+
+	if err := godotenv.Load(); err != nil && logErrors {
 		fmt.Println("INFO: No .env file found.")
 	}
 
@@ -30,7 +30,7 @@ func (c *Config) load() {
 	v.SetConfigFile(configPath)
 	err := v.ReadInConfig() // Find and read the config file
 	// Don't panic if config.yaml is not found or error with parsing. Use the default config values instead
-	if err != nil && !isTest() {
+	if err != nil && logErrors {
 		fmt.Printf("[Config] :: Failed to parse config file from path %q, using default values: %v\n", configPath, err)
 	}
 	v.OnConfigChange(func(e fsnotify.Event) {
@@ -229,13 +229,4 @@ func mapDeepEqual[K comparable, V any](a, b map[K]V) bool {
 		}
 	}
 	return true
-}
-
-func isTest() bool {
-	for _, arg := range os.Args {
-		if strings.HasPrefix(arg, "-test.") {
-			return true
-		}
-	}
-	return false
 }
