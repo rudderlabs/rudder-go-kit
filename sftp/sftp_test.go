@@ -6,18 +6,12 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/pkg/sftp"
 	mock_sftp "github.com/rudderlabs/rudder-go-kit/sftp/mock_sftp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/ssh"
 )
 
-func TestSSH(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockSSHClient := mock_sftp.NewMockSSHClient(ctrl)
+func TestConfigureSSHClient(t *testing.T) {
 
 	// Read private key
 	privateKey, err := os.ReadFile("./testdata/ssh/test_key")
@@ -83,11 +77,8 @@ func TestSSH(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			if tc.expectedError == nil {
-				mockSSHClient.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ssh.Client{}, nil)
-			}
 
-			sshClient, err := NewSSHClient(tc.config, mockSSHClient)
+			sshClient, err := ConfigureSSHClient(tc.config)
 			if tc.expectedError != nil {
 				assert.EqualError(t, tc.expectedError, err.Error())
 				assert.Nil(t, sshClient)
@@ -100,17 +91,37 @@ func TestSSH(t *testing.T) {
 	}
 }
 
-func TestSFTP(t *testing.T) {
+func TestUploadFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Mock SFTP client
+	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	mockSFTPClient.EXPECT().UploadFile(gomock.Any(), gomock.Any()).Return(nil)
+
+	err := mockSFTPClient.UploadFile("someLocalFilePath", "someRemoteDir")
+	require.NoError(t, err)
+}
+
+func TestDownloadFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	mockSFTPClient.EXPECT().DownloadFile(gomock.Any(), gomock.Any()).Return(nil)
 
-	// Prepare mock response for CreateNew method
-	mockSFTPClient.EXPECT().CreateNew(gomock.Any()).Return(&sftp.Client{}, nil)
+	err := mockSFTPClient.DownloadFile("someRemotePath", "someRemoteDir")
+	require.NoError(t, err)
+}
 
-	// Call the NewSFTPClient function with the given SSH client and mock SFTP client
-	sftpClient, err := NewSFTPClient(&ssh.Client{}, mockSFTPClient)
-	assert.Nil(t, err)
-	assert.NotNil(t, sftpClient)
+func TestDeleteFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Mock SFTP client
+	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	mockSFTPClient.EXPECT().DeleteFile(gomock.Any()).Return(nil)
+
+	err := mockSFTPClient.DeleteFile("someRemotePath")
+	require.NoError(t, err)
 }

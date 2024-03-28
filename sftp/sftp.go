@@ -27,25 +27,11 @@ type SSHConfig struct {
 	Password   string // Password for password-based authentication
 }
 
-// SSHClient interface abstracts the SSH client
-type SSHClient interface {
-	Dial(network, addr string, config *ssh.ClientConfig) (*ssh.Client, error)
-}
-
 // SFTPClient interface abstracts the SFTP client
 type SFTPClient interface {
-	CreateNew(client *ssh.Client) (*sftp.Client, error)
 	UploadFile(localFilePath, remoteDir string) error
 	DownloadFile(remoteFilePath, localDir string) error
 	DeleteFile(remoteFilePath string) error
-}
-
-// SSHClientImpl is a real implementation of SSHClient
-type SSHClientImpl struct{}
-
-// Dial establishes an SSH connection
-func (r *SSHClientImpl) Dial(network, addr string, config *ssh.ClientConfig) (*ssh.Client, error) {
-	return ssh.Dial(network, addr, config)
 }
 
 // SFTPClientImpl is a real implementation of SFTPClient
@@ -53,18 +39,7 @@ type SFTPClientImpl struct {
 	client *sftp.Client
 }
 
-// Create creates a file on the remote server
-func (r *SFTPClientImpl) Create(remoteFilePath string) (io.WriteCloser, error) {
-	return r.client.Create(remoteFilePath)
-}
-
-// Create creates an SFTP client from an existing SSH client
-func (r *SFTPClientImpl) CreateNew(client *ssh.Client) (*sftp.Client, error) {
-	return sftp.NewClient(client)
-}
-
-// NewSSHClient establishes an SSH connection and returns an SSH client
-func NewSSHClient(config *SSHConfig, client SSHClient) (*ssh.Client, error) {
+func ConfigureSSHClient(config *SSHConfig) (*ssh.ClientConfig, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config should not be nil")
 	}
@@ -98,30 +73,28 @@ func NewSSHClient(config *SSHConfig, client SSHClient) (*ssh.Client, error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Use it only for testing purposes. Not recommended for production.
 	}
 
-	if client == nil {
-		// Use real implementation if client is not provided
-		client = &SSHClientImpl{}
+	return sshConfig, nil
+}
+
+// NewSSHClient establishes an SSH connection and returns an SSH client
+func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
+	sshConfig, err := ConfigureSSHClient(config)
+	if err != nil {
+		return nil, err
+
 	}
-	sshClient, err := client.Dial("tcp", fmt.Sprintf("%s:%d", config.Host, config.Port), sshConfig)
+
+	sshClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", config.Host, config.Port), sshConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot dial SSH host %q: %w", config.Host, err)
 	}
 	return sshClient, nil
 }
 
-func NewSFTPClient(sshClient *ssh.Client, client SFTPClient) (*SFTPClientImpl, error) {
-	if client == nil {
-		// Use real implementation if client is not provided
-		realClient := &SFTPClientImpl{}
-		sftpClient, err := realClient.CreateNew(sshClient)
-		if err != nil {
-			return nil, err // Return the error
-		}
-		return &SFTPClientImpl{client: sftpClient}, nil
-	}
-	sftpClient, err := client.CreateNew(sshClient)
+func NewSFTPClient(sshClient *ssh.Client) (*SFTPClientImpl, error) {
+	sftpClient, err := sftp.NewClient(sshClient)
 	if err != nil {
-		return nil, err // Return the error
+		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
 	}
 	return &SFTPClientImpl{client: sftpClient}, nil
 }

@@ -8,47 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	sftp "github.com/pkg/sftp"
-	ssh "golang.org/x/crypto/ssh"
 )
-
-// MockSSHClient is a mock of SSHClient interface.
-type MockSSHClient struct {
-	ctrl     *gomock.Controller
-	recorder *MockSSHClientMockRecorder
-}
-
-// MockSSHClientMockRecorder is the mock recorder for MockSSHClient.
-type MockSSHClientMockRecorder struct {
-	mock *MockSSHClient
-}
-
-// NewMockSSHClient creates a new mock instance.
-func NewMockSSHClient(ctrl *gomock.Controller) *MockSSHClient {
-	mock := &MockSSHClient{ctrl: ctrl}
-	mock.recorder = &MockSSHClientMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSSHClient) EXPECT() *MockSSHClientMockRecorder {
-	return m.recorder
-}
-
-// Dial mocks base method.
-func (m *MockSSHClient) Dial(network, addr string, config *ssh.ClientConfig) (*ssh.Client, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Dial", network, addr, config)
-	ret0, _ := ret[0].(*ssh.Client)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Dial indicates an expected call of Dial.
-func (mr *MockSSHClientMockRecorder) Dial(network, addr, config interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dial", reflect.TypeOf((*MockSSHClient)(nil).Dial), network, addr, config)
-}
 
 // MockSFTPClient is a mock of SFTPClient interface.
 type MockSFTPClient struct {
@@ -71,21 +31,6 @@ func NewMockSFTPClient(ctrl *gomock.Controller) *MockSFTPClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSFTPClient) EXPECT() *MockSFTPClientMockRecorder {
 	return m.recorder
-}
-
-// CreateNew mocks base method.
-func (m *MockSFTPClient) CreateNew(client *ssh.Client) (*sftp.Client, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateNew", client)
-	ret0, _ := ret[0].(*sftp.Client)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateNew indicates an expected call of CreateNew.
-func (mr *MockSFTPClientMockRecorder) CreateNew(client interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNew", reflect.TypeOf((*MockSFTPClient)(nil).CreateNew), client)
 }
 
 // DeleteFile mocks base method.
