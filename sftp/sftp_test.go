@@ -96,7 +96,6 @@ func TestUploadFile(t *testing.T) {
 	remoteDir := "testdata/upload/remote"
 	remoteFilePath := "testdata/upload/remote/test_file.json"
 
-	// Mock SFTP client
 	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
 	err := os.MkdirAll(remoteDir, 0755)
 	require.NoError(t, err)
@@ -105,13 +104,17 @@ func TestUploadFile(t *testing.T) {
 	tempFile, err := os.Create(remoteFilePath)
 	require.NoError(t, err)
 
-	mockWriteCloser := &mock_sftp.MockWriteCloser{File: tempFile}
-	mockSFTPClient.EXPECT().Create(remoteFilePath).Return(mockWriteCloser, nil)
+	mockSFTPClient.EXPECT().Create(remoteFilePath).Return(tempFile, nil)
 
 	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
 
 	err = sftpManager.UploadFile(localFilePath, remoteDir)
 	require.NoError(t, err)
+	remoteFileContents, err := os.ReadFile(remoteFilePath)
+	require.NoError(t, err)
+	localFileContents, err := os.ReadFile(localFilePath)
+	require.NoError(t, err)
+	assert.Equal(t, localFileContents, remoteFileContents)
 
 }
 
@@ -120,9 +123,9 @@ func TestDownloadFile(t *testing.T) {
 	defer ctrl.Finish()
 
 	localDir := "testdata/download/local"
+	localFilePath := "testdata/download/local/test_file.json"
 	remoteFilePath := "testdata/download/remote/test_file.json"
 
-	// Mock SFTP client
 	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
 	remoteFile, err := os.Open(remoteFilePath)
 	require.NoError(t, err)
@@ -131,13 +134,18 @@ func TestDownloadFile(t *testing.T) {
 	err = os.MkdirAll(localDir, 0755)
 	require.NoError(t, err)
 	defer os.RemoveAll(localDir)
-	mockReadCloser := &mock_sftp.MockReadCloser{File: remoteFile}
-	mockSFTPClient.EXPECT().Open(remoteFilePath).Return(mockReadCloser, nil)
+
+	mockSFTPClient.EXPECT().Open(remoteFilePath).Return(remoteFile, nil)
 
 	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
 
 	err = sftpManager.DownloadFile(remoteFilePath, localDir)
 	require.NoError(t, err)
+	remoteFileContents, err := os.ReadFile(remoteFilePath)
+	require.NoError(t, err)
+	localFileContents, err := os.ReadFile(localFilePath)
+	require.NoError(t, err)
+	assert.Equal(t, localFileContents, remoteFileContents)
 
 }
 
@@ -147,7 +155,6 @@ func TestDeleteFile(t *testing.T) {
 
 	remoteFilePath := "testdata/remote/test_file.json"
 
-	// Mock SFTP client
 	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
 	mockSFTPClient.EXPECT().Remove(remoteFilePath).Return(nil)
 
