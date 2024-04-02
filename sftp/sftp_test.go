@@ -98,8 +98,13 @@ func TestUploadFile(t *testing.T) {
 
 	// Mock SFTP client
 	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	err := os.MkdirAll(remoteDir, 0755)
+	require.NoError(t, err)
+	defer os.RemoveAll(remoteDir)
+
 	tempFile, err := os.Create(remoteFilePath)
 	require.NoError(t, err)
+
 	mockWriteCloser := &mock_sftp.MockWriteCloser{File: tempFile}
 	mockSFTPClient.EXPECT().Create(remoteFilePath).Return(mockWriteCloser, nil)
 
@@ -107,8 +112,7 @@ func TestUploadFile(t *testing.T) {
 
 	err = sftpManager.UploadFile(localFilePath, remoteDir)
 	require.NoError(t, err)
-	// cleaning up the temp remote file
-	os.Remove(remoteFilePath)
+
 }
 
 func TestDownloadFile(t *testing.T) {
@@ -123,6 +127,10 @@ func TestDownloadFile(t *testing.T) {
 	remoteFile, err := os.Open(remoteFilePath)
 	require.NoError(t, err)
 	defer remoteFile.Close()
+
+	err = os.MkdirAll(localDir, 0755)
+	require.NoError(t, err)
+	defer os.RemoveAll(localDir)
 	mockReadCloser := &mock_sftp.MockReadCloser{File: remoteFile}
 	mockSFTPClient.EXPECT().Open(remoteFilePath).Return(mockReadCloser, nil)
 
@@ -130,6 +138,7 @@ func TestDownloadFile(t *testing.T) {
 
 	err = sftpManager.DownloadFile(remoteFilePath, localDir)
 	require.NoError(t, err)
+
 }
 
 func TestDeleteFile(t *testing.T) {
