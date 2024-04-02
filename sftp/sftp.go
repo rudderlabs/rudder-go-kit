@@ -53,6 +53,7 @@ func (r *SFTPManagerImpl) UploadFile(localFilePath, remoteDir string) error {
 
 	_, err = io.Copy(remoteFile, localFile)
 	if err != nil {
+		fmt.Printf("Error copying file: %v\n", err)
 		return err
 	}
 

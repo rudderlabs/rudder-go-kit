@@ -5,13 +5,15 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	"github.com/rudderlabs/rudder-go-kit/sftp/mock_sftp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConfigureSSHClient(t *testing.T) {
 	// Read private key
-	privateKey, err := os.ReadFile("./testdata/ssh/test_key")
+	privateKey, err := os.ReadFile("testdata/ssh/test_key")
 	require.NoError(t, err)
 
 	type testCase struct {
@@ -84,4 +86,64 @@ func TestConfigureSSHClient(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUploadFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	localFilePath := "testdata/upload/local/test_file.json"
+	remoteDir := "testdata/upload/remote"
+	remoteFilePath := "testdata/upload/remote/test_file.json"
+
+	// Mock SFTP client
+	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	tempFile, err := os.Create(remoteFilePath)
+	require.NoError(t, err)
+	mockWriteCloser := &mock_sftp.MockWriteCloser{File: tempFile}
+	mockSFTPClient.EXPECT().Create(remoteFilePath).Return(mockWriteCloser, nil)
+
+	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
+
+	err = sftpManager.UploadFile(localFilePath, remoteDir)
+	require.NoError(t, err)
+	// cleaning up the temp remote file
+	os.Remove(remoteFilePath)
+}
+
+func TestDownloadFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	localDir := "testdata/download/local"
+	remoteFilePath := "testdata/download/remote/test_file.json"
+
+	// Mock SFTP client
+	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	remoteFile, err := os.Open(remoteFilePath)
+	require.NoError(t, err)
+	defer remoteFile.Close()
+	mockReadCloser := &mock_sftp.MockReadCloser{File: remoteFile}
+	mockSFTPClient.EXPECT().Open(remoteFilePath).Return(mockReadCloser, nil)
+
+	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
+
+	err = sftpManager.DownloadFile(remoteFilePath, localDir)
+	require.NoError(t, err)
+}
+
+func TestDeleteFile(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	remoteFilePath := "testdata/remote/test_file.json"
+
+	// Mock SFTP client
+	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	mockSFTPClient.EXPECT().Remove(remoteFilePath).Return(nil)
+
+	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
+
+	err := sftpManager.DeleteFile(remoteFilePath)
+	require.NoError(t, err)
 }
