@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -17,90 +16,28 @@ const (
 	KeyAuth = "keyAuth"
 )
 
-// SSHConfig represents the configuration for SSH connection
-type SSHConfig struct {
-	Host       string
-	Port       int
-	User       string
-	AuthMethod string
-	PrivateKey string
-	Password   string // Password for password-based authentication
-}
-
-// SFTPClient interface abstracts the SFTP client
-type SFTPClient interface {
+// SFTPManager interface abstracts the SFTP client
+type SFTPManager interface {
 	UploadFile(localFilePath, remoteDir string) error
 	DownloadFile(remoteFilePath, localDir string) error
 	DeleteFile(remoteFilePath string) error
 }
 
-// SFTPClientImpl is a real implementation of SFTPClient
-type SFTPClientImpl struct {
-	client *sftp.Client
+// SFTPManagerImpl is a real implementation of SFTPManager
+type SFTPManagerImpl struct {
+	client SFTPClient
 }
 
-func ConfigureSSHClient(config *SSHConfig) (*ssh.ClientConfig, error) {
-	if config == nil {
-		return nil, fmt.Errorf("config should not be nil")
-	}
-
-	if config.Host == "" {
-		return nil, fmt.Errorf("host should not be empty")
-	}
-
-	if config.User == "" {
-		return nil, fmt.Errorf("user should not be empty")
-	}
-
-	var authMethods []ssh.AuthMethod
-
-	switch config.AuthMethod {
-	case PasswordAuth:
-		authMethods = []ssh.AuthMethod{ssh.Password(config.Password)}
-	case KeyAuth:
-		privateKey, err := ssh.ParsePrivateKey([]byte(config.PrivateKey))
-		if err != nil {
-			return nil, err
-		}
-		authMethods = []ssh.AuthMethod{ssh.PublicKeys(privateKey)}
-	default:
-		return nil, fmt.Errorf("unsupported authentication method")
-	}
-
-	sshConfig := &ssh.ClientConfig{
-		User:            config.User,
-		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Use it only for testing purposes. Not recommended for production.
-	}
-
-	return sshConfig, nil
-}
-
-// NewSSHClient establishes an SSH connection and returns an SSH client
-func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
-	sshConfig, err := ConfigureSSHClient(config)
-	if err != nil {
-		return nil, err
-
-	}
-
-	sshClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", config.Host, config.Port), sshConfig)
-	if err != nil {
-		return nil, fmt.Errorf("cannot dial SSH host %q: %w", config.Host, err)
-	}
-	return sshClient, nil
-}
-
-func NewSFTPClient(sshClient *ssh.Client) (*SFTPClientImpl, error) {
-	sftpClient, err := sftp.NewClient(sshClient)
+func NewSFTPManager(sshClient *ssh.Client) (SFTPManager, error) {
+	sftpClient, err := NewSFTPClient(sshClient)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
 	}
-	return &SFTPClientImpl{client: sftpClient}, nil
+	return &SFTPManagerImpl{client: sftpClient}, nil
 }
 
 // UploadFile uploads a file to the remote server
-func (r *SFTPClientImpl) UploadFile(localFilePath, remoteDir string) error {
+func (r *SFTPManagerImpl) UploadFile(localFilePath, remoteDir string) error {
 	localFile, err := os.Open(localFilePath)
 	if err != nil {
 		return err
@@ -124,7 +61,7 @@ func (r *SFTPClientImpl) UploadFile(localFilePath, remoteDir string) error {
 }
 
 // DownloadFile downloads a file from the remote server
-func (r *SFTPClientImpl) DownloadFile(remoteFilePath, localDir string) error {
+func (r *SFTPManagerImpl) DownloadFile(remoteFilePath, localDir string) error {
 	remoteFile, err := r.client.Open(remoteFilePath)
 	if err != nil {
 		return err
@@ -148,7 +85,7 @@ func (r *SFTPClientImpl) DownloadFile(remoteFilePath, localDir string) error {
 }
 
 // DeleteFile deletes a file on the remote server
-func (r *SFTPClientImpl) DeleteFile(remoteFilePath string) error {
+func (r *SFTPManagerImpl) DeleteFile(remoteFilePath string) error {
 	err := r.client.Remove(remoteFilePath)
 	if err != nil {
 		return err
