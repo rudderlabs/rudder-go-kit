@@ -100,6 +100,9 @@ type Config struct {
 	reloadableVars          map[string]any
 	reloadableVarsMisuses   map[string]string
 	reloadableVarsLock      sync.RWMutex // used to protect both the reloadableVars and reloadableVarsMisuses maps
+	configPath              string
+	configPathErr           error
+	godotEnvErr             error
 }
 
 // GetBool gets bool value from config
