@@ -7,9 +7,10 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/rudderlabs/rudder-go-kit/sftp/mock_sftp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/rudderlabs/rudder-go-kit/sftp/mock_sftp"
 )
 
 func TestConfigureSSHClient(t *testing.T) {
@@ -110,7 +111,7 @@ func TestUploadFile(t *testing.T) {
 	require.NoError(t, err)
 	defer localFile.Close()
 	data := []byte(`{"foo": "bar"}`)
-	err = os.WriteFile(localFilePath, data, 0644)
+	err = os.WriteFile(localFilePath, data, 0o644)
 	require.NoError(t, err)
 
 	// Create remote file
@@ -153,7 +154,7 @@ func TestDownloadFile(t *testing.T) {
 	require.NoError(t, err)
 	defer remoteFile.Close()
 	data := []byte(`{"foo": "bar"}`)
-	err = os.WriteFile(remoteFilePath, data, 0644)
+	err = os.WriteFile(remoteFilePath, data, 0o644)
 	require.NoError(t, err)
 
 	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
