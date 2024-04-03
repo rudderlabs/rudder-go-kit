@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -12,12 +13,13 @@ import (
 
 // SSHConfig represents the configuration for SSH connection
 type SSHConfig struct {
-	Host       string
-	Port       int
-	User       string
-	AuthMethod string
-	PrivateKey string
-	Password   string // Password for password-based authentication
+	Host        string
+	Port        int
+	User        string
+	AuthMethod  string
+	PrivateKey  string
+	Password    string // Password for password-based authentication
+	DialTimeout time.Duration
 }
 
 // sshClientConfig constructs an SSH client configuration based on the provided SSHConfig.
@@ -52,6 +54,7 @@ func sshClientConfig(config *SSHConfig) (*ssh.ClientConfig, error) {
 	sshConfig := &ssh.ClientConfig{
 		User:            config.User,
 		Auth:            []ssh.AuthMethod{authMethods},
+		Timeout:         config.DialTimeout,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
@@ -67,7 +70,7 @@ func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
 
 	sshClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", config.Host, config.Port), sshConfig)
 	if err != nil {
-		return nil, fmt.Errorf("cannot dial SSH host %q: %w", config.Host, err)
+		return nil, fmt.Errorf("cannot dial SSH host %q:%d: %w", config.Host, config.Port, err)
 	}
 	return sshClient, nil
 }

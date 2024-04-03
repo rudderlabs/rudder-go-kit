@@ -16,7 +16,7 @@ const (
 	KeyAuth = "keyAuth"
 )
 
-// FileManager interface abstracts the SFTP client
+// FileManager is an interface for managing files on a remote server
 type FileManager interface {
 	Upload(localFilePath, remoteDir string) error
 	Download(remoteFilePath, localDir string) error
@@ -36,7 +36,7 @@ func NewFileManager(sshClient *ssh.Client) (FileManager, error) {
 	return &fileManagerImpl{client: sftpClient}, nil
 }
 
-// UploadFile uploads a file to the remote server
+// Upload uploads a file to the remote server
 func (r *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
 	localFile, err := os.Open(localFilePath)
 	if err != nil {
@@ -63,7 +63,7 @@ func (r *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
 	return nil
 }
 
-// DownloadFile downloads a file from the remote server
+// Download downloads a file from the remote server
 func (r *fileManagerImpl) Download(remoteFilePath, localDir string) error {
 	remoteFile, err := r.client.Open(remoteFilePath)
 	if err != nil {
@@ -90,7 +90,7 @@ func (r *fileManagerImpl) Download(remoteFilePath, localDir string) error {
 	return nil
 }
 
-// DeleteFile deletes a file on the remote server
+// Delete deletes a file on the remote server
 func (r *fileManagerImpl) Delete(remoteFilePath string) error {
 	err := r.client.Remove(remoteFilePath)
 	if err != nil {
