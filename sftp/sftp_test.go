@@ -3,6 +3,7 @@ package sftp
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -92,19 +93,32 @@ func TestUploadFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	localFilePath := "testdata/upload/local/test_file.json"
-	remoteDir := "testdata/upload/remote"
-	remoteFilePath := "testdata/upload/remote/test_file.json"
+	// Create local and remote directories within the temporary directory
+	localDir := filepath.Join(t.TempDir(), "local")
+	remoteDir := filepath.Join(t.TempDir(), "remote")
+	err := os.MkdirAll(localDir, 0755)
+	require.NoError(t, err)
+	err = os.MkdirAll(remoteDir, 0755)
+	require.NoError(t, err)
+
+	// Set up local and remote file paths within their respective directories
+	localFilePath := filepath.Join(localDir, "test_file.json")
+	remoteFilePath := filepath.Join(remoteDir, "test_file.json")
+
+	// Create local file and write data to it
+	localFile, err := os.Create(localFilePath)
+	require.NoError(t, err)
+	defer localFile.Close()
+	data := []byte(`{"foo": "bar"}`)
+	err = os.WriteFile(localFilePath, data, 0644)
+	require.NoError(t, err)
+
+	// Create remote file
+	remoteFile, err := os.Create(remoteFilePath)
+	require.NoError(t, err)
 
 	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
-	err := os.MkdirAll(remoteDir, 0755)
-	require.NoError(t, err)
-	defer os.RemoveAll(remoteDir)
-
-	tempFile, err := os.Create(remoteFilePath)
-	require.NoError(t, err)
-
-	mockSFTPClient.EXPECT().Create(remoteFilePath).Return(tempFile, nil)
+	mockSFTPClient.EXPECT().Create(remoteFilePath).Return(remoteFile, nil)
 
 	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
 
@@ -122,19 +136,27 @@ func TestDownloadFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	localDir := "testdata/download/local"
-	localFilePath := "testdata/download/local/test_file.json"
-	remoteFilePath := "testdata/download/remote/test_file.json"
+	// Create local and remote directories within the temporary directory
+	localDir := filepath.Join(t.TempDir(), "local")
+	remoteDir := filepath.Join(t.TempDir(), "remote")
+	err := os.MkdirAll(localDir, 0755)
+	require.NoError(t, err)
+	err = os.MkdirAll(remoteDir, 0755)
+	require.NoError(t, err)
 
-	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
-	remoteFile, err := os.Open(remoteFilePath)
+	// Set up local and remote file paths within their respective directories
+	localFilePath := filepath.Join(localDir, "test_file.json")
+	remoteFilePath := filepath.Join(remoteDir, "test_file.json")
+
+	// Create remote file and write data to it
+	remoteFile, err := os.Create(remoteFilePath)
 	require.NoError(t, err)
 	defer remoteFile.Close()
-
-	err = os.MkdirAll(localDir, 0755)
+	data := []byte(`{"foo": "bar"}`)
+	err = os.WriteFile(remoteFilePath, data, 0644)
 	require.NoError(t, err)
-	defer os.RemoveAll(localDir)
 
+	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
 	mockSFTPClient.EXPECT().Open(remoteFilePath).Return(remoteFile, nil)
 
 	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
@@ -153,8 +175,7 @@ func TestDeleteFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	remoteFilePath := "testdata/remote/test_file.json"
-
+	remoteFilePath := "someRemoteFilePath"
 	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
 	mockSFTPClient.EXPECT().Remove(remoteFilePath).Return(nil)
 

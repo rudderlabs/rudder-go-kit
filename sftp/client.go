@@ -50,7 +50,7 @@ func ConfigureSSHClient(config *SSHConfig) (*ssh.ClientConfig, error) {
 	sshConfig := &ssh.ClientConfig{
 		User:            config.User,
 		Auth:            authMethods,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // Use it only for testing purposes. Not recommended for production.
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 
 	return sshConfig, nil
@@ -80,6 +80,7 @@ type SFTPClient interface {
 	Remove(path string) error
 }
 
+// NewSFTPClient creates an SFTP client with existing SSH client
 func NewSFTPClient(client *ssh.Client) (SFTPClient, error) {
 	sftpClient, err := sftp.NewClient(client)
 	if err != nil {
