@@ -78,19 +78,19 @@ func TestConfigureSSHClient(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			sshClient, err := ConfigureSSHClient(tc.config)
+			sshConfig, err := sshClientConfig(tc.config)
 			if tc.expectedError != nil {
 				assert.EqualError(t, tc.expectedError, err.Error())
-				assert.Nil(t, sshClient)
+				assert.Nil(t, sshConfig)
 			} else {
 				assert.Nil(t, err)
-				assert.NotNil(t, sshClient)
+				assert.NotNil(t, sshConfig)
 			}
 		})
 	}
 }
 
-func TestUploadFile(t *testing.T) {
+func TestUpload(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -109,7 +109,7 @@ func TestUploadFile(t *testing.T) {
 	// Create local file and write data to it
 	localFile, err := os.Create(localFilePath)
 	require.NoError(t, err)
-	defer localFile.Close()
+	defer func() { _ = localFile.Close() }()
 	data := []byte(`{"foo": "bar"}`)
 	err = os.WriteFile(localFilePath, data, 0o644)
 	require.NoError(t, err)
@@ -118,12 +118,12 @@ func TestUploadFile(t *testing.T) {
 	remoteFile, err := os.Create(remoteFilePath)
 	require.NoError(t, err)
 
-	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
 	mockSFTPClient.EXPECT().Create(remoteFilePath).Return(remoteFile, nil)
 
-	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
+	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
-	err = sftpManager.UploadFile(localFilePath, remoteDir)
+	err = fileManager.Upload(localFilePath, remoteDir)
 	require.NoError(t, err)
 	remoteFileContents, err := os.ReadFile(remoteFilePath)
 	require.NoError(t, err)
@@ -132,7 +132,7 @@ func TestUploadFile(t *testing.T) {
 	assert.Equal(t, localFileContents, remoteFileContents)
 }
 
-func TestDownloadFile(t *testing.T) {
+func TestDownload(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -151,17 +151,17 @@ func TestDownloadFile(t *testing.T) {
 	// Create remote file and write data to it
 	remoteFile, err := os.Create(remoteFilePath)
 	require.NoError(t, err)
-	defer remoteFile.Close()
+	defer func() { _ = remoteFile.Close() }()
 	data := []byte(`{"foo": "bar"}`)
 	err = os.WriteFile(remoteFilePath, data, 0o644)
 	require.NoError(t, err)
 
-	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
 	mockSFTPClient.EXPECT().Open(remoteFilePath).Return(remoteFile, nil)
 
-	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
+	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
-	err = sftpManager.DownloadFile(remoteFilePath, localDir)
+	err = fileManager.Download(remoteFilePath, localDir)
 	require.NoError(t, err)
 	remoteFileContents, err := os.ReadFile(remoteFilePath)
 	require.NoError(t, err)
@@ -170,16 +170,16 @@ func TestDownloadFile(t *testing.T) {
 	assert.Equal(t, localFileContents, remoteFileContents)
 }
 
-func TestDeleteFile(t *testing.T) {
+func TestDelete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	remoteFilePath := "someRemoteFilePath"
-	mockSFTPClient := mock_sftp.NewMockSFTPClient(ctrl)
+	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
 	mockSFTPClient.EXPECT().Remove(remoteFilePath).Return(nil)
 
-	sftpManager := &SFTPManagerImpl{client: mockSFTPClient}
+	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
-	err := sftpManager.DeleteFile(remoteFilePath)
+	err := fileManager.Delete(remoteFilePath)
 	require.NoError(t, err)
 }
