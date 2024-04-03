@@ -130,7 +130,6 @@ func TestUploadFile(t *testing.T) {
 	localFileContents, err := os.ReadFile(localFilePath)
 	require.NoError(t, err)
 	assert.Equal(t, localFileContents, remoteFileContents)
-
 }
 
 func TestDownloadFile(t *testing.T) {
@@ -169,7 +168,6 @@ func TestDownloadFile(t *testing.T) {
 	localFileContents, err := os.ReadFile(localFilePath)
 	require.NoError(t, err)
 	assert.Equal(t, localFileContents, remoteFileContents)
-
 }
 
 func TestDeleteFile(t *testing.T) {
