@@ -96,9 +96,9 @@ func TestUploadFile(t *testing.T) {
 	// Create local and remote directories within the temporary directory
 	localDir := filepath.Join(t.TempDir(), "local")
 	remoteDir := filepath.Join(t.TempDir(), "remote")
-	err := os.MkdirAll(localDir, 0755)
+	err := os.MkdirAll(localDir, 0o755)
 	require.NoError(t, err)
-	err = os.MkdirAll(remoteDir, 0755)
+	err = os.MkdirAll(remoteDir, 0o755)
 	require.NoError(t, err)
 
 	// Set up local and remote file paths within their respective directories
@@ -139,9 +139,9 @@ func TestDownloadFile(t *testing.T) {
 	// Create local and remote directories within the temporary directory
 	localDir := filepath.Join(t.TempDir(), "local")
 	remoteDir := filepath.Join(t.TempDir(), "remote")
-	err := os.MkdirAll(localDir, 0755)
+	err := os.MkdirAll(localDir, 0o755)
 	require.NoError(t, err)
-	err = os.MkdirAll(remoteDir, 0755)
+	err = os.MkdirAll(remoteDir, 0o755)
 	require.NoError(t, err)
 
 	// Set up local and remote file paths within their respective directories
