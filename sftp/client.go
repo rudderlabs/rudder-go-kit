@@ -89,8 +89,8 @@ type Client interface {
 	Remove(path string) error
 }
 
-// NewSFTPClient creates an SFTP client with existing SSH client
-func NewSFTPClient(client *ssh.Client) (Client, error) {
+// newSFTPClient creates an SFTP client with existing SSH client
+func newSFTPClient(client *ssh.Client) (Client, error) {
 	sftpClient, err := sftp.NewClient(client)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
