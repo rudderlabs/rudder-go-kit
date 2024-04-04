@@ -13,7 +13,7 @@ import (
 
 // SSHConfig represents the configuration for SSH connection
 type SSHConfig struct {
-	Host        string
+	HostName    string
 	Port        int
 	User        string
 	AuthMethod  string
@@ -28,8 +28,12 @@ func sshClientConfig(config *SSHConfig) (*ssh.ClientConfig, error) {
 		return nil, errors.New("config should not be nil")
 	}
 
-	if config.Host == "" {
-		return nil, errors.New("host should not be empty")
+	if config.HostName == "" {
+		return nil, errors.New("hostname should not be empty")
+	}
+
+	if config.Port == 0 {
+		return nil, errors.New("port should not be empty")
 	}
 
 	if config.User == "" {
@@ -68,9 +72,9 @@ func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
 		return nil, fmt.Errorf("cannot configure SSH client: %w", err)
 	}
 
-	sshClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", config.Host, config.Port), sshConfig)
+	sshClient, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", config.HostName, config.Port), sshConfig)
 	if err != nil {
-		return nil, fmt.Errorf("cannot dial SSH host %q:%d: %w", config.Host, config.Port, err)
+		return nil, fmt.Errorf("cannot dial SSH host %q:%d: %w", config.HostName, config.Port, err)
 	}
 	return sshClient, nil
 }
