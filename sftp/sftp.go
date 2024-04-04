@@ -29,7 +29,7 @@ type fileManagerImpl struct {
 }
 
 func NewFileManager(sshClient *ssh.Client) (FileManager, error) {
-	sftpClient, err := NewSFTPClient(sshClient)
+	sftpClient, err := newSFTPClient(sshClient)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
 	}
