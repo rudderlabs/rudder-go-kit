@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/ory/dockertest/v3"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/sftp/mock_sftp"
@@ -95,11 +94,12 @@ func TestSSHClientConfig(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			sshConfig, err := sshClientConfig(tc.config)
 			if tc.expectedError != nil {
-				assert.EqualError(t, tc.expectedError, err.Error())
-				assert.Nil(t, sshConfig)
+
+				require.Error(t, tc.expectedError, err.Error())
+				require.Nil(t, sshConfig)
 			} else {
-				assert.Nil(t, err)
-				assert.NotNil(t, sshConfig)
+				require.NoError(t, err)
+				require.NotNil(t, sshConfig)
 			}
 		})
 	}
@@ -110,12 +110,9 @@ func TestUpload(t *testing.T) {
 	defer ctrl.Finish()
 
 	// Create local and remote directories within the temporary directory
-	baseDir := t.TempDir()
-	localDir := filepath.Join(baseDir, "local")
-	remoteDir := filepath.Join(baseDir, "remote")
-	err := os.MkdirAll(localDir, 0o755)
+	localDir, err := os.MkdirTemp("", t.Name())
 	require.NoError(t, err)
-	err = os.MkdirAll(remoteDir, 0o755)
+	remoteDir, err := os.MkdirTemp("", t.Name())
 	require.NoError(t, err)
 
 	// Set up local and remote file paths within their respective directories
@@ -145,7 +142,7 @@ func TestUpload(t *testing.T) {
 	require.NoError(t, err)
 	localFileContents, err := os.ReadFile(localFilePath)
 	require.NoError(t, err)
-	assert.Equal(t, localFileContents, remoteFileContents)
+	require.Equal(t, localFileContents, remoteFileContents)
 }
 
 func TestDownload(t *testing.T) {
@@ -153,12 +150,9 @@ func TestDownload(t *testing.T) {
 	defer ctrl.Finish()
 
 	// Create local and remote directories within the temporary directory
-	baseDir := t.TempDir()
-	localDir := filepath.Join(baseDir, "local")
-	remoteDir := filepath.Join(baseDir, "remote")
-	err := os.MkdirAll(localDir, 0o755)
+	localDir, err := os.MkdirTemp("", t.Name())
 	require.NoError(t, err)
-	err = os.MkdirAll(remoteDir, 0o755)
+	remoteDir, err := os.MkdirTemp("", t.Name())
 	require.NoError(t, err)
 
 	// Set up local and remote file paths within their respective directories
@@ -184,7 +178,7 @@ func TestDownload(t *testing.T) {
 	require.NoError(t, err)
 	localFileContents, err := os.ReadFile(localFilePath)
 	require.NoError(t, err)
-	assert.Equal(t, localFileContents, remoteFileContents)
+	require.Equal(t, localFileContents, remoteFileContents)
 }
 
 func TestDelete(t *testing.T) {
@@ -277,8 +271,11 @@ func TestSFTP(t *testing.T) {
 	downloadedFileContents, err := os.ReadFile(filepath.Join(baseDir, "test_file.json"))
 	require.NoError(t, err)
 	// Compare the contents of the local file and the downloaded file from the remote server
-	assert.Equal(t, localFileContents, downloadedFileContents)
+	require.Equal(t, localFileContents, downloadedFileContents)
 
 	err = sftpManger.Delete(remoteFilePath)
 	require.NoError(t, err)
+
+	err = sftpManger.Download(remoteFilePath, baseDir)
+	require.Error(t, err, "cannot open remote file: file does not exist")
 }
