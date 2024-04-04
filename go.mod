@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/storage v1.40.0
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/aws/aws-sdk-go v1.51.12
-	github.com/cenkalti/backoff/v4 v4.2.1
+	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.3.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.0.12
@@ -27,7 +27,7 @@ require (
 	github.com/prometheus/common v0.51.1
 	github.com/samber/lo v1.39.0
 	github.com/segmentio/kafka-go v0.4.47
-	github.com/shirou/gopsutil/v3 v3.24.2
+	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
