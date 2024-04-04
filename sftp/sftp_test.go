@@ -105,87 +105,14 @@ func TestSSHClientConfig(t *testing.T) {
 	}
 }
 
-func TestMain(t *testing.T) {
-	pool, err := dockertest.NewPool("")
-	require.NoError(t, err)
-
-	// Let's setup the SSH server
-	publicKeyPath, err := filepath.Abs("testdata/ssh/test_key.pub")
-	require.NoError(t, err)
-	sshServer, err := sshserver.Setup(pool, t,
-		sshserver.WithPublicKeyPath(publicKeyPath),
-		sshserver.WithCredentials("linuxserver.io", ""),
-	)
-	require.NoError(t, err)
-	sshServerHost := fmt.Sprintf("localhost:%d", sshServer.Port)
-	t.Logf("SSH server is listening on %s", sshServerHost)
-
-	// Read private key
-	privateKey, err := os.ReadFile("testdata/ssh/test_key")
-	require.NoError(t, err)
-
-	// Setup ssh client
-	hostname, portStr, err := net.SplitHostPort(sshServerHost)
-	require.NoError(t, err)
-	port, err := strconv.Atoi(portStr)
-	require.NoError(t, err)
-	sshClient, err := NewSSHClient(&SSHConfig{
-		User:        "linuxserver.io",
-		HostName:    hostname,
-		Port:        port,
-		AuthMethod:  "keyAuth",
-		PrivateKey:  string(privateKey),
-		DialTimeout: 10 * time.Second,
-	})
-	require.NoError(t, err)
-
-	// Create session
-	session, err := sshClient.NewSession()
-	require.NoError(t, err)
-	defer session.Close()
-
-	remoteDir := filepath.Join("/tmp", "remote")
-	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
-	require.NoError(t, err)
-
-	sftpManger, err := NewFileManager(sshClient)
-	require.NoError(t, err)
-
-	// Create local and remote directories within the temporary directory
-	localDir := filepath.Join(t.TempDir(), "local")
-
-	err = os.MkdirAll(localDir, 0o755)
-	require.NoError(t, err)
-
-	// Set up local and remote file paths within their respective directories
-	localFilePath := filepath.Join(localDir, "test_file.json")
-	remoteFilePath := filepath.Join(remoteDir, "test_file.json")
-
-	// Create local file and write data to it
-	localFile, err := os.Create(localFilePath)
-	require.NoError(t, err)
-	defer func() { _ = localFile.Close() }()
-	data := []byte(`{"foo": "bar"}`)
-	err = os.WriteFile(localFilePath, data, 0o644)
-	require.NoError(t, err)
-
-	err = sftpManger.Upload(localFilePath, remoteDir)
-	require.NoError(t, err)
-
-	err = sftpManger.Download(remoteFilePath, localDir)
-	require.NoError(t, err)
-
-	err = sftpManger.Delete(remoteFilePath)
-	require.NoError(t, err)
-}
-
 func TestUpload(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	// Create local and remote directories within the temporary directory
-	localDir := filepath.Join(t.TempDir(), "local")
-	remoteDir := filepath.Join(t.TempDir(), "remote")
+	baseDir := t.TempDir()
+	localDir := filepath.Join(baseDir, "local")
+	remoteDir := filepath.Join(baseDir, "remote")
 	err := os.MkdirAll(localDir, 0o755)
 	require.NoError(t, err)
 	err = os.MkdirAll(remoteDir, 0o755)
@@ -226,8 +153,9 @@ func TestDownload(t *testing.T) {
 	defer ctrl.Finish()
 
 	// Create local and remote directories within the temporary directory
-	localDir := filepath.Join(t.TempDir(), "local")
-	remoteDir := filepath.Join(t.TempDir(), "remote")
+	baseDir := t.TempDir()
+	localDir := filepath.Join(baseDir, "local")
+	remoteDir := filepath.Join(baseDir, "remote")
 	err := os.MkdirAll(localDir, 0o755)
 	require.NoError(t, err)
 	err = os.MkdirAll(remoteDir, 0o755)
@@ -270,5 +198,87 @@ func TestDelete(t *testing.T) {
 	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
 	err := fileManager.Delete(remoteFilePath)
+	require.NoError(t, err)
+}
+
+func TestSFTP(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	// Let's setup the SSH server
+	publicKeyPath, err := filepath.Abs("testdata/ssh/test_key.pub")
+	require.NoError(t, err)
+	sshServer, err := sshserver.Setup(pool, t,
+		sshserver.WithPublicKeyPath(publicKeyPath),
+		sshserver.WithCredentials("linuxserver.io", ""),
+	)
+	require.NoError(t, err)
+	sshServerHost := fmt.Sprintf("localhost:%d", sshServer.Port)
+	t.Logf("SSH server is listening on %s", sshServerHost)
+
+	// Read private key
+	privateKey, err := os.ReadFile("testdata/ssh/test_key")
+	require.NoError(t, err)
+
+	// Setup ssh client
+	hostname, portStr, err := net.SplitHostPort(sshServerHost)
+	require.NoError(t, err)
+	port, err := strconv.Atoi(portStr)
+	require.NoError(t, err)
+	sshClient, err := NewSSHClient(&SSHConfig{
+		User:        "linuxserver.io",
+		HostName:    hostname,
+		Port:        port,
+		AuthMethod:  "keyAuth",
+		PrivateKey:  string(privateKey),
+		DialTimeout: 10 * time.Second,
+	})
+	require.NoError(t, err)
+
+	// Create session
+	session, err := sshClient.NewSession()
+	require.NoError(t, err)
+	defer func() { _ = session.Close() }()
+
+	remoteDir := filepath.Join("/tmp", "remote")
+	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
+	require.NoError(t, err)
+
+	sftpManger, err := NewFileManager(sshClient)
+	require.NoError(t, err)
+
+	// Create local and remote directories within the temporary directory
+	baseDir := t.TempDir()
+	localDir := filepath.Join(baseDir, "local")
+
+	err = os.MkdirAll(localDir, 0o755)
+	require.NoError(t, err)
+
+	// Set up local and remote file paths within their respective directories
+	localFilePath := filepath.Join(localDir, "test_file.json")
+	remoteFilePath := filepath.Join(remoteDir, "test_file.json")
+
+	// Create local file and write data to it
+	localFile, err := os.Create(localFilePath)
+	require.NoError(t, err)
+	defer func() { _ = localFile.Close() }()
+	data := []byte(`{"foo": "bar"}`)
+	err = os.WriteFile(localFilePath, data, 0o644)
+	require.NoError(t, err)
+
+	err = sftpManger.Upload(localFilePath, remoteDir)
+	require.NoError(t, err)
+
+	err = sftpManger.Download(remoteFilePath, baseDir)
+	require.NoError(t, err)
+
+	localFileContents, err := os.ReadFile(localFilePath)
+	require.NoError(t, err)
+	downloadedFileContents, err := os.ReadFile(filepath.Join(baseDir, "test_file.json"))
+	require.NoError(t, err)
+	// Compare the contents of the local file and the downloaded file from the remote server
+	assert.Equal(t, localFileContents, downloadedFileContents)
+
+	err = sftpManger.Delete(remoteFilePath)
 	require.NoError(t, err)
 }

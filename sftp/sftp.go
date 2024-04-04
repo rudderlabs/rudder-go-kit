@@ -37,7 +37,7 @@ func NewFileManager(sshClient *ssh.Client) (FileManager, error) {
 }
 
 // Upload uploads a file to the remote server
-func (r *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
+func (f *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
 	localFile, err := os.Open(localFilePath)
 	if err != nil {
 		return fmt.Errorf("cannot open local file: %w", err)
@@ -47,7 +47,7 @@ func (r *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
 	}()
 
 	remoteFileName := filepath.Join(remoteDir, filepath.Base(localFilePath))
-	remoteFile, err := r.client.Create(remoteFileName)
+	remoteFile, err := f.client.Create(remoteFileName)
 	if err != nil {
 		return fmt.Errorf("cannot create remote file: %w", err)
 	}
@@ -64,8 +64,8 @@ func (r *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
 }
 
 // Download downloads a file from the remote server
-func (r *fileManagerImpl) Download(remoteFilePath, localDir string) error {
-	remoteFile, err := r.client.Open(remoteFilePath)
+func (f *fileManagerImpl) Download(remoteFilePath, localDir string) error {
+	remoteFile, err := f.client.Open(remoteFilePath)
 	if err != nil {
 		return fmt.Errorf("cannot open remote file: %w", err)
 	}
@@ -91,8 +91,8 @@ func (r *fileManagerImpl) Download(remoteFilePath, localDir string) error {
 }
 
 // Delete deletes a file on the remote server
-func (r *fileManagerImpl) Delete(remoteFilePath string) error {
-	err := r.client.Remove(remoteFilePath)
+func (f *fileManagerImpl) Delete(remoteFilePath string) error {
+	err := f.client.Remove(remoteFilePath)
 	if err != nil {
 		return fmt.Errorf("cannot delete file: %w", err)
 	}

@@ -94,21 +94,20 @@ func NewSFTPClient(client *ssh.Client) (Client, error) {
 	sftpClient, err := sftp.NewClient(client)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
-
 	}
 	return &clientImpl{
 		client: sftpClient,
 	}, nil
 }
 
-func (s *clientImpl) Create(path string) (io.WriteCloser, error) {
-	return s.client.Create(path)
+func (c *clientImpl) Create(path string) (io.WriteCloser, error) {
+	return c.client.Create(path)
 }
 
-func (s *clientImpl) Open(path string) (io.ReadCloser, error) {
-	return s.client.Open(path)
+func (c *clientImpl) Open(path string) (io.ReadCloser, error) {
+	return c.client.Open(path)
 }
 
-func (s *clientImpl) Remove(path string) error {
-	return s.client.Remove(path)
+func (c *clientImpl) Remove(path string) error {
+	return c.client.Remove(path)
 }
