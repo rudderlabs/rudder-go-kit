@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.24.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.3...v0.24.0) (2024-04-05)
+
+
+### Features
+
+* add sftp library ([#393](https://github.com/rudderlabs/rudder-go-kit/issues/393)) ([f0b67e9](https://github.com/rudderlabs/rudder-go-kit/commit/f0b67e93831d16b7f6618632ad44d718c8318b87))
+
+
+### Bug Fixes
+
+* health check for ssh server ([#411](https://github.com/rudderlabs/rudder-go-kit/issues/411)) ([c788d93](https://github.com/rudderlabs/rudder-go-kit/commit/c788d938775ccc9120244bf25d3726578b53c63b))
+
+
+### Miscellaneous
+
+* **deps:** bump cloud.google.com/go/storage from 1.39.1 to 1.40.0 ([#402](https://github.com/rudderlabs/rudder-go-kit/issues/402)) ([8ba1caf](https://github.com/rudderlabs/rudder-go-kit/commit/8ba1caf563d9189009951228209ddfa5ad21fabf))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.51.12 to 1.51.15 ([#412](https://github.com/rudderlabs/rudder-go-kit/issues/412)) ([6edd06e](https://github.com/rudderlabs/rudder-go-kit/commit/6edd06e9e3731463ce985a608df3eb6784f892ed))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.51.6 to 1.51.12 ([#405](https://github.com/rudderlabs/rudder-go-kit/issues/405)) ([47b4501](https://github.com/rudderlabs/rudder-go-kit/commit/47b4501852576bca15e0cefaefee415dbf208ed9))
+* **deps:** bump github.com/cenkalti/backoff/v4 from 4.2.1 to 4.3.0 ([#394](https://github.com/rudderlabs/rudder-go-kit/issues/394)) ([17d8f10](https://github.com/rudderlabs/rudder-go-kit/commit/17d8f10783927f719270a39f5e844d352e843048))
+* **deps:** bump github.com/prometheus/client_model from 0.6.0 to 0.6.1 ([#408](https://github.com/rudderlabs/rudder-go-kit/issues/408)) ([1f6d86d](https://github.com/rudderlabs/rudder-go-kit/commit/1f6d86d3b76cae98c0cf825c4000314acd95ec22))
+* **deps:** bump github.com/prometheus/common from 0.51.1 to 0.52.2 ([#409](https://github.com/rudderlabs/rudder-go-kit/issues/409)) ([d930ce3](https://github.com/rudderlabs/rudder-go-kit/commit/d930ce3185225d095ae3e8f70fec18cd77a75182))
+* **deps:** bump github.com/shirou/gopsutil/v3 from 3.24.2 to 3.24.3 ([#404](https://github.com/rudderlabs/rudder-go-kit/issues/404)) ([6c33058](https://github.com/rudderlabs/rudder-go-kit/commit/6c33058f7f842f7a1fd345fe4f0a5924936e188b))
+* **deps:** bump google.golang.org/api from 0.171.0 to 0.172.0 ([#398](https://github.com/rudderlabs/rudder-go-kit/issues/398)) ([085ffc7](https://github.com/rudderlabs/rudder-go-kit/commit/085ffc75b92ddea8ae0b8ab596f1045551d39137))
+
 ## [0.23.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.2...v0.23.3) (2024-03-25)
 
 
