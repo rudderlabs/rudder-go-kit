@@ -98,7 +98,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "lscr.io/linuxserver/openssh-server",
-		Tag:        "latest",
+		Tag:        "9.3_p2-r1-ls145",
 		NetworkID:  network.ID,
 		Hostname:   "sshserver",
 		PortBindings: map[dc.Port][]dc.PortBinding{
