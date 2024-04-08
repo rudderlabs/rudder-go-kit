@@ -42,33 +42,36 @@ func FuzzGetMD5UUID(f *testing.F) {
 func Test_fastUUID(t *testing.T) {
 	t.Run("test google conversion gofrs", func(t *testing.T) {
 		uuidGOOGLE = gluuid.New()
-		b, _ := uuidGOOGLE.MarshalBinary()
+		b, err := uuidGOOGLE.MarshalBinary()
+		require.NoError(t, err)
 		uuidGOFRS = gofrsuuid.FromBytesOrNil(b)
 		require.Equal(t, uuidGOOGLE.String(), uuidGOFRS.String())
 	})
 }
 
-func Benchmark_GOOGLE_UUID(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		uuidGOOGLE = gluuid.New()
-	}
-}
+func BenchmarkUUID(t *testing.B) {
+	t.Run("google uuid", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			uuidGOOGLE = gluuid.New()
+		}
+	})
 
-func Benchmark_GOOGLE_UUID_STR_GOFRS(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		uuidGOFRS = gofrsuuid.FromStringOrNil(gluuid.New().String())
-	}
-}
+	t.Run("google uuid str gofrs", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			uuidGOFRS = gofrsuuid.FromStringOrNil(gluuid.New().String())
+		}
+	})
 
-func Benchmark_GOOGLE_UUID_BIN_GOFRS(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		b, _ := gluuid.New().MarshalBinary()
-		uuidGOFRS = gofrsuuid.FromBytesOrNil(b)
-	}
-}
+	t.Run("google uuid bin gofrs", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b, _ := gluuid.New().MarshalBinary()
+			uuidGOFRS = gofrsuuid.FromBytesOrNil(b)
+		}
+	})
 
-func Benchmark_GOFRS_UUID(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		uuidGOFRS = gofrsuuid.Must(gofrsuuid.NewV4())
-	}
+	t.Run("gofrs uuid", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			uuidGOFRS = gofrsuuid.Must(gofrsuuid.NewV4())
+		}
+	})
 }

@@ -54,7 +54,7 @@ var invisibleRunes = []rune{
 	'\u2800', // BRAILLE PATTERN BLANK
 	'\u3164', // HANGUL FILLER
 	'\uFEFF', // ZERO WIDTH NO-BREAK SPACE
-	'\uFFA0', // HALFWIDTH HANGUL FILLER
+	'\uFFA0', // HALF WIDTH HANGUL FILLER
 }
 
 var invisibleRangeTable *unicode.RangeTable

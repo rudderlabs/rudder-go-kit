@@ -55,7 +55,7 @@ func TestStringyData(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := stringify.Data(tc.input)
+			result := stringify.Any(tc.input)
 			require.Equal(t, tc.expected, result)
 		})
 	}

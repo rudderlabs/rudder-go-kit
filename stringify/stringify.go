@@ -5,7 +5,8 @@ import (
 	"fmt"
 )
 
-func Data(data any) string {
+// Any converts any data to string
+func Any(data any) string {
 	if data == nil {
 		return ""
 	}

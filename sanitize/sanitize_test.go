@@ -75,6 +75,5 @@ func TestSanitizeMessageID(t *testing.T) {
 	for _, r := range invisibleRunes {
 		cleanMessageID := Unicode(string(r))
 		require.Empty(t, cleanMessageID, fmt.Sprintf("%U", r))
-
 	}
 }
