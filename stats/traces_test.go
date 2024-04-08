@@ -79,6 +79,8 @@ func TestSpanFromContext(t *testing.T) {
 		"service.version":        "1.2.3",
 		"otel.library.name":      "my-tracer",
 		"otel.library.version":   "1.2.3",
+		"otel.scope.name":        "my-tracer",
+		"otel.scope.version":     "1.2.3",
 		"otel.status_code":       "ERROR", // this is coming from the span that we got from the ctx
 		"telemetry.sdk.language": "go",
 		"telemetry.sdk.name":     "opentelemetry",
