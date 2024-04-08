@@ -2,10 +2,8 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -17,9 +15,7 @@ func (c *Config) load() {
 	c.hotReloadableConfig = make(map[string][]*configValue)
 	c.envs = make(map[string]string)
 
-	if err := godotenv.Load(); err != nil && !isTest() {
-		fmt.Println("INFO: No .env file found.")
-	}
+	c.godotEnvErr = godotenv.Load()
 
 	configPath := getEnv("CONFIG_PATH", "./config/config.yaml")
 
@@ -28,17 +24,30 @@ func (c *Config) load() {
 	bindLegacyEnv(v)
 
 	v.SetConfigFile(configPath)
-	err := v.ReadInConfig() // Find and read the config file
-	// Don't panic if config.yaml is not found or error with parsing. Use the default config values instead
-	if err != nil && !isTest() {
-		fmt.Printf("[Config] :: Failed to parse config file from path %q, using default values: %v\n", configPath, err)
-	}
+
+	// Find and read the config file
+	// If config.yaml is not found or error with parsing. Use the default config values instead
+	c.configPathErr = v.ReadInConfig()
+	c.configPath = v.ConfigFileUsed()
+
 	v.OnConfigChange(func(e fsnotify.Event) {
 		c.onConfigChange()
 	})
 	v.WatchConfig()
 
 	c.v = v
+}
+
+// ConfigFileUsed returns the file used to load the config.
+// If we failed to load the config file, it also returns an error.
+func (c *Config) ConfigFileUsed() (string, error) {
+	return c.configPath, c.configPathErr
+}
+
+// DotEnvLoaded returns an error if there was an error loading the .env file.
+// It returns nil otherwise.
+func (c *Config) DotEnvLoaded() error {
+	return c.godotEnvErr
 }
 
 func (c *Config) onConfigChange() {
@@ -229,13 +238,4 @@ func mapDeepEqual[K comparable, V any](a, b map[K]V) bool {
 		}
 	}
 	return true
-}
-
-func isTest() bool {
-	for _, arg := range os.Args {
-		if strings.HasPrefix(arg, "-test.") {
-			return true
-		}
-	}
-	return false
 }
