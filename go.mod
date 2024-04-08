@@ -49,7 +49,7 @@ require (
 	golang.org/x/crypto v0.21.0
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	golang.org/x/oauth2 v0.18.0
-	golang.org/x/sync v0.6.0
+	golang.org/x/sync v0.7.0
 	google.golang.org/api v0.172.0
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
