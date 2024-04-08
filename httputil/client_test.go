@@ -1,4 +1,4 @@
-package ip_test
+package httputil_test
 
 import (
 	"net/http"
@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	kitip "github.com/rudderlabs/rudder-go-kit/ip"
+	"github.com/rudderlabs/rudder-go-kit/httputil"
 )
 
-func TestIPFromReq(t *testing.T) {
+func TestGetRequestIP(t *testing.T) {
 	testCases := []struct {
 		name           string
 		headerValue    string
@@ -42,7 +42,7 @@ func TestIPFromReq(t *testing.T) {
 				Header:     http.Header{"X-Forwarded-For": {testCase.headerValue}},
 				RemoteAddr: testCase.remoteAddr,
 			}
-			require.Equal(t, testCase.expectedResult, kitip.FromReq(req))
+			require.Equal(t, testCase.expectedResult, httputil.GetRequestIP(req))
 		})
 	}
 }
