@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.25.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.24.0...v0.25.0) (2024-04-09)
+
+
+### Features
+
+* additional helpers packages ([#416](https://github.com/rudderlabs/rudder-go-kit/issues/416)) ([877fd55](https://github.com/rudderlabs/rudder-go-kit/commit/877fd55912376e3422048584719cd332dc2c280f))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.51.15 to 1.51.16 ([#418](https://github.com/rudderlabs/rudder-go-kit/issues/418)) ([bfdaa00](https://github.com/rudderlabs/rudder-go-kit/commit/bfdaa0015c4f565e7eccb69b00d191124910aec7))
+* **deps:** bump golang.org/x/crypto from 0.21.0 to 0.22.0 ([#414](https://github.com/rudderlabs/rudder-go-kit/issues/414)) ([abf7a24](https://github.com/rudderlabs/rudder-go-kit/commit/abf7a2410e882091facab0153c00f43f33f366e8))
+* **deps:** bump golang.org/x/oauth2 from 0.18.0 to 0.19.0 ([#413](https://github.com/rudderlabs/rudder-go-kit/issues/413)) ([08eef2f](https://github.com/rudderlabs/rudder-go-kit/commit/08eef2f78b8f86035db96f69819df7370c4884ce))
+* **deps:** bump golang.org/x/sync from 0.6.0 to 0.7.0 ([#415](https://github.com/rudderlabs/rudder-go-kit/issues/415)) ([a19d647](https://github.com/rudderlabs/rudder-go-kit/commit/a19d64704d11ee723af3071751c64fb1afae784e))
+* **deps:** bump the opentelemetry group with 9 updates ([#417](https://github.com/rudderlabs/rudder-go-kit/issues/417)) ([7344998](https://github.com/rudderlabs/rudder-go-kit/commit/73449986643f1801dfc1dd326ed02f8c418de691))
+* provide methods to access config init errors ([#406](https://github.com/rudderlabs/rudder-go-kit/issues/406)) ([8579877](https://github.com/rudderlabs/rudder-go-kit/commit/85798776bfab15659066a6746bb2db9b020abe85))
+
 ## [0.24.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.23.3...v0.24.0) (2024-04-05)
 
 
