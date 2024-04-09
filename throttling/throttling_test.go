@@ -14,6 +14,47 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 )
 
+func TestRetryAfter(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	var (
+		ctx    = context.Background()
+		rc     = bootstrapRedis(ctx, t, pool)
+		cost   = 1
+		rate   = 2
+		window = 1
+	)
+
+	call := func() []any {
+		res, err := sortedSetScript.Run(ctx, rc, []string{"foobar"}, cost, rate, window).Result()
+		require.NoError(t, err)
+
+		result, ok := res.([]any)
+		require.True(t, ok)
+		return result
+	}
+
+	// t.Log(call())
+	// t.Log(call())
+	// t.Log(call())
+	// return
+
+	for {
+		result := call()
+		retryAfter, ok := result[2].(int64)
+		require.True(t, ok)
+
+		t.Log(result)
+		if retryAfter == 0 {
+			t.Log("Limit not reached, we can continue")
+		} else {
+			t.Log("Sleeping for", retryAfter, "microseconds")
+			time.Sleep(time.Duration(retryAfter) * time.Microsecond)
+		}
+	}
+}
+
 func TestThrottling(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
@@ -58,7 +99,6 @@ func TestThrottling(t *testing.T) {
 			{rate: 2000, window: 3},
 		} {
 			for _, l := range limiters {
-				l := l
 				t.Run(testName(l.name, tc.rate, tc.window), func(t *testing.T) {
 					expected := tc.rate
 					testLimiter(ctx, t, l.limiter, tc.rate, tc.window, expected, l.concurrency)

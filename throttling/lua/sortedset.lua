@@ -34,7 +34,10 @@ local used_tokens = redis.call('ZCARD', key)
 
 -- If the number of requests is greater than the max requests we hit the limit
 if (used_tokens + cost) > tonumber(rate) then
-    return { current_time_micro, "" }
+    local next_to_expire = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')[2]
+    local retry_after = next_to_expire + period - current_time_micro
+
+    return { current_time_micro, "", retry_after }
 end
 
 -- seed needed to generate random members in case of collision
@@ -63,4 +66,8 @@ end
 redis.call('EXPIRE', key, period)
 
 members = members:sub(1, -2) -- remove the last comma
-return { current_time_micro, members }
+return {
+    current_time_micro,
+    members,
+    0 -- no retry_after
+}
