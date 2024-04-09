@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -516,6 +517,15 @@ func TestGetEnvThroughViper(t *testing.T) {
 		require.Equal(t, expectedValue, tc.GetString("Key.Var1VarVar", ""))
 	})
 
+	t.Run("with env prefix", func(t *testing.T) {
+		envPrefix := "ANOTHER_PREFIX"
+
+		tc := New(WithEnvPrefix(envPrefix))
+		t.Setenv(envPrefix+"_KEY_VAR1_VAR_VAR", expectedValue)
+
+		require.Equal(t, expectedValue, tc.GetString("Key.Var1VarVar", ""))
+	})
+
 	t.Run("detects uppercase env variables", func(t *testing.T) {
 		t.Setenv("SOMEENVVARIABLE", expectedValue)
 		tc := New()
@@ -670,4 +680,47 @@ func TestConfigLocking(t *testing.T) {
 	})
 
 	require.NoError(t, g.Wait())
+}
+
+func TestConfigLoad(t *testing.T) {
+	// create a temporary file:
+	f, err := os.CreateTemp("", "*config.yaml")
+	require.NoError(t, err)
+	defer os.Remove(f.Name())
+
+	t.Setenv("CONFIG_PATH", f.Name())
+	c := New()
+	require.NoError(t, err)
+
+	t.Run("successfully loaded config file", func(t *testing.T) {
+		configFile, err := c.ConfigFileUsed()
+		require.NoError(t, err)
+		require.Equal(t, f.Name(), configFile)
+	})
+
+	err = os.Remove(f.Name())
+	require.NoError(t, err)
+
+	t.Run("attempt to load non-existent config file", func(t *testing.T) {
+		c := New()
+		configFile, err := c.ConfigFileUsed()
+		require.Error(t, err)
+		require.Equal(t, f.Name(), configFile)
+	})
+
+	t.Run("dot env error", func(t *testing.T) {
+		c := New()
+		err := c.DotEnvLoaded()
+		require.Error(t, err)
+	})
+
+	t.Run("dot env found", func(t *testing.T) {
+		c := New()
+		f, err := os.Create(".env")
+		require.NoError(t, err)
+		defer os.Remove(f.Name())
+
+		err = c.DotEnvLoaded()
+		require.Error(t, err)
+	})
 }
