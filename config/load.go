@@ -3,12 +3,12 @@ package config
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
-	"golang.org/x/exp/slices"
 )
 
 func (c *Config) load() {
