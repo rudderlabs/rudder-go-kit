@@ -59,14 +59,16 @@ func (g *Group) Go(f func() error) {
 		return
 	}
 
-	select {
-	case <-g.ctx.Done():
-		g.errOnce.Do(func() {
-			g.err = g.ctx.Err()
-			g.cancel(g.err)
-		})
-		return
-	case g.sem <- struct{}{}:
+	if g.sem != nil {
+		select {
+		case <-g.ctx.Done():
+			g.errOnce.Do(func() {
+				g.err = g.ctx.Err()
+				g.cancel(g.err)
+			})
+			return
+		case g.sem <- struct{}{}:
+		}
 	}
 
 	g.wg.Add(1)

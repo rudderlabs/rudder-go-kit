@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLimit(t *testing.T) {
+func TestGroupWithLimit(t *testing.T) {
 	g, ctx := NewGroup(context.Background(), 2)
 	var count atomic.Int64
 	// One of the following three goroutines should DEFINITELY NOT be executed due to the limit of 2 and the context being cancelled.
@@ -41,7 +41,7 @@ func TestLimit(t *testing.T) {
 	require.True(t, 1 <= count.Load() && count.Load() <= 2, "We expect count to be between 1 and 2")
 }
 
-func TestNoLimit(t *testing.T) {
+func TestGroupWithNoLimit(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	g, ctx := NewGroup(ctx, 0)
 	funcCounter := &atomic.Int64{}
@@ -80,7 +80,7 @@ func TestNoLimit(t *testing.T) {
 	)
 }
 
-func TestNoInit(t *testing.T) {
+func TestNoInitGroup(t *testing.T) {
 	g := &Group{}
 	f := func() error { return nil }
 	require.Panics(
