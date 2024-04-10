@@ -291,11 +291,6 @@ func TestRetryAfter(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	type limiterSettings struct {
-		name    string
-		limiter *Limiter
-	}
-
 	type testCase struct {
 		name                      string
 		limiter                   *Limiter
