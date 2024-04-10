@@ -302,6 +302,7 @@ func TestRetryAfter(t *testing.T) {
 		rate                      int64
 		window                    int64
 		runFor                    time.Duration
+		warmUp                    bool
 		expectedAllowedCount      int
 		expectedAllowedCountDelta float64
 		expectedSleepsCount       int
@@ -312,21 +313,37 @@ func TestRetryAfter(t *testing.T) {
 		ctx       = context.Background()
 		rc        = bootstrapRedis(ctx, t, pool)
 		testCases = []testCase{
-			// @TODO gcra tests
-			//{
-			//	name:    "gcra",
-			//	limiter: newLimiter(t, WithInMemoryGCRA(0)),
-			//},
-			//{
-			//	name:    "gcra redis",
-			//	limiter: newLimiter(t, WithRedisGCRA(rc, 0)),
-			//},
+			{
+				name:                      "gcra",
+				limiter:                   newLimiter(t, WithInMemoryGCRA(0)),
+				rate:                      2,
+				window:                    1,
+				runFor:                    3 * time.Second,
+				warmUp:                    true,
+				expectedAllowedCount:      6,
+				expectedAllowedCountDelta: 3,
+				expectedSleepsCount:       3,
+				expectedSleepsCountDelta:  2,
+			},
+			{
+				name:                      "gcra redis",
+				limiter:                   newLimiter(t, WithRedisGCRA(rc, 100)),
+				rate:                      2,
+				window:                    1,
+				runFor:                    3 * time.Second,
+				warmUp:                    true,
+				expectedAllowedCount:      6,
+				expectedAllowedCountDelta: 3,
+				expectedSleepsCount:       3,
+				expectedSleepsCountDelta:  2,
+			},
 			{
 				name:                      "sorted sets redis",
 				limiter:                   newLimiter(t, WithRedisSortedSet(rc)),
 				rate:                      2,
 				window:                    1,
 				runFor:                    3 * time.Second,
+				warmUp:                    false,
 				expectedAllowedCount:      6,
 				expectedAllowedCountDelta: 0,
 				expectedSleepsCount:       3,
@@ -335,46 +352,63 @@ func TestRetryAfter(t *testing.T) {
 		}
 	)
 
-	for _, tc := range testCases {
-		t.Run(testName(tc.name, tc.rate, tc.window), func(t *testing.T) {
-			timeout := time.NewTimer(tc.runFor)
-			t.Cleanup(func() {
-				_ = timeout.Stop
+	flakinessRate := 1 // increase to run the tests multiple times in a row to debug flaky tests
+	for i := 0; i < flakinessRate; i++ {
+		for _, tc := range testCases {
+			t.Run(testName(tc.name, tc.rate, tc.window), func(t *testing.T) {
+				timeout := time.NewTimer(tc.runFor)
+				t.Cleanup(func() {
+					_ = timeout.Stop
+				})
+
+				if tc.warmUp {
+					timer := time.NewTimer(time.Duration(tc.window) * time.Second)
+				warmUp:
+					for {
+						_, _, err := tc.limiter.Allow(ctx, 1, tc.rate, tc.window, t.Name())
+						require.NoError(t, err)
+						select {
+						case <-timer.C:
+							break warmUp
+						default:
+						}
+					}
+				}
+
+				var (
+					allowedCount int
+					sleepsCount  int
+				)
+
+			loop:
+				for {
+					allowed, retryAfter, _, err := tc.limiter.AllowAfter(ctx, 1, tc.rate, tc.window, t.Name())
+					require.NoError(t, err)
+
+					t.Logf("allowed: %v, retryAfter: %v", allowed, retryAfter)
+
+					if allowed {
+						require.EqualValues(t, 0, retryAfter)
+						allowedCount++
+					} else {
+						require.Greater(t, retryAfter, int64(0))
+						sleepsCount++
+					}
+
+					select {
+					case <-ctx.Done():
+						break loop
+					case <-timeout.C:
+						break loop
+					case <-time.After(retryAfter):
+						t.Logf("slept for %v", retryAfter)
+					}
+				}
+
+				require.InDelta(t, tc.expectedAllowedCount, allowedCount, tc.expectedAllowedCountDelta)
+				require.InDelta(t, tc.expectedSleepsCount, sleepsCount, tc.expectedSleepsCountDelta)
 			})
-
-			var (
-				allowedCount int
-				sleepsCount  int
-			)
-
-		loop:
-			for {
-				allowed, retryAfter, _, err := tc.limiter.AllowAfter(ctx, 1, tc.rate, tc.window, t.Name())
-				require.NoError(t, err)
-
-				t.Logf("allowed: %v, retryAfter: %v", allowed, retryAfter)
-
-				if allowed {
-					require.EqualValues(t, 0, retryAfter)
-					allowedCount++
-				} else {
-					require.Greater(t, retryAfter, int64(0))
-					sleepsCount++
-				}
-
-				select {
-				case <-ctx.Done():
-					break loop
-				case <-timeout.C:
-					break loop
-				case <-time.After(retryAfter):
-					t.Logf("slept for %v", retryAfter)
-				}
-			}
-
-			require.InDelta(t, tc.expectedAllowedCount, allowedCount, tc.expectedAllowedCountDelta)
-			require.InDelta(t, tc.expectedSleepsCount, sleepsCount, tc.expectedSleepsCountDelta)
-		})
+		}
 	}
 }
 

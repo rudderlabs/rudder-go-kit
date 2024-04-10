@@ -201,7 +201,7 @@ func (l *Limiter) redisGCRA(ctx context.Context, cost, rate, window int64, key s
 		if !ok {
 			return redisTime, false, 0, nil, fmt.Errorf("unexpected result[3] from GCRA Redis script of type %T: %v", result[3], result[3])
 		}
-		return redisTime, false, time.Duration(retryAfter), nil, nil
+		return redisTime, false, time.Duration(retryAfter) * time.Microsecond, nil, nil
 	}
 
 	r := &unsupportedReturn{}
