@@ -155,7 +155,7 @@ func (l *Limiter) redisSortedSet(ctx context.Context, cost, rate, window int64, 
 		if !ok {
 			return redisTime, false, 0, nil, fmt.Errorf("unexpected result[2] from SortedSet Redis script of type %T: %v", result[2], result[2])
 		}
-		return redisTime, false, time.Duration(retryAfter), nil, nil
+		return redisTime, false, time.Duration(retryAfter) * time.Microsecond, nil, nil
 	}
 
 	r := &sortedSetRedisReturn{

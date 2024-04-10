@@ -14,47 +14,6 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 )
 
-func TestRetryAfter(t *testing.T) {
-	pool, err := dockertest.NewPool("")
-	require.NoError(t, err)
-
-	var (
-		ctx    = context.Background()
-		rc     = bootstrapRedis(ctx, t, pool)
-		cost   = 1
-		rate   = 2
-		window = 1
-	)
-
-	call := func() []any {
-		res, err := sortedSetScript.Run(ctx, rc, []string{"foobar"}, cost, rate, window).Result()
-		require.NoError(t, err)
-
-		result, ok := res.([]any)
-		require.True(t, ok)
-		return result
-	}
-
-	// t.Log(call())
-	// t.Log(call())
-	// t.Log(call())
-	// return
-
-	for {
-		result := call()
-		retryAfter, ok := result[2].(int64)
-		require.True(t, ok)
-
-		t.Log(result)
-		if retryAfter == 0 {
-			t.Log("Limit not reached, we can continue")
-		} else {
-			t.Log("Sleeping for", retryAfter, "microseconds")
-			time.Sleep(time.Duration(retryAfter) * time.Microsecond)
-		}
-	}
-}
-
 func TestThrottling(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
@@ -128,9 +87,9 @@ func testLimiter(
 	run := func() (err error, allowed bool, redisTime time.Duration) {
 		switch {
 		case l.redisSpeaker != nil && l.useGCRA:
-			redisTime, allowed, _, err = l.redisGCRA(ctx, cost, rate, window, key)
+			redisTime, allowed, _, _, err = l.redisGCRA(ctx, cost, rate, window, key)
 		case l.redisSpeaker != nil && !l.useGCRA:
-			redisTime, allowed, _, err = l.redisSortedSet(ctx, cost, rate, window, key)
+			redisTime, allowed, _, _, err = l.redisSortedSet(ctx, cost, rate, window, key)
 		default:
 			allowed, _, err = l.Allow(ctx, cost, rate, window, key)
 		}
@@ -324,6 +283,97 @@ func TestBadData(t *testing.T) {
 			require.False(t, allowed)
 			require.Nil(t, ret)
 			require.Error(t, err, "key must not be empty")
+		})
+	}
+}
+
+func TestRetryAfter(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	type limiterSettings struct {
+		name    string
+		limiter *Limiter
+	}
+
+	type testCase struct {
+		name                      string
+		limiter                   *Limiter
+		rate                      int64
+		window                    int64
+		runFor                    time.Duration
+		expectedAllowedCount      int
+		expectedAllowedCountDelta float64
+		expectedSleepsCount       int
+		expectedSleepsCountDelta  float64
+	}
+
+	var (
+		ctx       = context.Background()
+		rc        = bootstrapRedis(ctx, t, pool)
+		testCases = []testCase{
+			// @TODO gcra tests
+			//{
+			//	name:    "gcra",
+			//	limiter: newLimiter(t, WithInMemoryGCRA(0)),
+			//},
+			//{
+			//	name:    "gcra redis",
+			//	limiter: newLimiter(t, WithRedisGCRA(rc, 0)),
+			//},
+			{
+				name:                      "sorted sets redis",
+				limiter:                   newLimiter(t, WithRedisSortedSet(rc)),
+				rate:                      2,
+				window:                    1,
+				runFor:                    3 * time.Second,
+				expectedAllowedCount:      6,
+				expectedAllowedCountDelta: 0,
+				expectedSleepsCount:       3,
+				expectedSleepsCountDelta:  0,
+			},
+		}
+	)
+
+	for _, tc := range testCases {
+		t.Run(testName(tc.name, tc.rate, tc.window), func(t *testing.T) {
+			timeout := time.NewTimer(tc.runFor)
+			t.Cleanup(func() {
+				_ = timeout.Stop
+			})
+
+			var (
+				allowedCount int
+				sleepsCount  int
+			)
+
+		loop:
+			for {
+				allowed, retryAfter, _, err := tc.limiter.AllowAfter(ctx, 1, tc.rate, tc.window, t.Name())
+				require.NoError(t, err)
+
+				t.Logf("allowed: %v, retryAfter: %v", allowed, retryAfter)
+
+				if allowed {
+					require.EqualValues(t, 0, retryAfter)
+					allowedCount++
+				} else {
+					require.Greater(t, retryAfter, int64(0))
+					sleepsCount++
+				}
+
+				select {
+				case <-ctx.Done():
+					break loop
+				case <-timeout.C:
+					break loop
+				case <-time.After(retryAfter):
+					t.Logf("slept for %v", retryAfter)
+				}
+			}
+
+			require.InDelta(t, tc.expectedAllowedCount, allowedCount, tc.expectedAllowedCountDelta)
+			require.InDelta(t, tc.expectedSleepsCount, sleepsCount, tc.expectedSleepsCountDelta)
 		})
 	}
 }

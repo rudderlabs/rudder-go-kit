@@ -51,8 +51,8 @@ if remaining < 0 then
         current_time_micro,
         0, -- allowed
         0, -- remaining
-        tostring(retry_after),
-        tostring(reset_after),
+        tonumber(retry_after),
+        tonumber(reset_after),
     }
 end
 
@@ -62,4 +62,4 @@ if reset_after > 0 then
 end
 
 local retry_after = -1
-return { current_time_micro, cost, remaining, tostring(retry_after), tostring(reset_after) }
+return { current_time_micro, cost, remaining, tonumber(retry_after), tonumber(reset_after) }
