@@ -51,17 +51,25 @@ func NewGroup(ctx context.Context, limit int) (*Group, context.Context) {
 // Additionally, there is a best effort not to execute `f()` once the context is canceled
 // and that happens whether or not a limit has been specified.
 func (g *Group) Go(f func() error) {
-	select {
-	case <-g.ctx.Done():
-		g.errOnce.Do(func() {
+        if err := g.ctx.Err() {
+        	g.errOnce.Do(func() {
 			g.err = g.ctx.Err()
 			g.cancel(g.err)
 		})
 		return
-	default:
+        }
+        if g.sem != nil {
+
+	select {
+	case <-g.ctx.Done():
+	          g.errOnce.Do(func() {
+			g.err = g.ctx.Err()
+			g.cancel(g.err)
+		})
+		return
+	case g.sem <- struct{}{}:
+	}	
 	}
-	if g.sem != nil {
-		g.sem <- struct{}{}
 	}
 
 	g.wg.Add(1)
