@@ -345,9 +345,9 @@ func TestRetryAfter(t *testing.T) {
 				runFor:                    3 * time.Second,
 				warmUp:                    false,
 				expectedAllowedCount:      6,
-				expectedAllowedCountDelta: 0,
+				expectedAllowedCountDelta: 0, // this algorithm is the most precise but requires more memory on Redis
 				expectedSleepsCount:       3,
-				expectedSleepsCountDelta:  0,
+				expectedSleepsCountDelta:  0, // this algorithm is the most precise but requires more memory on Redis
 			},
 		}
 	)
