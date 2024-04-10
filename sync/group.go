@@ -66,11 +66,8 @@ func (g *Group) Go(f func() error) {
 
 	g.wg.Add(1)
 	go func() {
-		var err error
-		select {
-		case <-g.ctx.Done():
-			err = g.ctx.Err()
-		default:
+		err := g.ctx.Err()
+		if err == nil {
 			err = f()
 		}
 		if err != nil {
