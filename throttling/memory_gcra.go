@@ -20,19 +20,19 @@ type gcra struct {
 }
 
 func (g *gcra) limit(ctx context.Context, key string, cost, burst, rate, period int64) (
-	bool, error,
+	bool, time.Duration, error,
 ) {
 	rl, err := g.getLimiter(key, burst, rate, period)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 
-	limited, _, err := rl.RateLimitCtx(ctx, "key", int(cost))
+	limited, res, err := rl.RateLimitCtx(ctx, "key", int(cost))
 	if err != nil {
-		return false, fmt.Errorf("could not rate limit: %w", err)
+		return false, 0, fmt.Errorf("could not rate limit: %w", err)
 	}
 
-	return !limited, nil
+	return !limited, res.RetryAfter, nil
 }
 
 func (g *gcra) getLimiter(key string, burst, rate, period int64) (*throttled.GCRARateLimiterCtx, error) {
