@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.27.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.26.0...v0.27.0) (2024-04-12)
+
+
+### Features
+
+* sync.Group ([#425](https://github.com/rudderlabs/rudder-go-kit/issues/425)) ([ac91461](https://github.com/rudderlabs/rudder-go-kit/commit/ac9146195f76492cf91aa32e34ab38ed01d2575d))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.51.19 to 1.51.20 ([#428](https://github.com/rudderlabs/rudder-go-kit/issues/428)) ([7c58164](https://github.com/rudderlabs/rudder-go-kit/commit/7c581645f49cbf1179b191276cb60ce59d6d3ce2))
+
 ## [0.26.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.25.0...v0.26.0) (2024-04-12)
 
 
