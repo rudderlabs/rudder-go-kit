@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.26.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.25.0...v0.26.0) (2024-04-12)
+
+
+### Features
+
+* throttling with retryAfter ([#422](https://github.com/rudderlabs/rudder-go-kit/issues/422)) ([c2904bf](https://github.com/rudderlabs/rudder-go-kit/commit/c2904bf38a1a635c60dc2a492db5080dc148aa33))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.51.16 to 1.51.17 ([#420](https://github.com/rudderlabs/rudder-go-kit/issues/420)) ([c992d13](https://github.com/rudderlabs/rudder-go-kit/commit/c992d13dae16671b63a4974bcb8e2e70508c668d))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.51.17 to 1.51.19 ([#426](https://github.com/rudderlabs/rudder-go-kit/issues/426)) ([ce6f2ff](https://github.com/rudderlabs/rudder-go-kit/commit/ce6f2ffe2bb0849ec2dddde10e421e01f9c296f2))
+* **deps:** bump github.com/prometheus/common from 0.52.2 to 0.52.3 ([#427](https://github.com/rudderlabs/rudder-go-kit/issues/427)) ([c9a5734](https://github.com/rudderlabs/rudder-go-kit/commit/c9a57344b0b4cec1cd1ca7ce5fcc7241a48212ea))
+
 ## [0.25.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.24.0...v0.25.0) (2024-04-09)
 
 
