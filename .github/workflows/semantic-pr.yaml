@@ -11,6 +11,9 @@ on:
       - ready_for_review
       - synchronize
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
 jobs:
   main:
     name: title
