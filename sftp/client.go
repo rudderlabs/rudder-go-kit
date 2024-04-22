@@ -87,6 +87,7 @@ type Client interface {
 	Create(path string) (io.WriteCloser, error)
 	Open(path string) (io.ReadCloser, error)
 	Remove(path string) error
+	MkdirAll(path string) error
 }
 
 // newSFTPClient creates an SFTP client with existing SSH client
@@ -110,4 +111,8 @@ func (c *clientImpl) Open(path string) (io.ReadCloser, error) {
 
 func (c *clientImpl) Remove(path string) error {
 	return c.client.Remove(path)
+}
+
+func (c *clientImpl) MkdirAll(path string) error {
+	return c.client.MkdirAll(path)
 }

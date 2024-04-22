@@ -138,6 +138,7 @@ func TestUpload(t *testing.T) {
 
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
 	mockSFTPClient.EXPECT().Create(gomock.Any()).Return(&nopWriteCloser{remoteBuf}, nil)
+	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).Return(nil)
 
 	fileManager := &fileManagerImpl{client: mockSFTPClient}
 

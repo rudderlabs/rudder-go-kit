@@ -46,6 +46,11 @@ func (fm *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
 		_ = localFile.Close()
 	}()
 
+	// Create the directory if it does not exist
+	if err := fm.client.MkdirAll(remoteDir); err != nil {
+		return fmt.Errorf("cannot create remote directory: %w", err)
+	}
+
 	remoteFileName := filepath.Join(remoteDir, filepath.Base(localFilePath))
 	remoteFile, err := fm.client.Create(remoteFileName)
 	if err != nil {
