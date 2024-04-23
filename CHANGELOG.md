@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.27.0...v0.28.0) (2024-04-23)
+
+
+### Features
+
+* add etcd resource [PIPE-971] ([#440](https://github.com/rudderlabs/rudder-go-kit/issues/440)) ([860b454](https://github.com/rudderlabs/rudder-go-kit/commit/860b4542352f4611ce77432e47a1d6017b0930b9))
+
 ## [0.27.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.26.0...v0.27.0) (2024-04-12)
 
 
