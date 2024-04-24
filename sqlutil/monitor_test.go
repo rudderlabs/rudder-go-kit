@@ -27,18 +27,36 @@ func TestMonitorDatabase(t *testing.T) {
 	statsStore, err := memstats.New()
 	require.NoError(t, err)
 
-	databaseIdentifier := "test"
+	identifier := "test"
 
 	conf := config.New()
-	conf.Set(databaseIdentifier+".Database.ReportInterval", "1s")
+	conf.Set("Database.ReportInterval", "1s")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sqlutil.MonitorDatabase(ctx, conf, statsStore, postgresContainer.DB, "test")
+	sqlutil.MonitorDatabase(ctx, conf, statsStore, postgresContainer.DB, identifier)
 
 	require.Eventually(t, func() bool {
-		return statsStore.Get(databaseIdentifier+".db.max_open_connections", stats.Tags{}).LastValue() == 10
+		return statsStore.Get("db_max_open_connections", stats.Tags{
+			"identifier": identifier,
+		}).LastValue() == 10
+	},
+		5*time.Second,
+		100*time.Millisecond,
+	)
+	require.Eventually(t, func() bool {
+		return statsStore.Get("db_open_connections", stats.Tags{
+			"identifier": identifier,
+		}).LastValue() == 1
+	},
+		5*time.Second,
+		100*time.Millisecond,
+	)
+	require.Eventually(t, func() bool {
+		return statsStore.Get("db_idle", stats.Tags{
+			"identifier": identifier,
+		}).LastValue() == 1
 	},
 		5*time.Second,
 		100*time.Millisecond,
