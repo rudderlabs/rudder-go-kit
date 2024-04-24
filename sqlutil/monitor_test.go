@@ -30,12 +30,16 @@ func TestMonitorDatabase(t *testing.T) {
 	identifier := "test"
 
 	conf := config.New()
-	conf.Set("Database.ReportInterval", "1s")
+	conf.Set("Database.statsReportInterval", "1s")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	sqlutil.MonitorDatabase(ctx, conf, statsStore, postgresContainer.DB, identifier)
+	setupCh := make(chan struct{})
+	go func() {
+		defer close(setupCh)
+		sqlutil.MonitorDatabase(ctx, conf, statsStore, postgresContainer.DB, identifier)
+	}()
 
 	require.Eventually(t, func() bool {
 		return statsStore.Get("db_max_open_connections", stats.Tags{
@@ -61,4 +65,7 @@ func TestMonitorDatabase(t *testing.T) {
 		5*time.Second,
 		100*time.Millisecond,
 	)
+
+	cancel()
+	<-setupCh
 }

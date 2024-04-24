@@ -9,7 +9,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats"
 )
 
-// MonitorDatabase collects database connection pool metrics at regular intervals
+// MonitorDatabase collects database connection pool metrics at regular intervals synchronously until the context is canceled.
 func MonitorDatabase(
 	ctx context.Context,
 	conf *config.Config,
@@ -17,7 +17,7 @@ func MonitorDatabase(
 	db *sql.DB,
 	identifier string,
 ) {
-	reportInterval := conf.GetDurationVar(10, time.Second, "Database.ReportInterval")
+	statsReportInterval := conf.GetDurationVar(10, time.Second, "Database.statsReportInterval")
 
 	tags := stats.Tags{
 		"identifier": identifier,
@@ -33,24 +33,22 @@ func MonitorDatabase(
 	maxIdleTimeClosedStat := statsFactory.NewTaggedStat("db_max_idle_time_closed", stats.GaugeType, tags)
 	maxLifetimeClosedStat := statsFactory.NewTaggedStat("db_max_lifetime_closed", stats.GaugeType, tags)
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(reportInterval):
-				dbStats := db.Stats()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(statsReportInterval):
+			dbStats := db.Stats()
 
-				maxOpenConnectionsStat.Gauge(dbStats.MaxOpenConnections)
-				openConnectionsStat.Gauge(dbStats.OpenConnections)
-				inUseStat.Gauge(dbStats.InUse)
-				idleStat.Gauge(dbStats.Idle)
-				waitCountStat.Gauge(int(dbStats.WaitCount))
-				waitDurationStat.SendTiming(dbStats.WaitDuration)
-				maxIdleClosedStat.Gauge(int(dbStats.MaxIdleClosed))
-				maxIdleTimeClosedStat.Gauge(int(dbStats.MaxIdleTimeClosed))
-				maxLifetimeClosedStat.Gauge(int(dbStats.MaxLifetimeClosed))
-			}
+			maxOpenConnectionsStat.Gauge(dbStats.MaxOpenConnections)
+			openConnectionsStat.Gauge(dbStats.OpenConnections)
+			inUseStat.Gauge(dbStats.InUse)
+			idleStat.Gauge(dbStats.Idle)
+			waitCountStat.Gauge(int(dbStats.WaitCount))
+			waitDurationStat.SendTiming(dbStats.WaitDuration)
+			maxIdleClosedStat.Gauge(int(dbStats.MaxIdleClosed))
+			maxIdleTimeClosedStat.Gauge(int(dbStats.MaxIdleTimeClosed))
+			maxLifetimeClosedStat.Gauge(int(dbStats.MaxLifetimeClosed))
 		}
-	}()
+	}
 }
