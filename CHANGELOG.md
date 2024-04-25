@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.29.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.28.0...v0.29.0) (2024-04-24)
+
+
+### Features
+
+* monitor sql database ([#444](https://github.com/rudderlabs/rudder-go-kit/issues/444)) ([ae1d227](https://github.com/rudderlabs/rudder-go-kit/commit/ae1d2274e740d1f4ee175d5e734c44b2784db611))
+
+## [0.28.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.27.0...v0.28.0) (2024-04-23)
+
+
+### Features
+
+* add etcd resource [PIPE-971] ([#440](https://github.com/rudderlabs/rudder-go-kit/issues/440)) ([860b454](https://github.com/rudderlabs/rudder-go-kit/commit/860b4542352f4611ce77432e47a1d6017b0930b9))
+
 ## [0.27.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.26.0...v0.27.0) (2024-04-12)
 
 

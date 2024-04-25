@@ -36,6 +36,7 @@ require (
 	github.com/throttled/throttled/v2 v2.12.0
 	github.com/tidwall/gjson v1.17.1
 	github.com/zenizh/go-capturer v0.0.0-20211219060012-52ea6c8fed04
+	go.etcd.io/etcd/client/v3 v3.5.10
 	go.opentelemetry.io/otel v1.25.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.25.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.25.0
@@ -52,6 +53,7 @@ require (
 	golang.org/x/sync v0.7.0
 	golang.org/x/text v0.14.0
 	google.golang.org/api v0.172.0
+	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -70,6 +72,8 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
+	github.com/coreos/go-semver v0.3.0 // indirect
+	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/cli v20.10.17+incompatible // indirect
@@ -137,6 +141,8 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	go.etcd.io/etcd/api/v3 v3.5.10 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.5.10 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
@@ -152,7 +158,6 @@ require (
 	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240314234333-6e1732d8331c // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240401170217-c3f982113cda // indirect
-	google.golang.org/grpc v1.63.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
