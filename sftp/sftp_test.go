@@ -142,7 +142,7 @@ func TestUpload(t *testing.T) {
 
 	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
-	err = fileManager.Upload(localFilePath, "someRemoteDir")
+	err = fileManager.Upload(localFilePath, "someRemotePath")
 	require.NoError(t, err)
 	require.Equal(t, data, remoteBuf.Bytes())
 }
@@ -227,7 +227,7 @@ func TestSFTP(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = session.Close() }()
 
-	remoteDir := filepath.Join("/tmp", "remote")
+	remoteDir := filepath.Join("/tmp", "remote", "data")
 	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 	require.NoError(t, err)
 
@@ -253,7 +253,7 @@ func TestSFTP(t *testing.T) {
 	err = os.WriteFile(localFilePath, data, 0o644)
 	require.NoError(t, err)
 
-	err = sftpManger.Upload(localFilePath, remoteDir)
+	err = sftpManger.Upload(localFilePath, remoteFilePath)
 	require.NoError(t, err)
 
 	err = sftpManger.Download(remoteFilePath, baseDir)

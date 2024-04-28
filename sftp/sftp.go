@@ -37,7 +37,7 @@ func NewFileManager(sshClient *ssh.Client) (FileManager, error) {
 }
 
 // Upload uploads a file to the remote server
-func (fm *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
+func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
 	localFile, err := os.Open(localFilePath)
 	if err != nil {
 		return fmt.Errorf("cannot open local file: %w", err)
@@ -47,12 +47,12 @@ func (fm *fileManagerImpl) Upload(localFilePath, remoteDir string) error {
 	}()
 
 	// Create the directory if it does not exist
+	remoteDir := filepath.Dir(remoteFilePath)
 	if err := fm.client.MkdirAll(remoteDir); err != nil {
 		return fmt.Errorf("cannot create remote directory: %w", err)
 	}
 
-	remoteFileName := filepath.Join(remoteDir, filepath.Base(localFilePath))
-	remoteFile, err := fm.client.Create(remoteFileName)
+	remoteFile, err := fm.client.Create(remoteFilePath)
 	if err != nil {
 		return fmt.Errorf("cannot create remote file: %w", err)
 	}
