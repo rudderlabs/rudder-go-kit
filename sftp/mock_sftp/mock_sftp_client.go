@@ -49,6 +49,20 @@ func (mr *MockClientMockRecorder) Create(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockClient)(nil).Create), arg0)
 }
 
+// MkdirAll mocks base method.
+func (m *MockClient) MkdirAll(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MkdirAll", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MkdirAll indicates an expected call of MkdirAll.
+func (mr *MockClientMockRecorder) MkdirAll(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MkdirAll", reflect.TypeOf((*MockClient)(nil).MkdirAll), arg0)
+}
+
 // Open mocks base method.
 func (m *MockClient) Open(arg0 string) (io.ReadCloser, error) {
 	m.ctrl.T.Helper()
