@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.30.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.29.0...v0.30.0) (2024-04-30)
+
+
+### Features
+
+* add remoteFilePath support and create remote directory in sftp ([#437](https://github.com/rudderlabs/rudder-go-kit/issues/437)) ([cd85cf5](https://github.com/rudderlabs/rudder-go-kit/commit/cd85cf5a402cd1685b8aae5ddb2bb566a771aba0))
+
+
+### Bug Fixes
+
+* file creation on aws sftp servers ([#455](https://github.com/rudderlabs/rudder-go-kit/issues/455)) ([76d3b53](https://github.com/rudderlabs/rudder-go-kit/commit/76d3b53b019b32715e31280c8b652c869d53f5b1))
+
+
+### Miscellaneous
+
+* **deps:** bump google.golang.org/grpc from 1.63.0 to 1.63.2 ([#446](https://github.com/rudderlabs/rudder-go-kit/issues/446)) ([618baa6](https://github.com/rudderlabs/rudder-go-kit/commit/618baa64fa6c7d16ce3bd42d6d8c8c7e010b11b9))
+
 ## [0.29.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.28.0...v0.29.0) (2024-04-24)
 
 
