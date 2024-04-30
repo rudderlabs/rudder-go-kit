@@ -19,11 +19,11 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/sshserver"
 )
 
-type nopWriteCloser struct {
-	io.Writer
+type nopReadWriteCloser struct {
+	io.ReadWriter
 }
 
-func (nwc *nopWriteCloser) Close() error {
+func (nwc *nopReadWriteCloser) Close() error {
 	return nil
 }
 
@@ -137,11 +137,12 @@ func TestUpload(t *testing.T) {
 	remoteBuf := bytes.NewBuffer(nil)
 
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
-	mockSFTPClient.EXPECT().Create(gomock.Any()).Return(&nopWriteCloser{remoteBuf}, nil)
+	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
+	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).Return(nil)
 
 	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
-	err = fileManager.Upload(localFilePath, "someRemoteDir")
+	err = fileManager.Upload(localFilePath, "someRemotePath")
 	require.NoError(t, err)
 	require.Equal(t, data, remoteBuf.Bytes())
 }
@@ -159,10 +160,9 @@ func TestDownload(t *testing.T) {
 
 	data := []byte(`{"foo": "bar"}`)
 	remoteBuf := bytes.NewBuffer(data)
-	remoteReader := io.NopCloser(remoteBuf)
 
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
-	mockSFTPClient.EXPECT().Open(gomock.Any()).Return(remoteReader, nil)
+	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
 
 	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
@@ -226,7 +226,7 @@ func TestSFTP(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = session.Close() }()
 
-	remoteDir := filepath.Join("/tmp", "remote")
+	remoteDir := filepath.Join("/tmp", "remote", "data")
 	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 	require.NoError(t, err)
 
@@ -252,7 +252,7 @@ func TestSFTP(t *testing.T) {
 	err = os.WriteFile(localFilePath, data, 0o644)
 	require.NoError(t, err)
 
-	err = sftpManger.Upload(localFilePath, remoteDir)
+	err = sftpManger.Upload(localFilePath, remoteFilePath)
 	require.NoError(t, err)
 
 	err = sftpManger.Download(remoteFilePath, baseDir)

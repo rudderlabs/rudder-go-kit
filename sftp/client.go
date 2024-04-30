@@ -84,9 +84,9 @@ type clientImpl struct {
 }
 
 type Client interface {
-	Create(path string) (io.WriteCloser, error)
-	Open(path string) (io.ReadCloser, error)
+	OpenFile(path string, f int) (io.ReadWriteCloser, error)
 	Remove(path string) error
+	MkdirAll(path string) error
 }
 
 // newSFTPClient creates an SFTP client with existing SSH client
@@ -100,14 +100,14 @@ func newSFTPClient(client *ssh.Client) (Client, error) {
 	}, nil
 }
 
-func (c *clientImpl) Create(path string) (io.WriteCloser, error) {
-	return c.client.Create(path)
-}
-
-func (c *clientImpl) Open(path string) (io.ReadCloser, error) {
-	return c.client.Open(path)
+func (c *clientImpl) OpenFile(path string, f int) (io.ReadWriteCloser, error) {
+	return c.client.OpenFile(path, f)
 }
 
 func (c *clientImpl) Remove(path string) error {
 	return c.client.Remove(path)
+}
+
+func (c *clientImpl) MkdirAll(path string) error {
+	return c.client.MkdirAll(path)
 }

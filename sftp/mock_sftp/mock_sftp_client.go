@@ -34,34 +34,33 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
 
-// Create mocks base method.
-func (m *MockClient) Create(arg0 string) (io.WriteCloser, error) {
+// MkdirAll mocks base method.
+func (m *MockClient) MkdirAll(arg0 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0)
-	ret0, _ := ret[0].(io.WriteCloser)
+	ret := m.ctrl.Call(m, "MkdirAll", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MkdirAll indicates an expected call of MkdirAll.
+func (mr *MockClientMockRecorder) MkdirAll(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MkdirAll", reflect.TypeOf((*MockClient)(nil).MkdirAll), arg0)
+}
+
+// OpenFile mocks base method.
+func (m *MockClient) OpenFile(arg0 string, arg1 int) (io.ReadWriteCloser, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenFile", arg0, arg1)
+	ret0, _ := ret[0].(io.ReadWriteCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Create indicates an expected call of Create.
-func (mr *MockClientMockRecorder) Create(arg0 interface{}) *gomock.Call {
+// OpenFile indicates an expected call of OpenFile.
+func (mr *MockClientMockRecorder) OpenFile(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockClient)(nil).Create), arg0)
-}
-
-// Open mocks base method.
-func (m *MockClient) Open(arg0 string) (io.ReadCloser, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Open", arg0)
-	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Open indicates an expected call of Open.
-func (mr *MockClientMockRecorder) Open(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockClient)(nil).Open), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenFile", reflect.TypeOf((*MockClient)(nil).OpenFile), arg0, arg1)
 }
 
 // Remove mocks base method.
