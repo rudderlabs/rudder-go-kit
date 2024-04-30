@@ -49,33 +49,18 @@ func (mr *MockClientMockRecorder) MkdirAll(arg0 interface{}) *gomock.Call {
 }
 
 // Open mocks base method.
-func (m *MockClient) Open(arg0 string) (io.ReadCloser, error) {
+func (m *MockClient) Open(arg0 string, arg1 int) (io.ReadWriteCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Open", arg0)
-	ret0, _ := ret[0].(io.ReadCloser)
+	ret := m.ctrl.Call(m, "Open", arg0, arg1)
+	ret0, _ := ret[0].(io.ReadWriteCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Open indicates an expected call of Open.
-func (mr *MockClientMockRecorder) Open(arg0 interface{}) *gomock.Call {
+func (mr *MockClientMockRecorder) Open(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockClient)(nil).Open), arg0)
-}
-
-// OpenFile mocks base method.
-func (m *MockClient) OpenFile(arg0 string, arg1 int) (io.WriteCloser, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenFile", arg0, arg1)
-	ret0, _ := ret[0].(io.WriteCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// OpenFile indicates an expected call of OpenFile.
-func (mr *MockClientMockRecorder) OpenFile(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenFile", reflect.TypeOf((*MockClient)(nil).OpenFile), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockClient)(nil).Open), arg0, arg1)
 }
 
 // Remove mocks base method.

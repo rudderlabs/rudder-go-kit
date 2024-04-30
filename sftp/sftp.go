@@ -52,7 +52,7 @@ func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
 		return fmt.Errorf("cannot create remote directory: %w", err)
 	}
 
-	remoteFile, err := fm.client.OpenFile(remoteFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	remoteFile, err := fm.client.Open(remoteFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return fmt.Errorf("cannot create remote file: %w", err)
 	}
@@ -70,7 +70,7 @@ func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
 
 // Download downloads a file from the remote server
 func (fm *fileManagerImpl) Download(remoteFilePath, localDir string) error {
-	remoteFile, err := fm.client.Open(remoteFilePath)
+	remoteFile, err := fm.client.Open(remoteFilePath, os.O_RDONLY)
 	if err != nil {
 		return fmt.Errorf("cannot open remote file: %w", err)
 	}
