@@ -19,11 +19,11 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/sshserver"
 )
 
-type nopWriteCloser struct {
-	io.Writer
+type nopReadWriteCloser struct {
+	io.ReadWriter
 }
 
-func (nwc *nopWriteCloser) Close() error {
+func (nwc *nopReadWriteCloser) Close() error {
 	return nil
 }
 
@@ -137,7 +137,7 @@ func TestUpload(t *testing.T) {
 	remoteBuf := bytes.NewBuffer(nil)
 
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
-	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopWriteCloser{remoteBuf}, nil)
+	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
 	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).Return(nil)
 
 	fileManager := &fileManagerImpl{client: mockSFTPClient}
@@ -160,10 +160,9 @@ func TestDownload(t *testing.T) {
 
 	data := []byte(`{"foo": "bar"}`)
 	remoteBuf := bytes.NewBuffer(data)
-	remoteReader := io.NopCloser(remoteBuf)
 
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
-	mockSFTPClient.EXPECT().Open(gomock.Any()).Return(remoteReader, nil)
+	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
 
 	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
