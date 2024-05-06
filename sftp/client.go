@@ -65,8 +65,8 @@ func sshClientConfig(config *SSHConfig) (*ssh.ClientConfig, error) {
 	return sshConfig, nil
 }
 
-// NewSSHClient establishes an SSH connection and returns an SSH client
-func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
+// newSSHClient establishes an SSH connection and returns an SSH client
+func newSSHClient(config *SSHConfig) (*ssh.Client, error) {
 	sshConfig, err := sshClientConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("cannot configure SSH client: %w", err)
