@@ -2,6 +2,7 @@ package sftp
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -147,6 +148,55 @@ func TestUpload(t *testing.T) {
 	require.Equal(t, data, remoteBuf.Bytes())
 }
 
+func TestUploadWithRetry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	// Create local directory within the temporary directory
+	localDir, err := os.MkdirTemp("", t.Name())
+	require.NoError(t, err)
+
+	// Set up local path within the directory
+	localFilePath := filepath.Join(localDir, "test_file.json")
+
+	// Create local file and write data to it
+	localFile, err := os.Create(localFilePath)
+	require.NoError(t, err)
+	defer func() { _ = localFile.Close() }()
+	data := []byte(`{"foo": "bar"}`)
+	err = os.WriteFile(localFilePath, data, 0o644)
+	require.NoError(t, err)
+
+	remoteBuf := bytes.NewBuffer(nil)
+
+	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
+	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
+
+	callCounter := 0
+	// Expect a call to MkdirAll and specify the behavior
+	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).DoAndReturn(func(_ interface{}) error {
+		callCounter++
+		if callCounter == 1 {
+			return errors.New("connection lost")
+		}
+		return nil
+	})
+
+	privateKey, err := os.ReadFile("testdata/ssh/test_key")
+	require.NoError(t, err)
+	fileManager := &retryableFileManagerImpl{&fileManagerImpl{client: mockSFTPClient, config: &SSHConfig{
+		HostName:   "someHostName",
+		Port:       22,
+		User:       "someUser",
+		AuthMethod: "keyAuth",
+		PrivateKey: string(privateKey),
+	}}}
+
+	err = fileManager.Upload(localFilePath, "someRemotePath")
+	require.NoError(t, err)
+	require.Equal(t, data, remoteBuf.Bytes())
+}
+
 func TestDownload(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -211,7 +261,7 @@ func TestSFTP(t *testing.T) {
 	require.NoError(t, err)
 	port, err := strconv.Atoi(portStr)
 	require.NoError(t, err)
-	sshClient, err := NewSSHClient(&SSHConfig{
+	sshClient, err := newSSHClient(&SSHConfig{
 		User:        "linuxserver.io",
 		HostName:    hostname,
 		Port:        port,
@@ -230,8 +280,10 @@ func TestSFTP(t *testing.T) {
 	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 	require.NoError(t, err)
 
-	sftpManger, err := NewFileManager(sshClient)
+	sftpClient, err := newSFTPClient(sshClient)
 	require.NoError(t, err)
+
+	sftpManger := &fileManagerImpl{client: sftpClient}
 
 	// Create local and remote directories within the temporary directory
 	baseDir := t.TempDir()

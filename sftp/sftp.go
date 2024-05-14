@@ -1,14 +1,11 @@
 package sftp
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -23,98 +20,93 @@ type FileManager interface {
 	Upload(localFilePath, remoteDir string) error
 	Download(remoteFilePath, localDir string) error
 	Delete(remoteFilePath string) error
+	Reset() error
 }
 
 // fileManagerImpl is a real implementation of FileManager
 type fileManagerImpl struct {
-	client    Client
-	config    *SSHConfig
-	sshClient *ssh.Client
+	client Client
+	config *SSHConfig
 }
 
 // Upload uploads a file to the remote server
 func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
-	fileOperation := func() error {
-		localFile, err := os.Open(localFilePath)
-		if err != nil {
-			return fmt.Errorf("cannot open local file: %w", err)
-		}
-		defer func() {
-			_ = localFile.Close()
-		}()
+	localFile, err := os.Open(localFilePath)
+	if err != nil {
+		return fmt.Errorf("cannot open local file: %w", err)
+	}
+	defer func() {
+		_ = localFile.Close()
+	}()
 
-		// Create the directory if it does not exist
-		remoteDir := filepath.Dir(remoteFilePath)
-		if err := fm.client.MkdirAll(remoteDir); err != nil {
-			return fmt.Errorf("cannot create remote directory: %w", err)
-		}
-
-		remoteFile, err := fm.client.OpenFile(remoteFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
-		if err != nil {
-			return fmt.Errorf("cannot create remote file: %w", err)
-		}
-		defer func() {
-			_ = remoteFile.Close()
-		}()
-
-		_, err = io.Copy(remoteFile, localFile)
-		if err != nil {
-			return fmt.Errorf("error copying file: %w", err)
-		}
-
-		return nil
+	// Create the directory if it does not exist
+	remoteDir := filepath.Dir(remoteFilePath)
+	if err := fm.client.MkdirAll(remoteDir); err != nil {
+		return fmt.Errorf("cannot create remote directory: %w", err)
 	}
 
-	return fm.retryOnConnectionLost(fileOperation)
+	remoteFile, err := fm.client.OpenFile(remoteFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	if err != nil {
+		return fmt.Errorf("cannot create remote file: %w", err)
+	}
+	defer func() {
+		_ = remoteFile.Close()
+	}()
+
+	_, err = io.Copy(remoteFile, localFile)
+	if err != nil {
+		return fmt.Errorf("error copying file: %w", err)
+	}
+
+	return nil
 }
 
 // Download downloads a file from the remote server
 func (fm *fileManagerImpl) Download(remoteFilePath, localDir string) error {
-	fileOperation := func() error {
-		remoteFile, err := fm.client.OpenFile(remoteFilePath, os.O_RDONLY)
-		if err != nil {
-			return fmt.Errorf("cannot open remote file: %w", err)
-		}
-		defer func() {
-			_ = remoteFile.Close()
-		}()
-
-		localFileName := filepath.Join(localDir, filepath.Base(remoteFilePath))
-		localFile, err := os.Create(localFileName)
-		if err != nil {
-			return fmt.Errorf("cannot create local file: %w", err)
-		}
-		defer func() {
-			_ = localFile.Close()
-		}()
-
-		_, err = io.Copy(localFile, remoteFile)
-		if err != nil {
-			return fmt.Errorf("cannot copy remote file content to local file: %w", err)
-		}
-
-		return nil
+	remoteFile, err := fm.client.OpenFile(remoteFilePath, os.O_RDONLY)
+	if err != nil {
+		return fmt.Errorf("cannot open remote file: %w", err)
 	}
-	return fm.retryOnConnectionLost(fileOperation)
+	defer func() {
+		_ = remoteFile.Close()
+	}()
 
+	localFileName := filepath.Join(localDir, filepath.Base(remoteFilePath))
+	localFile, err := os.Create(localFileName)
+	if err != nil {
+		return fmt.Errorf("cannot create local file: %w", err)
+	}
+	defer func() {
+		_ = localFile.Close()
+	}()
+
+	_, err = io.Copy(localFile, remoteFile)
+	if err != nil {
+		return fmt.Errorf("cannot copy remote file content to local file: %w", err)
+	}
+
+	return nil
 }
 
 // Delete deletes a file on the remote server
 func (fm *fileManagerImpl) Delete(remoteFilePath string) error {
-	fileOperation := func() error {
-		err := fm.client.Remove(remoteFilePath)
-		if err != nil {
-			return fmt.Errorf("cannot delete file: %w", err)
-		}
-
-		return nil
+	err := fm.client.Remove(remoteFilePath)
+	if err != nil {
+		return fmt.Errorf("cannot delete file: %w", err)
 	}
-
-	return fm.retryOnConnectionLost(fileOperation)
-
+	return nil
 }
 
-func NewFileManager(config *SSHConfig) (FileManager, error) {
+func (fm *fileManagerImpl) Reset() error {
+	newFm, err := NewFileManager(fm.config)
+	if err != nil {
+		return err
+	}
+	fm.client = newFm.client
+	return nil
+}
+
+func NewFileManager(config *SSHConfig) (*fileManagerImpl, error) {
 	sshClient, err := newSSHClient(config)
 	if err != nil {
 		return nil, fmt.Errorf("creating SSH client: %w", err)
@@ -123,21 +115,48 @@ func NewFileManager(config *SSHConfig) (FileManager, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
 	}
-	return &fileManagerImpl{client: sftpClient, config: config, sshClient: sshClient}, nil
+	return &fileManagerImpl{client: sftpClient, config: config}, nil
 }
 
-func isConnectionLostError(err error) bool {
-	// Implement the logic to check if the error indicates a "connection lost" condition
-	return strings.Contains(err.Error(), "connection lost")
+type retryableFileManagerImpl struct {
+	fileManager FileManager
 }
 
-func (fm *fileManagerImpl) retryOnConnectionLost(fileOperation func() error) error {
+// Delete implements FileManager.
+func (r *retryableFileManagerImpl) Delete(remoteFilePath string) error {
+	fileOperation := func() error {
+		return r.fileManager.Delete(remoteFilePath)
+	}
+	return r.retryOnConnectionLost(fileOperation)
+}
+
+// Download implements FileManager.
+func (r *retryableFileManagerImpl) Download(remoteFilePath string, localDir string) error {
+	fileOperation := func() error {
+		return r.fileManager.Download(remoteFilePath, localDir)
+	}
+	return r.retryOnConnectionLost(fileOperation)
+}
+
+// Upload implements FileManager.
+func (r *retryableFileManagerImpl) Upload(localFilePath string, remoteDir string) error {
+	fileOperation := func() error {
+		return r.fileManager.Upload(localFilePath, remoteDir)
+	}
+	return r.retryOnConnectionLost(fileOperation)
+}
+
+func (r *retryableFileManagerImpl) Reset() error {
+	return r.fileManager.Reset()
+}
+
+func (r *retryableFileManagerImpl) retryOnConnectionLost(fileOperation func() error) error {
 	err := fileOperation()
 	if err == nil || !isConnectionLostError(err) {
 		return err // Operation successful or non-retryable error
 	}
 
-	if err := fm.recreateSFTPClient(); err != nil {
+	if err := r.Reset(); err != nil {
 		return err // Error recreating the SFTP client
 	}
 
@@ -145,16 +164,15 @@ func (fm *fileManagerImpl) retryOnConnectionLost(fileOperation func() error) err
 	return fileOperation()
 }
 
-func (fm *fileManagerImpl) recreateSFTPClient() error {
-	newFileManager, err := NewFileManager(fm.config)
+func NewRetryableFileManager(config *SSHConfig) (FileManager, error) {
+	baseFileManager, err := NewFileManager(config)
 	if err != nil {
-		return err // Error recreating the SFTP client
+		return nil, err
 	}
-	newFM, ok := newFileManager.(*fileManagerImpl)
-	if !ok {
-		return errors.New("error while typecasting")
-	}
+	return &retryableFileManagerImpl{fileManager: baseFileManager}, nil
+}
 
-	fm.client = newFM.client // Update the SFTP client
-	return nil
+func isConnectionLostError(err error) bool {
+	// Implement the logic to check if the error indicates a "connection lost" condition
+	return strings.Contains(err.Error(), "connection lost")
 }
