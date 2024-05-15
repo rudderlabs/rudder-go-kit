@@ -122,15 +122,13 @@ type retryableFileManagerImpl struct {
 	fileManager FileManager
 }
 
-// Delete implements FileManager.
-func (r *retryableFileManagerImpl) Delete(remoteFilePath string) error {
+func (r *retryableFileManagerImpl) Upload(localFilePath string, remoteFilePath string) error {
 	fileOperation := func() error {
-		return r.fileManager.Delete(remoteFilePath)
+		return r.fileManager.Upload(localFilePath, remoteFilePath)
 	}
 	return r.retryOnConnectionLost(fileOperation)
 }
 
-// Download implements FileManager.
 func (r *retryableFileManagerImpl) Download(remoteFilePath string, localDir string) error {
 	fileOperation := func() error {
 		return r.fileManager.Download(remoteFilePath, localDir)
@@ -138,10 +136,9 @@ func (r *retryableFileManagerImpl) Download(remoteFilePath string, localDir stri
 	return r.retryOnConnectionLost(fileOperation)
 }
 
-// Upload implements FileManager.
-func (r *retryableFileManagerImpl) Upload(localFilePath string, remoteDir string) error {
+func (r *retryableFileManagerImpl) Delete(remoteFilePath string) error {
 	fileOperation := func() error {
-		return r.fileManager.Upload(localFilePath, remoteDir)
+		return r.fileManager.Delete(remoteFilePath)
 	}
 	return r.retryOnConnectionLost(fileOperation)
 }
@@ -157,7 +154,7 @@ func (r *retryableFileManagerImpl) retryOnConnectionLost(fileOperation func() er
 	}
 
 	if err := r.Reset(); err != nil {
-		return err // Error recreating the SFTP client
+		return err
 	}
 
 	// Retry the operation
@@ -173,6 +170,5 @@ func NewRetryableFileManager(config *SSHConfig) (FileManager, error) {
 }
 
 func isConnectionLostError(err error) bool {
-	// Implement the logic to check if the error indicates a "connection lost" condition
 	return strings.Contains(err.Error(), "connection lost")
 }

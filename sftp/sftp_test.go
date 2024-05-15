@@ -148,55 +148,6 @@ func TestUpload(t *testing.T) {
 	require.Equal(t, data, remoteBuf.Bytes())
 }
 
-func TestUploadWithRetry(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	// Create local directory within the temporary directory
-	localDir, err := os.MkdirTemp("", t.Name())
-	require.NoError(t, err)
-
-	// Set up local path within the directory
-	localFilePath := filepath.Join(localDir, "test_file.json")
-
-	// Create local file and write data to it
-	localFile, err := os.Create(localFilePath)
-	require.NoError(t, err)
-	defer func() { _ = localFile.Close() }()
-	data := []byte(`{"foo": "bar"}`)
-	err = os.WriteFile(localFilePath, data, 0o644)
-	require.NoError(t, err)
-
-	remoteBuf := bytes.NewBuffer(nil)
-
-	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
-	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
-
-	callCounter := 0
-	// Expect a call to MkdirAll and specify the behavior
-	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).DoAndReturn(func(_ interface{}) error {
-		callCounter++
-		if callCounter == 1 {
-			return errors.New("connection lost")
-		}
-		return nil
-	})
-
-	privateKey, err := os.ReadFile("testdata/ssh/test_key")
-	require.NoError(t, err)
-	fileManager := &retryableFileManagerImpl{&fileManagerImpl{client: mockSFTPClient, config: &SSHConfig{
-		HostName:   "someHostName",
-		Port:       22,
-		User:       "someUser",
-		AuthMethod: "keyAuth",
-		PrivateKey: string(privateKey),
-	}}}
-
-	err = fileManager.Upload(localFilePath, "someRemotePath")
-	require.NoError(t, err)
-	require.Equal(t, data, remoteBuf.Bytes())
-}
-
 func TestDownload(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -234,6 +185,46 @@ func TestDelete(t *testing.T) {
 	fileManager := &fileManagerImpl{client: mockSFTPClient}
 
 	err := fileManager.Delete(remoteFilePath)
+	require.NoError(t, err)
+}
+
+func TestRetry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFileManager := mock_sftp.NewMockFileManager(ctrl)
+	mockFileManager.EXPECT().Reset().Return(nil)
+
+	callCounter := 0
+	mockFileManager.EXPECT().Upload(gomock.Any(), gomock.Any()).Return(nil).DoAndReturn(func(_, _ interface{}) error {
+		callCounter++
+		if callCounter == 1 {
+			return errors.New("connection lost")
+		}
+		return nil
+	}).AnyTimes()
+	mockFileManager.EXPECT().Download(gomock.Any(), gomock.Any()).Return(nil).DoAndReturn(func(_, _ interface{}) error {
+		callCounter++
+		if callCounter == 1 {
+			return errors.New("connection lost")
+		}
+		return nil
+	}).AnyTimes()
+	mockFileManager.EXPECT().Delete(gomock.Any()).Return(nil).DoAndReturn(func(_ interface{}) error {
+		callCounter++
+		if callCounter == 1 {
+			return errors.New("connection lost")
+		}
+		return nil
+	}).AnyTimes()
+
+	fileManager := &retryableFileManagerImpl{fileManager: mockFileManager}
+
+	err := fileManager.Upload("someLocalFilePath", "someRemotePath")
+	require.NoError(t, err)
+	err = fileManager.Download("someRemotePath", "someLocalDir")
+	require.NoError(t, err)
+	err = fileManager.Delete("someRemotePath")
 	require.NoError(t, err)
 }
 
