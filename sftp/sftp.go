@@ -17,8 +17,8 @@ const (
 
 // FileManager is an interface for managing files on a remote server
 type FileManager interface {
-	Upload(localFilePath, remoteDir string) error
-	Download(remoteFilePath, localDir string) error
+	Upload(localFilePath string, remoteDir string) error
+	Download(remoteFilePath string, localDir string) error
 	Delete(remoteFilePath string) error
 	Reset() error
 }
@@ -30,7 +30,7 @@ type fileManagerImpl struct {
 }
 
 // Upload uploads a file to the remote server
-func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
+func (fm *fileManagerImpl) Upload(localFilePath string, remoteFilePath string) error {
 	localFile, err := os.Open(localFilePath)
 	if err != nil {
 		return fmt.Errorf("cannot open local file: %w", err)
@@ -62,7 +62,7 @@ func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
 }
 
 // Download downloads a file from the remote server
-func (fm *fileManagerImpl) Download(remoteFilePath, localDir string) error {
+func (fm *fileManagerImpl) Download(remoteFilePath string, localDir string) error {
 	remoteFile, err := fm.client.OpenFile(remoteFilePath, os.O_RDONLY)
 	if err != nil {
 		return fmt.Errorf("cannot open remote file: %w", err)
