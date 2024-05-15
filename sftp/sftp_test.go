@@ -188,7 +188,7 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRetry(t *testing.T) {
+func TestUploadRetry(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -203,6 +203,21 @@ func TestRetry(t *testing.T) {
 		}
 		return nil
 	}).AnyTimes()
+
+	fileManager := &retryableFileManagerImpl{fileManager: mockFileManager}
+
+	err := fileManager.Upload("someLocalFilePath", "someRemotePath")
+	require.NoError(t, err)
+}
+
+func TestDownloadRetry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFileManager := mock_sftp.NewMockFileManager(ctrl)
+	mockFileManager.EXPECT().Reset().Return(nil)
+
+	callCounter := 0
 	mockFileManager.EXPECT().Download(gomock.Any(), gomock.Any()).Return(nil).DoAndReturn(func(_, _ interface{}) error {
 		callCounter++
 		if callCounter == 1 {
@@ -210,6 +225,21 @@ func TestRetry(t *testing.T) {
 		}
 		return nil
 	}).AnyTimes()
+
+	fileManager := &retryableFileManagerImpl{fileManager: mockFileManager}
+
+	err := fileManager.Download("someRemotePath", "someLocalDir")
+	require.NoError(t, err)
+}
+
+func TestDeleteRetry(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockFileManager := mock_sftp.NewMockFileManager(ctrl)
+	mockFileManager.EXPECT().Reset().Return(nil)
+
+	callCounter := 0
 	mockFileManager.EXPECT().Delete(gomock.Any()).Return(nil).DoAndReturn(func(_ interface{}) error {
 		callCounter++
 		if callCounter == 1 {
@@ -220,11 +250,7 @@ func TestRetry(t *testing.T) {
 
 	fileManager := &retryableFileManagerImpl{fileManager: mockFileManager}
 
-	err := fileManager.Upload("someLocalFilePath", "someRemotePath")
-	require.NoError(t, err)
-	err = fileManager.Download("someRemotePath", "someLocalDir")
-	require.NoError(t, err)
-	err = fileManager.Delete("someRemotePath")
+	err := fileManager.Delete("someRemotePath")
 	require.NoError(t, err)
 }
 
