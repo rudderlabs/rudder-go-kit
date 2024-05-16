@@ -202,7 +202,7 @@ func TestUploadRetry(t *testing.T) {
 			return errors.New("connection lost")
 		}
 		return nil
-	}).AnyTimes()
+	}).Times(2)
 
 	fileManager := &retryableFileManagerImpl{fileManager: mockFileManager}
 
@@ -224,7 +224,7 @@ func TestDownloadRetry(t *testing.T) {
 			return errors.New("connection lost")
 		}
 		return nil
-	}).AnyTimes()
+	}).Times(2)
 
 	fileManager := &retryableFileManagerImpl{fileManager: mockFileManager}
 
@@ -246,7 +246,7 @@ func TestDeleteRetry(t *testing.T) {
 			return errors.New("connection lost")
 		}
 		return nil
-	}).AnyTimes()
+	}).Times(2)
 
 	fileManager := &retryableFileManagerImpl{fileManager: mockFileManager}
 
