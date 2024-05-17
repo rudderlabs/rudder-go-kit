@@ -60,7 +60,7 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		opt(&conf)
 	}
 	repo := "redis"
-	if conf.repository == "" {
+	if conf.repository != "" {
 		repo = conf.repository
 	}
 	runOptions := &dockertest.RunOptions{
