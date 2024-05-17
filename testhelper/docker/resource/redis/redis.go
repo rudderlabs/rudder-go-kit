@@ -55,17 +55,14 @@ type redisConfig struct {
 
 func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	conf := redisConfig{
-		tag: "6",
+		tag:        "6",
+		repository: "redis",
 	}
 	for _, opt := range opts {
 		opt(&conf)
 	}
-	repo := "redis"
-	if conf.repository != "" {
-		repo = conf.repository
-	}
 	runOptions := &dockertest.RunOptions{
-		Repository: repo,
+		Repository: conf.repository,
 		Tag:        conf.tag,
 		Env:        conf.envs,
 		Cmd:        []string{"redis-server"},
