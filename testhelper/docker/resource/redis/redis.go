@@ -33,6 +33,12 @@ func WithEnv(envs ...string) Option {
 	}
 }
 
+func WithRepository(repository string) Option {
+	return func(rc *redisConfig) {
+		rc.repository = repository
+	}
+}
+
 type Resource struct {
 	Addr string
 }
@@ -40,9 +46,10 @@ type Resource struct {
 type Option func(*redisConfig)
 
 type redisConfig struct {
-	tag     string
-	envs    []string
-	cmdArgs []string
+	repository string
+	tag        string
+	envs       []string
+	cmdArgs    []string
 }
 
 func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
@@ -52,8 +59,12 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 	for _, opt := range opts {
 		opt(&conf)
 	}
+	repo := "redis"
+	if conf.repository == "" {
+		repo = conf.repository
+	}
 	runOptions := &dockertest.RunOptions{
-		Repository: "redis",
+		Repository: repo,
 		Tag:        conf.tag,
 		Env:        conf.envs,
 		Cmd:        []string{"redis-server"},
