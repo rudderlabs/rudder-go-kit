@@ -100,22 +100,18 @@ func (fm *fileManagerImpl) Delete(remoteFilePath string) error {
 }
 
 func (fm *fileManagerImpl) Reset() error {
-	newFm, err := NewFileManager(fm.config)
+	newClient, err := newSFTPClientFromConfig(fm.config)
 	if err != nil {
 		return err
 	}
-	fm.client = newFm.client
+	fm.client = newClient
 	return nil
 }
 
-func NewFileManager(config *SSHConfig) (*fileManagerImpl, error) {
-	sshClient, err := newSSHClient(config)
+func NewFileManager(config *SSHConfig) (FileManager, error) {
+	sftpClient, err := newSFTPClientFromConfig(config)
 	if err != nil {
-		return nil, fmt.Errorf("creating SSH client: %w", err)
-	}
-	sftpClient, err := newSFTPClient(sshClient)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
+		return nil, err
 	}
 	return &fileManagerImpl{client: sftpClient, config: config}, nil
 }

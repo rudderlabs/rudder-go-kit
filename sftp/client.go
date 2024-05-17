@@ -100,6 +100,15 @@ func newSFTPClient(client *ssh.Client) (Client, error) {
 	}, nil
 }
 
+func newSFTPClientFromConfig(config *SSHConfig) (Client, error) {
+	sshClient, err := newSSHClient(config)
+	if err != nil {
+		return nil, fmt.Errorf("creating SSH client: %w", err)
+	}
+
+	return newSFTPClient(sshClient)
+}
+
 func (c *clientImpl) OpenFile(path string, f int) (io.ReadWriteCloser, error) {
 	return c.client.OpenFile(path, f)
 }
