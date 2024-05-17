@@ -10,42 +10,52 @@ import (
 )
 
 type Resource struct {
-	URL      string
-	AdminURL string
+	URL            string
+	AdminURL       string
+	URLSameNetwork string
 }
 
-func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, error) {
-	c := &Config{
-		Tag: "3.1.2",
+func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
+	c := &config{
+		tag: "3.2.2",
 	}
 	for _, opt := range opts {
 		opt(c)
 	}
-	cmd := []string{"bin/pulsar", "standalone"}
 
-	pulsarContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
+	var networkID string
+	if c.network != nil {
+		networkID = c.network.ID
+	}
+	container, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "apachepulsar/pulsar",
-		Tag:          c.Tag,
+		Tag:          c.tag,
 		Env:          []string{},
 		ExposedPorts: []string{"6650", "8080"},
-		Cmd:          cmd,
+		Cmd:          []string{"bin/pulsar", "standalone"},
+		NetworkID:    networkID,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	d.Cleanup(func() {
-		if err := pool.Purge(pulsarContainer); err != nil {
+		if err := pool.Purge(container); err != nil {
 			d.Log("Could not purge resource:", err)
 		}
 	})
 
-	url := fmt.Sprintf("pulsar://localhost:%s", pulsarContainer.GetPort("6650/tcp"))
-	adminURL := fmt.Sprintf("http://localhost:%s", pulsarContainer.GetPort("8080/tcp"))
+	url := fmt.Sprintf("pulsar://localhost:%s", container.GetPort("6650/tcp"))
+	adminURL := fmt.Sprintf("http://localhost:%s", container.GetPort("8080/tcp"))
 
 	if err := pool.Retry(func() (err error) {
 		var w bytes.Buffer
-		code, err := pulsarContainer.Exec([]string{"sh", "-c", "curl -I http://localhost:8080/admin/v2/namespaces/public/default | grep '200' || exit 1"}, dockertest.ExecOptions{StdOut: &w, StdErr: &w})
+		code, err := container.Exec(
+			[]string{
+				"sh", "-c", "curl -I http://localhost:8080/admin/v2/namespaces/public/default | grep '200' || exit 1",
+			},
+			dockertest.ExecOptions{StdOut: &w, StdErr: &w},
+		)
 		if err != nil {
 			return err
 		}
@@ -56,8 +66,15 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, e
 	}); err != nil {
 		return nil, err
 	}
+
+	var urlSameNetwork string
+	if c.network != nil {
+		urlSameNetwork = "pulsar://" + container.GetIPInNetwork(&dockertest.Network{Network: c.network}) + ":6650"
+	}
+
 	return &Resource{
-		URL:      url,
-		AdminURL: adminURL,
+		URL:            url,
+		AdminURL:       adminURL,
+		URLSameNetwork: urlSameNetwork,
 	}, nil
 }
