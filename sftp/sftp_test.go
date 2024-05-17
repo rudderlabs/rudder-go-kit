@@ -2,7 +2,6 @@ package sftp
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/ory/dockertest/v3"
+	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/sftp/mock_sftp"
@@ -199,7 +199,7 @@ func TestUploadRetry(t *testing.T) {
 	mockFileManager.EXPECT().Upload(gomock.Any(), gomock.Any()).Return(nil).DoAndReturn(func(_, _ interface{}) error {
 		callCounter++
 		if callCounter == 1 {
-			return errors.New("connection lost")
+			return sftp.ErrSshFxConnectionLost
 		}
 		return nil
 	}).Times(2)
@@ -221,7 +221,7 @@ func TestDownloadRetry(t *testing.T) {
 	mockFileManager.EXPECT().Download(gomock.Any(), gomock.Any()).Return(nil).DoAndReturn(func(_, _ interface{}) error {
 		callCounter++
 		if callCounter == 1 {
-			return errors.New("connection lost")
+			return sftp.ErrSshFxConnectionLost
 		}
 		return nil
 	}).Times(2)
@@ -243,7 +243,7 @@ func TestDeleteRetry(t *testing.T) {
 	mockFileManager.EXPECT().Delete(gomock.Any()).Return(nil).DoAndReturn(func(_ interface{}) error {
 		callCounter++
 		if callCounter == 1 {
-			return errors.New("connection lost")
+			return sftp.ErrSshFxConnectionLost
 		}
 		return nil
 	}).Times(2)

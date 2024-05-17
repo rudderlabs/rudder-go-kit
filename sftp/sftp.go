@@ -1,11 +1,13 @@
 package sftp
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/pkg/sftp"
 )
 
 const (
@@ -170,5 +172,5 @@ func NewRetryableFileManager(config *SSHConfig) (FileManager, error) {
 }
 
 func isConnectionLostError(err error) bool {
-	return strings.Contains(err.Error(), "connection lost")
+	return errors.Is(err, sftp.ErrSshFxConnectionLost)
 }
