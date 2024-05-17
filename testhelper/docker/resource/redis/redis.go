@@ -33,6 +33,7 @@ func WithEnv(envs ...string) Option {
 	}
 }
 
+// WithRepository is used to specify a custom image that should be pulled from the container registry
 func WithRepository(repository string) Option {
 	return func(rc *redisConfig) {
 		rc.repository = repository
