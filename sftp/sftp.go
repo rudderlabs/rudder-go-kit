@@ -26,21 +26,22 @@ type FileManager interface {
 
 type Option func(impl *fileManagerImpl)
 
-func WithRetryOnIdleConnectionLost(enableRetryOnConnectionLost bool) Option {
+// WithRetryOnIdleConnection enables retrying the operation once in case of a "connection lost" error due to an idle connection.
+func WithRetryOnIdleConnection() Option {
 	return func(impl *fileManagerImpl) {
-		impl.enableRetryOnConnectionLost = enableRetryOnConnectionLost
+		impl.retryOnIdleConnection = true
 	}
 }
 
 // fileManagerImpl is a real implementation of FileManager
 type fileManagerImpl struct {
-	client                      Client
-	enableRetryOnConnectionLost bool
+	client                client
+	retryOnIdleConnection bool
 }
 
 // Upload uploads a file to the remote server
 func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
-	if fm.enableRetryOnConnectionLost {
+	if fm.retryOnIdleConnection {
 		return fm.retryOnConnectionLost(func() error {
 			return fm.upload(localFilePath, remoteFilePath)
 		})
@@ -82,7 +83,7 @@ func (fm *fileManagerImpl) upload(localFilePath, remoteFilePath string) error {
 
 // Download downloads a file from the remote server
 func (fm *fileManagerImpl) Download(remoteFilePath, localDir string) error {
-	if fm.enableRetryOnConnectionLost {
+	if fm.retryOnIdleConnection {
 		return fm.retryOnConnectionLost(func() error {
 			return fm.download(remoteFilePath, localDir)
 		})
@@ -119,7 +120,7 @@ func (fm *fileManagerImpl) download(remoteFilePath, localDir string) error {
 
 // Delete deletes a file on the remote server
 func (fm *fileManagerImpl) Delete(remoteFilePath string) error {
-	if fm.enableRetryOnConnectionLost {
+	if fm.retryOnIdleConnection {
 		return fm.retryOnConnectionLost(func() error {
 			return fm.delete(remoteFilePath)
 		})
@@ -152,7 +153,6 @@ func NewFileManager(config *SSHConfig, opts ...Option) (FileManager, error) {
 	return fm, nil
 }
 
-// retry on "Idle" connection lost
 func (fm *fileManagerImpl) retryOnConnectionLost(fileOperation func() error) error {
 	err := fileOperation()
 	if err == nil || !isConnectionLostError(err) {
