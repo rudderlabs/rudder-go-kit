@@ -33,6 +33,13 @@ func WithEnv(envs ...string) Option {
 	}
 }
 
+// WithRepository is used to specify a custom image that should be pulled from the container registry
+func WithRepository(repository string) Option {
+	return func(rc *redisConfig) {
+		rc.repository = repository
+	}
+}
+
 type Resource struct {
 	Addr string
 }
@@ -40,20 +47,22 @@ type Resource struct {
 type Option func(*redisConfig)
 
 type redisConfig struct {
-	tag     string
-	envs    []string
-	cmdArgs []string
+	repository string
+	tag        string
+	envs       []string
+	cmdArgs    []string
 }
 
 func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	conf := redisConfig{
-		tag: "6",
+		tag:        "6",
+		repository: "redis",
 	}
 	for _, opt := range opts {
 		opt(&conf)
 	}
 	runOptions := &dockertest.RunOptions{
-		Repository: "redis",
+		Repository: conf.repository,
 		Tag:        conf.tag,
 		Env:        conf.envs,
 		Cmd:        []string{"redis-server"},
