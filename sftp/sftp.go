@@ -22,17 +22,34 @@ type FileManager interface {
 	Upload(localFilePath, remoteDir string) error
 	Download(remoteFilePath, localDir string) error
 	Delete(remoteFilePath string) error
-	Reset() error
+}
+
+type Option func(impl *fileManagerImpl)
+
+func WithRetryOnIdleConnectionLost(enableRetryOnConnectionLost bool) Option {
+	return func(impl *fileManagerImpl) {
+		impl.enableRetryOnConnectionLost = enableRetryOnConnectionLost
+	}
 }
 
 // fileManagerImpl is a real implementation of FileManager
 type fileManagerImpl struct {
-	client Client
-	config *SSHConfig
+	client                      Client
+	enableRetryOnConnectionLost bool
 }
 
 // Upload uploads a file to the remote server
 func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
+	if fm.enableRetryOnConnectionLost {
+		return fm.retryOnConnectionLost(func() error {
+			return fm.upload(localFilePath, remoteFilePath)
+		})
+	}
+
+	return fm.upload(localFilePath, remoteFilePath)
+}
+
+func (fm *fileManagerImpl) upload(localFilePath, remoteFilePath string) error {
 	localFile, err := os.Open(localFilePath)
 	if err != nil {
 		return fmt.Errorf("cannot open local file: %w", err)
@@ -65,6 +82,17 @@ func (fm *fileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
 
 // Download downloads a file from the remote server
 func (fm *fileManagerImpl) Download(remoteFilePath, localDir string) error {
+	if fm.enableRetryOnConnectionLost {
+		return fm.retryOnConnectionLost(func() error {
+			return fm.download(remoteFilePath, localDir)
+		})
+	}
+
+	return fm.download(remoteFilePath, localDir)
+
+}
+
+func (fm *fileManagerImpl) download(remoteFilePath, localDir string) error {
 	remoteFile, err := fm.client.OpenFile(remoteFilePath, os.O_RDONLY)
 	if err != nil {
 		return fmt.Errorf("cannot open remote file: %w", err)
@@ -92,6 +120,17 @@ func (fm *fileManagerImpl) Download(remoteFilePath, localDir string) error {
 
 // Delete deletes a file on the remote server
 func (fm *fileManagerImpl) Delete(remoteFilePath string) error {
+	if fm.enableRetryOnConnectionLost {
+		return fm.retryOnConnectionLost(func() error {
+			return fm.delete(remoteFilePath)
+		})
+	}
+
+	return fm.delete(remoteFilePath)
+
+}
+
+func (fm *fileManagerImpl) delete(remoteFilePath string) error {
 	err := fm.client.Remove(remoteFilePath)
 	if err != nil {
 		return fmt.Errorf("cannot delete file: %w", err)
@@ -99,8 +138,8 @@ func (fm *fileManagerImpl) Delete(remoteFilePath string) error {
 	return nil
 }
 
-func (fm *fileManagerImpl) Reset() error {
-	newClient, err := newSFTPClientFromConfig(fm.config)
+func (fm *fileManagerImpl) reset() error {
+	newClient, err := fm.client.Reset()
 	if err != nil {
 		return err
 	}
@@ -108,63 +147,31 @@ func (fm *fileManagerImpl) Reset() error {
 	return nil
 }
 
-func NewFileManager(config *SSHConfig) (FileManager, error) {
+func NewFileManager(config *SSHConfig, opts ...Option) (FileManager, error) {
 	sftpClient, err := newSFTPClientFromConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	return &fileManagerImpl{client: sftpClient, config: config}, nil
-}
-
-type retryableFileManagerImpl struct {
-	fileManager FileManager
-}
-
-func (r *retryableFileManagerImpl) Upload(localFilePath, remoteFilePath string) error {
-	fileOperation := func() error {
-		return r.fileManager.Upload(localFilePath, remoteFilePath)
+	fm := &fileManagerImpl{client: sftpClient}
+	for _, opt := range opts {
+		opt(fm)
 	}
-	return r.retryOnConnectionLost(fileOperation)
+	return fm, nil
 }
 
-func (r *retryableFileManagerImpl) Download(remoteFilePath, localDir string) error {
-	fileOperation := func() error {
-		return r.fileManager.Download(remoteFilePath, localDir)
-	}
-	return r.retryOnConnectionLost(fileOperation)
-}
-
-func (r *retryableFileManagerImpl) Delete(remoteFilePath string) error {
-	fileOperation := func() error {
-		return r.fileManager.Delete(remoteFilePath)
-	}
-	return r.retryOnConnectionLost(fileOperation)
-}
-
-func (r *retryableFileManagerImpl) Reset() error {
-	return r.fileManager.Reset()
-}
-
-func (r *retryableFileManagerImpl) retryOnConnectionLost(fileOperation func() error) error {
+// retry on "Idle" connection lost
+func (fm *fileManagerImpl) retryOnConnectionLost(fileOperation func() error) error {
 	err := fileOperation()
 	if err == nil || !isConnectionLostError(err) {
 		return err // Operation successful or non-retryable error
 	}
 
-	if err := r.Reset(); err != nil {
+	if err := fm.reset(); err != nil {
 		return err
 	}
 
 	// Retry the operation
 	return fileOperation()
-}
-
-func NewRetryableFileManager(config *SSHConfig) (FileManager, error) {
-	baseFileManager, err := NewFileManager(config)
-	if err != nil {
-		return nil, err
-	}
-	return &retryableFileManagerImpl{fileManager: baseFileManager}, nil
 }
 
 func isConnectionLostError(err error) bool {
