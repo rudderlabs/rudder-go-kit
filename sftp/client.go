@@ -84,7 +84,7 @@ type clientImpl struct {
 	config     *SSHConfig
 }
 
-type client interface {
+type Client interface {
 	OpenFile(path string, f int) (io.ReadWriteCloser, error)
 	Remove(path string) error
 	MkdirAll(path string) error
@@ -104,7 +104,7 @@ func newSFTPClientFromConfig(config *SSHConfig) (*sftp.Client, error) {
 	return newSFTPClient(sshClient)
 }
 
-func newClient(config *SSHConfig) (client, error) {
+func newClient(config *SSHConfig) (Client, error) {
 	sftpClient, err := newSFTPClientFromConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("creating SFTP client: %w", err)

@@ -35,7 +35,7 @@ func WithRetryOnIdleConnection() Option {
 
 // fileManagerImpl is a real implementation of FileManager
 type fileManagerImpl struct {
-	client                client
+	client                Client
 	retryOnIdleConnection bool
 }
 
