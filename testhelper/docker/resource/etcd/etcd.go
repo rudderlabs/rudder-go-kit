@@ -14,10 +14,11 @@ import (
 )
 
 type Resource struct {
-	Client           *etcd.Client
-	Hosts            []string
-	HostsSameNetwork []string
-	Port             int
+	Client *etcd.Client
+	Hosts  []string
+	// HostsInNetwork is the list of ETCD hosts accessible from the provided Docker network (if any).
+	HostsInNetwork []string
+	Port           int
 }
 
 type config struct {
@@ -86,17 +87,17 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		return nil, fmt.Errorf("could not connect to dockerized ETCD: %v", err)
 	}
 
-	var hostsSameNetwork []string
+	var hostsInNetwork []string
 	if c.network != nil {
-		hostsSameNetwork = []string{
+		hostsInNetwork = []string{
 			"http://" + container.GetIPInNetwork(&dockertest.Network{Network: c.network}) + ":2379",
 		}
 	}
 
 	return &Resource{
-		Client:           etcdClient,
-		Hosts:            etcdHosts,
-		HostsSameNetwork: hostsSameNetwork,
-		Port:             etcdPort,
+		Client:         etcdClient,
+		Hosts:          etcdHosts,
+		HostsInNetwork: hostsInNetwork,
+		Port:           etcdPort,
 	}, nil
 }
