@@ -88,28 +88,31 @@ type Client interface {
 	OpenFile(path string, f int) (io.ReadWriteCloser, error)
 	Remove(path string) error
 	MkdirAll(path string) error
-	Reset() (Client, error)
+	Reset() error
 }
 
 // newSFTPClient creates an SFTP client with existing SSH client
-func newSFTPClient(client *ssh.Client, config *SSHConfig) (Client, error) {
-	sftpClient, err := sftp.NewClient(client)
+func newSFTPClient(client *ssh.Client) (*sftp.Client, error) {
+	return sftp.NewClient(client)
+}
+
+func newSFTPClientFromConfig(config *SSHConfig) (*sftp.Client, error) {
+	sshClient, err := newSSHClient(config)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
+		return nil, fmt.Errorf("creating SSH client: %w", err)
+	}
+	return newSFTPClient(sshClient)
+}
+
+func newClient(config *SSHConfig) (Client, error) {
+	sftpClient, err := newSFTPClientFromConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("creating SFTP client: %w", err)
 	}
 	return &clientImpl{
 		client: sftpClient,
 		config: config,
 	}, nil
-}
-
-func newSFTPClientFromConfig(config *SSHConfig) (Client, error) {
-	sshClient, err := newSSHClient(config)
-	if err != nil {
-		return nil, fmt.Errorf("creating SSH client: %w", err)
-	}
-
-	return newSFTPClient(sshClient, config)
 }
 
 func (c *clientImpl) OpenFile(path string, f int) (io.ReadWriteCloser, error) {
@@ -124,6 +127,11 @@ func (c *clientImpl) MkdirAll(path string) error {
 	return c.client.MkdirAll(path)
 }
 
-func (c *clientImpl) Reset() (Client, error) {
-	return newSFTPClientFromConfig(c.config)
+func (c *clientImpl) Reset() error {
+	newSFTPClient, err := newSFTPClientFromConfig(c.config)
+	if err != nil {
+		return err
+	}
+	c.client = newSFTPClient
+	return nil
 }

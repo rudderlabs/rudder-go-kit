@@ -231,10 +231,10 @@ func TestSFTP(t *testing.T) {
 	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 	require.NoError(t, err)
 
-	sftpClient, err := newSFTPClient(sshClient, sshConfig)
+	sftpClient, err := newSFTPClient(sshClient)
 	require.NoError(t, err)
 
-	sftpManger := &fileManagerImpl{client: sftpClient}
+	sftpManger := &fileManagerImpl{client: &clientImpl{client: sftpClient}}
 
 	// Create local and remote directories within the temporary directory
 	baseDir := t.TempDir()

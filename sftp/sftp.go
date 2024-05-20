@@ -89,7 +89,6 @@ func (fm *fileManagerImpl) Download(remoteFilePath, localDir string) error {
 	}
 
 	return fm.download(remoteFilePath, localDir)
-
 }
 
 func (fm *fileManagerImpl) download(remoteFilePath, localDir string) error {
@@ -127,7 +126,6 @@ func (fm *fileManagerImpl) Delete(remoteFilePath string) error {
 	}
 
 	return fm.delete(remoteFilePath)
-
 }
 
 func (fm *fileManagerImpl) delete(remoteFilePath string) error {
@@ -139,16 +137,11 @@ func (fm *fileManagerImpl) delete(remoteFilePath string) error {
 }
 
 func (fm *fileManagerImpl) reset() error {
-	newClient, err := fm.client.Reset()
-	if err != nil {
-		return err
-	}
-	fm.client = newClient
-	return nil
+	return fm.client.Reset()
 }
 
 func NewFileManager(config *SSHConfig, opts ...Option) (FileManager, error) {
-	sftpClient, err := newSFTPClientFromConfig(config)
+	sftpClient, err := newClient(config)
 	if err != nil {
 		return nil, err
 	}
