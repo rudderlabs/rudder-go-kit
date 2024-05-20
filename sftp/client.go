@@ -65,8 +65,8 @@ func sshClientConfig(config *SSHConfig) (*ssh.ClientConfig, error) {
 	return sshConfig, nil
 }
 
-// NewSSHClient establishes an SSH connection and returns an SSH client
-func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
+// newSSHClient establishes an SSH connection and returns an SSH client
+func newSSHClient(config *SSHConfig) (*ssh.Client, error) {
 	sshConfig, err := sshClientConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("cannot configure SSH client: %w", err)
@@ -80,34 +80,58 @@ func NewSSHClient(config *SSHConfig) (*ssh.Client, error) {
 }
 
 type clientImpl struct {
-	client *sftp.Client
+	sftpClient *sftp.Client
+	config     *SSHConfig
 }
 
 type Client interface {
 	OpenFile(path string, f int) (io.ReadWriteCloser, error)
 	Remove(path string) error
 	MkdirAll(path string) error
+	Reset() error
 }
 
 // newSFTPClient creates an SFTP client with existing SSH client
-func newSFTPClient(client *ssh.Client) (Client, error) {
-	sftpClient, err := sftp.NewClient(client)
+func newSFTPClient(client *ssh.Client) (*sftp.Client, error) {
+	return sftp.NewClient(client)
+}
+
+func newSFTPClientFromConfig(config *SSHConfig) (*sftp.Client, error) {
+	sshClient, err := newSSHClient(config)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create SFTP client: %w", err)
+		return nil, fmt.Errorf("creating SSH client: %w", err)
+	}
+	return newSFTPClient(sshClient)
+}
+
+func newClient(config *SSHConfig) (Client, error) {
+	sftpClient, err := newSFTPClientFromConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("creating SFTP client: %w", err)
 	}
 	return &clientImpl{
-		client: sftpClient,
+		sftpClient: sftpClient,
+		config:     config,
 	}, nil
 }
 
 func (c *clientImpl) OpenFile(path string, f int) (io.ReadWriteCloser, error) {
-	return c.client.OpenFile(path, f)
+	return c.sftpClient.OpenFile(path, f)
 }
 
 func (c *clientImpl) Remove(path string) error {
-	return c.client.Remove(path)
+	return c.sftpClient.Remove(path)
 }
 
 func (c *clientImpl) MkdirAll(path string) error {
-	return c.client.MkdirAll(path)
+	return c.sftpClient.MkdirAll(path)
+}
+
+func (c *clientImpl) Reset() error {
+	newSFTPClient, err := newSFTPClientFromConfig(c.config)
+	if err != nil {
+		return err
+	}
+	c.sftpClient = newSFTPClient
+	return nil
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/ory/dockertest/v3"
+	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/sftp/mock_sftp"
@@ -115,7 +116,7 @@ func TestSSHClientConfig(t *testing.T) {
 	}
 }
 
-func TestUpload(t *testing.T) {
+func TestUploadWithRetry(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -138,16 +139,24 @@ func TestUpload(t *testing.T) {
 
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
 	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
-	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).Return(nil)
+	mockSFTPClient.EXPECT().Reset().Return(nil)
+	callCounter := 0
+	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).DoAndReturn(func(_ interface{}) error {
+		callCounter++
+		if callCounter == 1 {
+			return sftp.ErrSshFxConnectionLost
+		}
+		return nil
+	}).Times(2)
 
-	fileManager := &fileManagerImpl{client: mockSFTPClient}
+	fileManager := &fileManagerImpl{client: mockSFTPClient, retryOnIdleConnection: true}
 
 	err = fileManager.Upload(localFilePath, "someRemotePath")
 	require.NoError(t, err)
 	require.Equal(t, data, remoteBuf.Bytes())
 }
 
-func TestDownload(t *testing.T) {
+func TestDownloadWithRetry(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -162,9 +171,17 @@ func TestDownload(t *testing.T) {
 	remoteBuf := bytes.NewBuffer(data)
 
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
-	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
+	callCounter := 0
+	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).DoAndReturn(func(_, _ interface{}) (io.ReadWriteCloser, error) {
+		callCounter++
+		if callCounter == 1 {
+			return nil, sftp.ErrSSHFxConnectionLost
+		}
+		return &nopReadWriteCloser{remoteBuf}, nil
+	}).Times(2)
+	mockSFTPClient.EXPECT().Reset().Return(nil)
 
-	fileManager := &fileManagerImpl{client: mockSFTPClient}
+	fileManager := &fileManagerImpl{client: mockSFTPClient, retryOnIdleConnection: true}
 
 	err = fileManager.Download(filepath.Join("someRemoteDir", "test_file.json"), localDir)
 	require.NoError(t, err)
@@ -173,15 +190,24 @@ func TestDownload(t *testing.T) {
 	require.Equal(t, data, localFileContents)
 }
 
-func TestDelete(t *testing.T) {
+func TestDeleteWithRetry(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	remoteFilePath := "someRemoteFilePath"
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
-	mockSFTPClient.EXPECT().Remove(remoteFilePath).Return(nil)
+	callCounter := 0
+	mockSFTPClient.EXPECT().Remove(gomock.Any()).DoAndReturn(func(_ interface{}) error {
+		callCounter++
+		if callCounter == 1 {
+			return sftp.ErrSSHFxConnectionLost
+		}
+		return nil
+	}).Times(2)
 
-	fileManager := &fileManagerImpl{client: mockSFTPClient}
+	mockSFTPClient.EXPECT().Reset().Return(nil)
+
+	fileManager := &fileManagerImpl{client: mockSFTPClient, retryOnIdleConnection: true}
 
 	err := fileManager.Delete(remoteFilePath)
 	require.NoError(t, err)
@@ -211,14 +237,15 @@ func TestSFTP(t *testing.T) {
 	require.NoError(t, err)
 	port, err := strconv.Atoi(portStr)
 	require.NoError(t, err)
-	sshClient, err := NewSSHClient(&SSHConfig{
+	sshConfig := &SSHConfig{
 		User:        "linuxserver.io",
 		HostName:    hostname,
 		Port:        port,
 		AuthMethod:  "keyAuth",
 		PrivateKey:  string(privateKey),
 		DialTimeout: 10 * time.Second,
-	})
+	}
+	sshClient, err := newSSHClient(sshConfig)
 	require.NoError(t, err)
 
 	// Create session
@@ -230,8 +257,10 @@ func TestSFTP(t *testing.T) {
 	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 	require.NoError(t, err)
 
-	sftpManger, err := NewFileManager(sshClient)
+	sftpClient, err := newSFTPClient(sshClient)
 	require.NoError(t, err)
+
+	sftpManger := &fileManagerImpl{client: &clientImpl{sftpClient: sftpClient}}
 
 	// Create local and remote directories within the temporary directory
 	baseDir := t.TempDir()
