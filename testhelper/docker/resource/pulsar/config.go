@@ -1,13 +1,24 @@
 package pulsar
 
-type Opt func(*Config)
+import (
+	"github.com/ory/dockertest/v3/docker"
+)
 
-func WithTag(tag string) Opt {
-	return func(c *Config) {
-		c.Tag = tag
+type Option func(*config)
+
+func WithTag(tag string) Option {
+	return func(c *config) {
+		c.tag = tag
 	}
 }
 
-type Config struct {
-	Tag string
+func WithNetwork(network *docker.Network) Option {
+	return func(c *config) {
+		c.network = network
+	}
+}
+
+type config struct {
+	tag     string
+	network *docker.Network
 }

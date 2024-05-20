@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
 	etcd "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
 
@@ -15,13 +16,40 @@ import (
 type Resource struct {
 	Client *etcd.Client
 	Hosts  []string
-	Port   int
+	// HostsInNetwork is the list of ETCD hosts accessible from the provided Docker network (if any).
+	HostsInNetwork []string
+	Port           int
 }
 
-func Setup(pool *dockertest.Pool, cln resource.Cleaner) (*Resource, error) {
-	etcdImage := "bitnami/etcd"
-	container, err := pool.Run(etcdImage, "3.5", []string{
-		"ALLOW_NONE_AUTHENTICATION=yes",
+type config struct {
+	network *docker.Network
+}
+
+type Option func(*config)
+
+func WithNetwork(network *docker.Network) Option {
+	return func(c *config) {
+		c.network = network
+	}
+}
+
+func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resource, error) {
+	var c config
+	for _, opt := range opts {
+		opt(&c)
+	}
+
+	var networkID string
+	if c.network != nil {
+		networkID = c.network.ID
+	}
+	container, err := pool.RunWithOptions(&dockertest.RunOptions{
+		Repository: "bitnami/etcd",
+		Tag:        "3.5",
+		NetworkID:  networkID,
+		Env: []string{
+			"ALLOW_NONE_AUTHENTICATION=yes",
+		},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not create container: %v", err)
@@ -59,9 +87,17 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner) (*Resource, error) {
 		return nil, fmt.Errorf("could not connect to dockerized ETCD: %v", err)
 	}
 
+	var hostsInNetwork []string
+	if c.network != nil {
+		hostsInNetwork = []string{
+			"http://" + container.GetIPInNetwork(&dockertest.Network{Network: c.network}) + ":2379",
+		}
+	}
+
 	return &Resource{
-		Client: etcdClient,
-		Hosts:  etcdHosts,
-		Port:   etcdPort,
+		Client:         etcdClient,
+		Hosts:          etcdHosts,
+		HostsInNetwork: hostsInNetwork,
+		Port:           etcdPort,
 	}, nil
 }
