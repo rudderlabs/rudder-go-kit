@@ -10,9 +10,10 @@ import (
 )
 
 type Resource struct {
-	URL            string
-	AdminURL       string
-	URLSameNetwork string
+	URL      string
+	AdminURL string
+	// URLInNetwork is the URL accessible from the provided Docker network (if any).
+	URLInNetwork string
 }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
@@ -67,14 +68,14 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		return nil, err
 	}
 
-	var urlSameNetwork string
+	var urlInNetwork string
 	if c.network != nil {
-		urlSameNetwork = "pulsar://" + container.GetIPInNetwork(&dockertest.Network{Network: c.network}) + ":6650"
+		urlInNetwork = "pulsar://" + container.GetIPInNetwork(&dockertest.Network{Network: c.network}) + ":6650"
 	}
 
 	return &Resource{
-		URL:            url,
-		AdminURL:       adminURL,
-		URLSameNetwork: urlSameNetwork,
+		URL:          url,
+		AdminURL:     adminURL,
+		URLInNetwork: urlInNetwork,
 	}, nil
 }
