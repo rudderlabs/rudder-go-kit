@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.31.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.30.0...v0.31.0) (2024-05-17)
+
+
+### Features
+
+* add support for custom redis docker repository ([#467](https://github.com/rudderlabs/rudder-go-kit/issues/467)) ([55606f8](https://github.com/rudderlabs/rudder-go-kit/commit/55606f86ac4de5df387ae23407d1e347271a0612))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/prometheus/common from 0.52.3 to 0.53.0 ([#434](https://github.com/rudderlabs/rudder-go-kit/issues/434)) ([359fb64](https://github.com/rudderlabs/rudder-go-kit/commit/359fb6456ca22934e17fcbddd3532fa9ffa483b3))
+* **deps:** bump go.etcd.io/etcd/client/v3 from 3.5.10 to 3.5.13 ([#445](https://github.com/rudderlabs/rudder-go-kit/issues/445)) ([af06f04](https://github.com/rudderlabs/rudder-go-kit/commit/af06f0456c83aa7b0a45c6ffd94d3535e05e94e6))
+* **deps:** bump google.golang.org/api from 0.172.0 to 0.177.0 ([#459](https://github.com/rudderlabs/rudder-go-kit/issues/459)) ([352e560](https://github.com/rudderlabs/rudder-go-kit/commit/352e5608523c62ed2c45a5cc0e5cad5fcb154352))
+* **deps:** bump the opentelemetry group with 9 updates ([#452](https://github.com/rudderlabs/rudder-go-kit/issues/452)) ([769e281](https://github.com/rudderlabs/rudder-go-kit/commit/769e28148203619dbf8be0f6414364121538acdd))
+
 ## [0.30.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.29.0...v0.30.0) (2024-04-30)
 
 
