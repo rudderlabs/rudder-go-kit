@@ -141,7 +141,7 @@ func (fm *fileManagerImpl) reset() error {
 	return fm.client.Reset()
 }
 
-// FileManager is not concurrent safe. It should not be used from multiple goroutines concurrently without additional synchronization.
+// NewFileManager is not concurrent safe. It should not be used from multiple goroutines concurrently without additional synchronization.
 func NewFileManager(config *SSHConfig, opts ...Option) (FileManager, error) {
 	sftpClient, err := newClient(config)
 	if err != nil {
