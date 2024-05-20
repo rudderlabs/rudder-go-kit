@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.32.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.31.0...v0.32.0) (2024-05-20)
+
+
+### Features
+
+* custom network for etcd and pulsar ([#468](https://github.com/rudderlabs/rudder-go-kit/issues/468)) ([71f4ea7](https://github.com/rudderlabs/rudder-go-kit/commit/71f4ea7644875b74d0e1b9c761bbf038b7fd8037))
+
+
+### Bug Fixes
+
+* sftp retry on connection lost ([#465](https://github.com/rudderlabs/rudder-go-kit/issues/465)) ([8383ee7](https://github.com/rudderlabs/rudder-go-kit/commit/8383ee768a275b592f2cd97692f0ff22a6ea2fce))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/aws/aws-sdk-go from 1.51.20 to 1.52.0 ([#461](https://github.com/rudderlabs/rudder-go-kit/issues/461)) ([7109f26](https://github.com/rudderlabs/rudder-go-kit/commit/7109f26594631fc0e0b3a193636387999d261dd7))
+* **deps:** bump github.com/linkedin/goavro/v2 from 2.12.0 to 2.13.0 ([#464](https://github.com/rudderlabs/rudder-go-kit/issues/464)) ([5db545c](https://github.com/rudderlabs/rudder-go-kit/commit/5db545c46e10a47506d2c97c61e18b83fb6adca9))
+* **deps:** bump github.com/minio/minio-go/v7 from 7.0.69 to 7.0.70 ([#462](https://github.com/rudderlabs/rudder-go-kit/issues/462)) ([bc95a3f](https://github.com/rudderlabs/rudder-go-kit/commit/bc95a3f74da38d00a2b937c4bd8a078f26931e7d))
+* **deps:** bump github.com/shirou/gopsutil/v3 from 3.24.3 to 3.24.4 ([#463](https://github.com/rudderlabs/rudder-go-kit/issues/463)) ([a99434b](https://github.com/rudderlabs/rudder-go-kit/commit/a99434b1117d651e5e40ebe7413d32f2db547788))
+* **deps:** bump golang.org/x/text from 0.14.0 to 0.15.0 ([#466](https://github.com/rudderlabs/rudder-go-kit/issues/466)) ([816ce79](https://github.com/rudderlabs/rudder-go-kit/commit/816ce796b9e201f6ea73482a29f7b67d781e5183))
+
 ## [0.31.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.30.0...v0.31.0) (2024-05-17)
 
 
