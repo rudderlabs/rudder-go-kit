@@ -211,14 +211,15 @@ func TestSFTP(t *testing.T) {
 	require.NoError(t, err)
 	port, err := strconv.Atoi(portStr)
 	require.NoError(t, err)
-	sshClient, err := newSSHClient(&SSHConfig{
+	sshConfig := &SSHConfig{
 		User:        "linuxserver.io",
 		HostName:    hostname,
 		Port:        port,
 		AuthMethod:  "keyAuth",
 		PrivateKey:  string(privateKey),
 		DialTimeout: 10 * time.Second,
-	})
+	}
+	sshClient, err := newSSHClient(sshConfig)
 	require.NoError(t, err)
 
 	// Create session
@@ -230,7 +231,7 @@ func TestSFTP(t *testing.T) {
 	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
 	require.NoError(t, err)
 
-	sftpClient, err := newSFTPClient(sshClient)
+	sftpClient, err := newSFTPClient(sshClient, sshConfig)
 	require.NoError(t, err)
 
 	sftpManger := &fileManagerImpl{client: sftpClient}
