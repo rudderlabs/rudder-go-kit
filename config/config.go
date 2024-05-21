@@ -35,7 +35,6 @@ package config
 
 import (
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,12 +44,6 @@ import (
 )
 
 const DefaultEnvPrefix = "RSERVER"
-
-// regular expression matching lowercase letter followed by an uppercase letter
-var camelCaseMatch = regexp.MustCompile("([a-z0-9])([A-Z])")
-
-// regular expression matching uppercase letters contained in environment variable names
-var upperCaseMatch = regexp.MustCompile("^[A-Z0-9_]+$")
 
 // Default is the singleton config instance
 var Default *Config
@@ -341,7 +334,7 @@ func getOrCreatePointer[T configTypes](
 // the replacer cannot detect camelCase keys.
 func (c *Config) bindEnv(key string) {
 	envVar := key
-	if !upperCaseMatch.MatchString(key) {
+	if !isUpperCaseConfigKey(key) {
 		envVar = ConfigKeyToEnv(c.envPrefix, key)
 	}
 	// bind once

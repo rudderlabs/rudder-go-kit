@@ -724,3 +724,13 @@ func TestConfigLoad(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+// Benchmark for the original ConfigKeyToEnv function
+func BenchmarkConfigKeyToEnv(b *testing.B) {
+	envPrefix := "MYAPP"
+	configKey := "myConfig.KeyName"
+	for i := 0; i < b.N; i++ {
+		_ = ConfigKeyToEnv(envPrefix, configKey)
+	}
+	b.ReportAllocs()
+}
