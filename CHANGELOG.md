@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.32.0...v0.32.1) (2024-05-21)
+
+
+### Miscellaneous
+
+* optimise function config.ConfigKeyToEnv ([#475](https://github.com/rudderlabs/rudder-go-kit/issues/475)) ([0cbe3e2](https://github.com/rudderlabs/rudder-go-kit/commit/0cbe3e235747c1137436e912875da7b7882fc7c4))
+
 ## [0.32.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.31.0...v0.32.0) (2024-05-20)
 
 
