@@ -494,6 +494,9 @@ func TestConfigKeyToEnv(t *testing.T) {
 	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "KeyVar1Var2"))
 	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "RSERVER_KEY_VAR1_VAR2"))
 	require.Equal(t, "KEY_VAR1_VAR2", ConfigKeyToEnv(DefaultEnvPrefix, "KEY_VAR1_VAR2"))
+	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "Key_Var1.Var2"))
+	require.Equal(t, expected, ConfigKeyToEnv(DefaultEnvPrefix, "key_Var1_Var2"))
+	require.Equal(t, "RSERVER_KEY_VAR_1_VAR2", ConfigKeyToEnv(DefaultEnvPrefix, "Key_Var.1.Var2"))
 }
 
 func TestGetEnvThroughViper(t *testing.T) {
