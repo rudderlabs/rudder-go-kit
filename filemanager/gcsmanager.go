@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
 
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 
 	"github.com/rudderlabs/rudder-go-kit/googleutil"
@@ -85,19 +87,25 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	obj := client.Bucket(m.config.Bucket).Object(fileName)
-	w := obj.NewWriter(ctx)
-	if _, err := io.Copy(w, file); err != nil {
-		err = fmt.Errorf("copying file to GCS: %v", err)
-		if closeErr := w.Close(); closeErr != nil {
-			return UploadedFile{}, fmt.Errorf("closing writer: %q, while: %w", closeErr, err)
-		}
+	w := client.Bucket(m.config.Bucket).Object(fileName).
+		If(storage.Conditions{DoesNotExist: true}).NewWriter(ctx)
 
-		return UploadedFile{}, err
+	if _, err := io.Copy(w, file); err != nil {
+		return UploadedFile{}, fmt.Errorf("copying file to writer: %v", err)
 	}
 
 	if err := w.Close(); err != nil {
-		return UploadedFile{}, fmt.Errorf("closing writer: %w", err)
+		switch e := err.(type) {
+		case *googleapi.Error:
+			if e.Code == http.StatusPreconditionFailed {
+				m.logger.Warnn(
+					"object already exists",
+					logger.NewStringField("object", fileName),
+				)
+			}
+		default:
+			return UploadedFile{}, fmt.Errorf("closing writer: %w", err)
+		}
 	}
 	attrs := w.Attrs()
 
