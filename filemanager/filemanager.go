@@ -68,6 +68,8 @@ type Settings struct {
 	Config   map[string]interface{}
 	Logger   logger.Logger
 	Conf     *config.Config
+
+	DoNotOverWriteGCS bool
 }
 
 // New returns file manager backed by configured provider
@@ -87,7 +89,9 @@ func New(settings *Settings) (FileManager, error) {
 	case "S3":
 		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
-		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider),
+			WithNoOverwriteGCS(settings.DoNotOverWriteGCS),
+		)
 	case "AZURE_BLOB":
 		return NewAzureBlobManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "MINIO":

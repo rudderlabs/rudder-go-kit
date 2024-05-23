@@ -30,18 +30,32 @@ type GCSConfig struct {
 	ForcePathStyle *bool
 	DisableSSL     *bool
 	JSONReads      bool
+
+	doNotOverWrite bool
+}
+
+type Opt func(*GCSConfig)
+
+func WithNoOverwriteGCS(doNotOverride bool) func(*GCSConfig) {
+	return func(c *GCSConfig) {
+		c.doNotOverWrite = doNotOverride
+	}
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
 func NewGCSManager(
-	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration, opts ...Opt,
 ) (*gcsManager, error) {
+	gcsConfig := gcsConfig(config)
+	for _, opt := range opts {
+		opt(gcsConfig)
+	}
 	return &gcsManager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
 		},
-		config: gcsConfig(config),
+		config: gcsConfig,
 	}, nil
 }
 
@@ -87,8 +101,11 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	w := client.Bucket(m.config.Bucket).Object(fileName).
-		If(storage.Conditions{DoesNotExist: true}).NewWriter(ctx)
+	object := client.Bucket(m.config.Bucket).Object(fileName)
+	if m.config.doNotOverWrite {
+		object = object.If(storage.Conditions{DoesNotExist: true})
+	}
+	w := object.NewWriter(ctx)
 
 	if _, err := io.Copy(w, file); err != nil {
 		return UploadedFile{}, fmt.Errorf("copying file to writer: %v", err)
@@ -102,10 +119,14 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 					"object already exists",
 					logger.NewStringField("object", fileName),
 				)
+				return UploadedFile{
+					Location:   "not uploaded, already exists",
+					ObjectName: fileName,
+				}, nil
 			}
 		default:
-			return UploadedFile{}, fmt.Errorf("closing writer: %w", err)
 		}
+		return UploadedFile{}, fmt.Errorf("closing writer: %w", err)
 	}
 	attrs := w.Attrs()
 
