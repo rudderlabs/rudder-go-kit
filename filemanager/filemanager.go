@@ -69,6 +69,8 @@ type Settings struct {
 	Logger   logger.Logger
 	Conf     *config.Config
 
+	// when DoNotOverWriteGCS is set to true, the client uploads to GCS storage
+	// only if a file with the same name doesn't exist already
 	DoNotOverWriteGCS bool
 }
 
