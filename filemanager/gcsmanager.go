@@ -31,14 +31,14 @@ type GCSConfig struct {
 	DisableSSL     *bool
 	JSONReads      bool
 
-	doNotOverWrite bool
+	uploadIfNotExist bool
 }
 
 type GCSOpt func(*GCSConfig)
 
-func WithNoOverwriteGCS(doNotOverride bool) func(*GCSConfig) {
+func withGCSUploadIfObjectNotExist(uploadIfNotExist bool) func(*GCSConfig) {
 	return func(c *GCSConfig) {
-		c.doNotOverWrite = doNotOverride
+		c.uploadIfNotExist = uploadIfNotExist
 	}
 }
 
@@ -102,7 +102,7 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 	defer cancel()
 
 	object := client.Bucket(m.config.Bucket).Object(fileName)
-	if m.config.doNotOverWrite {
+	if m.config.uploadIfNotExist {
 		object = object.If(storage.Conditions{DoesNotExist: true})
 	}
 	w := object.NewWriter(ctx)

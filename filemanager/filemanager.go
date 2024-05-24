@@ -93,7 +93,7 @@ func New(settings *Settings) (FileManager, error) {
 		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
 		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider),
-			WithNoOverwriteGCS(settings.GCSUploadIfNotExist),
+			withGCSUploadIfObjectNotExist(settings.GCSUploadIfNotExist),
 		)
 	case "AZURE_BLOB":
 		return NewAzureBlobManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
