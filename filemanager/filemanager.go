@@ -70,9 +70,9 @@ type Settings struct {
 	Logger   logger.Logger
 	Conf     *config.Config
 
-	// when DoNotOverWriteGCS is set to true, the client uploads to GCS storage
+	// when GCSUploadIfNotExist is set to true, the client uploads to GCS storage
 	// only if a file with the same name doesn't exist already
-	DoNotOverWriteGCS bool
+	GCSUploadIfNotExist bool
 }
 
 // New returns file manager backed by configured provider
@@ -93,7 +93,7 @@ func New(settings *Settings) (FileManager, error) {
 		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
 		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider),
-			WithNoOverwriteGCS(settings.DoNotOverWriteGCS),
+			WithNoOverwriteGCS(settings.GCSUploadIfNotExist),
 		)
 	case "AZURE_BLOB":
 		return NewAzureBlobManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
