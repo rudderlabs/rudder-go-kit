@@ -17,6 +17,7 @@ const defaultTimeout = 120 * time.Second
 var (
 	ErrKeyNotFound            = errors.New("NoSuchKey")
 	ErrInvalidServiceProvider = errors.New("service provider not supported")
+	ErrPreConditionFailed     = errors.New("precondition failed")
 )
 
 // Factory is a function that returns a new file manager

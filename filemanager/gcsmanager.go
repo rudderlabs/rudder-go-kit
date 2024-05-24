@@ -34,7 +34,7 @@ type GCSConfig struct {
 	doNotOverWrite bool
 }
 
-type Opt func(*GCSConfig)
+type GCSOpt func(*GCSConfig)
 
 func WithNoOverwriteGCS(doNotOverride bool) func(*GCSConfig) {
 	return func(c *GCSConfig) {
@@ -44,18 +44,18 @@ func WithNoOverwriteGCS(doNotOverride bool) func(*GCSConfig) {
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
 func NewGCSManager(
-	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration, opts ...Opt,
+	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration, opts ...GCSOpt,
 ) (*gcsManager, error) {
-	gcsConfig := gcsConfig(config)
+	conf := gcsConfig(config)
 	for _, opt := range opts {
-		opt(gcsConfig)
+		opt(conf)
 	}
 	return &gcsManager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
 		},
-		config: gcsConfig,
+		config: conf,
 	}, nil
 }
 
@@ -115,14 +115,7 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 		switch e := err.(type) {
 		case *googleapi.Error:
 			if e.Code == http.StatusPreconditionFailed {
-				m.logger.Warnn(
-					"object already exists",
-					logger.NewStringField("object", fileName),
-				)
-				return UploadedFile{
-					Location:   "not uploaded, already exists",
-					ObjectName: fileName,
-				}, nil
+				return UploadedFile{}, ErrPreConditionFailed
 			}
 		default:
 		}
