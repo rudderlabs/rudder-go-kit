@@ -108,7 +108,7 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 	w := object.NewWriter(ctx)
 
 	if _, err := io.Copy(w, file); err != nil {
-		return UploadedFile{}, fmt.Errorf("copying file to writer: %v", err)
+		return UploadedFile{}, fmt.Errorf("copying file to writer: %w", err)
 	}
 
 	if err := w.Close(); err != nil {
