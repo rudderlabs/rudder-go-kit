@@ -112,12 +112,9 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 	}
 
 	if err := w.Close(); err != nil {
-		switch e := err.(type) {
-		case *googleapi.Error:
-			if e.Code == http.StatusPreconditionFailed {
-				return UploadedFile{}, ErrPreConditionFailed
-			}
-		default:
+		var ge *googleapi.Error
+		if errors.As(err, &ge) && ge.Code == http.StatusPreconditionFailed {
+			return UploadedFile{}, ErrPreConditionFailed
 		}
 		return UploadedFile{}, fmt.Errorf("closing writer: %w", err)
 	}
