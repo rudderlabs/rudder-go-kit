@@ -14,7 +14,7 @@ type Cache[K comparable, V any] struct {
 	mu        sync.Mutex
 	m         map[K]*node[K, V]
 	now       func() time.Time
-	onevicted func(key K, value V)
+	onEvicted func(key K, value V)
 }
 
 type node[K comparable, V any] struct {
@@ -52,8 +52,8 @@ func (c *Cache[K, V]) Get(key K) (zero V) {
 			if c.now().After(cn.expiration) {
 				cn.remove()             // removes a node from the linked list (leaves the map untouched)
 				delete(c.m, cn.key)     // remove node from map too
-				if c.onevicted != nil { // call the OnEvicted callback if it's set
-					c.onevicted(cn.key, cn.value)
+				if c.onEvicted != nil { // call the OnEvicted callback if it's set
+					c.onEvicted(cn.key, cn.value)
 				}
 			} else { // there is nothing else to clean up, no need to iterate further
 				break
@@ -105,8 +105,8 @@ func (c *Cache[K, V]) Put(key K, value V, ttl time.Duration) {
 	c.add(n)
 }
 
-func (c *Cache[K, V]) OnEvicted(onevicted func(key K, value V)) {
-	c.onevicted = onevicted
+func (c *Cache[K, V]) OnEvicted(onEvicted func(key K, value V)) {
+	c.onEvicted = onEvicted
 }
 
 func (c *Cache[K, V]) add(n *node[K, V]) {

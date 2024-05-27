@@ -30,14 +30,13 @@ import (
 //   - Stop() error
 func NewCache[K comparable, R any](new func(key K) (R, error), ttl time.Duration) *Cache[K, R] {
 	c := &Cache[K, R]{
-		new:            new,
-		keyMu:          kitsync.NewPartitionLocker(),
-		latestInstance: make(map[K]string),
-		resources:      make(map[string]R),
-		checkouts:      make(map[string]int),
-		expiries:       make(map[string]struct{}),
-		ttl:            ttl,
-		ttlcache:       cachettl.New[K, string](),
+		new:       new,
+		keyMu:     kitsync.NewPartitionLocker(),
+		resources: make(map[string]R),
+		checkouts: make(map[string]int),
+		expiries:  make(map[string]struct{}),
+		ttl:       ttl,
+		ttlcache:  cachettl.New[K, string](),
 	}
 	c.ttlcache.OnEvicted(c.onEvicted)
 	return c
@@ -63,11 +62,10 @@ type Cache[K comparable, R any] struct {
 	// avoid multiple go-routines creating multiple resources for the same key.
 	keyMu *kitsync.PartitionLocker
 
-	mu             sync.RWMutex        // protects the following maps
-	latestInstance map[K]string        // maps a key to its latest instanceID. Multiple instances can co-exist for the same key (due to expired resources which might still be checked out)
-	resources      map[string]R        // maps an instanceID to its resource
-	checkouts      map[string]int      // keeps track of how many checkouts are there for a given instanceID
-	expiries       map[string]struct{} // keeps track of instances that are expired and need to be cleaned up after all checkouts are done
+	mu        sync.RWMutex        // protects the following maps
+	resources map[string]R        // maps an resourceID to its resource
+	checkouts map[string]int      // keeps track of how many checkouts are active for a given resourceID
+	expiries  map[string]struct{} // keeps track of resources that are expired and need to be cleaned up after all checkouts are done
 
 	ttl      time.Duration
 	ttlcache *cachettl.Cache[K, string]
@@ -80,12 +78,12 @@ type Cache[K comparable, R any] struct {
 func (c *Cache[K, R]) Checkout(key K) (resource R, checkin func(), err error) {
 	defer c.lockKey(key)()
 
-	if instanceID := c.ttlcache.Get(key); instanceID != "" {
+	if resourceID := c.ttlcache.Get(key); resourceID != "" {
 		c.mu.Lock()
 		defer c.mu.Unlock()
-		r := c.resources[instanceID]
-		c.checkouts[instanceID]++
-		return r, c.checkinFunc(key, r, instanceID), nil
+		r := c.resources[resourceID]
+		c.checkouts[resourceID]++
+		return r, c.checkinFunc(r, resourceID), nil
 	}
 	return c.newInstance(key)
 }
@@ -94,11 +92,13 @@ func (c *Cache[K, R]) Checkout(key K) (resource R, checkin func(), err error) {
 func (c *Cache[K, R]) Invalidate(key K) {
 	defer c.lockKey(key)()
 	c.mu.Lock()
-	instanceID, ok := c.latestInstance[key]
+	resourceID := c.ttlcache.Get(key)
+	if resourceID != "" {
+		c.ttlcache.Put(key, "", -1)
+	}
 	c.mu.Unlock()
-	if ok {
-		c.ttlcache.Put(key, "", 0)
-		c.onEvicted(key, instanceID)
+	if resourceID != "" {
+		c.onEvicted(key, resourceID)
 	}
 }
 
@@ -109,29 +109,26 @@ func (c *Cache[K, R]) newInstance(key K) (R, func(), error) {
 		return r, nil, err
 	}
 
-	instanceID := uuid.NewString()
+	resourceID := uuid.NewString()
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.latestInstance[key] = instanceID
-	c.resources[instanceID] = r
-	c.checkouts[instanceID]++
-	c.ttlcache.Put(key, instanceID, c.ttl)
-	return r, c.checkinFunc(key, r, instanceID), nil
+	c.resources[resourceID] = r
+	c.checkouts[resourceID]++
+	c.ttlcache.Put(key, resourceID, c.ttl)
+	return r, c.checkinFunc(r, resourceID), nil
 }
 
 // checkinFunc returns a function that decrements the checkout count and cleans up the resource if it is no longer needed.
-func (c *Cache[K, R]) checkinFunc(key K, r R, instanceID string) func() {
+func (c *Cache[K, R]) checkinFunc(r R, resourceID string) func() {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
 			c.mu.Lock()
 			defer c.mu.Unlock()
-			c.checkouts[instanceID]--
-			if _, ok := c.expiries[instanceID]; ok && // instance is expired
-				c.checkouts[instanceID] == 0 { // no more checkouts
-				delete(c.expiries, instanceID)
-				delete(c.latestInstance, key)
-				// not deleting the latestInstance entry, as it might be used by another instance
+			c.checkouts[resourceID]--
+			if _, ok := c.expiries[resourceID]; ok && // resource is expired
+				c.checkouts[resourceID] == 0 { // no more checkouts
+				delete(c.expiries, resourceID)
 				go c.cleanup(r)
 			}
 		})
@@ -139,20 +136,20 @@ func (c *Cache[K, R]) checkinFunc(key K, r R, instanceID string) func() {
 }
 
 // onEvicted is called when a key is evicted from the cache. It cleans up the resource if it is not checked out.
-func (c *Cache[K, R]) onEvicted(_ K, instanceID string) {
+func (c *Cache[K, R]) onEvicted(_ K, resourceID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	checkouts, ok := c.checkouts[instanceID]
+	checkouts, ok := c.checkouts[resourceID]
 	if !ok {
-		return // already cleaned up through invalidate
+		return // already cleaned up through Invalidate
 	}
 	if checkouts == 0 {
-		r := c.resources[instanceID]
-		delete(c.resources, instanceID)
-		delete(c.checkouts, instanceID)
+		r := c.resources[resourceID]
+		delete(c.resources, resourceID)
+		delete(c.checkouts, resourceID)
 		go c.cleanup(r)
-	} else { // mark the instance for cleanup
-		c.expiries[instanceID] = struct{}{}
+	} else { // mark the resource for cleanup
+		c.expiries[resourceID] = struct{}{}
 	}
 }
 
