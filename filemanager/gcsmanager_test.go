@@ -21,21 +21,21 @@ func TestGCSManagerOpts(t *testing.T) {
 
 	// testcases:
 	tcs := []struct {
-		Name                string
-		GCSUploadIfNotExist bool
+		name                string
+		gcsUploadIfNotExist bool
 	}{
 		{
-			Name:                "without UploadIfNotExist",
-			GCSUploadIfNotExist: true,
+			name:                "without UploadIfNotExist",
+			gcsUploadIfNotExist: true,
 		},
 		{
-			Name:                "with UploadIfNotExist",
-			GCSUploadIfNotExist: false,
+			name:                "with UploadIfNotExist",
+			gcsUploadIfNotExist: false,
 		},
 	}
 
 	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			port, err := testhelper.GetFreePort()
 			require.NoError(t, err)
 
@@ -71,7 +71,7 @@ func TestGCSManagerOpts(t *testing.T) {
 				Config:              conf,
 				Logger:              logger.NOP,
 				Conf:                config.New(),
-				GCSUploadIfNotExist: tc.GCSUploadIfNotExist,
+				GCSUploadIfNotExist: tc.gcsUploadIfNotExist,
 			})
 			require.NoError(t, err)
 
@@ -81,7 +81,7 @@ func TestGCSManagerOpts(t *testing.T) {
 
 			t.Log("pre-existing file")
 			uploadedFile, err := m.Upload(ctx, f)
-			if tc.GCSUploadIfNotExist {
+			if tc.gcsUploadIfNotExist {
 				require.Equal(t, UploadedFile{}, uploadedFile)
 				require.ErrorIs(t, err, ErrPreConditionFailed)
 			} else {

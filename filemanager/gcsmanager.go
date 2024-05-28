@@ -36,7 +36,7 @@ type GCSConfig struct {
 
 type GCSOpt func(*GCSConfig)
 
-func withGCSUploadIfObjectNotExist(uploadIfNotExist bool) func(*GCSConfig) {
+func WithGCSUploadIfObjectNotExist(uploadIfNotExist bool) func(*GCSConfig) {
 	return func(c *GCSConfig) {
 		c.uploadIfNotExist = uploadIfNotExist
 	}
