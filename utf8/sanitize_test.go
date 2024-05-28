@@ -2,6 +2,7 @@ package utf8
 
 import (
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +29,7 @@ func TestSanitizeInvalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.valid, !Invalid(tt.input))
+			require.Equal(t, tt.valid, utf8.Valid(tt.input))
 
 			inputCopy := make([]byte, len(tt.input)) // Copy to avoid modifying the original input
 			copy(inputCopy, tt.input)
@@ -37,7 +38,7 @@ func TestSanitizeInvalid(t *testing.T) {
 			t.Logf("Sanitize(%s) = %s", tt.input, inputCopy)
 
 			// After sanitization, the result should be valid
-			require.False(t, Invalid(inputCopy))
+			require.True(t, utf8.Valid(inputCopy))
 			require.Equal(t, tt.expected, inputCopy)
 		})
 	}

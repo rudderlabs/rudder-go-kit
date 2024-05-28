@@ -1,6 +1,8 @@
 package utf8
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+)
 
 const replacementChar = string('?')
 
@@ -23,16 +25,4 @@ func Sanitize(data []byte) {
 		}
 		i += size
 	}
-}
-
-// Invalid returns true if the input contains invalid UTF-8 byte sequences.
-func Invalid(data []byte) bool {
-	for i := 0; i < len(data); {
-		r, size := utf8.DecodeRune(data[i:])
-		if r == utf8.RuneError && size == 1 {
-			return true
-		}
-		i += size
-	}
-	return false
 }
