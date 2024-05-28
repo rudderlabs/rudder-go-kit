@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSanitizeInvalid(t *testing.T) {
+func TestSanitize(t *testing.T) {
 	var (
 		rb      = replacementCharByte
 		hello   = []byte{72, 101, 108, 108, 111}       // Hello
@@ -40,6 +40,45 @@ func TestSanitizeInvalid(t *testing.T) {
 			// After sanitization, the result should be valid
 			require.True(t, utf8.Valid(inputCopy))
 			require.Equal(t, tt.expected, inputCopy)
+		})
+	}
+}
+
+func TestSanitizeInOut(t *testing.T) {
+	ch := func(n int) string {
+		var out string
+		for i := 0; i < n; i++ {
+			out += replacementChar
+		}
+		return out
+	}
+
+	toValidUTF8Tests := []struct {
+		in  string
+		out string
+	}{
+		{"", ""},
+		{"abc", "abc"},
+		{"\uFDDD", "\uFDDD"},
+		{"a\xffb", "a" + ch(1) + "b"},
+		{"a\xffb\uFFFD", "a" + ch(1) + "b\uFFFD"},
+		{"a☺\xffb☺\xC0\xAFc☺\xff", "a☺" + ch(1) + "b☺" + ch(2) + "c☺" + ch(1)},
+		{"\xC0\xAF", ch(2)},
+		{"\xE0\x80\xAF", ch(3)},
+		{"\xed\xa0\x80", ch(3)},
+		{"\xed\xbf\xbf", ch(3)},
+		{"\xF0\x80\x80\xaf", ch(4)},
+		{"\xF8\x80\x80\x80\xAF", ch(5)},
+		{"\xFC\x80\x80\x80\x80\xAF", ch(6)},
+	}
+
+	for _, tt := range toValidUTF8Tests {
+		t.Run(tt.in, func(t *testing.T) {
+			inputCopy := make([]byte, len(tt.in)) // Copy to avoid modifying the original input
+			copy(inputCopy, tt.in)
+
+			Sanitize(inputCopy)
+			require.Equal(t, tt.out, string(inputCopy))
 		})
 	}
 }
