@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 	"sync"
 	"time"
 
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 
 	"github.com/rudderlabs/rudder-go-kit/googleutil"
@@ -28,18 +30,32 @@ type GCSConfig struct {
 	ForcePathStyle *bool
 	DisableSSL     *bool
 	JSONReads      bool
+
+	uploadIfNotExist bool
+}
+
+type GCSOpt func(*GCSConfig)
+
+func WithGCSUploadIfObjectNotExist(uploadIfNotExist bool) func(*GCSConfig) {
+	return func(c *GCSConfig) {
+		c.uploadIfNotExist = uploadIfNotExist
+	}
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
 func NewGCSManager(
-	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration, opts ...GCSOpt,
 ) (*gcsManager, error) {
+	conf := gcsConfig(config)
+	for _, opt := range opts {
+		opt(conf)
+	}
 	return &gcsManager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
 		},
-		config: gcsConfig(config),
+		config: conf,
 	}, nil
 }
 
@@ -85,18 +101,21 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	obj := client.Bucket(m.config.Bucket).Object(fileName)
-	w := obj.NewWriter(ctx)
-	if _, err := io.Copy(w, file); err != nil {
-		err = fmt.Errorf("copying file to GCS: %v", err)
-		if closeErr := w.Close(); closeErr != nil {
-			return UploadedFile{}, fmt.Errorf("closing writer: %q, while: %w", closeErr, err)
-		}
+	object := client.Bucket(m.config.Bucket).Object(fileName)
+	if m.config.uploadIfNotExist {
+		object = object.If(storage.Conditions{DoesNotExist: true})
+	}
+	w := object.NewWriter(ctx)
 
-		return UploadedFile{}, err
+	if _, err := io.Copy(w, file); err != nil {
+		return UploadedFile{}, fmt.Errorf("copying file to writer: %w", err)
 	}
 
 	if err := w.Close(); err != nil {
+		var ge *googleapi.Error
+		if errors.As(err, &ge) && ge.Code == http.StatusPreconditionFailed {
+			return UploadedFile{}, ErrPreConditionFailed
+		}
 		return UploadedFile{}, fmt.Errorf("closing writer: %w", err)
 	}
 	attrs := w.Attrs()

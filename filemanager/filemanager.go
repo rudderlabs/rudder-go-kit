@@ -17,6 +17,7 @@ const defaultTimeout = 120 * time.Second
 var (
 	ErrKeyNotFound            = errors.New("NoSuchKey")
 	ErrInvalidServiceProvider = errors.New("service provider not supported")
+	ErrPreConditionFailed     = errors.New("precondition failed")
 )
 
 // Factory is a function that returns a new file manager
@@ -68,6 +69,10 @@ type Settings struct {
 	Config   map[string]interface{}
 	Logger   logger.Logger
 	Conf     *config.Config
+
+	// when GCSUploadIfNotExist is set to true, the client uploads to GCS storage
+	// only if a file with the same name doesn't exist already
+	GCSUploadIfNotExist bool
 }
 
 // New returns file manager backed by configured provider
@@ -87,7 +92,9 @@ func New(settings *Settings) (FileManager, error) {
 	case "S3":
 		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
-		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider),
+			WithGCSUploadIfObjectNotExist(settings.GCSUploadIfNotExist),
+		)
 	case "AZURE_BLOB":
 		return NewAzureBlobManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "MINIO":
