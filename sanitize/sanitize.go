@@ -3,6 +3,7 @@ package sanitize
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/rangetable"
 )
@@ -57,10 +58,19 @@ var invisibleRunes = []rune{
 	'\uFFA0', // HALF WIDTH HANGUL FILLER
 }
 
-var invisibleRangeTable *unicode.RangeTable
+var (
+	invisibleRangeTable *unicode.RangeTable
+	invisibleRunesMap   = map[rune]struct{}{}
+
+	replacementInvalidCharByte   = byte(63) // 63 -> '?'
+	replacementInvisibleCharByte = byte(32) // 32 -> ' '
+)
 
 func init() {
 	invisibleRangeTable = rangetable.New(invisibleRunes...)
+	for _, r := range invisibleRunes {
+		invisibleRunesMap[r] = struct{}{}
+	}
 }
 
 // Unicode removes irregularly invisible characters from a string.
@@ -77,4 +87,26 @@ func Unicode(str string) string {
 		}
 		return r
 	}, str)
+}
+
+// ReplaceInvalid detects invalid UTF-8 byte sequences and replaces them with the replacement character.
+// It also detects invisible characters and replaces them with a space character.
+// The slice length remains unchanged and no extra allocations are made.
+// This is obtained by modifying the input slice in place and by making sure that the replacement character is a
+// single-byte character. The side effect is that an invalid byte sequence is going to be replaced with multiple
+// occurrences of the replacement characters e.g. "\xE0\x80\xAF" -> "???".
+func ReplaceInvalid(data []byte) {
+	for i := 0; i < len(data); {
+		r, size := utf8.DecodeRune(data[i:])
+		if r == utf8.RuneError && size == 1 {
+			// Replace the invalid byte with the replacement character
+			data[i] = replacementInvalidCharByte
+		} else if _, ok := invisibleRunesMap[r]; ok {
+			// Replace the invisible character with a space
+			for j := 0; j < size; j++ {
+				data[i+j] = replacementInvisibleCharByte
+			}
+		}
+		i += size
+	}
 }
