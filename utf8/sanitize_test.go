@@ -1,6 +1,7 @@
 package utf8
 
 import (
+	"strings"
 	"testing"
 	"unicode/utf8"
 
@@ -45,13 +46,7 @@ func TestSanitize(t *testing.T) {
 }
 
 func TestSanitizeInOut(t *testing.T) {
-	ch := func(n int) string {
-		var out string
-		for i := 0; i < n; i++ {
-			out += replacementChar
-		}
-		return out
-	}
+	ch := func(n int) string { return strings.Repeat(replacementChar, n) }
 
 	toValidUTF8Tests := []struct {
 		in  string
@@ -79,6 +74,7 @@ func TestSanitizeInOut(t *testing.T) {
 
 			Sanitize(inputCopy)
 			require.Equal(t, tt.out, string(inputCopy))
+			require.True(t, utf8.Valid(inputCopy))
 		})
 	}
 }
