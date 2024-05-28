@@ -46,7 +46,7 @@ func TestSanitize(t *testing.T) {
 }
 
 func TestSanitizeInOut(t *testing.T) {
-	ch := func(n int) string { return strings.Repeat(replacementChar, n) }
+	ch := func(n int) string { return strings.Repeat(string(replacementCharByte), n) }
 
 	toValidUTF8Tests := []struct {
 		in  string
