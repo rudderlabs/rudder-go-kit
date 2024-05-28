@@ -151,7 +151,7 @@ func run(m *testing.M) int {
 	// Running GCS emulator
 	GCSResource, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "fsouza/fake-gcs-server",
-		Tag:        "1.45.2",
+		Tag:        "1.49.0",
 		Cmd:        []string{"-scheme", "http", "-backend", "memory", "-location", "us-east-1"},
 	})
 	if err != nil {
