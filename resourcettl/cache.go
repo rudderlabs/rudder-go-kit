@@ -13,7 +13,6 @@ import (
 
 // NewCache creates a new resource cache.
 //
-//   - new - function is used to create a new resource when it is not available in the cache.
 //   - ttl - is the time after which the resource is considered expired and cleaned up.
 //
 // A resource's ttl is extended every time it is checked out.
@@ -28,9 +27,8 @@ import (
 //   - Close() error
 //   - Stop()
 //   - Stop() error
-func NewCache[K comparable, R any](new func(key K) (R, error), ttl time.Duration) *Cache[K, R] {
+func NewCache[K comparable, R any](ttl time.Duration) *Cache[K, R] {
 	c := &Cache[K, R]{
-		new:       new,
 		keyMu:     kitsync.NewPartitionLocker(),
 		resources: make(map[string]R),
 		checkouts: make(map[string]int),
@@ -55,8 +53,6 @@ func NewCache[K comparable, R any](new func(key K) (R, error), ttl time.Duration
 //   - Stop()
 //   - Stop() error
 type Cache[K comparable, R any] struct {
-	new func(key K) (R, error) // creates a new resource
-
 	// synchronizes access to the cache for a given key. This is to
 	// allow multiple go-routines to access the cache concurrently for different keys, but still
 	// avoid multiple go-routines creating multiple resources for the same key.
@@ -71,11 +67,11 @@ type Cache[K comparable, R any] struct {
 	ttlcache *cachettl.Cache[K, string]
 }
 
-// Checkout returns a resource for the given key. If the resource is not available, it creates a new one.
+// Checkout returns a resource for the given key. If the resource is not available, it creates a new one, using the new function.
 // The caller must call the returned checkin function when the resource is no longer needed, to release the resource.
 // Multiple checkouts for the same key are allowed and they can all share the same resource. The resource is cleaned up
 // only when all checkouts are checked-in and the resource's ttl has expired (or its key has been invalidated through [Invalidate]).
-func (c *Cache[K, R]) Checkout(key K) (resource R, checkin func(), err error) {
+func (c *Cache[K, R]) Checkout(key K, new func() (R, error)) (resource R, checkin func(), err error) {
 	defer c.lockKey(key)()
 
 	if resourceID := c.ttlcache.Get(key); resourceID != "" {
@@ -85,7 +81,7 @@ func (c *Cache[K, R]) Checkout(key K) (resource R, checkin func(), err error) {
 		c.checkouts[resourceID]++
 		return r, c.checkinFunc(r, resourceID), nil
 	}
-	return c.newInstance(key)
+	return c.newInstance(key, new)
 }
 
 // Invalidate invalidates the resource for the given key.
@@ -103,8 +99,8 @@ func (c *Cache[K, R]) Invalidate(key K) {
 }
 
 // newInstance creates a new resource for the given key.
-func (c *Cache[K, R]) newInstance(key K) (R, func(), error) {
-	r, err := c.new(key)
+func (c *Cache[K, R]) newInstance(key K, new func() (R, error)) (R, func(), error) {
+	r, err := new()
 	if err != nil {
 		return r, nil, err
 	}

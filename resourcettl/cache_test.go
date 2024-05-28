@@ -17,14 +17,14 @@ func TestCache(t *testing.T) {
 	t.Run("checkout, checkin, then expire", func(t *testing.T) {
 		t.Run("using cleanup", func(t *testing.T) {
 			producer := &MockProducer{}
-			c := resourcettl.NewCache(producer.NewCleanuper, ttl)
+			c := resourcettl.NewCache[string, *cleanuper](ttl)
 
-			r1, checkin1, err1 := c.Checkout(key)
+			r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 			require.NoError(t, err1, "it should be able to create a new resource")
 			require.NotNil(t, r1, "it should return a resource")
 			require.EqualValues(t, 1, producer.instances.Load(), "it should create a new resource")
 
-			r2, checkin2, err2 := c.Checkout(key)
+			r2, checkin2, err2 := c.Checkout(key, producer.NewCleanuper)
 			require.NoError(t, err2, "it should be able to checkout the same resource")
 			require.NotNil(t, r2, "it should return a resource")
 			require.EqualValues(t, 1, producer.instances.Load(), "it shouldn't create a new resource")
@@ -34,7 +34,7 @@ func TestCache(t *testing.T) {
 			checkin1()
 			checkin2()
 
-			r3, checkin3, err3 := c.Checkout(key)
+			r3, checkin3, err3 := c.Checkout(key, producer.NewCleanuper)
 			require.NoError(t, err3, "it should be able to create a new resource")
 			require.NotNil(t, r3, "it should return a resource")
 			require.EqualValues(t, 2, producer.instances.Load(), "it should create a new resource since the previous one expired")
@@ -46,14 +46,14 @@ func TestCache(t *testing.T) {
 
 		t.Run("using closer", func(t *testing.T) {
 			producer := &MockProducer{}
-			c := resourcettl.NewCache(producer.NewCloser, ttl)
+			c := resourcettl.NewCache[string, *closer](ttl)
 
-			r1, checkin1, err1 := c.Checkout(key)
+			r1, checkin1, err1 := c.Checkout(key, producer.NewCloser)
 			require.NoError(t, err1, "it should be able to create a new resource")
 			require.NotNil(t, r1, "it should return a resource")
 			require.EqualValues(t, 1, producer.instances.Load(), "it should create a new resource")
 
-			r2, checkin2, err2 := c.Checkout(key)
+			r2, checkin2, err2 := c.Checkout(key, producer.NewCloser)
 			require.NoError(t, err2, "it should be able to checkout the same resource")
 			require.NotNil(t, r2, "it should return a resource")
 			require.EqualValues(t, 1, producer.instances.Load(), "it shouldn't create a new resource")
@@ -63,7 +63,7 @@ func TestCache(t *testing.T) {
 			checkin1()
 			checkin2()
 
-			r3, checkin3, err3 := c.Checkout(key)
+			r3, checkin3, err3 := c.Checkout(key, producer.NewCloser)
 			require.NoError(t, err3, "it should be able to create a new resource")
 			require.NotNil(t, r3, "it should return a resource")
 			require.EqualValues(t, 2, producer.instances.Load(), "it should create a new resource since the previous one expired")
@@ -76,14 +76,14 @@ func TestCache(t *testing.T) {
 
 	t.Run("expire while being used", func(t *testing.T) {
 		producer := &MockProducer{}
-		c := resourcettl.NewCache(producer.NewCleanuper, ttl)
+		c := resourcettl.NewCache[string, *cleanuper](ttl)
 
-		r1, checkin1, err1 := c.Checkout(key)
+		r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err1, "it should be able to create a new resource")
 		require.NotNil(t, r1, "it should return a resource")
 		require.EqualValues(t, 1, producer.instances.Load(), "it should create a new resource")
 
-		r2, checkin2, err2 := c.Checkout(key)
+		r2, checkin2, err2 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err2, "it should be able to checkout the same resource")
 		require.NotNil(t, r2, "it should return a resource")
 		require.EqualValues(t, 1, producer.instances.Load(), "it shouldn't create a new resource")
@@ -91,7 +91,7 @@ func TestCache(t *testing.T) {
 
 		time.Sleep(ttl + time.Millisecond) // wait for expiration
 
-		r3, checkin3, err3 := c.Checkout(key)
+		r3, checkin3, err3 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err3, "it should be able to return a resource")
 		require.NotNil(t, r3, "it should return a resource")
 		require.EqualValues(t, 2, producer.instances.Load(), "it should create a new resource since the previous one expired")
@@ -108,14 +108,14 @@ func TestCache(t *testing.T) {
 
 	t.Run("invalidate", func(t *testing.T) {
 		producer := &MockProducer{}
-		c := resourcettl.NewCache(producer.NewCleanuper, ttl)
+		c := resourcettl.NewCache[string, *cleanuper](ttl)
 
-		r1, checkin1, err1 := c.Checkout(key)
+		r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err1, "it should be able to create a new resource")
 		require.NotNil(t, r1, "it should return a resource")
 		require.EqualValues(t, 1, producer.instances.Load(), "it should create a new resource")
 
-		r2, checkin2, err2 := c.Checkout(key)
+		r2, checkin2, err2 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err2, "it should be able to checkout the same resource")
 		require.NotNil(t, r2, "it should return a resource")
 		require.EqualValues(t, 1, producer.instances.Load(), "it shouldn't create a new resource")
@@ -123,7 +123,7 @@ func TestCache(t *testing.T) {
 
 		c.Invalidate(key)
 
-		r3, checkin3, err3 := c.Checkout(key)
+		r3, checkin3, err3 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err3, "it should be able to create a new resource")
 		require.NotNil(t, r3, "it should return a resource")
 		require.EqualValues(t, 2, producer.instances.Load(), "it should create a new resource since the previous one was invalidated")
@@ -144,12 +144,12 @@ type MockProducer struct {
 	instances atomic.Int32
 }
 
-func (m *MockProducer) NewCleanuper(_ string) (*cleanuper, error) {
+func (m *MockProducer) NewCleanuper() (*cleanuper, error) {
 	m.instances.Add(1)
 	return &cleanuper{id: uuid.NewString()}, nil
 }
 
-func (m *MockProducer) NewCloser(_ string) (*closer, error) {
+func (m *MockProducer) NewCloser() (*closer, error) {
 	m.instances.Add(1)
 	return &closer{id: uuid.NewString()}, nil
 }
