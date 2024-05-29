@@ -10,10 +10,11 @@ import (
 // the tail node (end) is the node with the highest expiration time
 // Cleanups are done on Get() calls so if Get() is never invoked then Nodes stay in-memory.
 type Cache[K comparable, V any] struct {
-	root *node[K, V]
-	mu   sync.Mutex
-	m    map[K]*node[K, V]
-	now  func() time.Time
+	root      *node[K, V]
+	mu        sync.Mutex
+	m         map[K]*node[K, V]
+	now       func() time.Time
+	onEvicted func(key K, value V)
 }
 
 type node[K comparable, V any] struct {
@@ -49,8 +50,11 @@ func (c *Cache[K, V]) Get(key K) (zero V) {
 		cn := c.root.next // start from head since we're sorting by expiration with the highest expiration at the tail
 		for cn != nil && cn != c.root {
 			if c.now().After(cn.expiration) {
-				cn.remove()         // removes a node from the linked list (leaves the map untouched)
-				delete(c.m, cn.key) // remove node from map too
+				cn.remove()             // removes a node from the linked list (leaves the map untouched)
+				delete(c.m, cn.key)     // remove node from map too
+				if c.onEvicted != nil { // call the OnEvicted callback if it's set
+					c.onEvicted(cn.key, cn.value)
+				}
 			} else { // there is nothing else to clean up, no need to iterate further
 				break
 			}
@@ -99,6 +103,10 @@ func (c *Cache[K, V]) Put(key K, value V, ttl time.Duration) {
 	}
 
 	c.add(n)
+}
+
+func (c *Cache[K, V]) OnEvicted(onEvicted func(key K, value V)) {
+	c.onEvicted = onEvicted
 }
 
 func (c *Cache[K, V]) add(n *node[K, V]) {
