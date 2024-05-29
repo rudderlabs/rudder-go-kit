@@ -87,12 +87,10 @@ func (c *Cache[K, R]) Checkout(key K, new func() (R, error)) (resource R, checki
 // Invalidate invalidates the resource for the given key.
 func (c *Cache[K, R]) Invalidate(key K) {
 	defer c.lockKey(key)()
-	c.mu.Lock()
 	resourceID := c.ttlcache.Get(key)
 	if resourceID != "" {
 		c.ttlcache.Put(key, "", -1)
 	}
-	c.mu.Unlock()
 	if resourceID != "" {
 		c.onEvicted(key, resourceID)
 	}
