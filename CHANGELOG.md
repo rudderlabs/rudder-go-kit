@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.33.0...v0.34.0) (2024-05-29)
+
+
+### Features
+
+* introduce a ttl cache for resources ([#482](https://github.com/rudderlabs/rudder-go-kit/issues/482)) ([2d5c6b2](https://github.com/rudderlabs/rudder-go-kit/commit/2d5c6b2d86849bf78faf20bce30cf5d07fcf11f7))
+
 ## [0.33.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.32.2...v0.33.0) (2024-05-29)
 
 
