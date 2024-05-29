@@ -81,7 +81,7 @@ func (c *Cache[K, R]) Checkout(key K, new func() (R, error)) (resource R, checki
 		c.checkouts[resourceID]++
 		return r, c.checkinFunc(r, resourceID), nil
 	}
-	return c.newInstance(key, new)
+	return c.newResource(key, new)
 }
 
 // Invalidate invalidates the resource for the given key.
@@ -98,8 +98,8 @@ func (c *Cache[K, R]) Invalidate(key K) {
 	}
 }
 
-// newInstance creates a new resource for the given key.
-func (c *Cache[K, R]) newInstance(key K, new func() (R, error)) (R, func(), error) {
+// newResource creates a new resource for the given key.
+func (c *Cache[K, R]) newResource(key K, new func() (R, error)) (R, func(), error) {
 	r, err := new()
 	if err != nil {
 		return r, nil, err
