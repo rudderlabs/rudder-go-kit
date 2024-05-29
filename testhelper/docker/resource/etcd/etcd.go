@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -8,7 +9,6 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	etcd "go.etcd.io/etcd/client/v3"
-	"google.golang.org/grpc"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
@@ -73,14 +73,18 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	}
 
 	etcdHosts = []string{"http://localhost:" + etcdPortStr}
+
+	etcdClient, err = etcd.New(etcd.Config{
+		Endpoints:   etcdHosts,
+		DialTimeout: time.Second,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("setting up etcd client: %w", err)
+	}
+
 	err = pool.Retry(func() (err error) {
-		etcdClient, err = etcd.New(etcd.Config{
-			Endpoints: etcdHosts,
-			DialOptions: []grpc.DialOption{
-				grpc.WithBlock(), // block until the underlying connection is up
-			},
-			DialTimeout: 10 * time.Second,
-		})
+		_, err = etcdClient.Cluster.MemberList(context.Background())
+
 		return err
 	})
 	if err != nil {
