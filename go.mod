@@ -53,7 +53,7 @@ require (
 	golang.org/x/sync v0.7.0
 	golang.org/x/text v0.15.0
 	google.golang.org/api v0.177.0
-	google.golang.org/grpc v1.63.2
+	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
