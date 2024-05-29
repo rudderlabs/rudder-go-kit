@@ -53,7 +53,6 @@ require (
 	golang.org/x/sync v0.7.0
 	golang.org/x/text v0.15.0
 	google.golang.org/api v0.182.0
-	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -65,6 +64,7 @@ require (
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/pkg/xattr v0.4.9 // indirect
+	google.golang.org/grpc v1.64.0 // indirect
 )
 
 require (
