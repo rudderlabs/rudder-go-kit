@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.34.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.34.0...v0.34.1) (2024-05-30)
+
+
+### Miscellaneous
+
+* **ci:** general ci and tooling improvement ([#498](https://github.com/rudderlabs/rudder-go-kit/issues/498)) ([1b83f9a](https://github.com/rudderlabs/rudder-go-kit/commit/1b83f9aeea9b5bd7923cd0d1fb6a2fe5cbc5ceee))
+* **deps:** bump actions/labeler from 4 to 5 ([#501](https://github.com/rudderlabs/rudder-go-kit/issues/501)) ([7647693](https://github.com/rudderlabs/rudder-go-kit/commit/76476934d5e6b686db31a7f0c32c71f13e46e436))
+* **deps:** bump amannn/action-semantic-pull-request from 4 to 5 ([#500](https://github.com/rudderlabs/rudder-go-kit/issues/500)) ([2c1ff5f](https://github.com/rudderlabs/rudder-go-kit/commit/2c1ff5fa735828192ab74f9865bfebf969675b91))
+* **deps:** bump beatlabs/delete-old-branches-action from 0.0.9 to 0.0.10 ([#499](https://github.com/rudderlabs/rudder-go-kit/issues/499)) ([86e0dbb](https://github.com/rudderlabs/rudder-go-kit/commit/86e0dbb79399f0c8404af913ff407c850dc3467c))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.53.10 to 1.53.11 ([#495](https://github.com/rudderlabs/rudder-go-kit/issues/495)) ([0af3781](https://github.com/rudderlabs/rudder-go-kit/commit/0af37819d58054344948397cb868b7703e490457))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.53.11 to 1.53.12 in the frequent group ([#504](https://github.com/rudderlabs/rudder-go-kit/issues/504)) ([65125f9](https://github.com/rudderlabs/rudder-go-kit/commit/65125f96cf453b13379c9b4c0e251f1013fe2014))
+* **deps:** bump github.com/confluentinc/confluent-kafka-go/v2 from 2.3.0 to 2.4.0 ([#494](https://github.com/rudderlabs/rudder-go-kit/issues/494)) ([712e34e](https://github.com/rudderlabs/rudder-go-kit/commit/712e34e6b1ccbf10b2e58e9cffca9ab7cd731f76))
+* **deps:** bump github.com/docker/docker from 25.0.3+incompatible to 25.0.5+incompatible ([#497](https://github.com/rudderlabs/rudder-go-kit/issues/497)) ([3c565fc](https://github.com/rudderlabs/rudder-go-kit/commit/3c565fcd55fc2924dc096193f715840fd7de2d98))
+* **deps:** bump golangci/golangci-lint-action from 3 to 6 ([#503](https://github.com/rudderlabs/rudder-go-kit/issues/503)) ([4a583a0](https://github.com/rudderlabs/rudder-go-kit/commit/4a583a05b8fb930f3cd848edb9f1573879ae7797))
+* **deps:** bump the all group with 2 updates ([#505](https://github.com/rudderlabs/rudder-go-kit/issues/505)) ([284005c](https://github.com/rudderlabs/rudder-go-kit/commit/284005c73590451159f03813e4f566a491ea475e))
+* **deps:** bump the opentelemetry group with 9 updates ([#493](https://github.com/rudderlabs/rudder-go-kit/issues/493)) ([d823765](https://github.com/rudderlabs/rudder-go-kit/commit/d823765abd3df92c018f7026c53a2f97eafa4997))
+
 ## [0.34.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.33.0...v0.34.0) (2024-05-29)
 
 
