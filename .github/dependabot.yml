@@ -12,3 +12,18 @@ updates:
           - "go.opentelemetry.io/collector*"
           - "github.com/open-telemetry/o*-collector-contrib/*"
           - "go.opentelemetry.io/contrib/instrumentation/*"
+      frequent:
+        patterns:
+          - "github.com/aws/aws-sdk-go"
+          - "google.golang.org/api"
+          - "cloud.google.com/go/*"
+      all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
