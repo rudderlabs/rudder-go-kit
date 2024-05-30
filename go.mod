@@ -36,7 +36,7 @@ require (
 	github.com/throttled/throttled/v2 v2.12.0
 	github.com/tidwall/gjson v1.17.1
 	github.com/zenizh/go-capturer v0.0.0-20211219060012-52ea6c8fed04
-	go.etcd.io/etcd/client/v3 v3.5.13
+	go.etcd.io/etcd/client/v3 v3.5.14
 	go.opentelemetry.io/otel v1.27.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.27.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.27.0
@@ -59,7 +59,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/pubsub v1.37.0 // indirect
+	cloud.google.com/go/pubsub v1.38.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/google/renameio/v2 v2.0.0 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
@@ -92,7 +92,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/fsouza/fake-gcs-server v1.49.0
+	github.com/fsouza/fake-gcs-server v1.49.1
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -149,8 +149,8 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.etcd.io/etcd/api/v3 v3.5.13 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.5.13 // indirect
+	go.etcd.io/etcd/api/v3 v3.5.14 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.5.14 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect
