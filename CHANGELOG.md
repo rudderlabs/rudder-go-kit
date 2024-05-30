@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.34.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.33.0...v0.34.0) (2024-05-29)
+
+
+### Features
+
+* introduce a ttl cache for resources ([#482](https://github.com/rudderlabs/rudder-go-kit/issues/482)) ([2d5c6b2](https://github.com/rudderlabs/rudder-go-kit/commit/2d5c6b2d86849bf78faf20bce30cf5d07fcf11f7))
+
+## [0.33.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.32.2...v0.33.0) (2024-05-29)
+
+
+### Features
+
+* utf8 sanitizer ([#485](https://github.com/rudderlabs/rudder-go-kit/issues/485)) ([0ccb5aa](https://github.com/rudderlabs/rudder-go-kit/commit/0ccb5aaa3328cec0a22f752c1bca88dbb6451ccc))
+
+
+### Miscellaneous
+
+* **deps:** bump cloud.google.com/go/storage from 1.40.0 to 1.41.0 ([#490](https://github.com/rudderlabs/rudder-go-kit/issues/490)) ([3a4a138](https://github.com/rudderlabs/rudder-go-kit/commit/3a4a138cfc4e182756aee52c138c086d13b988b8))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.52.0 to 1.53.10 ([#484](https://github.com/rudderlabs/rudder-go-kit/issues/484)) ([12400b4](https://github.com/rudderlabs/rudder-go-kit/commit/12400b41c7ec2962800f631e58fe55a2041ef5fb))
+* **deps:** bump github.com/prometheus/client_golang from 1.19.0 to 1.19.1 ([#470](https://github.com/rudderlabs/rudder-go-kit/issues/470)) ([c0d0145](https://github.com/rudderlabs/rudder-go-kit/commit/c0d0145feec1cb2ca7b721e0738677229f9ba38b))
+* **deps:** bump google.golang.org/api from 0.177.0 to 0.182.0 ([#489](https://github.com/rudderlabs/rudder-go-kit/issues/489)) ([dcca9a7](https://github.com/rudderlabs/rudder-go-kit/commit/dcca9a7eb68303407192263b55811b0118f12b9e))
+* **deps:** downgrading google.golang.org/grpc from v1.64.0 to v1.63.2 ([3a6465f](https://github.com/rudderlabs/rudder-go-kit/commit/3a6465ffae8a212400a0be12cebc7c0e7239afd2))
+* expose otel version from stats library ([#488](https://github.com/rudderlabs/rudder-go-kit/issues/488)) ([6acb052](https://github.com/rudderlabs/rudder-go-kit/commit/6acb0520f2402a24b316b5b76c8bf12cbcb20cc9))
+* fix etcd deprecated warning ([#491](https://github.com/rudderlabs/rudder-go-kit/issues/491)) ([757b796](https://github.com/rudderlabs/rudder-go-kit/commit/757b796dc0b3b1f3d42dbc719ce237af36b9ed1c))
+
 ## [0.32.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.32.1...v0.32.2) (2024-05-28)
 
 
