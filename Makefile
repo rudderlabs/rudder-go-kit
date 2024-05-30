@@ -64,6 +64,7 @@ help: ## Show the available commands
 	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' ./Makefile | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 install-tools:
+	$(GO) install $(gotestsum)
 	$(GO) install $(mockgen)
 	$(GO) install $(protoc-gen-go)
 	$(GO) install $(protoc-gen-go-grpc)
