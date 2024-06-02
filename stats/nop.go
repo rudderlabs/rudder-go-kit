@@ -21,11 +21,11 @@ func (nopMeasurement) SendTiming(_ time.Duration) {}
 func (nopMeasurement) Since(_ time.Time)          {}
 func (nopMeasurement) RecordDuration() func()     { return func() {} }
 
-func (*nop) NewStat(_, _ string) Measurement {
+func (*nop) NewStat(_, _ string, _ ...MeasurementOption) Measurement {
 	return &nopMeasurement{}
 }
 
-func (*nop) NewTaggedStat(_, _ string, _ Tags) Measurement {
+func (*nop) NewTaggedStat(_, _ string, _ Tags, _ ...MeasurementOption) Measurement {
 	return &nopMeasurement{}
 }
 

@@ -41,10 +41,10 @@ type GoRoutineFactory interface {
 // Stats manages stat Measurements
 type Stats interface {
 	// NewStat creates a new Measurement with provided Name and Type
-	NewStat(name, statType string) (m Measurement)
+	NewStat(name, statType string, opts ...MeasurementOption) Measurement
 
 	// NewTaggedStat creates a new Measurement with provided Name, Type and Tags
-	NewTaggedStat(name, statType string, tags Tags) Measurement
+	NewTaggedStat(name, statType string, tags Tags, opts ...MeasurementOption) Measurement
 
 	// NewSampledTaggedStat creates a new Measurement with provided Name, Type and Tags
 	// Deprecated: use NewTaggedStat instead

@@ -217,6 +217,19 @@ func TestOTelMeasurementOperations(t *testing.T) {
 		s.NewStat("test-hist-1", HistogramType).Observe(1.2)
 		md := getDataPoint[metricdata.Histogram[float64]](ctx, t, r, "test-hist-1", 0)
 		require.Len(t, md.DataPoints, 1)
+		require.EqualValues(t, []float64{0, 5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000}, md.DataPoints[0].Bounds)
+		require.EqualValues(t, []uint64{0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, md.DataPoints[0].BucketCounts)
+		require.EqualValues(t, 1, md.DataPoints[0].Count)
+		require.EqualValues(t, 1.2, md.DataPoints[0].Sum)
+	})
+	t.Run("histogram explicit bucket boundaries", func(t *testing.T) {
+		r, m := newReaderWithMeter(t)
+		s := &otelStats{meter: m, config: statsConfig{enabled: atomicBool(true)}}
+		s.NewStat("test-hist-1", HistogramType, WithExplicitBucketBoundaries([]float64{0, 1, 2})).Observe(1.2)
+		md := getDataPoint[metricdata.Histogram[float64]](ctx, t, r, "test-hist-1", 0)
+		require.Len(t, md.DataPoints, 1)
+		require.EqualValues(t, []float64{0, 1, 2}, md.DataPoints[0].Bounds)
+		require.EqualValues(t, []uint64{0, 0, 1, 0}, md.DataPoints[0].BucketCounts)
 		require.EqualValues(t, 1, md.DataPoints[0].Count)
 		require.EqualValues(t, 1.2, md.DataPoints[0].Sum)
 	})
@@ -620,11 +633,12 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 
 			s.NewTaggedStat("foo", HistogramType, Tags{"a": "b"}).Observe(20)
 			s.NewTaggedStat("bar", HistogramType, Tags{"c": "d"}).Observe(50)
+			s.NewTaggedStat("quw", HistogramType, Tags{"m": "n"}, WithExplicitBucketBoundaries([]float64{40, 50, 60})).Observe(50)
 			s.NewTaggedStat("baz", CountType, Tags{"e": "f"}).Count(7)
 			s.NewTaggedStat("qux", GaugeType, Tags{"g": "h"}).Gauge(13)
 			s.NewTaggedStat("asd", TimerType, Tags{"i": "l"}).SendTiming(20 * time.Second)
 
-			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "baz", "qux", "asd")
+			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "quw", "baz", "qux", "asd")
 
 			require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["foo"].Type)
@@ -659,6 +673,23 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
 				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label, "Got %+v", metrics["bar"].Metric[0].Label)
+
+			require.EqualValues(t, ptr("quw"), metrics["quw"].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["quw"].Type)
+			require.Len(t, metrics["quw"].Metric, 1)
+			require.EqualValues(t, ptr(uint64(1)), metrics["quw"].Metric[0].Histogram.SampleCount)
+			require.EqualValues(t, ptr(50.0), metrics["quw"].Metric[0].Histogram.SampleSum)
+			require.EqualValues(t, []*promClient.Bucket{
+				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(40.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(50.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+			}, metrics["quw"].Metric[0].Histogram.Bucket)
+			require.ElementsMatchf(t, append([]*promClient.LabelPair{
+				{Name: ptr("m"), Value: ptr("n")},
+				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
+			}, scenario.additionalLabels...), metrics["quw"].Metric[0].Label, "Got %+v", metrics["quw"].Metric[0].Label)
 
 			require.EqualValues(t, ptr("baz"), metrics["baz"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["baz"].Type)

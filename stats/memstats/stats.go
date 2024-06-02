@@ -244,12 +244,12 @@ func (ms *Store) NewTracer(name string) stats.Tracer {
 }
 
 // NewStat implements stats.Stats
-func (ms *Store) NewStat(name, statType string) (m stats.Measurement) {
+func (ms *Store) NewStat(name, statType string, _ ...stats.MeasurementOption) (m stats.Measurement) {
 	return ms.NewTaggedStat(name, statType, nil)
 }
 
 // NewTaggedStat implements stats.Stats
-func (ms *Store) NewTaggedStat(name, statType string, tags stats.Tags) stats.Measurement {
+func (ms *Store) NewTaggedStat(name, statType string, tags stats.Tags, _ ...stats.MeasurementOption) stats.Measurement {
 	return ms.NewSampledTaggedStat(name, statType, tags)
 }
 

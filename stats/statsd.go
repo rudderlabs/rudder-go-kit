@@ -162,11 +162,11 @@ func (s *statsdStats) Stop() {
 }
 
 // NewStat creates a new Measurement with provided Name and Type
-func (s *statsdStats) NewStat(name, statType string) (m Measurement) {
+func (s *statsdStats) NewStat(name, statType string, _ ...MeasurementOption) (m Measurement) {
 	return s.internalNewTaggedStat(name, statType, nil, 1)
 }
 
-func (s *statsdStats) NewTaggedStat(Name, StatType string, tags Tags) (m Measurement) {
+func (s *statsdStats) NewTaggedStat(Name, StatType string, tags Tags, _ ...MeasurementOption) (m Measurement) {
 	return s.internalNewTaggedStat(Name, StatType, tags, 1)
 }
 

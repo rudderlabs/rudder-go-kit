@@ -39,7 +39,7 @@ type redisSpeaker interface {
 }
 
 type statsCollector interface {
-	NewTaggedStat(name, statType string, tags stats.Tags) stats.Measurement
+	NewTaggedStat(name, statType string, tags stats.Tags, opts ...stats.MeasurementOption) stats.Measurement
 }
 
 type Limiter struct {

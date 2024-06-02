@@ -263,19 +263,31 @@ func (s *otelStats) NewTracer(name string) Tracer {
 	return s.tracerMap[name]
 }
 
+type measurementConfig struct {
+	explicitBucketBoundaries []float64
+}
+
+type MeasurementOption func(*measurementConfig)
+
+func WithExplicitBucketBoundaries(explicitBucketBoundaries []float64) MeasurementOption {
+	return func(c *measurementConfig) {
+		c.explicitBucketBoundaries = explicitBucketBoundaries
+	}
+}
+
 // NewStat creates a new Measurement with provided Name and Type
-func (s *otelStats) NewStat(name, statType string) (m Measurement) {
-	return s.getMeasurement(name, statType, nil)
+func (s *otelStats) NewStat(name, statType string, opts ...MeasurementOption) Measurement {
+	return s.getMeasurement(name, statType, nil, opts...)
 }
 
 // NewTaggedStat creates a new Measurement with provided Name, Type and Tags
-func (s *otelStats) NewTaggedStat(name, statType string, tags Tags) (m Measurement) {
-	return s.getMeasurement(name, statType, tags)
+func (s *otelStats) NewTaggedStat(name, statType string, tags Tags, opts ...MeasurementOption) Measurement {
+	return s.getMeasurement(name, statType, tags, opts...)
 }
 
 // NewSampledTaggedStat creates a new Measurement with provided Name, Type and Tags
 // Deprecated: use NewTaggedStat instead
-func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) (m Measurement) {
+func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) Measurement {
 	return s.NewTaggedStat(name, statType, tags)
 }
 
@@ -297,7 +309,12 @@ func (*otelStats) getNoOpMeasurement(statType string) Measurement {
 	panic(fmt.Errorf("unsupported measurement type %s", statType))
 }
 
-func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement {
+func (s *otelStats) getMeasurement(name, statType string, tags Tags, opts ...MeasurementOption) Measurement {
+	var mc measurementConfig
+	for _, opt := range opts {
+		opt(&mc)
+	}
+
 	if !s.config.enabled.Load() {
 		return s.getNoOpMeasurement(statType)
 	}
@@ -338,15 +355,15 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 
 	switch statType {
 	case CountType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger, &mc)
 		return &otelCounter{counter: instr, otelMeasurement: om}
 	case GaugeType:
 		return s.getGauge(name, om.attributes, newTags.String())
 	case TimerType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger, &mc)
 		return &otelTimer{timer: instr, otelMeasurement: om}
 	case HistogramType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger, &mc)
 		return &otelHistogram{histogram: instr, otelMeasurement: om}
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
@@ -403,6 +420,7 @@ func buildOTelInstrument[T any](
 	meter, noopMeter metric.Meter,
 	name string, m map[string]T, mu *sync.Mutex,
 	l logger.Logger,
+	mc *measurementConfig,
 ) T {
 	var (
 		ok    bool
@@ -426,7 +444,7 @@ func buildOTelInstrument[T any](
 				value, _ = noopMeter.Int64Counter(name)
 			}
 		case map[string]metric.Float64Histogram:
-			if value, err = meter.Float64Histogram(name); err != nil {
+			if value, err = meter.Float64Histogram(name, metric.WithExplicitBucketBoundaries(mc.explicitBucketBoundaries...)); err != nil {
 				value, _ = noopMeter.Float64Histogram(name)
 			}
 		default:

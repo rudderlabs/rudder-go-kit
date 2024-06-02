@@ -51,31 +51,41 @@ func (mr *MockStatsMockRecorder) NewSampledTaggedStat(arg0, arg1, arg2 interface
 }
 
 // NewStat mocks base method.
-func (m *MockStats) NewStat(arg0, arg1 string) stats.Measurement {
+func (m *MockStats) NewStat(arg0, arg1 string, arg2 ...stats.MeasurementOption) stats.Measurement {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewStat", arg0, arg1)
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewStat", varargs...)
 	ret0, _ := ret[0].(stats.Measurement)
 	return ret0
 }
 
 // NewStat indicates an expected call of NewStat.
-func (mr *MockStatsMockRecorder) NewStat(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStatsMockRecorder) NewStat(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStat", reflect.TypeOf((*MockStats)(nil).NewStat), arg0, arg1)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStat", reflect.TypeOf((*MockStats)(nil).NewStat), varargs...)
 }
 
 // NewTaggedStat mocks base method.
-func (m *MockStats) NewTaggedStat(arg0, arg1 string, arg2 stats.Tags) stats.Measurement {
+func (m *MockStats) NewTaggedStat(arg0, arg1 string, arg2 stats.Tags, arg3 ...stats.MeasurementOption) stats.Measurement {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewTaggedStat", arg0, arg1, arg2)
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "NewTaggedStat", varargs...)
 	ret0, _ := ret[0].(stats.Measurement)
 	return ret0
 }
 
 // NewTaggedStat indicates an expected call of NewTaggedStat.
-func (mr *MockStatsMockRecorder) NewTaggedStat(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockStatsMockRecorder) NewTaggedStat(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTaggedStat", reflect.TypeOf((*MockStats)(nil).NewTaggedStat), arg0, arg1, arg2)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTaggedStat", reflect.TypeOf((*MockStats)(nil).NewTaggedStat), varargs...)
 }
 
 // NewTracer mocks base method.
