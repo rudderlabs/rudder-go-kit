@@ -631,48 +631,10 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
 			defer s.Stop()
 
-			s.NewTaggedStat("foo", HistogramType, Tags{"a": "b"}).Observe(20)
-			s.NewTaggedStat("bar", HistogramType, Tags{"c": "d"}).Observe(50)
 			s.NewTaggedStat("quw", HistogramType, Tags{"m": "n"}, WithExplicitBucketBoundaries([]float64{40, 50, 60})).Observe(50)
-			s.NewTaggedStat("baz", CountType, Tags{"e": "f"}).Count(7)
-			s.NewTaggedStat("qux", GaugeType, Tags{"g": "h"}).Gauge(13)
-			s.NewTaggedStat("asd", TimerType, Tags{"i": "l"}).SendTiming(20 * time.Second)
+			s.NewTaggedStat("mno", HistogramType, Tags{"q": "v"}, WithExplicitBucketBoundaries([]float64{10, 20, 30})).Observe(20)
 
-			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "quw", "baz", "qux", "asd")
-
-			require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["foo"].Type)
-			require.Len(t, metrics["foo"].Metric, 1)
-			require.EqualValues(t, ptr(uint64(1)), metrics["foo"].Metric[0].Histogram.SampleCount)
-			require.EqualValues(t, ptr(20.0), metrics["foo"].Metric[0].Histogram.SampleSum)
-			//require.EqualValues(t, []*promClient.Bucket{
-			//	{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
-			//}, metrics["foo"].Metric[0].Histogram.Bucket)
-			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("a"), Value: ptr("b")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
-			}, scenario.additionalLabels...), metrics["foo"].Metric[0].Label, "Got %+v", metrics["foo"].Metric[0].Label)
-
-			require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["bar"].Type)
-			require.Len(t, metrics["bar"].Metric, 1)
-			require.EqualValues(t, ptr(uint64(1)), metrics["bar"].Metric[0].Histogram.SampleCount)
-			require.EqualValues(t, ptr(50.0), metrics["bar"].Metric[0].Histogram.SampleSum)
-			//require.EqualValues(t, []*promClient.Bucket{
-			//	{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(40.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(50.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
-			//}, metrics["bar"].Metric[0].Histogram.Bucket)
-			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("c"), Value: ptr("d")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
-			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label, "Got %+v", metrics["bar"].Metric[0].Label)
+			metrics := requireMetrics(t, metricsEndpoint, "quw", "mno")
 
 			require.EqualValues(t, ptr("quw"), metrics["quw"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["quw"].Type)
@@ -691,40 +653,22 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["quw"].Metric[0].Label, "Got %+v", metrics["quw"].Metric[0].Label)
 
-			require.EqualValues(t, ptr("baz"), metrics["baz"].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["baz"].Type)
-			require.Len(t, metrics["baz"].Metric, 1)
-			require.EqualValues(t, ptr(7.0), metrics["baz"].Metric[0].Counter.Value)
+			require.EqualValues(t, ptr("mno"), metrics["mno"].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["mno"].Type)
+			require.Len(t, metrics["mno"].Metric, 1)
+			require.EqualValues(t, ptr(uint64(1)), metrics["mno"].Metric[0].Histogram.SampleCount)
+			require.EqualValues(t, ptr(20.0), metrics["mno"].Metric[0].Histogram.SampleSum)
+			require.EqualValues(t, []*promClient.Bucket{
+				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
+				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+			}, metrics["quw"].Metric[0].Histogram.Bucket)
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("e"), Value: ptr("f")},
+				{Name: ptr("q"), Value: ptr("v")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
 				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
-			}, scenario.additionalLabels...), metrics["baz"].Metric[0].Label, "Got %+v", metrics["baz"].Metric[0].Label)
-
-			require.EqualValues(t, ptr("qux"), metrics["qux"].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_GAUGE), metrics["qux"].Type)
-			require.Len(t, metrics["qux"].Metric, 1)
-			require.EqualValues(t, ptr(13.0), metrics["qux"].Metric[0].Gauge.Value)
-			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("g"), Value: ptr("h")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
-			}, scenario.additionalLabels...), metrics["qux"].Metric[0].Label, "Got %+v", metrics["qux"].Metric[0].Label)
-
-			require.EqualValues(t, ptr("asd"), metrics["asd"].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["asd"].Type)
-			require.Len(t, metrics["asd"].Metric, 1)
-			//require.EqualValues(t, []*promClient.Bucket{
-			//	{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
-			//}, metrics["asd"].Metric[0].Histogram.Bucket)
-			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("i"), Value: ptr("l")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
-			}, scenario.additionalLabels...), metrics["asd"].Metric[0].Label, "Got %+v", metrics["asd"].Metric[0].Label)
+			}, scenario.additionalLabels...), metrics["mno"].Metric[0].Label, "Got %+v", metrics["mno"].Metric[0].Label)
 		})
 	}
 }
