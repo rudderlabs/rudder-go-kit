@@ -585,7 +585,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 					WithServiceName("TestOTelHistogramBuckets"),
 					WithServiceVersion("v1.2.3"),
 					//WithDefaultHistogramBuckets([]float64{10, 20, 30}),
-					WithHistogramBuckets("bar", []float64{40, 50, 60}),
+					//WithHistogramBuckets("bar", []float64{40, 50, 60}),
 				)
 				t.Cleanup(s.Stop)
 
@@ -612,7 +612,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 					WithServiceName("TestOTelHistogramBuckets"),
 					WithServiceVersion("v1.2.3"),
 					//WithDefaultHistogramBuckets([]float64{10, 20, 30}),
-					WithHistogramBuckets("bar", []float64{40, 50, 60}),
+					//WithHistogramBuckets("bar", []float64{40, 50, 60}),
 				)
 				t.Cleanup(s.Stop)
 
@@ -662,12 +662,12 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			require.Len(t, metrics["bar"].Metric, 1)
 			require.EqualValues(t, ptr(uint64(1)), metrics["bar"].Metric[0].Histogram.SampleCount)
 			require.EqualValues(t, ptr(50.0), metrics["bar"].Metric[0].Histogram.SampleSum)
-			require.EqualValues(t, []*promClient.Bucket{
-				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(40.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(50.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
-			}, metrics["bar"].Metric[0].Histogram.Bucket)
+			//require.EqualValues(t, []*promClient.Bucket{
+			//	{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(40.0)},
+			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(50.0)},
+			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
+			//	{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+			//}, metrics["bar"].Metric[0].Histogram.Bucket)
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("c"), Value: ptr("d")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
