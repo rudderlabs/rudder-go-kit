@@ -391,4 +391,22 @@ func TestStats(t *testing.T) {
 		// checking hierarchy
 		require.Equal(t, spans[1].SpanContext.SpanID, spans[0].Parent.SpanID)
 	})
+
+	t.Run("multiple stats with same name and tags", func(t *testing.T) {
+		store, err := memstats.New()
+		require.NoError(t, err)
+
+		name := "testHistogram"
+		store.NewTaggedStat(name, stats.HistogramType, commonTags).Observe(1.0)
+		store.NewTaggedStat(name, stats.HistogramType, commonTags).Observe(2.0)
+
+		require.Equal(t, 2.0, store.Get(name, commonTags).LastValue())
+		require.Equal(t, []float64{1.0, 2.0}, store.Get(name, commonTags).Values())
+
+		require.Equal(t, []memstats.Metric{{
+			Name:   name,
+			Tags:   commonTags,
+			Values: []float64{1.0, 2.0},
+		}}, store.GetByName(name))
+	})
 }
