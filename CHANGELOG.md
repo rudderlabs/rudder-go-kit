@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.34.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.34.1...v0.34.2) (2024-06-05)
+
+
+### Bug Fixes
+
+* memstats new stat should reuse measurement ([#516](https://github.com/rudderlabs/rudder-go-kit/issues/516)) ([ab7c8f6](https://github.com/rudderlabs/rudder-go-kit/commit/ab7c8f63ea647e470999d7129a2aee021f221e4e))
+
+
+### Miscellaneous
+
+* **deps:** bump actions/checkout from 2 to 4 ([#506](https://github.com/rudderlabs/rudder-go-kit/issues/506)) ([e3525a9](https://github.com/rudderlabs/rudder-go-kit/commit/e3525a9ca851957ff57042f48573df54459821ed))
+* **deps:** bump actions/setup-go from 3 to 5 ([#508](https://github.com/rudderlabs/rudder-go-kit/issues/508)) ([60c253e](https://github.com/rudderlabs/rudder-go-kit/commit/60c253ef7e0ce6ff44c09a0c95f63ac6efc523b9))
+* **deps:** bump actions/stale from 5 to 9 ([#507](https://github.com/rudderlabs/rudder-go-kit/issues/507)) ([4af5318](https://github.com/rudderlabs/rudder-go-kit/commit/4af5318db573f36109682d85180103c5f14a7bf2))
+* **deps:** bump codecov/codecov-action from 3 to 4 ([#509](https://github.com/rudderlabs/rudder-go-kit/issues/509)) ([e726f0c](https://github.com/rudderlabs/rudder-go-kit/commit/e726f0c1d0bbde37a048d577946be8395ba8a34e))
+* **deps:** bump github.com/aws/aws-sdk-go from 1.53.12 to 1.53.15 in the frequent group across 1 directory ([#515](https://github.com/rudderlabs/rudder-go-kit/issues/515)) ([1441aae](https://github.com/rudderlabs/rudder-go-kit/commit/1441aae765f998240decfcba834bae4eed44d8b6))
+* **deps:** bump the all group with 3 updates ([#513](https://github.com/rudderlabs/rudder-go-kit/issues/513)) ([d6b4ae1](https://github.com/rudderlabs/rudder-go-kit/commit/d6b4ae199c45bf37b1967e8b3e7377ff7a62ad9c))
+* upgrade to go1.22.4 and standard libraries ([#517](https://github.com/rudderlabs/rudder-go-kit/issues/517)) ([3283a98](https://github.com/rudderlabs/rudder-go-kit/commit/3283a98f94b2a9579af5f2ca364c778b0970e343))
+
 ## [0.34.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.34.0...v0.34.1) (2024-05-30)
 
 
