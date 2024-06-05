@@ -258,6 +258,10 @@ func (ms *Store) NewSampledTaggedStat(name, statType string, tags stats.Tags) st
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
+	if m, found := ms.byKey[ms.getKey(name, tags)]; found {
+		return m
+	}
+
 	m := &Measurement{
 		name:  name,
 		tags:  tags,
