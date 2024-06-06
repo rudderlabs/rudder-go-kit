@@ -122,6 +122,8 @@ func TestValidate(t *testing.T) {
 	data, err := sanitizeJSON(data)
 	require.NoError(t, err)
 	t.Log(string(data))
+	require.True(t, stdjson.Valid(data))
+	require.Equal(t, `{"key":"value�","array":[1,2,{"a":"b"}]}`, string(data))
 }
 
 func sanitizeJSON(data []byte) ([]byte, error) {
@@ -156,16 +158,17 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 			writePos += copy(data[writePos:], v)
 			data[writePos] = '"'
 			writePos++
-			if !inObject {
-				continue
+			if inObject {
+				if isKey {
+					data[writePos] = ':'
+					writePos++
+					isKey = false
+				} else if decoder.More() {
+					data[writePos] = ','
+					writePos++
+					isKey = true
+				}
 			}
-			if isKey {
-				data[writePos] = ':'
-			} else if decoder.More() {
-				data[writePos] = ','
-			}
-			writePos++
-			isKey = !isKey
 		case float64:
 			n := copy(data[writePos:], strconv.FormatFloat(v, 'f', -1, 64))
 			writePos += n
