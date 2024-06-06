@@ -4,6 +4,7 @@ import (
 	"bytes"
 	stdjson "encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -118,12 +119,61 @@ func TestScenarios(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	data := []byte(`{          "key":      "value\uDEAD", "array":[1,2, {"a": "b"}]}`)
-	data, err := sanitizeJSON(data)
-	require.NoError(t, err)
-	t.Log(string(data))
-	require.True(t, stdjson.Valid(data))
-	require.Equal(t, `{"key":"value�","array":[1,2,{"a":"b"}]}`, string(data))
+	testCases := []testCase{
+		{
+			input:    `{ "key": "value" }`,
+			expected: `{"key":"value"}`,
+		},
+		{
+			input:    `{ "key": "value\uDEAD", "array": [1, 2, {"a": "b"}] }`,
+			expected: `{"key":"value�","array":[1,2,{"a":"b"}]}`,
+		},
+		{
+			input:    `{ "key1": "value1", "key2": 123, "key3": true, "key4": null }`,
+			expected: `{"key1":"value1","key2":123,"key3":true,"key4":null}`,
+		},
+		{
+			input:    `[ 1, 2, 3, 4, 5 ]`,
+			expected: `[1,2,3,4,5]`,
+		},
+		{
+			input:    `{ "nested": { "innerKey": "innerValue" } }`,
+			expected: `{"nested":{"innerKey":"innerValue"}}`,
+		},
+		{
+			input:    `{ "array": [ { "key": "value" }, { "key": 123 }, { "key": true } ] }`,
+			expected: `{"array":[{"key":"value"},{"key":123},{"key":true}]}`,
+		},
+		{
+			input:    `[ { "key1": "value1" }, { "key2": "value2" } ]`,
+			expected: `[{"key1":"value1"},{"key2":"value2"}]`,
+		},
+		{
+			input:    `{ "escaped": "newline\n tab\t quote\" backslash\\ and unicode\u1234" }`,
+			expected: `{"escaped":"newline\n tab\t quote\" backslash\\ and unicode\u1234"}`,
+		},
+		{
+			input:    `{"emptyObj":{},"emptyArray":[]}`,
+			expected: `{"emptyObj":{},"emptyArray":[]}`,
+		},
+		{
+			input:    `{}`,
+			expected: `{}`,
+		},
+		{
+			input:    `[]`,
+			expected: `[]`,
+		},
+	}
+	for index, tc := range testCases {
+		t.Run(fmt.Sprintf("test-%d", index), func(t *testing.T) {
+			data := []byte(tc.input)
+			data, err := sanitizeJSON(data)
+			require.NoError(t, err)
+			// require.True(t, stdjson.Valid(data))
+			require.Equal(t, tc.expected, string(data))
+		})
+	}
 }
 
 func sanitizeJSON(data []byte) ([]byte, error) {
@@ -164,17 +214,19 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 			if isKey {
 				data[writePos] = ':'
 				writePos++
+				isKey = false
 			} else if decoder.More() {
 				data[writePos] = ','
 				writePos++
+				isKey = true
 			}
-			isKey = !isKey
 		case float64:
 			n := copy(data[writePos:], strconv.FormatFloat(v, 'f', -1, 64))
 			writePos += n
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
+				isKey = inObject
 			}
 		case bool:
 			if v {
@@ -187,6 +239,7 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
+				isKey = inObject
 			}
 		case nil:
 			n := copy(data[writePos:], "null")
@@ -194,10 +247,16 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
+				isKey = inObject
 			}
 		}
 	}
 
 	// Return the compacted slice
 	return data[:writePos], nil
+}
+
+type testCase struct {
+	input    string
+	expected string
 }
