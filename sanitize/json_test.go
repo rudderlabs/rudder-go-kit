@@ -158,17 +158,17 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 			writePos += copy(data[writePos:], v)
 			data[writePos] = '"'
 			writePos++
-			if inObject {
-				if isKey {
-					data[writePos] = ':'
-					writePos++
-					isKey = false
-				} else if decoder.More() {
-					data[writePos] = ','
-					writePos++
-					isKey = true
-				}
+			if !inObject {
+				continue
 			}
+			if isKey {
+				data[writePos] = ':'
+				writePos++
+			} else if decoder.More() {
+				data[writePos] = ','
+				writePos++
+			}
+			isKey = !isKey
 		case float64:
 			n := copy(data[writePos:], strconv.FormatFloat(v, 'f', -1, 64))
 			writePos += n
