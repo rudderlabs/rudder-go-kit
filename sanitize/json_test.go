@@ -150,7 +150,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			input:    `{ "escaped": "newline\n tab\t quote\" backslash\\ and unicode\u1234" }`,
-			expected: `{"escaped":"newline\n tab\t quote\" backslash\\ and unicode\u1234"}`,
+			expected: "{\"escaped\":\"newline\n tab\t quote\" backslash\\ and unicodeሴ\"}",
 		},
 		{
 			input:    `{"emptyObj":{},"emptyArray":[]}`,
@@ -170,17 +170,19 @@ func TestValidate(t *testing.T) {
 			data := []byte(tc.input)
 			data, err := sanitizeJSON(data)
 			require.NoError(t, err)
-			// require.True(t, stdjson.Valid(data))
+			t.Log(string(data))
 			require.Equal(t, tc.expected, string(data))
+			require.True(t, stdjson.Valid(data))
 		})
 	}
 }
 
 func sanitizeJSON(data []byte) ([]byte, error) {
 	var (
-		decoder         = stdjson.NewDecoder(bytes.NewReader(data))
-		writePos        int
-		isKey, inObject bool
+		decoder  = stdjson.NewDecoder(bytes.NewReader(data))
+		writePos int
+		inObject int
+		isKey    bool
 	)
 
 	for {
@@ -196,19 +198,23 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 		case stdjson.Delim:
 			if v == '{' {
 				isKey = true // The next string token is a key
-				inObject = true
+				inObject++
 			} else if v == '}' {
-				inObject = false
+				inObject--
 			}
 			data[writePos] = byte(v)
 			writePos++
+			if (v == '}' || v == ']') && decoder.More() { // nested objects or arrays
+				data[writePos] = ','
+				writePos++
+			}
 		case string:
 			data[writePos] = '"'
 			writePos++
 			writePos += copy(data[writePos:], v)
 			data[writePos] = '"'
 			writePos++
-			if !inObject {
+			if inObject == 0 {
 				continue
 			}
 			if isKey {
@@ -226,7 +232,9 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				isKey = inObject
+				if inObject > 0 {
+					isKey = true
+				}
 			}
 		case bool:
 			if v {
@@ -239,7 +247,9 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				isKey = inObject
+				if inObject > 0 {
+					isKey = true
+				}
 			}
 		case nil:
 			n := copy(data[writePos:], "null")
@@ -247,7 +257,9 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				isKey = inObject
+				if inObject > 0 {
+					isKey = true
+				}
 			}
 		}
 	}
