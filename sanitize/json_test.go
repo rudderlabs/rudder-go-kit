@@ -179,10 +179,10 @@ func TestValidate(t *testing.T) {
 
 func sanitizeJSON(data []byte) ([]byte, error) {
 	var (
-		decoder  = stdjson.NewDecoder(bytes.NewReader(data))
-		writePos int
-		inObject int
-		isKey    bool
+		isKey              bool
+		writePos, inObject int
+
+		decoder = stdjson.NewDecoder(bytes.NewReader(data))
 	)
 
 	for {
