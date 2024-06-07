@@ -241,7 +241,6 @@ func TestSanitizeRandom(t *testing.T) {
 }
 
 func BenchmarkSanitize(b *testing.B) {
-	// generate a 10mb json
 	data := []byte(generateJSON(1 * bytesize.KB))
 	require.True(b, stdjson.Valid(data))
 	b.ResetTimer()
@@ -257,18 +256,11 @@ func BenchmarkSanitize(b *testing.B) {
 	})
 
 	b.Run("sanitize", func(b *testing.B) {
-		// for i := 0; i < b.N; i++ {
-		cp := string(data)
-		b.Log("ORIGINAL:", cp)
-
-		var err error
-		data, err = JSON(data)
-		if err != nil {
-			b.Log("SANITIZED:", string(data))
+		for i := 0; i < b.N; i++ {
+			var err error
+			data, err = JSON(data)
+			require.NoError(b, err)
 		}
-
-		require.NoError(b, err)
-		//}
 	})
 }
 
