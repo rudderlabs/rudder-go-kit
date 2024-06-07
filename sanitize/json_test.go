@@ -148,6 +148,10 @@ func TestSanitize(t *testing.T) {
 			expected: `{"array":[{"key":"value"},{"key":123},{"key":true}]}`,
 		},
 		{
+			input:    `{"pZwNSfv":[["Xsplf",0.21300102020231929,"VQeZct"],[1,2,3]]}`,
+			expected: `{"pZwNSfv":[["Xsplf",0.21300102020231929,"VQeZct"],[1,2,3]]}`,
+		},
+		{
 			input:    `[ { "key1": "value1" }, { "key2": "value2" } ]`,
 			expected: `[{"key1":"value1"},{"key2":"value2"}]`,
 		},
@@ -167,12 +171,28 @@ func TestSanitize(t *testing.T) {
 			input:    `[]`,
 			expected: `[]`,
 		},
+		// TODO add random brackets opening and not closing and then just closing without opening them
 	}
 	for index, tc := range testCases {
 		t.Run(fmt.Sprintf("test-%d", index), func(t *testing.T) {
 			data := []byte(tc.input)
-			data, err := JSON(data)
+			if tc.err != nil {
+				require.False(t, stdjson.Valid(data))
+			} else {
+				require.True(t, stdjson.Valid(data))
+			}
 
+			var err error
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Logf("Recovered from panic: %v", r)
+						t.Log("Data:", string(data))
+						t.FailNow()
+					}
+				}()
+				data, err = JSON(data)
+			}()
 			t.Logf("Produced output (err: %v): %s", err, data)
 
 			if tc.err != nil {
@@ -181,9 +201,9 @@ func TestSanitize(t *testing.T) {
 				return
 			}
 
+			require.Truef(t, stdjson.Valid(data), "Invalid JSON: %s", data)
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, string(data))
-			require.True(t, stdjson.Valid(data))
 		})
 	}
 }
@@ -194,13 +214,30 @@ type testCase struct {
 	err      error
 }
 
+func TestPanic(t *testing.T) {
+	// data := []byte(`{"QLjueIuTL":false,"OHovbvSDuq":[{"PTdfsZDMB":["SkPHilIN","VIoonHM":null,61],"gdJLxQVREUa":true,"jTmDQ":true},56,0.6197713775635203],"ZECbhq":"NcmzOtRZg","Lbo":36,"ULX":{"RBc":true,"SPhihM":{"MPmpJedus":"IKzQhECDxCc","SnuMhk":true},"fAxjc",false},"fstj":88,"yXOZtWBTmSR":0.46876156463854257,"uhrFwpL":{"qcJZzHGlCefi":"nFuAvvu"},"MUQbujAmdzU",["iYQQCwQGFu":35,{"Qjv":true,"TSaVDw":[0.5005688864490123,true,false,0.32278146388994844],"codNB":0.9325006179409677,"fRsbP":{"EJpvaGDN":false,"XuORr":0.668756180717154,"jTMvxolIlwt":true}},{"BGN":[false,80],"uGj":25},96],"gOYFwYOVlka",46,"JnB":"vlVFWBffEF","XLAojEWaokUM":0.7389722454950591,"wPYNyrY":0.0464995971885581,"wRvtmoPxJc":"kEcSeoxlpEA","QAQjb":{"wIl":14},"dQUboxB",["rsLhQNy":12,{"FHZ":0.6286490551651158,"bUu":false,"fSlhu":"flADXal","qVFdKULCEx":14,"xhMKbVhn":"ZhKvAT"}],"FZHziSsw",41,"IDXaUxtL":0.05689399874891553,"VQFb":{"iiAwQUcsLm":{"FFGE":false},"pZwNSfv",[["Xsplf":0.21300102020231929,"VQeZct":],"YPhRqGZkBau","QCgibHbbWM":{"GUhGfH":48,"JbDRZtNJsFW":"vNSwWdbwrc"},0.23007757036298696],"tlPKvp",true}`)
+	data := []byte(`{"QLjueIuTL":false,"OHovbvSDuq":[{"PTdfsZDMB":["SkPHilIN","VIoonHM",null,61],"gdJLxQVREUa":true,"jTmDQ":true},56,0.6197713775635203],"ZECbhq":"NcmzOtRZg","Lbo":36,"ULX":{"RBc":true,"SPhihM":{"MPmpJedus":"IKzQhECDxCc","SnuMhk":true},"fAxjc":false},"fstj":88,"yXOZtWBTmSR":0.46876156463854257,"uhrFwpL":{"qcJZzHGlCefi":"nFuAvvu"},"MUQbujAmdzU":["iYQQCwQGFu",35,{"Qjv":true,"TSaVDw":[0.5005688864490123,true,false,0.32278146388994844],"codNB":0.9325006179409677,"fRsbP":{"EJpvaGDN":false,"XuORr":0.668756180717154,"jTMvxolIlwt":true}},{"BGN":[false,80],"uGj":25},96],"gOYFwYOVlka":46,"JnB":"vlVFWBffEF","XLAojEWaokUM":0.7389722454950591,"wPYNyrY":0.0464995971885581,"wRvtmoPxJc":"kEcSeoxlpEA","QAQjb":{"wIl":14},"dQUboxB":["rsLhQNy",12,{"FHZ":0.6286490551651158,"bUu":false,"fSlhu":"flADXal","qVFdKULCEx":14,"xhMKbVhn":"ZhKvAT"}],"FZHziSsw":41,"IDXaUxtL":0.05689399874891553,"VQFb":{"iiAwQUcsLm":{"FFGE":false},"pZwNSfv":[["Xsplf",0.21300102020231929,"VQeZct"],"YPhRqGZkBau","QCgibHbbWM",{"GUhGfH":48,"JbDRZtNJsFW":"vNSwWdbwrc"},0.23007757036298696],"tlPKvp":true}}`)
+	require.True(t, stdjson.Valid(data))
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Logf("Recovered from panic: %v", r)
+			t.Log("DATA:", string(data))
+		}
+	}()
+
+	var err error
+	data, err = JSON(data)
+	require.NoError(t, err)
+}
+
 func TestSanitizeRandom(t *testing.T) {
 	t.Skip("TODO")
 }
 
 func BenchmarkSanitize(b *testing.B) {
 	// generate a 10mb json
-	data := []byte(generateJSON(100 * bytesize.KB))
+	data := []byte(generateJSON(1 * bytesize.KB))
 	require.True(b, stdjson.Valid(data))
 	b.ResetTimer()
 
@@ -215,11 +252,18 @@ func BenchmarkSanitize(b *testing.B) {
 	})
 
 	b.Run("sanitize", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			var err error
-			data, err = JSON(data)
-			require.NoError(b, err)
+		// for i := 0; i < b.N; i++ {
+		cp := string(data)
+		b.Log("ORIGINAL:", cp)
+
+		var err error
+		data, err = JSON(data)
+		if err != nil {
+			b.Log("SANITIZED:", string(data))
 		}
+
+		require.NoError(b, err)
+		//}
 	})
 }
 

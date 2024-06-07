@@ -9,11 +9,18 @@ import (
 
 func JSON(data []byte) ([]byte, error) {
 	var (
-		isKey              bool
-		writePos, inObject int
-
-		decoder = stdjson.NewDecoder(bytes.NewReader(data))
+		isKey    bool
+		writePos int
+		delims   []byte
+		decoder  = stdjson.NewDecoder(bytes.NewReader(data))
 	)
+
+	ld := func() byte { // last delimiter
+		if len(delims) == 0 {
+			return 0
+		}
+		return delims[len(delims)-1]
+	}
 
 	for {
 		token, err := decoder.Token()
@@ -26,27 +33,29 @@ func JSON(data []byte) ([]byte, error) {
 
 		switch v := token.(type) {
 		case stdjson.Delim:
+			if v == '{' || v == '[' {
+				delims = append(delims, byte(v))
+			}
 			if v == '{' {
 				isKey = true // The next string token is a key
-				inObject++
-			} else if v == '}' {
-				inObject--
 			}
 			data[writePos] = byte(v)
 			writePos++
-			if (v == '}' || v == ']') && decoder.More() { // nested objects or arrays
-				data[writePos] = ','
-				writePos++
+			if v == '}' || v == ']' {
+				delims = delims[:len(delims)-1]
+				if decoder.More() { // nested objects or arrays
+					data[writePos] = ','
+					writePos++
+				}
 			}
 		case string:
 			writePos += copy(data[writePos:], strconv.Quote(v))
-			if inObject == 0 {
-				continue
-			}
 			if isKey {
-				data[writePos] = ':'
-				writePos++
-				isKey = false
+				if ld() == '{' {
+					data[writePos] = ':'
+					writePos++
+					isKey = false
+				}
 			} else if decoder.More() {
 				data[writePos] = ','
 				writePos++
@@ -58,7 +67,7 @@ func JSON(data []byte) ([]byte, error) {
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				if inObject > 0 {
+				if ld() == '{' {
 					isKey = true
 				}
 			}
@@ -73,7 +82,7 @@ func JSON(data []byte) ([]byte, error) {
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				if inObject > 0 {
+				if ld() == '{' {
 					isKey = true
 				}
 			}
@@ -83,7 +92,7 @@ func JSON(data []byte) ([]byte, error) {
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				if inObject > 0 {
+				if ld() == '{' {
 					isKey = true
 				}
 			}
