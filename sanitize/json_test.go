@@ -150,7 +150,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			input:    `{ "escaped": "newline\n tab\t quote\" backslash\\ and unicode\u1234" }`,
-			expected: "{\"escaped\":\"newline\n tab\t quote\" backslash\\ and unicodeሴ\"}",
+			expected: `{"escaped":"newline\n tab\t quote\" backslash\\ and unicodeሴ"}`,
 		},
 		{
 			input:    `{"emptyObj":{},"emptyArray":[]}`,
@@ -209,11 +209,7 @@ func sanitizeJSON(data []byte) ([]byte, error) {
 				writePos++
 			}
 		case string:
-			data[writePos] = '"'
-			writePos++
-			writePos += copy(data[writePos:], v)
-			data[writePos] = '"'
-			writePos++
+			writePos += copy(data[writePos:], strconv.Quote(v))
 			if inObject == 0 {
 				continue
 			}
