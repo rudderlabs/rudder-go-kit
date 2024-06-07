@@ -5,13 +5,16 @@ import (
 	stdjson "encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"strconv"
+	"math/rand"
 	"testing"
 
+	"github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+
+	"github.com/rudderlabs/rudder-go-kit/bytesize"
+	kitrand "github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 )
 
 type unmarshaller func([]byte, any) error
@@ -100,7 +103,7 @@ func TestScenarios(t *testing.T) {
 			data := []byte(tt.in)
 			valid := stdjson.Valid(data)
 			// err := validateJSONWithoutAlloc(data, nil)
-			data, err := sanitizeJSON(data)
+			data, err := JSON(data)
 			if valid {
 				require.NoErrorf(t, err, "[index %d] Payload was valid but got an error: %s: %v", index, tt.in, err)
 			} else {
@@ -118,7 +121,7 @@ func TestScenarios(t *testing.T) {
 	}
 }
 
-func TestValidate(t *testing.T) {
+func TestSanitize(t *testing.T) {
 	testCases := []testCase{
 		{
 			input:    `{ "key": "value" }`,
@@ -168,103 +171,121 @@ func TestValidate(t *testing.T) {
 	for index, tc := range testCases {
 		t.Run(fmt.Sprintf("test-%d", index), func(t *testing.T) {
 			data := []byte(tc.input)
-			data, err := sanitizeJSON(data)
+			data, err := JSON(data)
+
+			t.Logf("Produced output (err: %v): %s", err, data)
+
+			if tc.err != nil {
+				require.ErrorContains(t, err, tc.err.Error())
+				require.False(t, stdjson.Valid(data))
+				return
+			}
+
 			require.NoError(t, err)
-			t.Log(string(data))
 			require.Equal(t, tc.expected, string(data))
 			require.True(t, stdjson.Valid(data))
 		})
 	}
 }
 
-func sanitizeJSON(data []byte) ([]byte, error) {
-	var (
-		isKey              bool
-		writePos, inObject int
-
-		decoder = stdjson.NewDecoder(bytes.NewReader(data))
-	)
-
-	for {
-		token, err := decoder.Token()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
-
-		switch v := token.(type) {
-		case stdjson.Delim:
-			if v == '{' {
-				isKey = true // The next string token is a key
-				inObject++
-			} else if v == '}' {
-				inObject--
-			}
-			data[writePos] = byte(v)
-			writePos++
-			if (v == '}' || v == ']') && decoder.More() { // nested objects or arrays
-				data[writePos] = ','
-				writePos++
-			}
-		case string:
-			writePos += copy(data[writePos:], strconv.Quote(v))
-			if inObject == 0 {
-				continue
-			}
-			if isKey {
-				data[writePos] = ':'
-				writePos++
-				isKey = false
-			} else if decoder.More() {
-				data[writePos] = ','
-				writePos++
-				isKey = true
-			}
-		case float64:
-			n := copy(data[writePos:], strconv.FormatFloat(v, 'f', -1, 64))
-			writePos += n
-			if decoder.More() {
-				data[writePos] = ','
-				writePos++
-				if inObject > 0 {
-					isKey = true
-				}
-			}
-		case bool:
-			if v {
-				n := copy(data[writePos:], "true")
-				writePos += n
-			} else {
-				n := copy(data[writePos:], "false")
-				writePos += n
-			}
-			if decoder.More() {
-				data[writePos] = ','
-				writePos++
-				if inObject > 0 {
-					isKey = true
-				}
-			}
-		case nil:
-			n := copy(data[writePos:], "null")
-			writePos += n
-			if decoder.More() {
-				data[writePos] = ','
-				writePos++
-				if inObject > 0 {
-					isKey = true
-				}
-			}
-		}
-	}
-
-	// Return the compacted slice
-	return data[:writePos], nil
-}
-
 type testCase struct {
 	input    string
 	expected string
+	err      error
+}
+
+func TestSanitizeRandom(t *testing.T) {
+	t.Skip("TODO")
+}
+
+func BenchmarkSanitize(b *testing.B) {
+	// generate a 10mb json
+	data := []byte(generateJSON(100 * bytesize.KB))
+	require.True(b, stdjson.Valid(data))
+	b.ResetTimer()
+
+	b.Run("marshal-unmarshal", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			var a any
+			err := stdjson.Unmarshal(data, &a)
+			require.NoError(b, err)
+			data, err = json.Marshal(a)
+			require.NoError(b, err)
+		}
+	})
+
+	b.Run("sanitize", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			var err error
+			data, err = JSON(data)
+			require.NoError(b, err)
+		}
+	})
+}
+
+// Generates a JSON string of roughly the specified size in bytes.
+func generateJSON(size int64) string {
+	var buffer bytes.Buffer
+
+	// Helper function to generate random keys
+	randomKey := func() string { return kitrand.String(rand.Intn(10) + 3) }
+
+	// Helper function to generate random values
+	var generateValue func(depth int) any
+	generateValue = func(depth int) any {
+		switch rand.Intn(6) {
+		case 0:
+			return rand.Float64()
+		case 1:
+			return rand.Intn(100)
+		case 2:
+			return rand.Int()%2 == 0
+		case 3:
+			return randomKey()
+		case 4:
+			if depth > 0 {
+				nestedObj := make(map[string]interface{})
+				for i := 0; i < rand.Intn(5)+1; i++ {
+					nestedObj[randomKey()] = generateValue(depth - 1)
+				}
+				return nestedObj
+			}
+		case 5:
+			if depth > 0 {
+				array := make([]interface{}, rand.Intn(5)+1)
+				for i := range array {
+					array[i] = generateValue(depth - 1)
+				}
+				return array
+			}
+		}
+		return nil
+	}
+
+	// Start generating JSON
+	buffer.WriteString("{")
+	for int64(buffer.Len()) < size-10 { // Leave some room for closing brackets
+		key := randomKey()
+		value := generateValue(3) // Adjust depth for more complexity
+
+		// Serialize key-value pair to JSON
+		keyJSON, _ := stdjson.Marshal(key)
+		valueJSON, _ := stdjson.Marshal(value)
+		buffer.Write(keyJSON)
+		buffer.WriteString(":")
+		buffer.Write(valueJSON)
+		buffer.WriteString(",")
+
+		// Check if we've exceeded the desired size
+		if int64(buffer.Len()) >= size {
+			break
+		}
+	}
+	// Remove last comma and close the JSON object
+	if buffer.Len() > 1 && buffer.Bytes()[buffer.Len()-1] == ',' {
+		buffer.Truncate(buffer.Len() - 1)
+	}
+	buffer.WriteString("}")
+
+	return buffer.String()
 }
