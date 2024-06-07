@@ -241,7 +241,7 @@ func TestSanitizeRandom(t *testing.T) {
 }
 
 func BenchmarkSanitize(b *testing.B) {
-	data := []byte(generateJSON(1 * bytesize.KB))
+	data := []byte(generateJSON(10 * bytesize.MB))
 	require.True(b, stdjson.Valid(data))
 	b.ResetTimer()
 
