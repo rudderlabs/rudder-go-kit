@@ -229,18 +229,24 @@ func BenchmarkSanitize(b *testing.B) {
 
 	b.Run("marshal-unmarshal", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
+			cp := make([]byte, len(data))
+			copy(cp, data)
+
 			var a any
-			err := stdjson.Unmarshal(data, &a)
+			err := stdjson.Unmarshal(cp, &a)
 			require.NoError(b, err)
-			data, err = json.Marshal(a)
+			cp, err = json.Marshal(a)
 			require.NoError(b, err)
 		}
 	})
 
 	b.Run("sanitize", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
+			cp := make([]byte, len(data))
+			copy(cp, data)
+
 			var err error
-			data, err = JSON(data)
+			cp, err = JSON(cp)
 			require.NoError(b, err)
 		}
 	})

@@ -5,6 +5,8 @@ import (
 	stdjson "encoding/json"
 	"io"
 	"strconv"
+
+	"github.com/goccy/go-json"
 )
 
 func JSON(data []byte) ([]byte, error) {
@@ -12,7 +14,7 @@ func JSON(data []byte) ([]byte, error) {
 		wroteKey bool
 		writePos int
 		delims   []byte
-		decoder  = stdjson.NewDecoder(bytes.NewReader(data))
+		decoder  = json.NewDecoder(bytes.NewReader(data))
 	)
 
 	ld := func() byte { // last delimiter
