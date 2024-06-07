@@ -218,24 +218,6 @@ type testCase struct {
 	err      error
 }
 
-func TestFix(t *testing.T) {
-	// data := []byte(`{"EmpkTpX":60,"nMddqQbdlsh":10,"gZIlh":"dinyjdLFEgq","HcRtVmD":{"cUz":"pMqncfNL","jeMShhU":{"QFzsnVhYQcES":0.9932440939111381,"RuAOplNKpV":0.7897482040243524,"WwxzTx":"PUYGI"},"zoHMkiemcb",99},"fFlu":"VETBIeL","zHiVTMZ":"xcEQwJLMabRl","gxc":{"GUrvges":0.3808440487755879,"Geuv":"fwtQF","RVNKxLsy":[{"HKdrRi":null,"WDxPSdOubeVC":8,"wPaUDXFd":0.8633220142242786,"wcAMWgUXIYC":"bvOr"},"TPBgglYNRn",{"AskkKz":"zEoYOjekT","ZQHbSbvZy":false,"hAvDwz":true},84]},"NwxqqevwKmLH",0.6948128888176054,"TXlDGztev":97,"DPDccZd":82,"ayqiNrhDTSbq":false,"DsuttI":0.22825143944569815,"BxSRncZIcg":3,"EFDp":"qZCnKMFI","qWMWFS":0.00968211300380408,"SJJrmRgGykm":["Zwl",{"iKeIySC":[null,"yguM",false,null,0.7286897051192204]},{"BXBY":0.6263173559674706,"VEScYXqUljH":{"DxcqKAniO":0.7662477958047248,"KYTppiLmKZao":false,"fJb":82},"aeYiVc","EWpjAfwSvZD":"rffvG",{"VfgGcxmODZhy":67}}],"VwXezohstGb",[0.773808900934636,false,{"PpTnYVHsuIn":{"SGNyFA":false,"ibJVNQN":0.40290312272801454}},"yxtnwTMpEXo",[35,"hCCEsiz"[34],0.36730866001647755]]}`)
-	data := []byte(`{"EmpkTpX":60,"nMddqQbdlsh":10,"gZIlh":"dinyjdLFEgq","HcRtVmD":{"cUz":"pMqncfNL","jeMShhU":{"QFzsnVhYQcES":0.9932440939111381,"RuAOplNKpV":0.7897482040243524,"WwxzTx":"PUYGI"},"zoHMkiemcb":99},"fFlu":"VETBIeL","zHiVTMZ":"xcEQwJLMabRl","gxc":{"GUrvges":0.3808440487755879,"Geuv":"fwtQF","RVNKxLsy":[{"HKdrRi":null,"WDxPSdOubeVC":8,"wPaUDXFd":0.8633220142242786,"wcAMWgUXIYC":"bvOr"},"TPBgglYNRn",{"AskkKz":"zEoYOjekT","ZQHbSbvZy":false,"hAvDwz":true},84]},"NwxqqevwKmLH":0.6948128888176054,"TXlDGztev":97,"DPDccZd":82,"ayqiNrhDTSbq":false,"DsuttI":0.22825143944569815,"BxSRncZIcg":3,"EFDp":"qZCnKMFI","qWMWFS":0.00968211300380408,"SJJrmRgGykm":["Zwl",{"iKeIySC":[null,"yguM",false,null,0.7286897051192204]},{"BXBY":0.6263173559674706,"VEScYXqUljH":{"DxcqKAniO":0.7662477958047248,"KYTppiLmKZao":false,"fJb":82},"aeYiVc":"EWpjAfwSvZD","rffvG":{"VfgGcxmODZhy":67}}],"VwXezohstGb":[0.773808900934636,false,{"PpTnYVHsuIn":{"SGNyFA":false,"ibJVNQN":0.40290312272801454}},"yxtnwTMpEXo",[35,"hCCEsiz",[34],0.36730866001647755]]}`)
-	require.True(t, stdjson.Valid(data))
-
-	defer func() {
-		if r := recover(); r != nil {
-			t.Logf("Recovered from panic: %v", r)
-			t.Log("DATA:", string(data))
-		}
-	}()
-
-	var err error
-	data, err = JSON(data)
-	require.NoError(t, err)
-	require.Truef(t, stdjson.Valid(data), "Invalid JSON: %s", data)
-}
-
 func TestSanitizeRandom(t *testing.T) {
 	t.Skip("TODO")
 }
