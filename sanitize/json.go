@@ -9,7 +9,7 @@ import (
 
 func JSON(data []byte) ([]byte, error) {
 	var (
-		isKey    bool
+		wroteKey bool
 		writePos int
 		delims   []byte
 		decoder  = stdjson.NewDecoder(bytes.NewReader(data))
@@ -33,15 +33,15 @@ func JSON(data []byte) ([]byte, error) {
 
 		switch v := token.(type) {
 		case stdjson.Delim:
-			if v == '{' || v == '[' {
-				delims = append(delims, byte(v))
-			}
-			if v == '{' {
-				isKey = true // The next string token is a key
-			}
 			data[writePos] = byte(v)
 			writePos++
-			if v == '}' || v == ']' {
+			if v == '{' || v == '[' {
+				delims = append(delims, byte(v))
+				if v == '{' {
+					wroteKey = false
+				}
+			} else if v == '}' || v == ']' {
+				wroteKey = false
 				delims = delims[:len(delims)-1]
 				if decoder.More() { // nested objects or arrays
 					data[writePos] = ','
@@ -50,51 +50,41 @@ func JSON(data []byte) ([]byte, error) {
 			}
 		case string:
 			writePos += copy(data[writePos:], strconv.Quote(v))
-			if isKey {
-				if ld() == '{' {
-					data[writePos] = ':'
-					writePos++
-					isKey = false
-				}
+			lastDelim := ld()
+			if lastDelim == '{' && !wroteKey {
+				data[writePos] = ':'
+				writePos++
+				wroteKey = true
 			} else if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				isKey = true
+				wroteKey = false
 			}
 		case float64:
 			n := copy(data[writePos:], strconv.FormatFloat(v, 'f', -1, 64))
 			writePos += n
+			wroteKey = false
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				if ld() == '{' {
-					isKey = true
-				}
 			}
 		case bool:
 			if v {
-				n := copy(data[writePos:], "true")
-				writePos += n
+				writePos += copy(data[writePos:], "true")
 			} else {
-				n := copy(data[writePos:], "false")
-				writePos += n
+				writePos += copy(data[writePos:], "false")
 			}
+			wroteKey = false
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				if ld() == '{' {
-					isKey = true
-				}
 			}
 		case nil:
-			n := copy(data[writePos:], "null")
-			writePos += n
+			writePos += copy(data[writePos:], "null")
+			wroteKey = false
 			if decoder.More() {
 				data[writePos] = ','
 				writePos++
-				if ld() == '{' {
-					isKey = true
-				}
 			}
 		}
 	}
