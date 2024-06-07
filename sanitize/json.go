@@ -3,6 +3,7 @@ package sanitize
 import (
 	"bytes"
 	stdjson "encoding/json"
+	"errors"
 	"io"
 	"strconv"
 
@@ -10,11 +11,15 @@ import (
 )
 
 func JSON(data []byte) ([]byte, error) {
+	if !stdjson.Valid(data) { // let's make sure we always work on a valid JSON first
+		return nil, errors.New("invalid JSON")
+	}
+
 	var (
 		wroteKey bool
 		writePos int
 		delims   []byte
-		decoder  = json.NewDecoder(bytes.NewReader(data))
+		decoder  = stdjson.NewDecoder(bytes.NewReader(data))
 	)
 
 	ld := func() byte { // last delimiter
@@ -34,7 +39,7 @@ func JSON(data []byte) ([]byte, error) {
 		}
 
 		switch v := token.(type) {
-		case stdjson.Delim:
+		case json.Delim:
 			data[writePos] = byte(v)
 			writePos++
 			if v == '{' || v == '[' {

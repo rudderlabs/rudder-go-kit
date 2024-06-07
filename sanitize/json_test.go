@@ -174,7 +174,38 @@ func TestSanitize(t *testing.T) {
 			input:    `[]`,
 			expected: `[]`,
 		},
-		// TODO add random brackets opening and not closing and then just closing without opening them
+		{
+			input: `{"key": "value"`,
+			err:   errors.New(`invalid JSON`),
+		},
+		{
+			input: `{{"key": "value"}`,
+			err:   errors.New(`invalid JSON`),
+		},
+		{
+			input: `{"key": "value"}}`,
+			err:   errors.New(`invalid JSON`),
+		},
+		{
+			input: `[{{]"key": "value"}`,
+			err:   errors.New(`invalid JSON`),
+		},
+		{
+			input: `{["key": "value"]}`,
+			err:   errors.New(`invalid JSON`),
+		},
+		{
+			input: `[[1]`,
+			err:   errors.New(`invalid JSON`),
+		},
+		{
+			input:    `{"key": "hello\u0000world"}`,
+			expected: `{"key":"hello�world"}`,
+		},
+		{
+			input:    "{\"key\": \"hello\uFDDDworld\"}",
+			expected: `{"key":"hello�world"}`,
+		},
 	}
 	for index, tc := range testCases {
 		t.Run(fmt.Sprintf("test-%d", index), func(t *testing.T) {
@@ -218,7 +249,32 @@ type testCase struct {
 }
 
 func TestSanitizeRandom(t *testing.T) {
-	t.Skip("TODO")
+	// t.Skip("TODO")
+	data := [][]byte{
+		[]byte(`{"key": "hello\u0000world"}`),
+	}
+	for _, d := range data {
+		t.Run("marshal-unmarshal", func(t *testing.T) {
+			cp := make([]byte, len(d))
+			copy(cp, d)
+
+			var a any
+			err := stdjson.Unmarshal(cp, &a)
+			require.NoError(t, err)
+			cp, err = stdjson.Marshal(a)
+			require.NoError(t, err)
+			t.Log(string(cp))
+		})
+		t.Run("sanitize", func(t *testing.T) {
+			cp := make([]byte, len(d))
+			copy(cp, d)
+
+			var err error
+			cp, err = JSON(cp)
+			require.NoError(t, err)
+			t.Log(string(cp))
+		})
+	}
 }
 
 func BenchmarkSanitize(b *testing.B) {
