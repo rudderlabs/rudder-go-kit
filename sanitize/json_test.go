@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/goccy/go-json"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -223,6 +222,7 @@ func TestSanitizeRandom(t *testing.T) {
 }
 
 func BenchmarkSanitize(b *testing.B) {
+	json := jsoniter.ConfigCompatibleWithStandardLibrary
 	data := []byte(generateJSON(10 * bytesize.MB))
 	require.True(b, stdjson.Valid(data))
 	b.ResetTimer()
@@ -233,7 +233,7 @@ func BenchmarkSanitize(b *testing.B) {
 			copy(cp, data)
 
 			var a any
-			err := stdjson.Unmarshal(cp, &a)
+			err := json.Unmarshal(cp, &a)
 			require.NoError(b, err)
 			cp, err = json.Marshal(a)
 			require.NoError(b, err)
