@@ -1,10 +1,15 @@
 package minio
 
 import (
+	"bufio"
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -21,6 +26,11 @@ type Resource struct {
 	Endpoint        string
 	Region          string
 	Client          *minio.Client
+}
+
+type File struct {
+	Key     string
+	Content string
 }
 
 func (mr *Resource) ToFileManagerConfig(prefix string) map[string]any {
@@ -115,4 +125,47 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		Region:          region,
 		Client:          client,
 	}, nil
+}
+
+func (r *Resource) Contents(ctx context.Context, prefix string) ([]File, error) {
+	contents := make([]File, 0)
+
+	opts := minio.ListObjectsOptions{
+		Recursive: true,
+		Prefix:    prefix,
+	}
+	for objInfo := range r.Client.ListObjects(ctx, r.BucketName, opts) {
+		o, err := r.Client.GetObject(ctx, r.BucketName, objInfo.Key, minio.GetObjectOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		var r io.Reader
+		br := bufio.NewReader(o)
+		magic, err := br.Peek(2)
+		if err == nil && magic[0] == 31 && magic[1] == 139 {
+			r, err = gzip.NewReader(br)
+			if err != nil {
+				return nil, fmt.Errorf("gunzip: %w", err)
+			}
+		} else {
+			r = br
+		}
+
+		b, err := io.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+
+		contents = append(contents, File{
+			Key:     objInfo.Key,
+			Content: string(b),
+		})
+	}
+
+	slices.SortStableFunc(contents, func(a, b File) int {
+		return strings.Compare(a.Key, b.Key)
+	})
+
+	return contents, nil
 }
