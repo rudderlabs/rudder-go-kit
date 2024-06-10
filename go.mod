@@ -5,7 +5,7 @@ go 1.22.4
 require (
 	cloud.google.com/go/storage v1.41.0
 	github.com/Azure/azure-storage-blob-go v0.15.0
-	github.com/aws/aws-sdk-go v1.53.17
+	github.com/aws/aws-sdk-go v1.53.19
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.4.0
 	github.com/fsnotify/fsnotify v1.7.0
