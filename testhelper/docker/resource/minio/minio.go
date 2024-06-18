@@ -33,22 +33,6 @@ type File struct {
 	Content string
 }
 
-func (mr *Resource) ToFileManagerConfig(prefix string) map[string]any {
-	return map[string]any{
-		"bucketName":       mr.BucketName,
-		"accessKeyID":      mr.AccessKeyID,
-		"secretAccessKey":  mr.AccessKeySecret,
-		"accessKey":        mr.AccessKeySecret,
-		"enableSSE":        false,
-		"prefix":           prefix,
-		"endPoint":         mr.Endpoint,
-		"s3ForcePathStyle": true,
-		"disableSSL":       true,
-		"useSSL":           false,
-		"region":           mr.Region,
-	}
-}
-
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	const (
 		bucket          = "rudder-saas"
@@ -135,6 +119,10 @@ func (r *Resource) Contents(ctx context.Context, prefix string) ([]File, error) 
 		Prefix:    prefix,
 	}
 	for objInfo := range r.Client.ListObjects(ctx, r.BucketName, opts) {
+		if objInfo.Err != nil {
+			return nil, objInfo.Err
+		}
+
 		o, err := r.Client.GetObject(ctx, r.BucketName, objInfo.Key, minio.GetObjectOptions{})
 		if err != nil {
 			return nil, err
@@ -143,6 +131,7 @@ func (r *Resource) Contents(ctx context.Context, prefix string) ([]File, error) 
 		var r io.Reader
 		br := bufio.NewReader(o)
 		magic, err := br.Peek(2)
+		// check if the file is gzipped using the magic number
 		if err == nil && magic[0] == 31 && magic[1] == 139 {
 			r, err = gzip.NewReader(br)
 			if err != nil {
@@ -168,4 +157,20 @@ func (r *Resource) Contents(ctx context.Context, prefix string) ([]File, error) 
 	})
 
 	return contents, nil
+}
+
+func (r *Resource) ToFileManagerConfig(prefix string) map[string]any {
+	return map[string]any{
+		"bucketName":       r.BucketName,
+		"accessKeyID":      r.AccessKeyID,
+		"secretAccessKey":  r.AccessKeySecret,
+		"accessKey":        r.AccessKeySecret,
+		"enableSSE":        false,
+		"prefix":           prefix,
+		"endPoint":         r.Endpoint,
+		"s3ForcePathStyle": true,
+		"disableSSL":       true,
+		"useSSL":           false,
+		"region":           r.Region,
+	}
 }

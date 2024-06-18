@@ -93,4 +93,12 @@ func TestMinioContents(t *testing.T) {
 		{Key: "test-bucket/hello.txt", Content: "hello"},
 		{Key: "test-bucket/hello.txt.gz", Content: "hello compressed"},
 	}, files)
+
+	t.Run("canceled context", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := minioResource.Contents(ctx, "test-bucket/")
+		require.ErrorIs(t, err, context.Canceled)
+	})
 }
