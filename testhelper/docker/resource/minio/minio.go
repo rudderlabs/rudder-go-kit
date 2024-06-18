@@ -1,10 +1,15 @@
 package minio
 
 import (
+	"bufio"
+	"compress/gzip"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -23,20 +28,9 @@ type Resource struct {
 	Client          *minio.Client
 }
 
-func (mr *Resource) ToFileManagerConfig(prefix string) map[string]any {
-	return map[string]any{
-		"bucketName":       mr.BucketName,
-		"accessKeyID":      mr.AccessKeyID,
-		"secretAccessKey":  mr.AccessKeySecret,
-		"accessKey":        mr.AccessKeySecret,
-		"enableSSE":        false,
-		"prefix":           prefix,
-		"endPoint":         mr.Endpoint,
-		"s3ForcePathStyle": true,
-		"disableSSL":       true,
-		"useSSL":           false,
-		"region":           mr.Region,
-	}
+type File struct {
+	Key     string
+	Content string
 }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
@@ -115,4 +109,68 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		Region:          region,
 		Client:          client,
 	}, nil
+}
+
+func (r *Resource) Contents(ctx context.Context, prefix string) ([]File, error) {
+	contents := make([]File, 0)
+
+	opts := minio.ListObjectsOptions{
+		Recursive: true,
+		Prefix:    prefix,
+	}
+	for objInfo := range r.Client.ListObjects(ctx, r.BucketName, opts) {
+		if objInfo.Err != nil {
+			return nil, objInfo.Err
+		}
+
+		o, err := r.Client.GetObject(ctx, r.BucketName, objInfo.Key, minio.GetObjectOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		var r io.Reader
+		br := bufio.NewReader(o)
+		magic, err := br.Peek(2)
+		// check if the file is gzipped using the magic number
+		if err == nil && magic[0] == 31 && magic[1] == 139 {
+			r, err = gzip.NewReader(br)
+			if err != nil {
+				return nil, fmt.Errorf("gunzip: %w", err)
+			}
+		} else {
+			r = br
+		}
+
+		b, err := io.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+
+		contents = append(contents, File{
+			Key:     objInfo.Key,
+			Content: string(b),
+		})
+	}
+
+	slices.SortStableFunc(contents, func(a, b File) int {
+		return strings.Compare(a.Key, b.Key)
+	})
+
+	return contents, nil
+}
+
+func (r *Resource) ToFileManagerConfig(prefix string) map[string]any {
+	return map[string]any{
+		"bucketName":       r.BucketName,
+		"accessKeyID":      r.AccessKeyID,
+		"secretAccessKey":  r.AccessKeySecret,
+		"accessKey":        r.AccessKeySecret,
+		"enableSSE":        false,
+		"prefix":           prefix,
+		"endPoint":         r.Endpoint,
+		"s3ForcePathStyle": true,
+		"disableSSL":       true,
+		"useSSL":           false,
+		"region":           r.Region,
+	}
 }

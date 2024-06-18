@@ -1,6 +1,8 @@
 package minio
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"testing"
 
@@ -51,5 +53,52 @@ func TestMinioResource(t *testing.T) {
 		items, err := it.Next()
 		require.NoError(t, err)
 		require.Len(t, items, 1)
+	})
+}
+
+func TestMinioContents(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	minioResource, err := Setup(pool, t)
+	require.NoError(t, err)
+
+	_, err = minioResource.Client.PutObject(context.Background(),
+		minioResource.BucketName, "test-bucket/hello.txt", bytes.NewBufferString("hello"), -1, minio.PutObjectOptions{},
+	)
+	require.NoError(t, err)
+
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	_, err = gz.Write([]byte("hello compressed"))
+	require.NoError(t, err)
+	err = gz.Close()
+	require.NoError(t, err)
+
+	_, err = minioResource.Client.PutObject(context.Background(),
+		minioResource.BucketName, "test-bucket/hello.txt.gz", &b, -1, minio.PutObjectOptions{},
+	)
+	require.NoError(t, err)
+
+	_, err = minioResource.Client.PutObject(context.Background(),
+		minioResource.BucketName, "test-bucket/empty", bytes.NewBuffer([]byte{}), -1, minio.PutObjectOptions{},
+	)
+	require.NoError(t, err)
+
+	files, err := minioResource.Contents(context.Background(), "test-bucket/")
+	require.NoError(t, err)
+
+	require.Equal(t, []File{
+		{Key: "test-bucket/empty", Content: ""},
+		{Key: "test-bucket/hello.txt", Content: "hello"},
+		{Key: "test-bucket/hello.txt.gz", Content: "hello compressed"},
+	}, files)
+
+	t.Run("canceled context", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := minioResource.Contents(ctx, "test-bucket/")
+		require.ErrorIs(t, err, context.Canceled)
 	})
 }
