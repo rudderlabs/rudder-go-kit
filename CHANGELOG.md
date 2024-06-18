@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.35.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.34.2...v0.35.0) (2024-06-18)
+
+
+### Features
+
+* minio testhelper add content method ([#524](https://github.com/rudderlabs/rudder-go-kit/issues/524)) ([201797b](https://github.com/rudderlabs/rudder-go-kit/commit/201797bafa240053940fbf6402cb79c1d385f253))
+
+
+### Miscellaneous
+
+* **deps:** bump the frequent group across 1 directory with 2 updates ([#519](https://github.com/rudderlabs/rudder-go-kit/issues/519)) ([724dc2f](https://github.com/rudderlabs/rudder-go-kit/commit/724dc2f03c491bd71229b31fb0a4b409091998e1))
+
 ## [0.34.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.34.1...v0.34.2) (2024-06-05)
 
 
