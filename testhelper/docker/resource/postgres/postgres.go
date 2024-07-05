@@ -6,6 +6,8 @@ import (
 	_ "encoding/json"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
@@ -36,7 +38,7 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	c := &Config{
-		Tag:     "15-alpine",
+		Tag:     "11-alpine",
 		ShmSize: 128 * bytesize.MB,
 	}
 	for _, opt := range opts {
@@ -113,10 +115,12 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			return fmt.Errorf("postgres not ready:\n%s" + w.String())
 		}
 
-		// 2. create a sql.DB and verify connection
-		if db, err = sql.Open("postgres", dbDSN); err != nil {
-			return fmt.Errorf("opening database: %w", err)
+		pgxConf, err := pgx.ParseConfig(dbDSN)
+		if err != nil {
+			return fmt.Errorf("parsing pgx config: %w", err)
 		}
+
+		db = stdlib.OpenDB(*pgxConf)
 		defer func() {
 			if err != nil {
 				_ = db.Close()
