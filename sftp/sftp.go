@@ -1,3 +1,4 @@
+//go:generate mockgen -destination=mock_sftp/mock_filemanager.go -package mock_sftp github.com/rudderlabs/rudder-go-kit/sftp FileManager
 package sftp
 
 import (
