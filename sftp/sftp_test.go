@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/ory/dockertest/v3"
 	"github.com/pkg/sftp"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/rudderlabs/rudder-go-kit/sftp/mock_sftp"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/sshserver"
