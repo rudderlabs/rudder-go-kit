@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.35.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.35.0...v0.35.1) (2024-07-23)
+
+
+### Miscellaneous
+
+* **deps:** bump google.golang.org/grpc from 1.64.0 to 1.64.1 ([#556](https://github.com/rudderlabs/rudder-go-kit/issues/556)) ([8724b87](https://github.com/rudderlabs/rudder-go-kit/commit/8724b8716f16d113486edae4563d05d24c90358d))
+* sftp filemanager mocks ([#567](https://github.com/rudderlabs/rudder-go-kit/issues/567)) ([f2c340a](https://github.com/rudderlabs/rudder-go-kit/commit/f2c340aa076b564c60c8a7670284bd9051297694))
+
 ## [0.35.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.34.2...v0.35.0) (2024-07-22)
 
 
