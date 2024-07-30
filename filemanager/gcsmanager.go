@@ -172,7 +172,7 @@ func (m *gcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 		return m.client, nil
 	}
 
-	var options []option.ClientOption
+	options := []option.ClientOption{option.WithTelemetryDisabled()}
 	if m.config.EndPoint != nil && *m.config.EndPoint != "" {
 		options = append(options, option.WithEndpoint(*m.config.EndPoint))
 	}
