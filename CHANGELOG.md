@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.36.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.35.1...v0.36.0) (2024-07-30)
+
+
+### Features
+
+* create scylla resource ([#576](https://github.com/rudderlabs/rudder-go-kit/issues/576)) ([461d676](https://github.com/rudderlabs/rudder-go-kit/commit/461d676c3b86afef3c8742975602a4bb78ef017c))
+
+
+### Miscellaneous
+
+* **deps:** bump the frequent group across 1 directory with 3 updates ([#569](https://github.com/rudderlabs/rudder-go-kit/issues/569)) ([b7e92b3](https://github.com/rudderlabs/rudder-go-kit/commit/b7e92b39e2ada75462cc21b80eeb48b910b252cd))
+* disable telemetry in gcs client ([#575](https://github.com/rudderlabs/rudder-go-kit/issues/575)) ([3ce22bf](https://github.com/rudderlabs/rudder-go-kit/commit/3ce22bfaf90aa89faa53414e86cd1dfabae4fc66))
+
 ## [0.35.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.35.0...v0.35.1) (2024-07-23)
 
 
