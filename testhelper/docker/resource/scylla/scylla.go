@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/gocql/gocql"
 	"github.com/ory/dockertest/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
@@ -38,7 +39,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		}
 	})
 
-	url := fmt.Sprintf("http://localhost:%s", container.GetPort("9042/tcp"))
+	url := fmt.Sprintf("localhost:%s", container.GetPort("9042/tcp"))
 
 	if err := pool.Retry(func() (err error) {
 		var w bytes.Buffer
@@ -52,11 +53,44 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 			return err
 		}
 		if code != 0 {
-			return fmt.Errorf("pulsar healthcheck failed")
+			return fmt.Errorf("scylla healthcheck failed")
 		}
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+
+	if err := pool.Retry(func() (err error) {
+		var w bytes.Buffer
+		code, err := container.Exec(
+			[]string{
+				"sh", "-c", "cqlsh || exit 1",
+			},
+			dockertest.ExecOptions{StdOut: &w, StdErr: &w},
+		)
+		if err != nil {
+			return err
+		}
+		if code != 0 {
+			return fmt.Errorf("scylla cql check failed")
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	if c.keyspace != "" {
+		cluster := gocql.NewCluster(url)
+		cluster.Consistency = gocql.Quorum
+		session, err := cluster.CreateSession()
+		if err != nil {
+			return nil, err
+		}
+		defer session.Close()
+		err = session.Query(fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };", c.keyspace)).Exec()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Resource{

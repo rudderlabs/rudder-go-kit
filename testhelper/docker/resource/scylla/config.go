@@ -8,6 +8,13 @@ func WithTag(tag string) Option {
 	}
 }
 
+func WithKeyspace(keyspace string) Option {
+	return func(c *config) {
+		c.keyspace = keyspace
+	}
+}
+
 type config struct {
-	tag string
+	tag      string
+	keyspace string
 }
