@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.36.0...v0.36.1) (2024-08-01)
+
+
+### Miscellaneous
+
+* improve scylla container health check ([#580](https://github.com/rudderlabs/rudder-go-kit/issues/580)) ([7428dce](https://github.com/rudderlabs/rudder-go-kit/commit/7428dcedf4c7480ca982de8643b7c3af642cbba2))
+
 ## [0.36.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.35.1...v0.36.0) (2024-07-30)
 
 
