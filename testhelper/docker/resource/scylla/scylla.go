@@ -3,6 +3,7 @@ package scylla
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 
 	"github.com/gocql/gocql"
 	"github.com/ory/dockertest/v3"
@@ -22,7 +23,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	for _, opt := range opts {
 		opt(c)
 	}
-
+	goos := runtime.GOOS
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "scylladb/scylla",
 		Tag:          c.tag,
@@ -39,7 +40,13 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		}
 	})
 
-	url := fmt.Sprintf("localhost:%s", container.GetPort("9042/tcp"))
+	var url string
+	switch goos {
+	case "darwin":
+		url = fmt.Sprintf("localhost:%s", container.GetPort("9042/tcp"))
+	default:
+		url = fmt.Sprintf("172.17.0.2:%s", container.GetPort("9042/tcp"))
+	}
 
 	if err := pool.Retry(func() (err error) {
 		var w bytes.Buffer
