@@ -28,7 +28,7 @@ func TestScylla_WithKeySpace(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	scyllaContainer, err := Setup(pool, t, WithKeyspace("test"))
+	scyllaContainer, err := Setup(pool, t, WithKeyspace("TEST"))
 	require.NoError(t, err)
 	require.NotNil(t, scyllaContainer)
 
