@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rudderlabs/rudder-go-kit/testhelper/keygen"
+
 	confluent "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde"
@@ -266,8 +268,9 @@ func TestSSH(t *testing.T) {
 	require.NoError(t, err)
 
 	// Let's setup the SSH server
-	publicKeyPath, err := filepath.Abs("./testdata/ssh/test_key.pub")
+	privateKeyPath, publicKeyPath, err := keygen.NewRSAKeyPair(2048, keygen.SaveTo(t.TempDir()))
 	require.NoError(t, err)
+
 	sshServer, err := sshserver.Setup(pool, t,
 		sshserver.WithPublicKeyPath(publicKeyPath),
 		sshserver.WithCredentials("linuxserver.io", ""),
@@ -278,7 +281,7 @@ func TestSSH(t *testing.T) {
 	t.Logf("SSH server is listening on %s", sshServerHost)
 
 	// Prepare SSH configuration
-	privateKey, err := os.ReadFile("./testdata/ssh/test_key")
+	privateKey, err := os.ReadFile(privateKeyPath)
 	require.NoError(t, err)
 
 	signer, err := ssh.ParsePrivateKey(privateKey)
