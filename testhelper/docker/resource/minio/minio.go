@@ -17,6 +17,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 type Resource struct {
@@ -49,6 +50,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		opt(c)
 	}
 
+	portBindings, err := internal.PortBindings([]string{"9000"})
+	if err != nil {
+		return nil, err
+	}
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "minio/minio",
 		Tag:        c.Tag,
@@ -59,6 +64,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			fmt.Sprintf("MINIO_SITE_REGION=%s", region),
 			"MINIO_API_SELECT_PARQUET=on",
 		}, c.Options...),
+		PortBindings: portBindings,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not start resource: %s", err)

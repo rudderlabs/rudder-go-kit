@@ -13,6 +13,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 const (
@@ -47,6 +48,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	for _, opt := range c.Options {
 		cmd = append(cmd, "-c", opt)
 	}
+	portBindings, err := internal.PortBindings([]string{"5432"})
+	if err != nil {
+		return nil, err
+	}
 	// pulls an image, creates a container based on it and runs it
 	postgresContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "postgres",
@@ -56,7 +61,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"POSTGRES_DB=" + postgresDefaultDB,
 			"POSTGRES_USER=" + postgresDefaultUser,
 		},
-		Cmd: cmd,
+		Cmd:          cmd,
+		PortBindings: portBindings,
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
 		hc.OOMKillDisable = c.OOMKillDisable

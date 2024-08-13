@@ -12,6 +12,7 @@ import (
 
 	kithelper "github.com/rudderlabs/rudder-go-kit/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 type scramHashGenerator uint8
@@ -196,12 +197,16 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		for i := uint(1); i <= c.brokers; i++ {
 			bootstrapServers += fmt.Sprintf("PLAINTEXT://kafka%d:9090,", i)
 		}
+		portBindings, err := internal.PortBindings([]string{"8081"})
+		if err != nil {
+			return nil, err
+		}
 		src, err := pool.RunWithOptions(&dockertest.RunOptions{
 			Repository:   "bitnami/schema-registry",
 			Tag:          "7.5-debian-11",
 			NetworkID:    network.ID,
 			Hostname:     "schemaregistry",
-			ExposedPorts: []string{"8081"},
+			PortBindings: portBindings,
 			Env: []string{
 				"SCHEMA_REGISTRY_DEBUG=true",
 				"SCHEMA_REGISTRY_KAFKA_BROKERS=" + bootstrapServers[:len(bootstrapServers)-1],
