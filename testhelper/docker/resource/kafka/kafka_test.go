@@ -13,8 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rudderlabs/rudder-go-kit/testhelper/keygen"
-
 	confluent "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry"
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde"
@@ -30,6 +28,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/sshserver"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/keygen"
 )
 
 const (
