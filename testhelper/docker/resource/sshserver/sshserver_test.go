@@ -65,7 +65,7 @@ func TestKeys(t *testing.T) {
 	require.NoError(t, err)
 
 	c, err := goph.NewConn(&goph.Config{
-		Addr:     "localhost",
+		Addr:     res.Host,
 		Port:     uint(res.Port),
 		User:     "linuxserver.io",
 		Auth:     auth,

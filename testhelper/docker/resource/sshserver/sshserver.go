@@ -3,13 +3,13 @@ package sshserver
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 
-	kithelper "github.com/rudderlabs/rudder-go-kit/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
@@ -46,6 +46,7 @@ func WithDockerNetwork(network *dc.Network) Option {
 }
 
 type Resource struct {
+	Host string
 	Port int
 
 	container *dockertest.Resource
@@ -69,11 +70,6 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 				cln.Log(fmt.Sprintf("could not remove sshserver_network: %v", err))
 			}
 		})
-	}
-
-	port, err := kithelper.GetFreePort()
-	if err != nil {
-		return nil, err
 	}
 
 	var (
@@ -101,9 +97,12 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Tag:        "9.3_p2-r1-ls145",
 		NetworkID:  network.ID,
 		Hostname:   "sshserver",
+		ExposedPorts: []string{
+			exposedPort + "/tcp",
+		},
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			exposedPort + "/tcp": {
-				{HostIP: "sshserver", HostPort: fmt.Sprintf("%d", port)},
+				{HostIP: "127.0.0.1", HostPort: "0"},
 			},
 		},
 		Env:    envVars,
@@ -153,9 +152,14 @@ loop:
 			return nil, fmt.Errorf("ssh server not health within timeout")
 		}
 	}
+	p, err := strconv.Atoi(container.GetPort(exposedPort + "/tcp"))
+	if err != nil {
+		return nil, fmt.Errorf("could not convert port %q to int: %w", container.GetPort(exposedPort+"/tcp"), err)
+	}
 
 	return &Resource{
-		Port:      port,
+		Host:      container.GetBoundIP(exposedPort + "/tcp"),
+		Port:      p,
 		container: container,
 	}, nil
 }

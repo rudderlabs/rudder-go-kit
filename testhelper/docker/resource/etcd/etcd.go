@@ -11,6 +11,7 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 type Resource struct {
@@ -50,6 +51,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Env: []string{
 			"ALLOW_NONE_AUTHENTICATION=yes",
 		},
+		PortBindings: internal.IPv4PortBindings([]string{"2379"}),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not create container: %v", err)
@@ -72,7 +74,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		return nil, fmt.Errorf("could not convert port %q to int: %v", etcdPortStr, err)
 	}
 
-	etcdHosts = []string{"http://localhost:" + etcdPortStr}
+	etcdHosts = []string{"http://" + container.GetBoundIP("2379/tcp") + ":" + etcdPortStr}
 
 	etcdClient, err = etcd.New(etcd.Config{
 		Endpoints:   etcdHosts,

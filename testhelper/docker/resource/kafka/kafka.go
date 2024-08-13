@@ -3,7 +3,6 @@ package kafka
 import (
 	_ "encoding/json"
 	"fmt"
-	"strconv"
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
@@ -119,7 +118,7 @@ func WithSchemaRegistry() Option {
 }
 
 type Resource struct {
-	Ports             []string
+	Brokers           []string
 	SchemaRegistryURL string
 
 	pool       *dockertest.Pool
@@ -202,6 +201,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			Tag:          "7.5-debian-11",
 			NetworkID:    network.ID,
 			Hostname:     "schemaregistry",
+			ExposedPorts: []string{"8081/tcp"},
 			PortBindings: internal.IPv4PortBindings([]string{"8081"}),
 			Env: []string{
 				"SCHEMA_REGISTRY_DEBUG=true",
@@ -218,19 +218,12 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 				cln.Log("Could not purge resource", err)
 			}
 		})
-		var srPort int
-		for p, bindings := range src.Container.NetworkSettings.Ports {
-			if p.Port() == "8081" {
-				srPort, err = strconv.Atoi(bindings[0].HostPort)
-				if err != nil {
-					panic(fmt.Errorf("cannot convert port to int: %w", err))
-				}
-				break
-			}
+		if src.GetPort("8081/tcp") == "" {
+			return nil, fmt.Errorf("could not find schema registry port")
 		}
 
 		envVariables = append(envVariables, "KAFKA_SCHEMA_REGISTRY_URL=schemaregistry:8081")
-		schemaRegistryURL = fmt.Sprintf("http://localhost:%d", srPort)
+		schemaRegistryURL = fmt.Sprintf("http://%s:%s", src.GetBoundIP("8081/tcp"), src.GetPort("8081/tcp"))
 		cln.Log("Schema Registry on", schemaRegistryURL)
 	}
 
@@ -359,13 +352,13 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	}
 
 	res := &Resource{
-		Ports:             make([]string, 0, len(containers)),
+		Brokers:           make([]string, 0, len(containers)),
 		SchemaRegistryURL: schemaRegistryURL,
 		pool:              pool,
 		containers:        containers,
 	}
 	for i := 0; i < len(containers); i++ {
-		res.Ports = append(res.Ports, containers[i].GetPort(kafkaClientPort+"/tcp"))
+		res.Brokers = append(res.Brokers, containers[i].GetBoundIP(kafkaClientPort+"/tcp")+":"+containers[i].GetPort(kafkaClientPort+"/tcp"))
 	}
 
 	return res, nil

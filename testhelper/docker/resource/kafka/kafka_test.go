@@ -46,11 +46,7 @@ func TestResource(t *testing.T) {
 	var (
 		ctx     = context.Background()
 		topic   = "my-topic"
-		brokers = []string{
-			"localhost:" + res.Ports[0],
-			"localhost:" + res.Ports[1],
-			"localhost:" + res.Ports[2],
-		}
+		brokers = res.Brokers
 	)
 
 	w := &kafka.Writer{
@@ -120,7 +116,7 @@ func TestWithSASL(t *testing.T) {
 			require.NoError(t, err)
 
 			w := kafka.Writer{
-				Addr:     kafka.TCP("localhost:" + container.Ports[0]),
+				Addr:     kafka.TCP(container.Brokers...),
 				Balancer: &kafka.Hash{},
 				Transport: &kafka.Transport{
 					SASL: mechanism,
@@ -157,7 +153,7 @@ func TestAvroSchemaRegistry(t *testing.T) {
 	require.NoError(t, err)
 
 	c, err := confluent.NewConsumer(&confluent.ConfigMap{
-		"bootstrap.servers":  fmt.Sprintf("localhost:%s", container.Ports[0]),
+		"bootstrap.servers":  container.Brokers[0],
 		"group.id":           "group-1",
 		"session.timeout.ms": 6000,
 		"auto.offset.reset":  "earliest",
@@ -220,7 +216,7 @@ func TestAvroSchemaRegistry(t *testing.T) {
 	avroMessage := serializeAvroMessage(t, schemaID2, userSchema2, rawMessage)
 
 	w := &kafka.Writer{
-		Addr:                   kafka.TCP("localhost:" + container.Ports[0]),
+		Addr:                   kafka.TCP(container.Brokers...),
 		Balancer:               &kafka.LeastBytes{},
 		AllowAutoTopicCreation: true,
 	}
