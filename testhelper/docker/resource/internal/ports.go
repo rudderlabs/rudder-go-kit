@@ -1,26 +1,20 @@
 package internal
 
 import (
-	"strconv"
-
 	"github.com/ory/dockertest/v3/docker"
-	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
 
-func PortBindings(exposedPorts []string) (map[docker.Port][]docker.PortBinding, error) {
+// IPv4PortBindings returns the port bindings for the given exposed ports forcing ipv4 address.
+func IPv4PortBindings(exposedPorts []string) map[docker.Port][]docker.PortBinding {
 	portBindings := make(map[docker.Port][]docker.PortBinding)
 	for _, exposedPort := range exposedPorts {
-		localPort, err := testhelper.GetFreePort()
-		if err != nil {
-			return nil, err
-		}
 		portBindings[docker.Port(exposedPort)+"/tcp"] = []docker.PortBinding{
 			{
-				HostIP:   "127.0.0.1",
-				HostPort: strconv.Itoa(localPort),
+				HostIP:   "0.0.0.0",
+				HostPort: "0",
 			},
 		}
 	}
 
-	return portBindings, nil
+	return portBindings
 }

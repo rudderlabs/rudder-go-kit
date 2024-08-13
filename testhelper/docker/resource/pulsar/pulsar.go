@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
@@ -29,17 +30,16 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	if c.network != nil {
 		networkID = c.network.ID
 	}
-	portBindings, err := internal.PortBindings([]string{"6650", "8080"})
-	if err != nil {
-		return nil, err
-	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "apachepulsar/pulsar",
 		Tag:          c.tag,
 		Env:          []string{},
-		PortBindings: portBindings,
+		ExposedPorts: []string{"6650/tcp", "8080/tcp"},
+		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}),
 		Cmd:          []string{"bin/pulsar", "standalone"},
 		NetworkID:    networkID,
+	}, func(hc *docker.HostConfig) {
+		// hc.PublishAllPorts = false
 	})
 	if err != nil {
 		return nil, err

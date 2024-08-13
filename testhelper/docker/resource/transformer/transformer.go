@@ -114,14 +114,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
-	portBindings, err := internal.PortBindings(conf.exposedPorts)
-	if err != nil {
-		return nil, err
-	}
 	transformerContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   conf.repository,
 		Tag:          conf.tag,
-		PortBindings: portBindings,
+		PortBindings: internal.IPv4PortBindings(conf.exposedPorts),
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 	})
