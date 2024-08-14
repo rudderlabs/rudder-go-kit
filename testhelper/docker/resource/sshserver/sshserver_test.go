@@ -1,8 +1,9 @@
 package sshserver
 
 import (
-	"path/filepath"
 	"testing"
+
+	"github.com/rudderlabs/rudder-go-kit/testhelper/keygen"
 
 	"github.com/melbahja/goph"
 	"github.com/ory/dockertest/v3"
@@ -50,8 +51,9 @@ func TestKeys(t *testing.T) {
 		}
 	})
 
-	publicKeyPath, err := filepath.Abs("./testdata/test_key.pub")
+	privateKeyPath, publicKeyPath, err := keygen.NewRSAKeyPair(2048, keygen.SaveTo(t.TempDir()))
 	require.NoError(t, err)
+
 	res, err := Setup(pool, t,
 		WithPublicKeyPath(publicKeyPath),
 		WithCredentials("linuxserver.io", ""),
@@ -59,8 +61,6 @@ func TestKeys(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	privateKeyPath, err := filepath.Abs("./testdata/test_key")
-	require.NoError(t, err)
 	auth, err := goph.Key(privateKeyPath, "")
 	require.NoError(t, err)
 

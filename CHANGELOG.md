@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.36.1...v0.36.2) (2024-08-13)
+
+
+### Miscellaneous
+
+* jit secrets ([#589](https://github.com/rudderlabs/rudder-go-kit/issues/589)) ([b53a005](https://github.com/rudderlabs/rudder-go-kit/commit/b53a00589b7915bc307f15e7792d86d88b5f1392))
+
 ## [0.36.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.36.0...v0.36.1) (2024-08-01)
 
 

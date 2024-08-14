@@ -51,6 +51,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	postgresContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "postgres",
 		Tag:        c.Tag,
+		NetworkID:  c.NetworkID,
 		Env: []string{
 			"POSTGRES_PASSWORD=" + postgresDefaultPassword,
 			"POSTGRES_DB=" + postgresDefaultDB,
