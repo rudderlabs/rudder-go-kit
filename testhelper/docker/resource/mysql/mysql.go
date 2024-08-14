@@ -47,7 +47,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		PortBindings: internal.IPv4PortBindings([]string{"3306"}),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("running container: %w", err)
 	}

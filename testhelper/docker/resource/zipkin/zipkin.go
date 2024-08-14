@@ -43,9 +43,9 @@ func (z *Resource) Purge() error {
 func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
 	zipkin, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "openzipkin/zipkin",
-		ExposedPorts: []string{zipkinPort},
+		ExposedPorts: []string{zipkinPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{zipkinPort}),
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start zipkin: %w", err)
 	}
@@ -54,6 +54,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
 		pool:     pool,
 		resource: zipkin,
 		URL:      fmt.Sprintf("http://%s:%s", zipkin.GetBoundIP(zipkinPort+"/tcp"), zipkin.GetPort(zipkinPort+"/tcp")),
+	}
+
+	if zipkin.GetBoundIP(zipkinPort+"/tcp") == "" {
+		return nil, fmt.Errorf("failed to get zipkin bound ip")
 	}
 
 	d.Cleanup(func() {

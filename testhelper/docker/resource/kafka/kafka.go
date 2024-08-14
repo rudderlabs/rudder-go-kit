@@ -170,14 +170,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		},
 		Env: []string{"ALLOW_ANONYMOUS_LOGIN=yes"},
 	}, internal.DefaultHostConfig)
-	if err != nil {
-		return nil, err
-	}
 	cln.Cleanup(func() {
 		if err := pool.Purge(zookeeperContainer); err != nil {
 			cln.Log("Could not purge resource", err)
 		}
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	cln.Log("Zookeeper localhost port", zookeeperContainer.GetPort("2181/tcp"))
 
@@ -207,14 +207,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 				"SCHEMA_REGISTRY_CLIENT_AUTHENTICATION=NONE",
 			},
 		}, internal.DefaultHostConfig)
-		if err != nil {
-			return nil, err
-		}
 		cln.Cleanup(func() {
 			if err := pool.Purge(src); err != nil {
 				cln.Log("Could not purge resource", err)
 			}
 		})
+		if err != nil {
+			return nil, err
+		}
 		if src.GetPort("8081/tcp") == "" {
 			return nil, fmt.Errorf("could not find schema registry port")
 		}
@@ -328,10 +328,11 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			))
 		}
 		containers[i], err = pool.RunWithOptions(&dockertest.RunOptions{
-			Repository: "bitnami/kafka",
-			Tag:        "3.6.0",
-			NetworkID:  network.ID,
-			Hostname:   hostname,
+			Repository:   "bitnami/kafka",
+			Tag:          "3.6.0",
+			NetworkID:    network.ID,
+			Hostname:     hostname,
+			ExposedPorts: []string{kafkaClientPort + "/tcp"},
 			PortBindings: map[dc.Port][]dc.PortBinding{
 				kafkaClientPort + "/tcp": {{
 					HostIP:   internal.BindHostIP,
@@ -341,14 +342,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			Mounts: mounts,
 			Env:    nodeEnvVars,
 		}, internal.DefaultHostConfig)
-		if err != nil {
-			return nil, err
-		}
 		cln.Cleanup(func() {
 			if err := pool.Purge(containers[i]); err != nil {
 				cln.Log(fmt.Errorf("could not purge Kafka resource: %w", err))
 			}
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	res := &Resource{
@@ -363,6 +364,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		}
 		res.Brokers = append(res.Brokers, containers[i].GetBoundIP(kafkaClientPort+"/tcp")+":"+containers[i].GetPort(kafkaClientPort+"/tcp"))
 	}
+	cln.Logf("Kafka brokers on %v", res.Brokers)
 
 	return res, nil
 }

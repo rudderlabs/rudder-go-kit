@@ -108,14 +108,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Env:    envVars,
 		Mounts: mounts,
 	})
-	if err != nil {
-		return nil, err
-	}
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {
 			cln.Log("Could not purge resource", err)
 		}
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	var (
 		buf     *bytes.Buffer

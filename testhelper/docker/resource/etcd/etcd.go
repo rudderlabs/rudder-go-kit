@@ -51,14 +51,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		},
 		PortBindings: internal.IPv4PortBindings([]string{"2379"}),
 	}, internal.DefaultHostConfig)
-	if err != nil {
-		return nil, fmt.Errorf("could not create container: %v", err)
-	}
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {
 			cln.Log(fmt.Errorf("could not purge ETCD resource: %v", err))
 		}
 	})
+	if err != nil {
+		return nil, fmt.Errorf("could not create container: %v", err)
+	}
 
 	var (
 		etcdClient *etcd.Client

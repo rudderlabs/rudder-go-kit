@@ -69,7 +69,7 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		Tag:          conf.tag,
 		Env:          conf.envs,
 		Cmd:          []string{"redis-server"},
-		ExposedPorts: []string{redisPort},
+		ExposedPorts: []string{redisPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{redisPort}),
 	}
 	if len(conf.cmdArgs) > 0 {
@@ -77,15 +77,15 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 	}
 
 	// pulls a redis image, creates a container based on it and runs it
-	container, err := pool.RunWithOptions(runOptions)
-	if err != nil {
-		return nil, err
-	}
+	container, err := pool.RunWithOptions(runOptions, internal.DefaultHostConfig)
 	d.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {
 			d.Log("Could not purge resource:", err)
 		}
 	})
+	if err != nil {
+		return nil, fmt.Errorf("run redis container: %w", err)
+	}
 
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	addr := fmt.Sprintf("%s:%s", container.GetBoundIP(redisPort+"/tcp"), container.GetPort(redisPort+"/tcp"))
