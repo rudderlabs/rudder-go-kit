@@ -43,6 +43,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"MYSQL_ROOT_PASSWORD=" + defaultPassword,
 			"MYSQL_DATABASE=" + defaultDB,
 		},
+		ExposedPorts: []string{"3306"},
 		PortBindings: internal.IPv4PortBindings([]string{"3306"}),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
@@ -87,7 +88,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		Database: defaultDB,
 		User:     defaultUser,
 		Password: defaultPassword,
-		Host:     "localhost",
+		Host:     mysqlContainer.GetBoundIP("3306/tcp"),
 		Port:     mysqlContainer.GetPort("3306/tcp"),
 	}, nil
 }

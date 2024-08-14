@@ -85,7 +85,7 @@ func TestZipkinIntegration(t *testing.T) {
 	var (
 		om        Manager
 		ctx       = context.Background()
-		zipkinURL = "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
+		zipkinURL = zipkinContainer.URL + "/api/v2/spans"
 	)
 	tp, _, err := om.Setup(ctx, res,
 		WithTracerProvider(zipkinURL,

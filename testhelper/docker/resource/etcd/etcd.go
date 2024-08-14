@@ -3,7 +3,6 @@ package etcd
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/ory/dockertest/v3"
@@ -19,7 +18,6 @@ type Resource struct {
 	Hosts  []string
 	// HostsInNetwork is the list of ETCD hosts accessible from the provided Docker network (if any).
 	HostsInNetwork []string
-	Port           int
 }
 
 type config struct {
@@ -65,16 +63,8 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	var (
 		etcdClient *etcd.Client
 		etcdHosts  []string
-		etcdPort   int
-
-		etcdPortStr = container.GetPort("2379/tcp")
 	)
-	etcdPort, err = strconv.Atoi(etcdPortStr)
-	if err != nil {
-		return nil, fmt.Errorf("could not convert port %q to int: %v", etcdPortStr, err)
-	}
-
-	etcdHosts = []string{"http://" + container.GetBoundIP("2379/tcp") + ":" + etcdPortStr}
+	etcdHosts = []string{"http://" + container.GetBoundIP("2379/tcp") + ":" + container.GetPort("2379/tcp")}
 
 	etcdClient, err = etcd.New(etcd.Config{
 		Endpoints:   etcdHosts,
@@ -104,6 +94,5 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Client:         etcdClient,
 		Hosts:          etcdHosts,
 		HostsInNetwork: hostsInNetwork,
-		Port:           etcdPort,
 	}, nil
 }

@@ -10,7 +10,10 @@ import (
 	"github.com/ory/dockertest/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
+
+const redisPort = "6379"
 
 // WithTag is used to specify a custom tag that is used when pulling the Redis image from the container registry
 func WithTag(tag string) Option {
@@ -62,10 +65,12 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		opt(&conf)
 	}
 	runOptions := &dockertest.RunOptions{
-		Repository: conf.repository,
-		Tag:        conf.tag,
-		Env:        conf.envs,
-		Cmd:        []string{"redis-server"},
+		Repository:   conf.repository,
+		Tag:          conf.tag,
+		Env:          conf.envs,
+		Cmd:          []string{"redis-server"},
+		ExposedPorts: []string{redisPort},
+		PortBindings: internal.IPv4PortBindings([]string{redisPort}),
 	}
 	if len(conf.cmdArgs) > 0 {
 		runOptions.Cmd = append(runOptions.Cmd, conf.cmdArgs...)
