@@ -1,5 +1,7 @@
 package postgres
 
+import "github.com/ory/dockertest/v3/docker"
+
 type Opt func(*Config)
 
 func WithTag(tag string) Opt {
@@ -38,6 +40,12 @@ func WithPrintLogsOnError(printLogsOnError bool) Opt {
 	}
 }
 
+func WithNetwork(network *docker.Network) Opt {
+	return func(c *Config) {
+		c.NetworkID = network.ID
+	}
+}
+
 type Config struct {
 	Tag              string
 	Options          []string
@@ -45,4 +53,5 @@ type Config struct {
 	Memory           int64
 	OOMKillDisable   bool
 	PrintLogsOnError bool
+	NetworkID        string
 }

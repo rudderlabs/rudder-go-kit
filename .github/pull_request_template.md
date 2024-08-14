@@ -4,7 +4,7 @@
 
 ## Linear Ticket
 
-< Replace_with_Linear_Link >
+< Linear_Link >
 
 ## Security
 
