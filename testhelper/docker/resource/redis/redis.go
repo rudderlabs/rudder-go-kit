@@ -88,7 +88,7 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 	})
 
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
-	addr := fmt.Sprintf("localhost:%s", container.GetPort("6379/tcp"))
+	addr := fmt.Sprintf("%s:%s", container.GetBoundIP(redisPort+"/tcp"), container.GetPort(redisPort+"/tcp"))
 	err = pool.Retry(func() error {
 		redisClient := redis.NewClient(&redis.Options{
 			Addr: addr,
