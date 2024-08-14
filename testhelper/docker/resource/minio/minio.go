@@ -61,7 +61,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"MINIO_API_SELECT_PARQUET=on",
 		}, c.Options...),
 		PortBindings: internal.IPv4PortBindings([]string{"9000"}),
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not start resource: %s", err)
 	}

@@ -2,6 +2,7 @@ package resource
 
 type Logger interface {
 	Log(...interface{})
+	Logf(string, ...interface{})
 }
 
 type FailIndicator interface {

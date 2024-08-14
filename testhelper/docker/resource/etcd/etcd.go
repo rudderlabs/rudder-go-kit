@@ -50,7 +50,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			"ALLOW_NONE_AUTHENTICATION=yes",
 		},
 		PortBindings: internal.IPv4PortBindings([]string{"2379"}),
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not create container: %v", err)
 	}

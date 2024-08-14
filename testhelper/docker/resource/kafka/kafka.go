@@ -3,6 +3,7 @@ package kafka
 import (
 	_ "encoding/json"
 	"fmt"
+	"strconv"
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
@@ -10,6 +11,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	kithelper "github.com/rudderlabs/rudder-go-kit/testhelper"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
@@ -147,15 +149,10 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	network := c.network
 	if c.network == nil {
 		var err error
-		network, err = pool.Client.CreateNetwork(dc.CreateNetworkOptions{Name: "kafka_network"})
+		network, err = docker.CreateNetwork(pool, cln, "kafka_network_")
 		if err != nil {
-			return nil, fmt.Errorf("could not create docker network: %w", err)
+			return nil, err
 		}
-		cln.Cleanup(func() {
-			if err := pool.Client.RemoveNetwork(network.ID); err != nil {
-				cln.Log(fmt.Errorf("could not remove kafka network: %w", err))
-			}
-		})
 	}
 
 	zookeeperPortInt, err := kithelper.GetFreePort()
@@ -172,7 +169,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			"2181/tcp": {{HostIP: "zookeeper", HostPort: zookeeperPort}},
 		},
 		Env: []string{"ALLOW_ANONYMOUS_LOGIN=yes"},
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +206,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 				"SCHEMA_REGISTRY_ADVERTISED_HOSTNAME=schemaregistry",
 				"SCHEMA_REGISTRY_CLIENT_AUTHENTICATION=NONE",
 			},
-		})
+		}, internal.DefaultHostConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -336,11 +333,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			NetworkID:  network.ID,
 			Hostname:   hostname,
 			PortBindings: map[dc.Port][]dc.PortBinding{
-				kafkaClientPort + "/tcp": {{HostIP: "localhost", HostPort: localhostPort}},
+				kafkaClientPort + "/tcp": {{
+					HostIP:   internal.BindHostIP,
+					HostPort: strconv.Itoa(localhostPortInt),
+				}},
 			},
 			Mounts: mounts,
 			Env:    nodeEnvVars,
-		})
+		}, internal.DefaultHostConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -358,6 +358,9 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		containers:        containers,
 	}
 	for i := 0; i < len(containers); i++ {
+		if containers[i].GetBoundIP(kafkaClientPort+"/tcp") == "" {
+			return nil, fmt.Errorf("could not find kafka broker port")
+		}
 		res.Brokers = append(res.Brokers, containers[i].GetBoundIP(kafkaClientPort+"/tcp")+":"+containers[i].GetPort(kafkaClientPort+"/tcp"))
 	}
 

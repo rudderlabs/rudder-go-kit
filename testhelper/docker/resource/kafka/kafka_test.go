@@ -19,7 +19,6 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/schemaregistry/serde/avro"
 	"github.com/linkedin/goavro/v2"
 	"github.com/ory/dockertest/v3"
-	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl"
 	"github.com/segmentio/kafka-go/sasl/plain"
@@ -27,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/sshserver"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/keygen"
 )
@@ -245,14 +245,8 @@ func TestSSH(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	// Start shared Docker network
-	network, err := pool.Client.CreateNetwork(dc.CreateNetworkOptions{Name: "kafka_network"})
+	network, err := docker.CreateNetwork(pool, t, "kafka_ssh_network_")
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := pool.Client.RemoveNetwork(network.ID); err != nil {
-			t.Logf("Error while removing Docker network: %v", err)
-		}
-	})
 
 	// Start Kafka cluster with ZooKeeper and three brokers
 	_, err = Setup(pool, t,
