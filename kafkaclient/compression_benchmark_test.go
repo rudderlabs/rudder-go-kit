@@ -34,7 +34,7 @@ func BenchmarkCompression(b *testing.B) {
 		kafkaContainer, err := kafka.Setup(pool, b, kafka.WithCustomAdvertisedListener(proxyHost))
 		require.NoError(b, err)
 
-		return "localhost:" + kafkaContainer.Ports[0]
+		return kafkaContainer.Brokers[0]
 	}
 
 	setupProxy := func(b *testing.B, kafkaAddr string, c Compression, bs int, bt time.Duration) (
