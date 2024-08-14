@@ -35,7 +35,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Cmd:          []string{"--smp 1"},
 	}, func(hc *docker.HostConfig) {
 		hc.PublishAllPorts = false
-		hc.CPUSetCPUs = "0"
+		hc.CPUCount = 1
 		hc.Memory = 128 * bytesize.MB
 	})
 	if err != nil {
