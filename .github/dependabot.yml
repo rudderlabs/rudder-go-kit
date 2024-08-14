@@ -20,6 +20,15 @@ updates:
       all:
         patterns:
           - "*"
+        exclude-patterns:
+          - "go.opentelemetry.io/otel*"
+          - "go.opentelemetry.io/otel/sdk"
+          - "go.opentelemetry.io/collector*"
+          - "github.com/open-telemetry/o*-collector-contrib/*"
+          - "go.opentelemetry.io/contrib/instrumentation/*"
+          - "github.com/aws/aws-sdk-go"
+          - "google.golang.org/api"
+          - "cloud.google.com/go/*"
         update-types:
           - "minor"
           - "patch"
