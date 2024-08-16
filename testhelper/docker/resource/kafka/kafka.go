@@ -3,7 +3,9 @@ package kafka
 import (
 	_ "encoding/json"
 	"fmt"
+	"net"
 	"strconv"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
@@ -364,6 +366,18 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		}
 		res.Brokers = append(res.Brokers, containers[i].GetBoundIP(kafkaClientPort+"/tcp")+":"+containers[i].GetPort(kafkaClientPort+"/tcp"))
 	}
+	err = pool.Retry(func() error {
+		conn, err := net.DialTimeout("tcp", res.Brokers[0], time.Second)
+		if err != nil {
+			return err
+		}
+
+		return conn.Close()
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to kafka: %w", err)
+	}
+
 	cln.Logf("Kafka brokers on %v", res.Brokers)
 
 	return res, nil
