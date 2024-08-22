@@ -121,7 +121,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 		PortBindings: internal.IPv4PortBindings(conf.exposedPorts),
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
 	}

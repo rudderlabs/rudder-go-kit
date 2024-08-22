@@ -11,6 +11,7 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 const exposedPort = "2222"
@@ -107,7 +108,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		},
 		Env:    envVars,
 		Mounts: mounts,
-	})
+	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {
 			cln.Log("Could not purge resource", err)

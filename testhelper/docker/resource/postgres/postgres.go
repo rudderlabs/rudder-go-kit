@@ -64,7 +64,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		hc.ShmSize = c.ShmSize
 		hc.OOMKillDisable = c.OOMKillDisable
 		hc.Memory = c.Memory
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
 	}
