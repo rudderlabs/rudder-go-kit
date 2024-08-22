@@ -7,6 +7,7 @@ import (
 	"github.com/ory/dockertest/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 type Resource struct {
@@ -18,7 +19,7 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	c := &config{
-		tag: "3.2.2",
+		tag: "3.2.4",
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -32,10 +33,11 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Repository:   "apachepulsar/pulsar",
 		Tag:          c.tag,
 		Env:          []string{},
-		ExposedPorts: []string{"6650", "8080"},
+		ExposedPorts: []string{"6650/tcp", "8080/tcp"},
+		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}),
 		Cmd:          []string{"bin/pulsar", "standalone"},
 		NetworkID:    networkID,
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +48,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		}
 	})
 
-	url := fmt.Sprintf("pulsar://localhost:%s", container.GetPort("6650/tcp"))
-	adminURL := fmt.Sprintf("http://localhost:%s", container.GetPort("8080/tcp"))
+	url := fmt.Sprintf("pulsar://%s:%s", container.GetBoundIP("6650/tcp"), container.GetPort("6650/tcp"))
+	adminURL := fmt.Sprintf("http://%s:%s", container.GetBoundIP("8080/tcp"), container.GetPort("8080/tcp"))
 
 	if err := pool.Retry(func() (err error) {
 		var w bytes.Buffer

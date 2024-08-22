@@ -886,7 +886,7 @@ func TestZipkin(t *testing.T) {
 	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
-	zipkinURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
+	zipkinURL := zipkinContainer.URL + "/api/v2/spans"
 
 	conf := config.New()
 	conf.Set("INSTANCE_ID", t.Name())

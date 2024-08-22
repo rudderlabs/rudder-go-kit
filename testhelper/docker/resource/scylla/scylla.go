@@ -6,8 +6,11 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
 
+	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 type Resource struct {
@@ -27,7 +30,12 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Repository:   "scylladb/scylla",
 		Tag:          c.tag,
 		Env:          []string{},
-		ExposedPorts: []string{"9042"},
+		ExposedPorts: []string{"9042/tcp"},
+		PortBindings: internal.IPv4PortBindings([]string{"9042"}),
+		Cmd:          []string{"--smp 1"},
+	}, internal.DefaultHostConfig, func(hc *docker.HostConfig) {
+		hc.CPUCount = 1
+		hc.Memory = 128 * bytesize.MB
 	})
 	if err != nil {
 		return nil, err
@@ -39,7 +47,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		}
 	})
 
-	url := fmt.Sprintf("localhost:%s", container.GetPort("9042/tcp"))
+	url := fmt.Sprintf("%s:%s", container.GetBoundIP("9042/tcp"), container.GetPort("9042/tcp"))
 
 	if err := pool.Retry(func() (err error) {
 		var w bytes.Buffer

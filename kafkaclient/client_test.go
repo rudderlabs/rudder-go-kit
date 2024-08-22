@@ -35,7 +35,7 @@ func TestClient_Ping(t *testing.T) {
 	kafkaContainer, err := dockerKafka.Setup(pool, t)
 	require.NoError(t, err)
 
-	kafkaHost := fmt.Sprintf("localhost:%s", kafkaContainer.Ports[0])
+	kafkaHost := kafkaContainer.Brokers[0]
 	c, err := New("tcp", []string{"bad-host", kafkaHost}, Config{})
 	require.NoError(t, err)
 
@@ -63,11 +63,7 @@ func TestProducerBatchConsumerGroup(t *testing.T) {
 		dockerKafka.WithBrokers(3))
 	require.NoError(t, err)
 
-	addresses := make([]string, 0, len(kafkaContainer.Ports))
-	for i := 0; i < len(kafkaContainer.Ports); i++ {
-		addresses = append(addresses, fmt.Sprintf("localhost:%s", kafkaContainer.Ports[i]))
-	}
-	c, err := New("tcp", addresses, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
+	c, err := New("tcp", kafkaContainer.Brokers, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
 	require.NoError(t, err)
 
 	var (
@@ -201,7 +197,7 @@ func TestConsumer_Partition(t *testing.T) {
 		dockerKafka.WithBrokers(1))
 	require.NoError(t, err)
 
-	kafkaHost := fmt.Sprintf("localhost:%s", kafkaContainer.Ports[0])
+	kafkaHost := kafkaContainer.Brokers[0]
 	c, err := New("tcp", []string{"bad-host", kafkaHost}, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
 	require.NoError(t, err)
 
@@ -354,7 +350,7 @@ func TestWithSASL(t *testing.T) {
 			kafkaContainer, err := dockerKafka.Setup(pool, t, containerOptions...)
 			require.NoError(t, err)
 
-			kafkaHost := fmt.Sprintf("localhost:%s", kafkaContainer.Ports[0])
+			kafkaHost := kafkaContainer.Brokers[0]
 			c, err := New("tcp", []string{"bad-host", kafkaHost}, Config{
 				ClientID:    "some-client",
 				DialTimeout: 10 * time.Second,
@@ -432,7 +428,7 @@ func TestWithSASLBadCredentials(t *testing.T) {
 	kafkaContainer, err := dockerKafka.Setup(pool, t, containerOptions...)
 	require.NoError(t, err)
 
-	kafkaHost := fmt.Sprintf("localhost:%s", kafkaContainer.Ports[0])
+	kafkaHost := kafkaContainer.Brokers[0]
 	c, err := New("tcp", []string{"bad-host", kafkaHost}, Config{
 		ClientID:    "some-client",
 		DialTimeout: 10 * time.Second,
@@ -465,7 +461,7 @@ func TestProducer_Timeout(t *testing.T) {
 		dockerKafka.WithBrokers(1))
 	require.NoError(t, err)
 
-	kafkaHost := fmt.Sprintf("localhost:%s", kafkaContainer.Ports[0])
+	kafkaHost := kafkaContainer.Brokers[0]
 	c, err := New("tcp", []string{"bad-host", kafkaHost}, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
 	require.NoError(t, err)
 
@@ -534,7 +530,7 @@ func TestIsProducerErrTemporary(t *testing.T) {
 		dockerKafka.WithBrokers(1))
 	require.NoError(t, err)
 
-	kafkaHost := fmt.Sprintf("localhost:%s", kafkaContainer.Ports[0])
+	kafkaHost := kafkaContainer.Brokers[0]
 	c, err := New("tcp", []string{"bad-host", kafkaHost}, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
 	require.NoError(t, err)
 
@@ -707,7 +703,7 @@ func TestConsumerACK(t *testing.T) {
 		dockerKafka.WithBrokers(1))
 	require.NoError(t, err)
 
-	kafkaHost := fmt.Sprintf("localhost:%s", kafkaContainer.Ports[0])
+	kafkaHost := kafkaContainer.Brokers[0]
 	kafkaClient, err := New("tcp", []string{"bad-host", kafkaHost}, Config{ClientID: "some-client", DialTimeout: 5 * time.Second})
 	require.NoError(t, err)
 

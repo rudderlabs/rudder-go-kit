@@ -3,7 +3,9 @@ package kafka
 import (
 	_ "encoding/json"
 	"fmt"
+	"net"
 	"strconv"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
@@ -11,7 +13,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	kithelper "github.com/rudderlabs/rudder-go-kit/testhelper"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 type scramHashGenerator uint8
@@ -118,7 +122,7 @@ func WithSchemaRegistry() Option {
 }
 
 type Resource struct {
-	Ports             []string
+	Brokers           []string
 	SchemaRegistryURL string
 
 	pool       *dockertest.Pool
@@ -147,15 +151,10 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	network := c.network
 	if c.network == nil {
 		var err error
-		network, err = pool.Client.CreateNetwork(dc.CreateNetworkOptions{Name: "kafka_network"})
+		network, err = docker.CreateNetwork(pool, cln, "kafka_network_")
 		if err != nil {
-			return nil, fmt.Errorf("could not create docker network: %w", err)
+			return nil, err
 		}
-		cln.Cleanup(func() {
-			if err := pool.Client.RemoveNetwork(network.ID); err != nil {
-				cln.Log(fmt.Errorf("could not remove kafka network: %w", err))
-			}
-		})
 	}
 
 	zookeeperPortInt, err := kithelper.GetFreePort()
@@ -172,15 +171,15 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			"2181/tcp": {{HostIP: "zookeeper", HostPort: zookeeperPort}},
 		},
 		Env: []string{"ALLOW_ANONYMOUS_LOGIN=yes"},
-	})
-	if err != nil {
-		return nil, err
-	}
+	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
 		if err := pool.Purge(zookeeperContainer); err != nil {
 			cln.Log("Could not purge resource", err)
 		}
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	cln.Log("Zookeeper localhost port", zookeeperContainer.GetPort("2181/tcp"))
 
@@ -201,35 +200,29 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			Tag:          "7.5-debian-11",
 			NetworkID:    network.ID,
 			Hostname:     "schemaregistry",
-			ExposedPorts: []string{"8081"},
+			ExposedPorts: []string{"8081/tcp"},
+			PortBindings: internal.IPv4PortBindings([]string{"8081"}),
 			Env: []string{
 				"SCHEMA_REGISTRY_DEBUG=true",
 				"SCHEMA_REGISTRY_KAFKA_BROKERS=" + bootstrapServers[:len(bootstrapServers)-1],
 				"SCHEMA_REGISTRY_ADVERTISED_HOSTNAME=schemaregistry",
 				"SCHEMA_REGISTRY_CLIENT_AUTHENTICATION=NONE",
 			},
-		})
-		if err != nil {
-			return nil, err
-		}
+		}, internal.DefaultHostConfig)
 		cln.Cleanup(func() {
 			if err := pool.Purge(src); err != nil {
 				cln.Log("Could not purge resource", err)
 			}
 		})
-		var srPort int
-		for p, bindings := range src.Container.NetworkSettings.Ports {
-			if p.Port() == "8081" {
-				srPort, err = strconv.Atoi(bindings[0].HostPort)
-				if err != nil {
-					panic(fmt.Errorf("cannot convert port to int: %w", err))
-				}
-				break
-			}
+		if err != nil {
+			return nil, err
+		}
+		if src.GetPort("8081/tcp") == "" {
+			return nil, fmt.Errorf("could not find schema registry port")
 		}
 
 		envVariables = append(envVariables, "KAFKA_SCHEMA_REGISTRY_URL=schemaregistry:8081")
-		schemaRegistryURL = fmt.Sprintf("http://localhost:%d", srPort)
+		schemaRegistryURL = fmt.Sprintf("http://%s:%s", src.GetBoundIP("8081/tcp"), src.GetPort("8081/tcp"))
 		cln.Log("Schema Registry on", schemaRegistryURL)
 	}
 
@@ -337,35 +330,55 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			))
 		}
 		containers[i], err = pool.RunWithOptions(&dockertest.RunOptions{
-			Repository: "bitnami/kafka",
-			Tag:        "3.6.0",
-			NetworkID:  network.ID,
-			Hostname:   hostname,
+			Repository:   "bitnami/kafka",
+			Tag:          "3.6.0",
+			NetworkID:    network.ID,
+			Hostname:     hostname,
+			ExposedPorts: []string{kafkaClientPort + "/tcp"},
 			PortBindings: map[dc.Port][]dc.PortBinding{
-				kafkaClientPort + "/tcp": {{HostIP: "localhost", HostPort: localhostPort}},
+				kafkaClientPort + "/tcp": {{
+					HostIP:   internal.BindHostIP,
+					HostPort: strconv.Itoa(localhostPortInt),
+				}},
 			},
 			Mounts: mounts,
 			Env:    nodeEnvVars,
-		})
-		if err != nil {
-			return nil, err
-		}
+		}, internal.DefaultHostConfig)
 		cln.Cleanup(func() {
 			if err := pool.Purge(containers[i]); err != nil {
 				cln.Log(fmt.Errorf("could not purge Kafka resource: %w", err))
 			}
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	res := &Resource{
-		Ports:             make([]string, 0, len(containers)),
+		Brokers:           make([]string, 0, len(containers)),
 		SchemaRegistryURL: schemaRegistryURL,
 		pool:              pool,
 		containers:        containers,
 	}
 	for i := 0; i < len(containers); i++ {
-		res.Ports = append(res.Ports, containers[i].GetPort(kafkaClientPort+"/tcp"))
+		if containers[i].GetBoundIP(kafkaClientPort+"/tcp") == "" {
+			return nil, fmt.Errorf("could not find kafka broker port")
+		}
+		res.Brokers = append(res.Brokers, containers[i].GetBoundIP(kafkaClientPort+"/tcp")+":"+containers[i].GetPort(kafkaClientPort+"/tcp"))
 	}
+	err = pool.Retry(func() error {
+		conn, err := net.DialTimeout("tcp", res.Brokers[0], time.Second)
+		if err != nil {
+			return err
+		}
+
+		return conn.Close()
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to kafka: %w", err)
+	}
+
+	cln.Logf("Kafka brokers on %v", res.Brokers)
 
 	return res, nil
 }

@@ -13,6 +13,7 @@ import (
 type tester interface {
 	Helper()
 	Log(...interface{})
+	Logf(string, ...any)
 	Errorf(format string, args ...interface{})
 	Fatalf(format string, args ...any)
 	Failed() bool

@@ -27,8 +27,8 @@ func TestSpanFromContext(t *testing.T) {
 	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
-	zipkinURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
-	zipkinTracesURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/traces?serviceName=" + t.Name()
+	zipkinURL := zipkinContainer.URL + "/api/v2/spans"
+	zipkinTracesURL := zipkinContainer.URL + "/api/v2/traces?serviceName=" + t.Name()
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
@@ -98,8 +98,8 @@ func TestAsyncTracePropagation(t *testing.T) {
 	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
-	zipkinURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
-	zipkinTracesURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/traces?serviceName=" + t.Name()
+	zipkinURL := zipkinContainer.URL + "/api/v2/spans"
+	zipkinTracesURL := zipkinContainer.URL + "/api/v2/traces?serviceName=" + t.Name()
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
@@ -166,7 +166,7 @@ func TestZipkinDownIsNotBlocking(t *testing.T) {
 	zipkinContainer, err := zipkin.Setup(pool, t)
 	require.NoError(t, err)
 
-	zipkinURL := "http://localhost:" + zipkinContainer.Port + "/api/v2/spans"
+	zipkinURL := zipkinContainer.URL + "/api/v2/spans"
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())

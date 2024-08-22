@@ -13,6 +13,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 const (
@@ -57,12 +58,13 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"POSTGRES_DB=" + postgresDefaultDB,
 			"POSTGRES_USER=" + postgresDefaultUser,
 		},
-		Cmd: cmd,
+		Cmd:          cmd,
+		PortBindings: internal.IPv4PortBindings([]string{"5432"}),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
 		hc.OOMKillDisable = c.OOMKillDisable
 		hc.Memory = c.Memory
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +96,11 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	})
 
 	dbDSN := fmt.Sprintf(
-		"postgres://%s:%s@localhost:%s/%s?sslmode=disable",
-		postgresDefaultUser, postgresDefaultPassword, postgresContainer.GetPort("5432/tcp"), postgresDefaultDB,
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		postgresDefaultUser, postgresDefaultPassword,
+		postgresContainer.GetBoundIP("5432/tcp"),
+		postgresContainer.GetPort("5432/tcp"),
+		postgresDefaultDB,
 	)
 
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
@@ -141,7 +146,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		Database:      postgresDefaultDB,
 		User:          postgresDefaultUser,
 		Password:      postgresDefaultPassword,
-		Host:          "localhost",
+		Host:          postgresContainer.GetBoundIP("5432/tcp"),
 		Port:          postgresContainer.GetPort("5432/tcp"),
 		ContainerName: postgresContainer.Container.Name,
 		ContainerID:   postgresContainer.Container.ID,

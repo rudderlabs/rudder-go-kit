@@ -15,11 +15,13 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
+
+const transformerPort = "9090/tcp"
 
 type Resource struct {
 	TransformerURL string
-	Port           string
 }
 
 type config struct {
@@ -112,13 +114,14 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
+
 	transformerContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   conf.repository,
 		Tag:          conf.tag,
-		ExposedPorts: conf.exposedPorts,
+		PortBindings: internal.IPv4PortBindings(conf.exposedPorts),
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -130,8 +133,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 	})
 
 	transformerResource := &Resource{
-		TransformerURL: fmt.Sprintf("http://localhost:%s", transformerContainer.GetPort("9090/tcp")),
-		Port:           transformerContainer.GetPort("9090/tcp"),
+		TransformerURL: fmt.Sprintf("http://%s:%s", transformerContainer.GetBoundIP(transformerPort), transformerContainer.GetPort(transformerPort)),
 	}
 
 	err = pool.Retry(func() (err error) {

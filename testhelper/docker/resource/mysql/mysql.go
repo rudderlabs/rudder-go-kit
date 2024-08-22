@@ -9,6 +9,7 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 const (
@@ -42,9 +43,11 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"MYSQL_ROOT_PASSWORD=" + defaultPassword,
 			"MYSQL_DATABASE=" + defaultDB,
 		},
+		ExposedPorts: []string{"3306/tcp"},
+		PortBindings: internal.IPv4PortBindings([]string{"3306"}),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
-	})
+	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("running container: %w", err)
 	}
@@ -55,8 +58,11 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		}
 	})
 
-	dbDSN := fmt.Sprintf("%s:%s@tcp(127.0.0.1:%s)/%s?tls=false",
-		defaultUser, defaultPassword, mysqlContainer.GetPort("3306/tcp"), defaultDB,
+	dbDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?tls=false",
+		defaultUser, defaultPassword,
+		mysqlContainer.GetBoundIP("3306/tcp"),
+		mysqlContainer.GetPort("3306/tcp"),
+		defaultDB,
 	)
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
 	err = pool.Retry(func() (err error) {
@@ -82,7 +88,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		Database: defaultDB,
 		User:     defaultUser,
 		Password: defaultPassword,
-		Host:     "localhost",
+		Host:     mysqlContainer.GetBoundIP("3306/tcp"),
 		Port:     mysqlContainer.GetPort("3306/tcp"),
 	}, nil
 }

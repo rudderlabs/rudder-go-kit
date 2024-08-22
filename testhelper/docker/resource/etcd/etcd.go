@@ -3,7 +3,6 @@ package etcd
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/ory/dockertest/v3"
@@ -11,6 +10,7 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
 
 type Resource struct {
@@ -18,7 +18,6 @@ type Resource struct {
 	Hosts  []string
 	// HostsInNetwork is the list of ETCD hosts accessible from the provided Docker network (if any).
 	HostsInNetwork []string
-	Port           int
 }
 
 type config struct {
@@ -50,29 +49,22 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Env: []string{
 			"ALLOW_NONE_AUTHENTICATION=yes",
 		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not create container: %v", err)
-	}
+		PortBindings: internal.IPv4PortBindings([]string{"2379"}),
+	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {
 			cln.Log(fmt.Errorf("could not purge ETCD resource: %v", err))
 		}
 	})
+	if err != nil {
+		return nil, fmt.Errorf("could not create container: %v", err)
+	}
 
 	var (
 		etcdClient *etcd.Client
 		etcdHosts  []string
-		etcdPort   int
-
-		etcdPortStr = container.GetPort("2379/tcp")
 	)
-	etcdPort, err = strconv.Atoi(etcdPortStr)
-	if err != nil {
-		return nil, fmt.Errorf("could not convert port %q to int: %v", etcdPortStr, err)
-	}
-
-	etcdHosts = []string{"http://localhost:" + etcdPortStr}
+	etcdHosts = []string{"http://" + container.GetBoundIP("2379/tcp") + ":" + container.GetPort("2379/tcp")}
 
 	etcdClient, err = etcd.New(etcd.Config{
 		Endpoints:   etcdHosts,
@@ -102,6 +94,5 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Client:         etcdClient,
 		Hosts:          etcdHosts,
 		HostsInNetwork: hostsInNetwork,
-		Port:           etcdPort,
 	}, nil
 }
