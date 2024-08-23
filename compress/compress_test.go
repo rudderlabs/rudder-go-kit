@@ -32,3 +32,18 @@ func TestCompress(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, loremIpsumDolor, string(decompressed))
 }
+
+func TestReader(t *testing.T) {
+	c, err := New(CompressionAlgoZstd)
+	require.NoError(t, err)
+
+	reader, err := c.Compress(strings.NewReader(loremIpsumDolor), WithCompressionLevel(CompressionLevelZstdBest))
+	require.NoError(t, err)
+
+	buf, err := c.Decompress(reader)
+	require.NoError(t, err)
+
+	decompressed, err := io.ReadAll(buf)
+	require.NoError(t, err)
+	require.Equal(t, loremIpsumDolor, string(decompressed))
+}
