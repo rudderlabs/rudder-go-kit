@@ -12,6 +12,6 @@ func BenchmarkNew(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		r, _ := c.Compress(loremIpsumDolor)
-		r, _ = c.Decompress(r)
+		_, _ = c.Decompress(r)
 	}
 }
