@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.37.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.36.2...v0.37.0) (2024-08-22)
+
+
+### Features
+
+* specify port binding for docker ([#592](https://github.com/rudderlabs/rudder-go-kit/issues/592)) ([ff8a8e2](https://github.com/rudderlabs/rudder-go-kit/commit/ff8a8e20baf05f73642e484567bc07d61db251ac))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/docker/docker from 25.0.5+incompatible to 25.0.6+incompatible ([#582](https://github.com/rudderlabs/rudder-go-kit/issues/582)) ([9f5c19f](https://github.com/rudderlabs/rudder-go-kit/commit/9f5c19f0076cf11b521ffef03a54832e61c2e718))
+* **deps:** bump the all group across 1 directory with 25 updates ([#590](https://github.com/rudderlabs/rudder-go-kit/issues/590)) ([c31d397](https://github.com/rudderlabs/rudder-go-kit/commit/c31d397aa7256afafeb0b453a3b06fa2f971b1d4))
+* **deps:** bump the all group across 1 directory with 3 updates ([#599](https://github.com/rudderlabs/rudder-go-kit/issues/599)) ([5e45a8a](https://github.com/rudderlabs/rudder-go-kit/commit/5e45a8a229a3ef265b484685ddb6903b90e7360b))
+
 ## [0.36.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.36.1...v0.36.2) (2024-08-13)
 
 
