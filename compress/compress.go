@@ -11,22 +11,42 @@ import (
 var ErrNotImplemented = errors.New("not implemented")
 
 // CompressionAlgorithm is the interface that wraps the compression algorithm method.
-type CompressionAlgorithm interface {
-	compressionAlgorithm() int
+type CompressionAlgorithm int
+
+func (c CompressionAlgorithm) FromString(s string) (CompressionAlgorithm, error) {
+	switch s {
+	case "zstd":
+		return CompressionAlgoZstd, nil
+	default:
+		return 0, fmt.Errorf("unknown compression algorithm: %s", s)
+	}
 }
 
-var CompressionAlgoZstd CompressionAlgorithm = compressionAlgorithm(0)
-
 // CompressionLevel is the interface that wraps the compression level method.
-type CompressionLevel interface {
-	compressionLevel() int
+type CompressionLevel int
+
+func (c CompressionLevel) FromString(s string) (CompressionLevel, error) {
+	switch s {
+	case "fastest":
+		return CompressionLevelZstdFastest, nil
+	case "default":
+		return CompressionLevelZstdDefault, nil
+	case "better":
+		return CompressionLevelZstdBetter, nil
+	case "best":
+		return CompressionLevelZstdBest, nil
+	default:
+		return 0, fmt.Errorf("unknown compression level: %s", s)
+	}
 }
 
 var (
-	CompressionLevelZstdFastest CompressionLevel = compressionLevel(zstd.SpeedFastest)
-	CompressionLevelZstdDefault CompressionLevel = compressionLevel(zstd.SpeedDefault) // "pretty fast" compression
-	CompressionLevelZstdBetter  CompressionLevel = compressionLevel(zstd.SpeedBetterCompression)
-	CompressionLevelZstdBest    CompressionLevel = compressionLevel(zstd.SpeedBestCompression)
+	CompressionAlgoZstd = CompressionAlgorithm(0)
+
+	CompressionLevelZstdFastest = CompressionLevel(zstd.SpeedFastest)
+	CompressionLevelZstdDefault = CompressionLevel(zstd.SpeedDefault) // "pretty fast" compression
+	CompressionLevelZstdBetter  = CompressionLevel(zstd.SpeedBetterCompression)
+	CompressionLevelZstdBest    = CompressionLevel(zstd.SpeedBestCompression)
 )
 
 func New(algo CompressionAlgorithm, level CompressionLevel) (*Compressor, error) {
@@ -34,7 +54,7 @@ func New(algo CompressionAlgorithm, level CompressionLevel) (*Compressor, error)
 		return nil, ErrNotImplemented
 	}
 
-	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.EncoderLevel(level.compressionLevel())))
+	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.EncoderLevel(level)))
 	if err != nil {
 		return nil, fmt.Errorf("cannot create zstd encoder: %w", err)
 	}
@@ -67,11 +87,3 @@ func (c *Compressor) Close() error {
 	c.decoder.Close()
 	return c.encoder.Close()
 }
-
-type compressionAlgorithm int
-
-func (c compressionAlgorithm) compressionAlgorithm() int { return int(c) }
-
-type compressionLevel int
-
-func (c compressionLevel) compressionLevel() int { return int(c) }
