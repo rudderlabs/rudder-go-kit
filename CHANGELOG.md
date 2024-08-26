@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.37.0...v0.37.1) (2024-08-26)
+
+
+### Miscellaneous
+
+* add more configuration options for creating aws sessions ([#602](https://github.com/rudderlabs/rudder-go-kit/issues/602)) ([3393b43](https://github.com/rudderlabs/rudder-go-kit/commit/3393b431a12159a20531b888672a006ae8e1f015))
+* **deps:** bump google.golang.org/api from 0.193.0 to 0.194.0 in the frequent group ([#600](https://github.com/rudderlabs/rudder-go-kit/issues/600)) ([8d5a1a8](https://github.com/rudderlabs/rudder-go-kit/commit/8d5a1a839fa8ec945b8dc388501a34fa585f38f4))
+
 ## [0.37.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.36.2...v0.37.0) (2024-08-22)
 
 
