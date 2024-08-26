@@ -16,19 +16,21 @@ import (
 
 // Some AWS destinations are using SecretAccessKey instead of accessKey
 type SessionConfig struct {
-	Region           string         `mapstructure:"region"`
-	AccessKeyID      string         `mapstructure:"accessKeyID"`
-	AccessKey        string         `mapstructure:"accessKey"`
-	SecretAccessKey  string         `mapstructure:"secretAccessKey"`
-	RoleBasedAuth    bool           `mapstructure:"roleBasedAuth"`
-	IAMRoleARN       string         `mapstructure:"iamRoleARN"`
-	ExternalID       string         `mapstructure:"externalID"`
-	WorkspaceID      string         `mapstructure:"workspaceID"`
-	Endpoint         *string        `mapstructure:"endpoint"`
-	S3ForcePathStyle *bool          `mapstructure:"s3ForcePathStyle"`
-	DisableSSL       *bool          `mapstructure:"disableSSL"`
-	Service          string         `mapstructure:"service"`
-	Timeout          *time.Duration `mapstructure:"timeout"`
+	Region              string         `mapstructure:"region"`
+	AccessKeyID         string         `mapstructure:"accessKeyID"`
+	AccessKey           string         `mapstructure:"accessKey"`
+	SecretAccessKey     string         `mapstructure:"secretAccessKey"`
+	SessionToken        string         `mapstructure:"sessionToken"`
+	RoleBasedAuth       bool           `mapstructure:"roleBasedAuth"`
+	IAMRoleARN          string         `mapstructure:"iamRoleARN"`
+	ExternalID          string         `mapstructure:"externalID"`
+	WorkspaceID         string         `mapstructure:"workspaceID"`
+	Endpoint            *string        `mapstructure:"endpoint"`
+	S3ForcePathStyle    *bool          `mapstructure:"s3ForcePathStyle"`
+	DisableSSL          *bool          `mapstructure:"disableSSL"`
+	Service             string         `mapstructure:"service"`
+	Timeout             *time.Duration `mapstructure:"timeout"`
+	SharedConfigProfile string         `mapstructure:"sharedConfigProfile"`
 }
 
 // CreateSession creates a new AWS session using the provided config
@@ -40,19 +42,22 @@ func CreateSession(config *SessionConfig) (*session.Session, error) {
 	if config.RoleBasedAuth {
 		awsCredentials, err = createCredentialsForRole(config)
 	} else if config.AccessKey != "" && config.AccessKeyID != "" {
-		awsCredentials, err = credentials.NewStaticCredentials(config.AccessKeyID, config.AccessKey, ""), nil
+		awsCredentials, err = credentials.NewStaticCredentials(config.AccessKeyID, config.AccessKey, config.SessionToken), nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return session.NewSession(&aws.Config{
-		HTTPClient:                    getHttpClient(config),
-		Region:                        aws.String(config.Region),
-		CredentialsChainVerboseErrors: aws.Bool(true),
-		Credentials:                   awsCredentials,
-		Endpoint:                      config.Endpoint,
-		S3ForcePathStyle:              config.S3ForcePathStyle,
-		DisableSSL:                    config.DisableSSL,
+	return session.NewSessionWithOptions(session.Options{
+		Config: aws.Config{
+			HTTPClient:                    getHttpClient(config),
+			Region:                        aws.String(config.Region),
+			CredentialsChainVerboseErrors: aws.Bool(true),
+			Credentials:                   awsCredentials,
+			Endpoint:                      config.Endpoint,
+			S3ForcePathStyle:              config.S3ForcePathStyle,
+			DisableSSL:                    config.DisableSSL,
+		},
+		Profile: config.SharedConfigProfile,
 	})
 }
 
