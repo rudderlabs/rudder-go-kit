@@ -41,7 +41,7 @@ func (c CompressionLevel) FromString(s string) (CompressionLevel, error) {
 }
 
 var (
-	CompressionAlgoZstd = CompressionAlgorithm(0)
+	CompressionAlgoZstd = CompressionAlgorithm(1)
 
 	CompressionLevelZstdFastest = CompressionLevel(zstd.SpeedFastest)
 	CompressionLevelZstdDefault = CompressionLevel(zstd.SpeedDefault) // "pretty fast" compression
@@ -86,4 +86,19 @@ func (c *Compressor) Decompress(src []byte) ([]byte, error) {
 func (c *Compressor) Close() error {
 	c.decoder.Close()
 	return c.encoder.Close()
+}
+
+// SerializeSettings serializes the compression settings.
+func SerializeSettings(algo CompressionAlgorithm, level CompressionLevel) string {
+	return fmt.Sprintf("%d:%d", algo, level)
+}
+
+// DeserializeSettings deserializes the compression settings.
+func DeserializeSettings(s string) (CompressionAlgorithm, CompressionLevel, error) {
+	var algo, level int
+	_, err := fmt.Sscanf(s, "%d:%d", &algo, &level)
+	if err != nil {
+		return 0, 0, fmt.Errorf("cannot deserialize settings: %w", err)
+	}
+	return CompressionAlgorithm(algo), CompressionLevel(level), nil
 }
