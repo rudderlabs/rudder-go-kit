@@ -57,3 +57,25 @@ func TestSerialization(t *testing.T) {
 	require.Equal(t, CompressionAlgoZstd, algo)
 	require.Equal(t, CompressionLevelZstdBest, level)
 }
+
+func TestDeserializationError(t *testing.T) {
+	// valid algo is 1
+	// valid level is 1-4
+	testCases := []string{
+		"0:0", "0:1", "1:0", "2:1", "1:5",
+	}
+	for _, tc := range testCases {
+		_, _, err := DeserializeSettings(tc)
+		require.Error(t, err)
+	}
+}
+
+func TestNewError(t *testing.T) {
+	c, err := New(CompressionAlgorithm(0), CompressionLevelZstdDefault)
+	require.Nil(t, c)
+	require.Error(t, err)
+
+	c, err = New(CompressionAlgoZstd, CompressionLevel(0))
+	require.Nil(t, c)
+	require.Error(t, err)
+}

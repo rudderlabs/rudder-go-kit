@@ -1,14 +1,10 @@
 package compress
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/klauspost/compress/zstd"
 )
-
-// ErrNotImplemented is returned when a feature is not implemented.
-var ErrNotImplemented = errors.New("not implemented")
 
 // CompressionAlgorithm is the interface that wraps the compression algorithm method.
 type CompressionAlgorithm int
@@ -20,6 +16,19 @@ func (c CompressionAlgorithm) FromString(s string) (CompressionAlgorithm, error)
 	default:
 		return 0, fmt.Errorf("unknown compression algorithm: %s", s)
 	}
+}
+
+func (c CompressionAlgorithm) String() string {
+	switch c {
+	case CompressionAlgoZstd:
+		return "zstd"
+	default:
+		return "unknown"
+	}
+}
+
+func (c CompressionAlgorithm) isValid() bool {
+	return c == CompressionAlgoZstd
 }
 
 // CompressionLevel is the interface that wraps the compression level method.
@@ -40,6 +49,33 @@ func (c CompressionLevel) FromString(s string) (CompressionLevel, error) {
 	}
 }
 
+func (c CompressionLevel) String() string {
+	switch c {
+	case CompressionLevelZstdFastest:
+		return "fastest"
+	case CompressionLevelZstdDefault:
+		return "default"
+	case CompressionLevelZstdBetter:
+		return "better"
+	case CompressionLevelZstdBest:
+		return "best"
+	default:
+		return "unknown"
+	}
+}
+
+func (c CompressionLevel) isValid() bool {
+	switch c {
+	case CompressionLevelZstdFastest,
+		CompressionLevelZstdDefault,
+		CompressionLevelZstdBetter,
+		CompressionLevelZstdBest:
+		return true
+	default:
+		return false
+	}
+}
+
 var (
 	CompressionAlgoZstd = CompressionAlgorithm(1)
 
@@ -50,8 +86,11 @@ var (
 )
 
 func New(algo CompressionAlgorithm, level CompressionLevel) (*Compressor, error) {
-	if algo != CompressionAlgoZstd {
-		return nil, ErrNotImplemented
+	if !algo.isValid() {
+		return nil, fmt.Errorf("invalid compression algorithm: %d", algo)
+	}
+	if !level.isValid() {
+		return nil, fmt.Errorf("invalid compression level: %d", level)
 	}
 
 	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.EncoderLevel(level)))
@@ -95,10 +134,21 @@ func SerializeSettings(algo CompressionAlgorithm, level CompressionLevel) string
 
 // DeserializeSettings deserializes the compression settings.
 func DeserializeSettings(s string) (CompressionAlgorithm, CompressionLevel, error) {
-	var algo, level int
-	_, err := fmt.Sscanf(s, "%d:%d", &algo, &level)
+	var algoInt, levelInt int
+	_, err := fmt.Sscanf(s, "%d:%d", &algoInt, &levelInt)
 	if err != nil {
 		return 0, 0, fmt.Errorf("cannot deserialize settings: %w", err)
 	}
-	return CompressionAlgorithm(algo), CompressionLevel(level), nil
+
+	algo := CompressionAlgorithm(algoInt)
+	if !algo.isValid() {
+		return 0, 0, fmt.Errorf("invalid compression algorithm: %d", algoInt)
+	}
+
+	level := CompressionLevel(levelInt)
+	if !level.isValid() {
+		return 0, 0, fmt.Errorf("invalid compression level: %d", levelInt)
+	}
+
+	return algo, level, nil
 }
