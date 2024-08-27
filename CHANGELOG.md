@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.37.2...v0.38.0) (2024-08-27)
+
+
+### Features
+
+* compress ([#601](https://github.com/rudderlabs/rudder-go-kit/issues/601)) ([cda0a40](https://github.com/rudderlabs/rudder-go-kit/commit/cda0a40d46f3e81ce682356d7f42a34abdf95162))
+
 ## [0.37.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.37.1...v0.37.2) (2024-08-27)
 
 
