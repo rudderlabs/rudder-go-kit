@@ -9,7 +9,20 @@ import (
 // CompressionAlgorithm is the interface that wraps the compression algorithm method.
 type CompressionAlgorithm int
 
-func (c CompressionAlgorithm) FromString(s string) (CompressionAlgorithm, error) {
+func (c CompressionAlgorithm) String() string {
+	switch c {
+	case CompressionAlgoZstd:
+		return "zstd"
+	default:
+		return ""
+	}
+}
+
+func (c CompressionAlgorithm) isValid() bool {
+	return c == CompressionAlgoZstd
+}
+
+func NewCompressionAlgorithm(s string) (CompressionAlgorithm, error) {
 	switch s {
 	case "zstd":
 		return CompressionAlgoZstd, nil
@@ -18,36 +31,8 @@ func (c CompressionAlgorithm) FromString(s string) (CompressionAlgorithm, error)
 	}
 }
 
-func (c CompressionAlgorithm) String() string {
-	switch c {
-	case CompressionAlgoZstd:
-		return "zstd"
-	default:
-		return "unknown"
-	}
-}
-
-func (c CompressionAlgorithm) isValid() bool {
-	return c == CompressionAlgoZstd
-}
-
 // CompressionLevel is the interface that wraps the compression level method.
 type CompressionLevel int
-
-func (c CompressionLevel) FromString(s string) (CompressionLevel, error) {
-	switch s {
-	case "fastest":
-		return CompressionLevelZstdFastest, nil
-	case "default":
-		return CompressionLevelZstdDefault, nil
-	case "better":
-		return CompressionLevelZstdBetter, nil
-	case "best":
-		return CompressionLevelZstdBest, nil
-	default:
-		return 0, fmt.Errorf("unknown compression level: %s", s)
-	}
-}
 
 func (c CompressionLevel) String() string {
 	switch c {
@@ -60,7 +45,7 @@ func (c CompressionLevel) String() string {
 	case CompressionLevelZstdBest:
 		return "best"
 	default:
-		return "unknown"
+		return ""
 	}
 }
 
@@ -73,6 +58,21 @@ func (c CompressionLevel) isValid() bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func NewCompressionLevel(s string) (CompressionLevel, error) {
+	switch s {
+	case "fastest":
+		return CompressionLevelZstdFastest, nil
+	case "default":
+		return CompressionLevelZstdDefault, nil
+	case "better":
+		return CompressionLevelZstdBetter, nil
+	case "best":
+		return CompressionLevelZstdBest, nil
+	default:
+		return 0, fmt.Errorf("unknown compression level: %s", s)
 	}
 }
 

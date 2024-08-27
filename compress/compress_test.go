@@ -35,17 +35,11 @@ func TestCompress(t *testing.T) {
 }
 
 func TestSerialization(t *testing.T) {
-	var (
-		err   error
-		algo  CompressionAlgorithm
-		level CompressionLevel
-	)
-
-	algo, err = algo.FromString("zstd")
+	algo, err := NewCompressionAlgorithm("zstd")
 	require.NoError(t, err)
 	require.Equal(t, CompressionAlgoZstd, algo)
 
-	level, err = level.FromString("best")
+	level, err := NewCompressionLevel("best")
 	require.NoError(t, err)
 	require.Equal(t, CompressionLevelZstdBest, level)
 
