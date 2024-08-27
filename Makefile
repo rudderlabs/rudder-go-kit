@@ -72,6 +72,7 @@ install-tools:
 .PHONY: lint
 lint: fmt ## Run linters on all go files
 	$(GO) run $(GOLANGCI) run -v
+	trufflehog filesystem . --no-verification -x .trufflehogignore
 
 .PHONY: fmt
 fmt: install-tools ## Formats all go files
