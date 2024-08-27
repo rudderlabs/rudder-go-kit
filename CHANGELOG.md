@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.37.1...v0.37.2) (2024-08-27)
+
+
+### Miscellaneous
+
+* isTruncated should be a debug log ([#606](https://github.com/rudderlabs/rudder-go-kit/issues/606)) ([075f014](https://github.com/rudderlabs/rudder-go-kit/commit/075f014068c93a1d12e27235aeda12cd58b93a37))
+
 ## [0.37.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.37.0...v0.37.1) (2024-08-26)
 
 
