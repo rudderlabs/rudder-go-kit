@@ -290,7 +290,7 @@ type digitalOceanListSession struct {
 func (l *digitalOceanListSession) Next() (fileObjects []*FileInfo, err error) {
 	manager := l.manager
 	if !l.isTruncated {
-		manager.logger.Infof("Manager is truncated: %v so returning here", l.isTruncated)
+		manager.logger.Debugf("Manager is truncated: %v so returning here", l.isTruncated)
 		return
 	}
 	fileObjects = make([]*FileInfo, 0)
