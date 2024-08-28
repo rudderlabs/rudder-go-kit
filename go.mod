@@ -29,7 +29,7 @@ require (
 	github.com/pkg/sftp v1.13.6
 	github.com/prometheus/client_golang v1.20.2
 	github.com/prometheus/client_model v0.6.1
-	github.com/prometheus/common v0.55.0
+	github.com/prometheus/common v0.56.0
 	github.com/samber/lo v1.47.0
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/shirou/gopsutil/v3 v3.24.5
