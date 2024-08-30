@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.38.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.38.0...v0.38.1) (2024-08-30)
+
+
+### Bug Fixes
+
+* docker containers don't listen to host.docker.internal ([#614](https://github.com/rudderlabs/rudder-go-kit/issues/614)) ([7df95c9](https://github.com/rudderlabs/rudder-go-kit/commit/7df95c9eb390b5830b1719483cfe6b68be629589))
+
+
+### Miscellaneous
+
+* **deps:** bump the all group across 1 directory with 11 updates ([#609](https://github.com/rudderlabs/rudder-go-kit/issues/609)) ([00f6635](https://github.com/rudderlabs/rudder-go-kit/commit/00f66350d0e4aa2b3a9ba52c4733f405a1b2a93c))
+
 ## [0.38.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.37.2...v0.38.0) (2024-08-27)
 
 
