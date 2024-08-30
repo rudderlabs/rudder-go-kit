@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.38.1...v0.38.2) (2024-08-30)
+
+
+### Bug Fixes
+
+* docker containers listening on ipv6 ([#616](https://github.com/rudderlabs/rudder-go-kit/issues/616)) ([76a6758](https://github.com/rudderlabs/rudder-go-kit/commit/76a67587b145c38dee21db4461b9e624f03cba44))
+
 ## [0.38.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.38.0...v0.38.1) (2024-08-30)
 
 
