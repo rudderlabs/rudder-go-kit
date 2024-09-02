@@ -72,8 +72,9 @@ install-tools:
 	$(GO) install $(protoc-gen-go-grpc)
 
 .PHONY: lint
-lint: sec fmt ## Run linters on all go files
+lint: fmt ## Run linters on all go files
 	$(GO) run $(GOLANGCI) run -v
+	@$(MAKE) sec
 
 .PHONY: sec
 sec: ## Run security checks
