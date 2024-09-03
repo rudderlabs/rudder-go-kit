@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.38.2...v0.39.0) (2024-09-03)
+
+
+### Features
+
+* compress zstd cgo ([#618](https://github.com/rudderlabs/rudder-go-kit/issues/618)) ([2402c8e](https://github.com/rudderlabs/rudder-go-kit/commit/2402c8e914be26cc8ae4e21c1e6de3df2a970cea))
+
 ## [0.38.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.38.1...v0.38.2) (2024-08-30)
 
 
