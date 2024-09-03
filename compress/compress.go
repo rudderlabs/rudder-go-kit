@@ -21,17 +21,6 @@ func (c CompressionAlgorithm) String() string {
 	}
 }
 
-func NewCompressionAlgorithm(s string) (CompressionAlgorithm, error) {
-	switch s {
-	case "zstd":
-		return CompressionAlgoZstd, nil
-	case "zstd-cgo":
-		return CompressionAlgoZstdCgo, nil
-	default:
-		return 0, fmt.Errorf("unknown compression algorithm: %s", s)
-	}
-}
-
 // CompressionLevel is the interface that wraps the compression level method.
 type CompressionLevel int
 
@@ -50,18 +39,34 @@ func (c CompressionLevel) String() string {
 	}
 }
 
-func NewCompressionLevel(s string) (CompressionLevel, error) {
-	switch s {
-	case "fastest":
-		return CompressionLevelZstdFastest, nil
-	case "default":
-		return CompressionLevelZstdDefault, nil
-	case "better":
-		return CompressionLevelZstdBetter, nil
-	case "best":
-		return CompressionLevelZstdBest, nil
+func NewSettings(algo, level string) (CompressionAlgorithm, CompressionLevel, error) {
+	switch algo {
+	case "zstd":
+		switch level {
+		case "fastest":
+			return CompressionAlgoZstd, CompressionLevelZstdFastest, nil
+		case "default":
+			return CompressionAlgoZstd, CompressionLevelZstdDefault, nil
+		case "better":
+			return CompressionAlgoZstd, CompressionLevelZstdBetter, nil
+		case "best":
+			return CompressionAlgoZstd, CompressionLevelZstdBest, nil
+		default:
+			return 0, 0, fmt.Errorf("unknown compression level for %s: %s", algo, level)
+		}
+	case "zstd-cgo":
+		switch level {
+		case "fastest":
+			return CompressionAlgoZstdCgo, CompressionLevelZstdCgoFastest, nil
+		case "default":
+			return CompressionAlgoZstdCgo, CompressionLevelZstdCgoDefault, nil
+		case "best":
+			return CompressionAlgoZstdCgo, CompressionLevelZstdCgoBest, nil
+		default:
+			return 0, 0, fmt.Errorf("unknown compression level for %s: %s", algo, level)
+		}
 	default:
-		return 0, fmt.Errorf("unknown compression level: %s", s)
+		return 0, 0, fmt.Errorf("unknown compression algorithm: %s", algo)
 	}
 }
 
@@ -79,17 +84,14 @@ var (
 )
 
 func New(algo CompressionAlgorithm, level CompressionLevel) (*Compressor, error) {
+	var err error
+	algo, level, err = NewSettings(algo.String(), level.String())
+	if err != nil {
+		return nil, err
+	}
+
 	switch algo {
 	case CompressionAlgoZstd:
-		switch level {
-		case CompressionLevelZstdFastest,
-			CompressionLevelZstdDefault,
-			CompressionLevelZstdBetter,
-			CompressionLevelZstdBest:
-		default:
-			return nil, fmt.Errorf("invalid compression level for %q: %d", algo, level)
-		}
-
 		encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.EncoderLevel(level)))
 		if err != nil {
 			return nil, fmt.Errorf("cannot create zstd encoder: %w", err)
@@ -105,20 +107,8 @@ func New(algo CompressionAlgorithm, level CompressionLevel) (*Compressor, error)
 			decoder: decoder,
 		}}, nil
 	case CompressionAlgoZstdCgo:
-		var cgoLevel int
-		switch level {
-		case CompressionLevelZstdCgoFastest:
-			cgoLevel = zstdcgo.BestSpeed
-		case CompressionLevelZstdCgoDefault:
-			cgoLevel = zstdcgo.DefaultCompression
-		case CompressionLevelZstdCgoBest:
-			cgoLevel = zstdcgo.BestCompression
-		default:
-			return nil, fmt.Errorf("invalid compression level for %q: %d", algo, level)
-		}
-
 		return &Compressor{
-			compressorZstdCgo: &compressorZstdCgo{level: cgoLevel},
+			compressorZstdCgo: &compressorZstdCgo{level: int(level)},
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown compression algorithm: %d", algo)

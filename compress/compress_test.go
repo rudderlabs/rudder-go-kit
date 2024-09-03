@@ -46,21 +46,39 @@ func TestCompress(t *testing.T) {
 }
 
 func TestSerialization(t *testing.T) {
-	algo, err := NewCompressionAlgorithm("zstd")
-	require.NoError(t, err)
-	require.Equal(t, CompressionAlgoZstd, algo)
+	type testCase struct {
+		algo, level        string
+		expectedSerialized string
+		expectedAlgo       CompressionAlgorithm
+		expectedLevel      CompressionLevel
+	}
+	testCases := []testCase{
+		{"zstd", "fastest", "1:1", CompressionAlgoZstd, CompressionLevelZstdFastest},
+		{"zstd", "default", "1:2", CompressionAlgoZstd, CompressionLevelZstdDefault},
+		{"zstd", "better", "1:3", CompressionAlgoZstd, CompressionLevelZstdBetter},
+		{"zstd", "best", "1:4", CompressionAlgoZstd, CompressionLevelZstdBest},
 
-	level, err := NewCompressionLevel("best")
-	require.NoError(t, err)
-	require.Equal(t, CompressionLevelZstdBest, level)
+		{"zstd-cgo", "fastest", "2:1", CompressionAlgoZstdCgo, CompressionLevelZstdCgoFastest},
+		{"zstd-cgo", "default", "2:5", CompressionAlgoZstdCgo, CompressionLevelZstdCgoDefault},
+		{"zstd-cgo", "best", "2:20", CompressionAlgoZstdCgo, CompressionLevelZstdCgoBest},
+	}
 
-	serialized := SerializeSettings(algo, level)
-	require.Equal(t, "1:4", serialized)
+	for _, tc := range testCases {
+		t.Run(tc.algo+"-"+tc.level, func(t *testing.T) {
+			algo, level, err := NewSettings(tc.algo, tc.level)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedAlgo, algo)
+			require.Equal(t, tc.expectedLevel, level)
 
-	algo, level, err = DeserializeSettings(serialized)
-	require.NoError(t, err)
-	require.Equal(t, CompressionAlgoZstd, algo)
-	require.Equal(t, CompressionLevelZstdBest, level)
+			serialized := SerializeSettings(algo, level)
+			require.Equal(t, tc.expectedSerialized, serialized)
+
+			algo, level, err = DeserializeSettings(serialized)
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedAlgo, algo)
+			require.Equal(t, tc.expectedLevel, level)
+		})
+	}
 }
 
 func TestDeserializationError(t *testing.T) {
