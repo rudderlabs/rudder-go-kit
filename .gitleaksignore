@@ -1,0 +1,14 @@
+f0b67e93831d16b7f6618632ad44d718c8318b87:sftp/testdata/ssh/test_key:private-key:1
+00cba9dbb04b6ff9807dcf6a3d2a35acf8137b49:kafkaclient/testdata/client.key.pem:private-key:1
+00cba9dbb04b6ff9807dcf6a3d2a35acf8137b49:kafkaclient/testdata/ssh/test_key:private-key:1
+00cba9dbb04b6ff9807dcf6a3d2a35acf8137b49:kafkaclient/testdata/truststore/ca-key:private-key:1
+00cba9dbb04b6ff9807dcf6a3d2a35acf8137b49:testhelper/docker/resource/kafka/testdata/truststore/ca-key:private-key:1
+00cba9dbb04b6ff9807dcf6a3d2a35acf8137b49:testhelper/docker/resource/sshserver/testdata/test_key:private-key:1
+00cba9dbb04b6ff9807dcf6a3d2a35acf8137b49:testhelper/docker/resource/kafka/testdata/ssh/test_key:private-key:1
+fd02c1d3a32acfada23245a824d9238c9b5f9529:broker/kafka/testdata/client.key.pem:private-key:1
+fd02c1d3a32acfada23245a824d9238c9b5f9529:broker/kafka/testdata/ssh/test_key:private-key:1
+fd02c1d3a32acfada23245a824d9238c9b5f9529:broker/kafka/testdata/truststore/ca-key:private-key:1
+1dfc4115034e1b34fc9c1fa9d42ed61453092a89:testhelper/docker/resource/kafka/testdata/ssh/test_key:private-key:1
+98130e63de7c036b800977e694f8d2d7561f41d6:testhelper/docker/resource/kafka/testdata/truststore/ca-key:private-key:1
+2820fe4afd587f69d9d43b4e2724998e063b8c82:testhelper/docker/resource/sshserver/testdata/test_key:private-key:1
+c7b2e4ae3cde679f36228101162a8a63ac91e576:test_git_leaks_ci.txt:generic-api-key:1

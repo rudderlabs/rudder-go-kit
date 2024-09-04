@@ -13,6 +13,7 @@ mockgen=go.uber.org/mock/mockgen@v0.4.0
 gotestsum=gotest.tools/gotestsum@v1.11.0
 protoc-gen-go=google.golang.org/protobuf/cmd/protoc-gen-go@v1.33.0
 protoc-gen-go-grpc=google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
+gitleaks=github.com/zricethezav/gitleaks/v8@v8.18.4
 
 default: lint
 
@@ -72,6 +73,12 @@ install-tools:
 .PHONY: lint
 lint: fmt ## Run linters on all go files
 	$(GO) run $(GOLANGCI) run -v
+	@$(MAKE) sec
+
+.PHONY: sec
+sec: ## Run security checks
+	$(GO) run $(gitleaks) detect .
+	$(GO) run $(govulncheck) ./...
 
 .PHONY: fmt
 fmt: install-tools ## Formats all go files
