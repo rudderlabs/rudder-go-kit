@@ -7,6 +7,7 @@ replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.2
 require (
 	cloud.google.com/go/storage v1.43.0
 	github.com/Azure/azure-storage-blob-go v0.15.0
+	github.com/DataDog/zstd v1.5.6
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.5.0
