@@ -14,7 +14,6 @@ gotestsum=gotest.tools/gotestsum@v1.11.0
 protoc-gen-go=google.golang.org/protobuf/cmd/protoc-gen-go@v1.33.0
 protoc-gen-go-grpc=google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 gitleaks=github.com/zricethezav/gitleaks/v8@v8.18.4
-govulncheck=golang.org/x/vuln/cmd/govulncheck@latest
 
 default: lint
 
