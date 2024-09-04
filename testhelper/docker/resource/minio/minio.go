@@ -16,6 +16,7 @@ import (
 	"github.com/ory/dockertest/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
@@ -50,9 +51,19 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		opt(c)
 	}
 
+	network := c.Network
+	if c.Network == nil {
+		var err error
+		network, err = docker.CreateNetwork(pool, d, "minio_network_")
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "minio/minio",
 		Tag:        c.Tag,
+		NetworkID:  network.ID,
 		Cmd:        []string{"server", "/data"},
 		Env: append([]string{
 			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
