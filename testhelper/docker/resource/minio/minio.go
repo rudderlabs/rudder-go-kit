@@ -50,9 +50,15 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		opt(c)
 	}
 
+	var networkID string
+	if c.Network != nil {
+		networkID = c.Network.ID
+	}
+
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "minio/minio",
 		Tag:        c.Tag,
+		NetworkID:  networkID,
 		Cmd:        []string{"server", "/data"},
 		Env: append([]string{
 			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
