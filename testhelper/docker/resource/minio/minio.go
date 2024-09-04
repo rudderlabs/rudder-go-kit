@@ -51,19 +51,20 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		opt(c)
 	}
 
-	network := c.Network
+	var networkID string
 	if c.Network == nil {
 		var err error
-		network, err = docker.CreateNetwork(pool, d, "minio_network_")
+		network, err := docker.CreateNetwork(pool, d, "minio_network_")
 		if err != nil {
 			return nil, err
 		}
+		networkID = network.ID
 	}
 
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "minio/minio",
 		Tag:        c.Tag,
-		NetworkID:  network.ID,
+		NetworkID:  networkID,
 		Cmd:        []string{"server", "/data"},
 		Env: append([]string{
 			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
