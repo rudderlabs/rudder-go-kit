@@ -8,8 +8,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -30,8 +33,10 @@ type Resource struct {
 }
 
 type File struct {
-	Key     string
-	Content string
+	Key                  string
+	Content              string
+	Etag                 string
+	LastModificationTime time.Time
 }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
@@ -155,8 +160,10 @@ func (r *Resource) Contents(ctx context.Context, prefix string) ([]File, error) 
 		}
 
 		contents = append(contents, File{
-			Key:     objInfo.Key,
-			Content: string(b),
+			Key:                  objInfo.Key,
+			Content:              string(b),
+			Etag:                 objInfo.ETag,
+			LastModificationTime: objInfo.LastModified,
 		})
 	}
 
@@ -181,4 +188,24 @@ func (r *Resource) ToFileManagerConfig(prefix string) map[string]any {
 		"useSSL":           false,
 		"region":           r.Region,
 	}
+}
+
+func (r *Resource) UploadFolder(localPath, prefix string) error {
+	minioClient := r.Client
+	localPath = filepath.Clean(localPath)
+
+	return filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		objectName, err := filepath.Rel(localPath, path)
+		if err != nil {
+			return err
+		}
+		_, err = minioClient.FPutObject(context.TODO(), r.BucketName, filepath.Join(prefix, objectName), path, minio.PutObjectOptions{})
+		return err
+	})
 }
