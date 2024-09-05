@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.39.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.39.1...v0.39.2) (2024-09-04)
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/opencontainers/runc from 1.1.13 to 1.1.14 ([#625](https://github.com/rudderlabs/rudder-go-kit/issues/625)) ([a7649f6](https://github.com/rudderlabs/rudder-go-kit/commit/a7649f6fc78698868505eaef86b9d82cb04d6bae))
+* minio network ([#628](https://github.com/rudderlabs/rudder-go-kit/issues/628)) ([7b26236](https://github.com/rudderlabs/rudder-go-kit/commit/7b26236e001ae49ea647cf0a06864af24c825203))
+* use gitleaks for secret scanning ([#610](https://github.com/rudderlabs/rudder-go-kit/issues/610)) ([a8ac9a5](https://github.com/rudderlabs/rudder-go-kit/commit/a8ac9a5e5b6ef97125e277c6530a08e946b3c74d))
+
 ## [0.39.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.39.0...v0.39.1) (2024-09-03)
 
 
