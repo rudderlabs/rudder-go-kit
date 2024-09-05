@@ -18,6 +18,7 @@ func TestScylla(t *testing.T) {
 
 	cluster := gocql.NewCluster(scyllaContainer.URL)
 	cluster.Consistency = gocql.Quorum
+	cluster.DisableInitialHostLookup = true
 	session, err := cluster.CreateSession()
 	require.NoError(t, err)
 	require.NotNil(t, session)

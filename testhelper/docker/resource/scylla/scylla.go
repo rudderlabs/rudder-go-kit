@@ -90,6 +90,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	if c.keyspace != "" {
 		cluster := gocql.NewCluster(url)
 		cluster.Consistency = gocql.Quorum
+		cluster.DisableInitialHostLookup = true
 		session, err := cluster.CreateSession()
 		if err != nil {
 			return nil, err
