@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -183,4 +185,24 @@ func (r *Resource) ToFileManagerConfig(prefix string) map[string]any {
 		"useSSL":           false,
 		"region":           r.Region,
 	}
+}
+
+func (r *Resource) UploadFolder(localPath, prefix string) error {
+	minioClient := r.Client
+	localPath = filepath.Clean(localPath)
+
+	return filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		objectName, err := filepath.Rel(localPath, path)
+		if err != nil {
+			return err
+		}
+		_, err = minioClient.FPutObject(context.TODO(), r.BucketName, filepath.Join(prefix, objectName), path, minio.PutObjectOptions{})
+		return err
+	})
 }

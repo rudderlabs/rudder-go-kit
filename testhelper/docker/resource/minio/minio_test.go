@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"os"
 	"testing"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/ory/dockertest/v3"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/filemanager"
@@ -103,5 +105,37 @@ func TestMinioContents(t *testing.T) {
 
 		_, err := minioResource.Contents(ctx, "test-bucket/")
 		require.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("can upload a folder", func(t *testing.T) {
+		expectedContents := map[string]string{
+			"test-upload-folder/file1.txt": "file1",
+			"test-upload-folder/file2.txt": "file2",
+		}
+
+		tempDir := t.TempDir()
+		// add some files to the temp dir
+		file1, err := os.Create(tempDir + "/file1.txt")
+		require.NoError(t, err, "could not create file1.txt")
+		_, err = file1.WriteString(expectedContents["test-upload-folder/file1.txt"])
+		require.NoError(t, err, "could not write to file1.txt")
+
+		file2, err := os.Create(tempDir + "/file2.txt")
+		require.NoError(t, err, "could not create file2.txt")
+		_, err = file2.WriteString(expectedContents["test-upload-folder/file2.txt"])
+		require.NoError(t, err, "could not write to file2.txt")
+
+		err = minioResource.UploadFolder(tempDir, "test-upload-folder")
+		require.NoError(t, err, "could not upload folder")
+
+		files, err := minioResource.Contents(context.Background(), "test-upload-folder")
+		require.NoError(t, err)
+		require.Len(t, files, 2, "should have uploaded 2 files")
+
+		lo.ForEach(files, func(f File, _ int) {
+			if expectedContent, exists := expectedContents[f.Key]; exists {
+				require.Equal(t, expectedContent, f.Content)
+			}
+		})
 	})
 }
