@@ -2,6 +2,7 @@
 package gittest
 
 import (
+	"bytes"
 	"encoding/pem"
 	"fmt"
 	"net"
@@ -46,20 +47,33 @@ func newServer(t testing.TB, sourcePath string, secure bool) *Server {
 	if !strings.HasSuffix(sourcePath, "/") {
 		source = source + "/"
 	}
+
+	workingDir := filepath.Join(tempDir, "workdir")
+	require.NoErrorf(t, os.MkdirAll(workingDir, os.ModePerm), "should be able to create %s", workingDir)
 	gitRoot := filepath.Join(tempDir, org, repo)
 	require.NoErrorf(t, os.MkdirAll(gitRoot, os.ModePerm), "should be able to create %s", gitRoot)
-	require.NoErrorf(t, exec.Command("rsync", "--recursive", source, gitRoot).Run(), "should be able to copy %s to %s", source, gitRoot)
+
+	out, err := execCmd("rsync", "--recursive", source, workingDir)
+	require.NoErrorf(t, err, "should be able to copy %s to %s: %s", source, workingDir, out)
+
 	gitPath, err := exec.LookPath("git")
 	require.NoError(t, err, "should be able to find git in PATH")
-	require.NoError(t, exec.Command("git", "init", gitRoot).Run(), "should be able to initialize git repository")
-	require.NoError(t, exec.Command("git", "-C", gitRoot, "add", ".").Run(), "should be able to add files to git repository")
-	commitCmd := exec.Command("git", "-C", gitRoot, "commit", "-m", "initial commit")
+	out, err = execCmd("git", "init", workingDir)
+	require.NoErrorf(t, err, "should be able to initialize git repository: %s", out)
+	out, err = execCmd("git", "-C", workingDir, "branch", "-m", "main")
+	require.NoErrorf(t, err, "should be able to rename the default branch to main: %s", out)
+	out, err = execCmd("git", "-C", workingDir, "add", ".")
+	require.NoErrorf(t, err, "should be able to add files to git repository: %s", out)
+	commitCmd := exec.Command("git", "-C", workingDir, "commit", "-m", "initial commit")
 	commitCmd.Env = append(commitCmd.Env, "GIT_AUTHOR_NAME=git test", "GIT_COMMITTER_NAME=git test", "GIT_AUTHOR_EMAIL=gittest@example.com", "GIT_COMMITTER_EMAIL=gittest@example.com")
 	require.NoError(t, commitCmd.Run(), "should be able to commit files to git repository")
 
+	out, err = execCmd("git", "clone", "--bare", workingDir, gitRoot)
+	require.NoErrorf(t, err, "should be able to clone the bare repository: %s", out)
+
 	handler := &cgi.Handler{
 		Path: gitPath,
-		Root: org + "/" + repo + "/",
+		// Root: org + "/" + repo + "/",
 		Args: []string{"http-backend"},
 		Env: []string{
 			fmt.Sprintf("GIT_PROJECT_ROOT=%s", tempDir),
@@ -123,4 +137,13 @@ func getLocalIP(t testing.TB) string {
 	}()
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 	return localAddr.IP.String()
+}
+
+func execCmd(name string, args ...string) (string, error) {
+	var buf bytes.Buffer
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	return buf.String(), err
 }

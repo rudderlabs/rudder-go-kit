@@ -22,18 +22,28 @@ func TestGitServer(t *testing.T) {
 		require.NoErrorf(t, err, "should be able to clone the repository: %s", out)
 		require.FileExists(t, tempDir+"/README.md", "README.md should exist in the cloned repository")
 
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("Hello, World!"), 0o644), "should be able to write to file1.txt")
+		out, err = execCmd("git", "-C", tempDir, "add", "file1.txt")
+		require.NoErrorf(t, err, "should be able to add file1.txt: %s", out)
+
+		out, err = execCmd("git", "-C", tempDir, "commit", "-m", "add file1.txt")
+		require.NoErrorf(t, err, "should be able to commit file1.txt: %s", out)
+
+		out, err = execCmd("git", "-C", tempDir, "push", "origin", "main")
+		require.NoErrorf(t, err, "should be able to push the main branch: %s", out)
+
 		out, err = execCmd("git", "-C", tempDir, "checkout", "-b", "develop")
 		require.NoErrorf(t, err, "should be able to create a develop repository: %s", out)
 
 		out, err = execCmd("git", "-C", tempDir, "push", "origin", "develop:develop")
 		require.NoErrorf(t, err, "should be able to push the develop branch: %s", out)
 
-		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "file.txt"), []byte("Hello, World!"), 0644), "should be able to write to file.txt")
-		out, err = execCmd("git", "-C", tempDir, "add", "file.txt")
-		require.NoErrorf(t, err, "should be able to add file.txt: %s", out)
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("Hello, World!"), 0o644), "should be able to write to file2.txt")
+		out, err = execCmd("git", "-C", tempDir, "add", "file2.txt")
+		require.NoErrorf(t, err, "should be able to add file2.txt: %s", out)
 
-		out, err = execCmd("git", "-C", tempDir, "commit", "-m", "add file.txt")
-		require.NoErrorf(t, err, "should be able to commit file.txt: %s", out)
+		out, err = execCmd("git", "-C", tempDir, "commit", "-m", "add file2.txt")
+		require.NoErrorf(t, err, "should be able to commit file2.txt: %s", out)
 
 		out, err = execCmd("git", "-C", tempDir, "push", "origin", "develop")
 		require.NoErrorf(t, err, "should be able to push the develop branch: %s", out)
@@ -43,7 +53,6 @@ func TestGitServer(t *testing.T) {
 
 		out, err = execCmd("git", "-C", tempDir, "push", "origin", "v1.0.0")
 		require.NoErrorf(t, err, "should be able to push the tag: %s", out)
-
 	})
 
 	t.Run("https", func(t *testing.T) {
@@ -56,7 +65,7 @@ func TestGitServer(t *testing.T) {
 	})
 }
 
-func execCmd(name string, args ...string) (string, error) {
+func execCmd(name string, args ...string) (string, error) { // nolint: unparam
 	var buf bytes.Buffer
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = &buf
