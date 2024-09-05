@@ -1,7 +1,10 @@
 package gittest_test
 
 import (
+	"bytes"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,8 +18,32 @@ func TestGitServer(t *testing.T) {
 		defer s.Close()
 		tempDir := t.TempDir()
 		url := s.URL
-		require.NoError(t, exec.Command("git", "-c", "http.sslVerify=false", "clone", url, tempDir).Run(), "should be able to clone the repository")
+		out, err := execCmd("git", "clone", url, tempDir)
+		require.NoErrorf(t, err, "should be able to clone the repository: %s", out)
 		require.FileExists(t, tempDir+"/README.md", "README.md should exist in the cloned repository")
+
+		out, err = execCmd("git", "-C", tempDir, "checkout", "-b", "develop")
+		require.NoErrorf(t, err, "should be able to create a develop repository: %s", out)
+
+		out, err = execCmd("git", "-C", tempDir, "push", "origin", "develop:develop")
+		require.NoErrorf(t, err, "should be able to push the develop branch: %s", out)
+
+		require.NoError(t, os.WriteFile(filepath.Join(tempDir, "file.txt"), []byte("Hello, World!"), 0644), "should be able to write to file.txt")
+		out, err = execCmd("git", "-C", tempDir, "add", "file.txt")
+		require.NoErrorf(t, err, "should be able to add file.txt: %s", out)
+
+		out, err = execCmd("git", "-C", tempDir, "commit", "-m", "add file.txt")
+		require.NoErrorf(t, err, "should be able to commit file.txt: %s", out)
+
+		out, err = execCmd("git", "-C", tempDir, "push", "origin", "develop")
+		require.NoErrorf(t, err, "should be able to push the develop branch: %s", out)
+
+		out, err = execCmd("git", "-C", tempDir, "tag", "-a", "v1.0.0", "-m", "v1.0.0")
+		require.NoErrorf(t, err, "should be able to create a tag: %s", out)
+
+		out, err = execCmd("git", "-C", tempDir, "push", "origin", "v1.0.0")
+		require.NoErrorf(t, err, "should be able to push the tag: %s", out)
+
 	})
 
 	t.Run("https", func(t *testing.T) {
@@ -27,4 +54,13 @@ func TestGitServer(t *testing.T) {
 		require.NoError(t, exec.Command("git", "-c", "http.sslVerify=false", "clone", url, tempDir).Run(), "should be able to clone the repository")
 		require.FileExists(t, tempDir+"/README.md", "README.md should exist in the cloned repository")
 	})
+}
+
+func execCmd(name string, args ...string) (string, error) {
+	var buf bytes.Buffer
+	cmd := exec.Command(name, args...)
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	return buf.String(), err
 }

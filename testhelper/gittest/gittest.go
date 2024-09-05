@@ -59,10 +59,12 @@ func newServer(t testing.TB, sourcePath string, secure bool) *Server {
 
 	handler := &cgi.Handler{
 		Path: gitPath,
+		Root: org + "/" + repo + "/",
 		Args: []string{"http-backend"},
 		Env: []string{
 			fmt.Sprintf("GIT_PROJECT_ROOT=%s", tempDir),
 			"GIT_HTTP_EXPORT_ALL=true",
+			"REMOTE_USER=git",
 		},
 	}
 
