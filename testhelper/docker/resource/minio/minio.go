@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -32,9 +33,10 @@ type Resource struct {
 }
 
 type File struct {
-	Key     string
-	Content string
-	Etag    string
+	Key                  string
+	Content              string
+	Etag                 string
+	LastModificationTime time.Time
 }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
@@ -158,9 +160,10 @@ func (r *Resource) Contents(ctx context.Context, prefix string) ([]File, error) 
 		}
 
 		contents = append(contents, File{
-			Key:     objInfo.Key,
-			Content: string(b),
-			Etag:    objInfo.ETag,
+			Key:                  objInfo.Key,
+			Content:              string(b),
+			Etag:                 objInfo.ETag,
+			LastModificationTime: objInfo.LastModified,
 		})
 	}
 

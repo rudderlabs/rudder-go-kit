@@ -93,11 +93,22 @@ func TestMinioContents(t *testing.T) {
 	files, err := minioResource.Contents(context.Background(), "test-bucket/")
 	require.NoError(t, err)
 
-	require.Equal(t, []File{
-		{Key: "test-bucket/empty", Content: "", Etag: etag3},
-		{Key: "test-bucket/hello.txt", Content: "hello", Etag: etag1},
-		{Key: "test-bucket/hello.txt.gz", Content: "hello compressed", Etag: etag2},
-	}, files)
+	// LastModified is set after the file is uploaded, so we can't compare it
+	lo.ForEach(files, func(f File, _ int) {
+		switch f.Key {
+		case "test-bucket/hello.txt":
+			require.Equal(t, "hello", f.Content)
+			require.Equal(t, etag1, f.Etag)
+		case "test-bucket/hello.txt.gz":
+			require.Equal(t, "hello compressed", f.Content)
+			require.Equal(t, etag2, f.Etag)
+		case "test-bucket/empty":
+			require.Equal(t, "", f.Content)
+			require.Equal(t, etag3, f.Etag)
+		default:
+			t.Fatalf("unexpected file: %s", f.Key)
+		}
+	})
 
 	t.Run("canceled context", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
