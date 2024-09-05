@@ -68,7 +68,7 @@ var (
 	EncryptionLevelAES256 = EncryptionLevel(256)
 )
 
-func New(algo EncryptionAlgorithm, level EncryptionLevel) (*Encrypter, error) {
+func New(algo EncryptionAlgorithm, level EncryptionLevel) (*Encryptor, error) {
 	var err error
 	algo, level, err = NewSettings(algo.String(), level.String())
 	if err != nil {
@@ -77,20 +77,20 @@ func New(algo EncryptionAlgorithm, level EncryptionLevel) (*Encrypter, error) {
 
 	switch algo {
 	case EncryptionAlgoAESCFB:
-		return &Encrypter{encryptionAESCFB: &encryptionAESCFB{level: int(level)}}, nil
+		return &Encryptor{encryptionAESCFB: &encryptionAESCFB{level: int(level)}}, nil
 	case EncryptionAlgoAESGCM:
-		return &Encrypter{encryptionAESGCM: &encryptionAESGCM{level: int(level)}}, nil
+		return &Encryptor{encryptionAESGCM: &encryptionAESGCM{level: int(level)}}, nil
 	default:
 		return nil, fmt.Errorf("unknown encryption algorithm: %d", algo)
 	}
 }
 
-type Encrypter struct {
+type Encryptor struct {
 	*encryptionAESCFB
 	*encryptionAESGCM
 }
 
-func (e *Encrypter) Encrypt(src []byte, key string) ([]byte, error) {
+func (e *Encryptor) Encrypt(src []byte, key string) ([]byte, error) {
 	if e.encryptionAESCFB != nil {
 		return e.encryptionAESCFB.Encrypt(src, key)
 	}
@@ -100,7 +100,7 @@ func (e *Encrypter) Encrypt(src []byte, key string) ([]byte, error) {
 	return nil, fmt.Errorf("no encryption method available")
 }
 
-func (e *Encrypter) Decrypt(src []byte, key string) ([]byte, error) {
+func (e *Encryptor) Decrypt(src []byte, key string) ([]byte, error) {
 	if e.encryptionAESCFB != nil {
 		return e.encryptionAESCFB.Decrypt(src, key)
 	}
