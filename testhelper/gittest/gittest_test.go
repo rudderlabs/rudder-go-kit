@@ -13,7 +13,6 @@ import (
 )
 
 func TestGitServer(t *testing.T) {
-
 	t.Setenv("GIT_AUTHOR_NAME", "unit test")
 	t.Setenv("GIT_AUTHOR_EMAIL", "unit.test@example.com")
 	t.Run("http", func(t *testing.T) {
