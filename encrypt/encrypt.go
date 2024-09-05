@@ -2,6 +2,7 @@ package encrypt
 
 import (
 	"fmt"
+	"strings"
 )
 
 // EncryptionAlgorithm is the interface that wraps the encryption algorithm method.
@@ -107,4 +108,18 @@ func (e *Encrypter) Decrypt(src []byte, key string) ([]byte, error) {
 		return e.encryptionAESGCM.Decrypt(src, key)
 	}
 	return nil, fmt.Errorf("no decryption method available")
+}
+
+// SerializeSettings converts the EncryptionAlgorithm and EncryptionLevel to a string.
+func SerializeSettings(algo EncryptionAlgorithm, level EncryptionLevel) string {
+	return fmt.Sprintf("%s:%s", algo.String(), level.String())
+}
+
+// DeserializeSettings converts a string to EncryptionAlgorithm and EncryptionLevel.
+func DeserializeSettings(settings string) (EncryptionAlgorithm, EncryptionLevel, error) {
+	parts := strings.Split(settings, ":")
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("invalid settings format")
+	}
+	return NewSettings(parts[0], parts[1])
 }
