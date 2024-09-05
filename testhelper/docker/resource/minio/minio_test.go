@@ -63,10 +63,11 @@ func TestMinioContents(t *testing.T) {
 	minioResource, err := Setup(pool, t)
 	require.NoError(t, err)
 
-	_, err = minioResource.Client.PutObject(context.Background(),
+	uploadInfo, err := minioResource.Client.PutObject(context.Background(),
 		minioResource.BucketName, "test-bucket/hello.txt", bytes.NewBufferString("hello"), -1, minio.PutObjectOptions{},
 	)
 	require.NoError(t, err)
+	etag1 := uploadInfo.ETag
 
 	var b bytes.Buffer
 	gz := gzip.NewWriter(&b)
@@ -75,23 +76,25 @@ func TestMinioContents(t *testing.T) {
 	err = gz.Close()
 	require.NoError(t, err)
 
-	_, err = minioResource.Client.PutObject(context.Background(),
+	uploadInfo, err = minioResource.Client.PutObject(context.Background(),
 		minioResource.BucketName, "test-bucket/hello.txt.gz", &b, -1, minio.PutObjectOptions{},
 	)
 	require.NoError(t, err)
+	etag2 := uploadInfo.ETag
 
-	_, err = minioResource.Client.PutObject(context.Background(),
+	uploadInfo, err = minioResource.Client.PutObject(context.Background(),
 		minioResource.BucketName, "test-bucket/empty", bytes.NewBuffer([]byte{}), -1, minio.PutObjectOptions{},
 	)
 	require.NoError(t, err)
+	etag3 := uploadInfo.ETag
 
 	files, err := minioResource.Contents(context.Background(), "test-bucket/")
 	require.NoError(t, err)
 
 	require.Equal(t, []File{
-		{Key: "test-bucket/empty", Content: ""},
-		{Key: "test-bucket/hello.txt", Content: "hello"},
-		{Key: "test-bucket/hello.txt.gz", Content: "hello compressed"},
+		{Key: "test-bucket/empty", Content: "", Etag: etag3},
+		{Key: "test-bucket/hello.txt", Content: "hello", Etag: etag1},
+		{Key: "test-bucket/hello.txt.gz", Content: "hello compressed", Etag: etag2},
 	}, files)
 
 	t.Run("canceled context", func(t *testing.T) {

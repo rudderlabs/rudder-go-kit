@@ -32,6 +32,7 @@ type Resource struct {
 type File struct {
 	Key     string
 	Content string
+	Etag    string
 }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
@@ -157,6 +158,7 @@ func (r *Resource) Contents(ctx context.Context, prefix string) ([]File, error) 
 		contents = append(contents, File{
 			Key:     objInfo.Key,
 			Content: string(b),
+			Etag:    objInfo.ETag,
 		})
 	}
 
