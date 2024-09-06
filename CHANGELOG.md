@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.40.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.39.2...v0.40.0) (2024-09-06)
+
+
+### Features
+
+* [PRO-3387] minio enhancements ([#630](https://github.com/rudderlabs/rudder-go-kit/issues/630)) ([8a4f24a](https://github.com/rudderlabs/rudder-go-kit/commit/8a4f24a4556e51041fd8851277778e504f047f79))
+* introduce gittest ([#631](https://github.com/rudderlabs/rudder-go-kit/issues/631)) ([c7d3c82](https://github.com/rudderlabs/rudder-go-kit/commit/c7d3c82edbe514c8a138e0a81cf9018fd4fb3681))
+
+
+### Bug Fixes
+
+* scylla test fails with no connections were made when creating the session ([#634](https://github.com/rudderlabs/rudder-go-kit/issues/634)) ([5e3b759](https://github.com/rudderlabs/rudder-go-kit/commit/5e3b7596e16e01cee80d0bf9efefe137dcf9a35d))
+
 ## [0.39.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.39.1...v0.39.2) (2024-09-04)
 
 
