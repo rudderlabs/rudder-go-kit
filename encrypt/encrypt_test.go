@@ -44,6 +44,9 @@ func Test_EncryptDecrypt(t *testing.T) {
 			require.NoError(t, err)
 
 			plaintext := loremIpsumDolor
+			_, err = encrypter.Encrypt(plaintext, key[:len(key)-1])
+			require.Error(t, err)
+
 			ciphertext, err := encrypter.Encrypt(plaintext, key)
 			require.NoError(t, err)
 

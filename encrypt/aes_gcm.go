@@ -13,6 +13,10 @@ type encryptionAESGCM struct {
 }
 
 func (e *encryptionAESGCM) Encrypt(src []byte, key string) ([]byte, error) {
+	if len(key) != e.level/8 {
+		return nil, fmt.Errorf("key length must be %d bytes", e.level/8)
+	}
+
 	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return nil, err
@@ -33,6 +37,10 @@ func (e *encryptionAESGCM) Encrypt(src []byte, key string) ([]byte, error) {
 }
 
 func (e *encryptionAESGCM) Decrypt(src []byte, key string) ([]byte, error) {
+	if len(key) != e.level/8 {
+		return nil, fmt.Errorf("key length must be %d bytes", e.level/8)
+	}
+
 	block, err := aes.NewCipher([]byte(key))
 	if err != nil {
 		return nil, err
