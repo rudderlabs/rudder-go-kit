@@ -46,7 +46,7 @@ func TestServer(t *testing.T) {
 
 func TestUnStartedServer(t *testing.T) {
 	// create a server which is not started
-	httpUnStartedServer := kithttptest.NewUnStartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	httpUnStartedServer := kithttptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("Hello, world!"))
 	}))
 
