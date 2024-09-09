@@ -66,12 +66,12 @@ func Test_SerializeSettings(t *testing.T) {
 		level  EncryptionLevel
 		expect string
 	}{
-		{EncryptionAlgoAESCFB, EncryptionLevelAES128, "cfb:aes-128"},
-		{EncryptionAlgoAESCFB, EncryptionLevelAES192, "cfb:aes-192"},
-		{EncryptionAlgoAESCFB, EncryptionLevelAES256, "cfb:aes-256"},
-		{EncryptionAlgoAESGCM, EncryptionLevelAES128, "gcm:aes-128"},
-		{EncryptionAlgoAESGCM, EncryptionLevelAES192, "gcm:aes-192"},
-		{EncryptionAlgoAESGCM, EncryptionLevelAES256, "gcm:aes-256"},
+		{EncryptionAlgoAESCFB, EncryptionLevelAES128, "aes-cfb:128"},
+		{EncryptionAlgoAESCFB, EncryptionLevelAES192, "aes-cfb:192"},
+		{EncryptionAlgoAESCFB, EncryptionLevelAES256, "aes-cfb:256"},
+		{EncryptionAlgoAESGCM, EncryptionLevelAES128, "aes-gcm:128"},
+		{EncryptionAlgoAESGCM, EncryptionLevelAES192, "aes-gcm:192"},
+		{EncryptionAlgoAESGCM, EncryptionLevelAES256, "aes-gcm:256"},
 	}
 
 	for _, tt := range tests {
@@ -89,12 +89,12 @@ func Test_DeserializeSettings(t *testing.T) {
 		level  EncryptionLevel
 		hasErr bool
 	}{
-		{"cfb:aes-128", EncryptionAlgoAESCFB, EncryptionLevelAES128, false},
-		{"cfb:aes-192", EncryptionAlgoAESCFB, EncryptionLevelAES192, false},
-		{"cfb:aes-256", EncryptionAlgoAESCFB, EncryptionLevelAES256, false},
-		{"gcm:aes-128", EncryptionAlgoAESGCM, EncryptionLevelAES128, false},
-		{"gcm:aes-192", EncryptionAlgoAESGCM, EncryptionLevelAES192, false},
-		{"gcm:aes-256", EncryptionAlgoAESGCM, EncryptionLevelAES256, false},
+		{"aes-cfb:128", EncryptionAlgoAESCFB, EncryptionLevelAES128, false},
+		{"aes-cfb:192", EncryptionAlgoAESCFB, EncryptionLevelAES192, false},
+		{"aes-cfb:256", EncryptionAlgoAESCFB, EncryptionLevelAES256, false},
+		{"aes-gcm:128", EncryptionAlgoAESGCM, EncryptionLevelAES128, false},
+		{"aes-gcm:192", EncryptionAlgoAESGCM, EncryptionLevelAES192, false},
+		{"aes-gcm:256", EncryptionAlgoAESGCM, EncryptionLevelAES256, false},
 		{"invalid:settings", 0, 0, true},
 	}
 
