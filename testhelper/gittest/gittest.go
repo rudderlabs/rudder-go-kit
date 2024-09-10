@@ -116,17 +116,11 @@ func (s *Server) GetServerCA() []byte {
 }
 
 func (s *Server) GetLatestCommitHash(t testing.TB, branch string) string {
-	changeDefaultBranchCmd := exec.Command("git", "-C", s.rootPath, "symbolic-ref", "HEAD", fmt.Sprintf("refs/heads/%s", branch))
-	require.NoError(t, changeDefaultBranchCmd.Run(), "should be able to change the default branch")
-	commitHashCmd := exec.Command("git", "-C", s.rootPath, "rev-parse", "HEAD")
-	commitHash, err := commitHashCmd.Output()
-	require.NoError(t, err, "should be able to get the latest commit hash")
-
-	// reset the default branch
-	resetDefaultBranchCmd := exec.Command("git", "-C", s.rootPath, "symbolic-ref", "HEAD", fmt.Sprintf("refs/heads/%s", s.DefaultBranch))
-	require.NoError(t, resetDefaultBranchCmd.Run(), "should be able to reset the default branch")
-
-	return strings.TrimSpace(string(commitHash))
+	cmd := exec.Command("git", "ls-remote", s.URL, fmt.Sprintf("refs/heads/%s", branch))
+	out, err := cmd.Output()
+	require.NoError(t, err, "should be able to run the ls-remote command")
+	commitHash := strings.Split(string(out), "\t")[0]
+	return commitHash
 }
 
 func getServerCA(server *httptest.Server) []byte {
