@@ -21,11 +21,8 @@ import (
 
 type Server struct {
 	*httptest.Server
-	URL           string
-	DefaultBranch string
+	URL string
 }
-
-const defaultBranch = "main"
 
 // NewHttpServer creates a new httptest.Server that serves a git repository from the given sourcePath.
 func NewHttpServer(t testing.TB, sourcePath string) *Server {
@@ -63,7 +60,7 @@ func newServer(t testing.TB, sourcePath string, secure bool) *Server {
 	require.NoError(t, err, "should be able to find git in PATH")
 	out, err = execCmd("git", "init", workingDir)
 	require.NoErrorf(t, err, "should be able to initialize git repository: %s", out)
-	out, err = execCmd("git", "-C", workingDir, "branch", "-m", defaultBranch)
+	out, err = execCmd("git", "-C", workingDir, "branch", "-m", "main")
 	require.NoErrorf(t, err, "should be able to rename the default branch to main: %s", out)
 	out, err = execCmd("git", "-C", workingDir, "add", ".")
 	require.NoErrorf(t, err, "should be able to add files to git repository: %s", out)
@@ -102,10 +99,8 @@ func newServer(t testing.TB, sourcePath string, secure bool) *Server {
 	serverURL.Host = net.JoinHostPort(getLocalIP(t), port)
 	url := serverURL.String() + "/" + org + "/" + repo
 	return &Server{
-		Server:        s,
-		URL:           url,
-		rootPath:      gitRoot,
-		DefaultBranch: defaultBranch,
+		Server: s,
+		URL:    url,
 	}
 }
 
