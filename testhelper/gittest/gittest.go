@@ -22,7 +22,6 @@ import (
 type Server struct {
 	*httptest.Server
 	URL           string
-	rootPath      string
 	DefaultBranch string
 }
 
