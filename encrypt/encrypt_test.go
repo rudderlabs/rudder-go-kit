@@ -57,6 +57,57 @@ func Test_EncryptDecrypt(t *testing.T) {
 				t.Errorf("Decrypted data = %v, want %v", decrypted, plaintext)
 			}
 		})
+		t.Run("integrity check", func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.algo.String()+"_"+tt.level.String(), func(t *testing.T) {
+					encrypter, err := New(tt.algo, tt.level)
+					require.NoError(t, err)
+
+					key, err := generateRandomString(int(tt.level / 8))
+					require.NoError(t, err)
+
+					plaintext := loremIpsumDolor
+					_, err = encrypter.Encrypt(plaintext, key[:len(key)-1])
+					require.Error(t, err)
+
+					ciphertext, err := encrypter.Encrypt(plaintext, key)
+					require.NoError(t, err)
+
+					t.Log("to test integrity check properties manipulate the ciphertext")
+					ciphertext[0] = ciphertext[0] + 1
+					decrypted, err := encrypter.Decrypt(ciphertext, key)
+
+					require.Error(t, err, "decryption should fail, instead got %q", decrypted)
+					require.Empty(t, decrypted)
+				})
+			}
+		})
+		t.Run("invalid key decryption", func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.algo.String()+"_"+tt.level.String(), func(t *testing.T) {
+					encrypter, err := New(tt.algo, tt.level)
+					require.NoError(t, err)
+
+					key, err := generateRandomString(int(tt.level / 8))
+					require.NoError(t, err)
+
+					plaintext := loremIpsumDolor
+					_, err = encrypter.Encrypt(plaintext, key[:len(key)-1])
+					require.Error(t, err)
+
+					ciphertext, err := encrypter.Encrypt(plaintext, key)
+					require.NoError(t, err)
+
+					anotherKey, err := generateRandomString(int(tt.level / 8))
+					require.NoError(t, err)
+
+					t.Log("use a different key to decrypt the ciphertext")
+					decrypted, err := encrypter.Decrypt(ciphertext, anotherKey)
+					require.Error(t, err, "decryption should fail, instead got %q", decrypted)
+					require.Empty(t, decrypted)
+				})
+			}
+		})
 	}
 }
 
