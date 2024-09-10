@@ -21,7 +21,8 @@ import (
 
 type Server struct {
 	*httptest.Server
-	URL string
+	URL      string
+	rootPath string
 }
 
 // NewHttpServer creates a new httptest.Server that serves a git repository from the given sourcePath.
@@ -99,14 +100,22 @@ func newServer(t testing.TB, sourcePath string, secure bool) *Server {
 	serverURL.Host = net.JoinHostPort(getLocalIP(t), port)
 	url := serverURL.String() + "/" + org + "/" + repo
 	return &Server{
-		Server: s,
-		URL:    url,
+		Server:   s,
+		URL:      url,
+		rootPath: gitRoot,
 	}
 }
 
 // getServerCA returns a byte slice containing the PEM encoding of the server's CA certificate
 func (s *Server) GetServerCA() []byte {
 	return getServerCA(s.Server)
+}
+
+func (s *Server) GetLatestCommitHash(t testing.TB) string {
+	commitHashCmd := exec.Command("git", "-C", s.rootPath, "rev-parse", "HEAD")
+	commitHash, err := commitHashCmd.Output()
+	require.NoError(t, err, "should be able to get the latest commit hash")
+	return strings.TrimSpace(string(commitHash))
 }
 
 func getServerCA(server *httptest.Server) []byte {
