@@ -111,10 +111,22 @@ func (s *Server) GetServerCA() []byte {
 	return getServerCA(s.Server)
 }
 
-func (s *Server) GetLatestCommitHash(t testing.TB) string {
+func (s *Server) GetLatestCommitHash(t testing.TB, branch string) string {
+	// get current default branch
+	getDefaultBranchCmd := exec.Command("git", "-C", s.rootPath, "symbolic-ref", "HEAD")
+	defaultBranch, err := getDefaultBranchCmd.Output()
+	require.NoError(t, err, "should be able to get the default branch")
+
+	changeDefaultBranchCmd := exec.Command("git", "-C", s.rootPath, "symbolic-ref", "HEAD", fmt.Sprintf("refs/heads/%s", branch))
+	require.NoError(t, changeDefaultBranchCmd.Run(), "should be able to change the default branch")
 	commitHashCmd := exec.Command("git", "-C", s.rootPath, "rev-parse", "HEAD")
 	commitHash, err := commitHashCmd.Output()
 	require.NoError(t, err, "should be able to get the latest commit hash")
+
+	// reset the default branch
+	resetDefaultBranchCmd := exec.Command("git", "-C", s.rootPath, "symbolic-ref", "HEAD", strings.TrimSpace(string(defaultBranch)))
+	require.NoError(t, resetDefaultBranchCmd.Run(), "should be able to reset the default branch")
+
 	return strings.TrimSpace(string(commitHash))
 }
 
