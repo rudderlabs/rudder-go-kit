@@ -74,6 +74,13 @@ func TestGitServer(t *testing.T) {
 		url := s.URL
 		require.NoError(t, exec.Command("git", "-c", "http.sslVerify=false", "clone", url, tempDir).Run(), "should be able to clone the repository")
 		require.FileExists(t, tempDir+"/README.md", "README.md should exist in the cloned repository")
+
+		out, err := execCmd("git", "-C", tempDir, "rev-parse", "HEAD")
+		require.NoError(t, err, "should be able to get the HEAD commit")
+		require.NotEmpty(t, out, "HEAD commit should not be empty")
+
+		latestCommit := s.GetLatestCommitHash(t, "main")
+		require.Equal(t, strings.TrimSpace(out), latestCommit, "HEAD commit should match the latest commit")
 	})
 }
 
