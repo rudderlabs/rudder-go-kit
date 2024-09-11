@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.42.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.41.1...v0.42.0) (2024-09-11)
+
+
+### Features
+
+* add encryption support ([#627](https://github.com/rudderlabs/rudder-go-kit/issues/627)) ([e26c3e4](https://github.com/rudderlabs/rudder-go-kit/commit/e26c3e4f67419e8d245e59ab3360f0e35002eb16))
+
+
+### Miscellaneous
+
+* **deps:** bump the all group across 1 directory with 17 updates ([#640](https://github.com/rudderlabs/rudder-go-kit/issues/640)) ([2d220c1](https://github.com/rudderlabs/rudder-go-kit/commit/2d220c1e4fadbff702f5e0b1504863e5ba9bd680))
+
 ## [0.41.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.41.0...v0.41.1) (2024-09-10)
 
 
