@@ -113,9 +113,6 @@ func Test_SerializeSettings(t *testing.T) {
 		level  EncryptionLevel
 		expect string
 	}{
-		{EncryptionAlgoAESCFB, EncryptionLevelAES128, "aes-cfb:128"},
-		{EncryptionAlgoAESCFB, EncryptionLevelAES192, "aes-cfb:192"},
-		{EncryptionAlgoAESCFB, EncryptionLevelAES256, "aes-cfb:256"},
 		{EncryptionAlgoAESGCM, EncryptionLevelAES128, "aes-gcm:128"},
 		{EncryptionAlgoAESGCM, EncryptionLevelAES192, "aes-gcm:192"},
 		{EncryptionAlgoAESGCM, EncryptionLevelAES256, "aes-gcm:256"},
@@ -136,9 +133,6 @@ func Test_DeserializeSettings(t *testing.T) {
 		level  EncryptionLevel
 		hasErr bool
 	}{
-		{"aes-cfb:128", EncryptionAlgoAESCFB, EncryptionLevelAES128, false},
-		{"aes-cfb:192", EncryptionAlgoAESCFB, EncryptionLevelAES192, false},
-		{"aes-cfb:256", EncryptionAlgoAESCFB, EncryptionLevelAES256, false},
 		{"aes-gcm:128", EncryptionAlgoAESGCM, EncryptionLevelAES128, false},
 		{"aes-gcm:192", EncryptionAlgoAESGCM, EncryptionLevelAES192, false},
 		{"aes-gcm:256", EncryptionAlgoAESGCM, EncryptionLevelAES256, false},

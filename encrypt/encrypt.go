@@ -10,8 +10,6 @@ type EncryptionAlgorithm int
 
 func (e EncryptionAlgorithm) String() string {
 	switch e {
-	case EncryptionAlgoAESCFB:
-		return "aes-cfb"
 	case EncryptionAlgoAESGCM:
 		return "aes-gcm"
 	default:
@@ -33,17 +31,6 @@ func (e EncryptionLevel) String() string {
 
 func NewSettings(algo, level string) (EncryptionAlgorithm, EncryptionLevel, error) {
 	switch algo {
-	case "aes-cfb":
-		switch level {
-		case "128":
-			return EncryptionAlgoAESCFB, EncryptionLevelAES128, nil
-		case "192":
-			return EncryptionAlgoAESCFB, EncryptionLevelAES192, nil
-		case "256":
-			return EncryptionAlgoAESCFB, EncryptionLevelAES256, nil
-		default:
-			return 0, 0, fmt.Errorf("unknown encryption level for %s: %s", algo, level)
-		}
 	case "aes-gcm":
 		switch level {
 		case "128":
@@ -61,8 +48,7 @@ func NewSettings(algo, level string) (EncryptionAlgorithm, EncryptionLevel, erro
 }
 
 var (
-	EncryptionAlgoAESCFB  = EncryptionAlgorithm(1)
-	EncryptionAlgoAESGCM  = EncryptionAlgorithm(2)
+	EncryptionAlgoAESGCM  = EncryptionAlgorithm(1)
 	EncryptionLevelAES128 = EncryptionLevel(128)
 	EncryptionLevelAES192 = EncryptionLevel(192)
 	EncryptionLevelAES256 = EncryptionLevel(256)
