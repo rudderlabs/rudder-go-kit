@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.41.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.41.0...v0.41.1) (2024-09-10)
+
+
+### Bug Fixes
+
+* gittest server `tls: unknown certificate authority` ([#638](https://github.com/rudderlabs/rudder-go-kit/issues/638)) ([bea4330](https://github.com/rudderlabs/rudder-go-kit/commit/bea4330070559ef53d6b41826465c4f7f95141b2))
+
+## [0.41.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.40.0...v0.41.0) (2024-09-10)
+
+
+### Features
+
+* method for fetching latest commit from gittest server ([#636](https://github.com/rudderlabs/rudder-go-kit/issues/636)) ([7d4f518](https://github.com/rudderlabs/rudder-go-kit/commit/7d4f518e7883d9ceb7b32c10e2d8b85d7c71137a))
+
 ## [0.40.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.39.2...v0.40.0) (2024-09-06)
 
 

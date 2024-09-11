@@ -109,6 +109,14 @@ func (s *Server) GetServerCA() []byte {
 	return getServerCA(s.Server)
 }
 
+func (s *Server) GetLatestCommitHash(t testing.TB, branch string) string {
+	cmd := exec.Command("git", "-c", "http.sslVerify=false", "ls-remote", s.URL, fmt.Sprintf("refs/heads/%s", branch))
+	out, err := cmd.Output()
+	require.NoError(t, err, "should be able to run the ls-remote command")
+	commitHash := strings.Split(string(out), "\t")[0]
+	return commitHash
+}
+
 func getServerCA(server *httptest.Server) []byte {
 	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.TLS.Certificates[0].Certificate[0]})
 }
