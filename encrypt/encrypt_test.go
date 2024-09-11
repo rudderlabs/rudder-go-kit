@@ -126,6 +126,51 @@ func Test_SerializeSettings(t *testing.T) {
 	}
 }
 
+func TestEncryptionAESGCM_Encrypt(t *testing.T) {
+	tests := []struct {
+		level  EncryptionLevel
+		keyLen int
+	}{
+		{EncryptionLevelAES128, 16},
+		{EncryptionLevelAES192, 24},
+		{EncryptionLevelAES256, 32},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.level.String(), func(t *testing.T) {
+			enc := &encryptionAESGCM{level: int(tt.level)}
+			key, err := generateRandomString(tt.keyLen)
+			require.NoError(t, err)
+
+			plaintext := loremIpsumDolor
+			ciphertext1, err := enc.Encrypt(plaintext, key)
+			require.NoError(t, err)
+
+			decrypted1, err := enc.Decrypt(ciphertext1, key)
+			require.NoError(t, err)
+
+			if !bytes.Equal(decrypted1, plaintext) {
+				t.Errorf("Decrypted data = %v, want %v", decrypted1, plaintext)
+			}
+
+			// encrypt same cipher text with same key should produce different cipher text
+			ciphertext2, err := enc.Encrypt(plaintext, key)
+			require.NoError(t, err)
+
+			decrypted2, err := enc.Decrypt(ciphertext2, key)
+			require.NoError(t, err)
+
+			if !bytes.Equal(decrypted2, plaintext) {
+				t.Errorf("Decrypted data = %v, want %v", decrypted2, plaintext)
+			}
+
+			if bytes.Equal(ciphertext2, ciphertext1) {
+				t.Errorf("cipher text should be different everytime = %v, want %v", ciphertext1, ciphertext2)
+			}
+		})
+	}
+}
+
 func Test_DeserializeSettings(t *testing.T) {
 	tests := []struct {
 		input  string
