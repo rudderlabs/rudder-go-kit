@@ -26,10 +26,6 @@ func Test_EncryptDecrypt(t *testing.T) {
 		algo  EncryptionAlgorithm
 		level EncryptionLevel
 	}{
-		{EncryptionAlgoAESCFB, EncryptionLevelAES128},
-		{EncryptionAlgoAESCFB, EncryptionLevelAES192},
-		{EncryptionAlgoAESCFB, EncryptionLevelAES256},
-
 		{EncryptionAlgoAESGCM, EncryptionLevelAES128},
 		{EncryptionAlgoAESGCM, EncryptionLevelAES192},
 		{EncryptionAlgoAESGCM, EncryptionLevelAES256},

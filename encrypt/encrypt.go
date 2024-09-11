@@ -76,8 +76,6 @@ func New(algo EncryptionAlgorithm, level EncryptionLevel) (*Encryptor, error) {
 	}
 
 	switch algo {
-	case EncryptionAlgoAESCFB:
-		return &Encryptor{encryptionAESCFB: &encryptionAESCFB{level: int(level)}}, nil
 	case EncryptionAlgoAESGCM:
 		return &Encryptor{encryptionAESGCM: &encryptionAESGCM{level: int(level)}}, nil
 	default:
@@ -86,14 +84,10 @@ func New(algo EncryptionAlgorithm, level EncryptionLevel) (*Encryptor, error) {
 }
 
 type Encryptor struct {
-	*encryptionAESCFB
 	*encryptionAESGCM
 }
 
 func (e *Encryptor) Encrypt(src []byte, key string) ([]byte, error) {
-	if e.encryptionAESCFB != nil {
-		return e.encryptionAESCFB.Encrypt(src, key)
-	}
 	if e.encryptionAESGCM != nil {
 		return e.encryptionAESGCM.Encrypt(src, key)
 	}
@@ -101,9 +95,6 @@ func (e *Encryptor) Encrypt(src []byte, key string) ([]byte, error) {
 }
 
 func (e *Encryptor) Decrypt(src []byte, key string) ([]byte, error) {
-	if e.encryptionAESCFB != nil {
-		return e.encryptionAESCFB.Decrypt(src, key)
-	}
 	if e.encryptionAESGCM != nil {
 		return e.encryptionAESGCM.Decrypt(src, key)
 	}
