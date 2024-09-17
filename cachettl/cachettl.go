@@ -10,10 +10,11 @@ import (
 // the tail node (end) is the node with the highest expiration time
 // Cleanups are done on Get() calls so if Get() is never invoked then Nodes stay in-memory.
 type Cache[K comparable, V any] struct {
-	root      *node[K, V]
-	mu        sync.Mutex
-	m         map[K]*node[K, V]
-	now       func() time.Time
+	root *node[K, V]
+	mu   sync.Mutex
+	m    map[K]*node[K, V]
+
+	config    cacheConfig
 	onEvicted func(key K, value V)
 }
 
@@ -32,16 +33,23 @@ func (n *node[K, V]) remove() {
 }
 
 // New returns a new Cache.
-func New[K comparable, V any]() *Cache[K, V] {
-	return &Cache[K, V]{
-		now:  time.Now,
+func New[K comparable, V any](opts ...Opt) *Cache[K, V] {
+	c := &Cache[K, V]{
+		config: cacheConfig{
+			now:        time.Now,
+			refreshTTL: true,
+		},
 		root: &node[K, V]{},
 		m:    make(map[K]*node[K, V]),
 	}
+	for _, opt := range opts {
+		opt(&c.config)
+	}
+	return c
 }
 
 // Get returns the value associated with the key or nil otherwise.
-// Additionally, Get() will refresh the TTL and cleanup expired nodes.
+// Additionally, Get() will refresh the TTL by default and cleanup expired nodes.
 func (c *Cache[K, V]) Get(key K) (zero V) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -49,7 +57,7 @@ func (c *Cache[K, V]) Get(key K) (zero V) {
 	defer func() { // remove expired nodes
 		cn := c.root.next // start from head since we're sorting by expiration with the highest expiration at the tail
 		for cn != nil && cn != c.root {
-			if c.now().After(cn.expiration) {
+			if c.config.now().After(cn.expiration) {
 				cn.remove()             // removes a node from the linked list (leaves the map untouched)
 				delete(c.m, cn.key)     // remove node from map too
 				if c.onEvicted != nil { // call the OnEvicted callback if it's set
@@ -62,10 +70,12 @@ func (c *Cache[K, V]) Get(key K) (zero V) {
 		}
 	}()
 
-	if n, ok := c.m[key]; ok && n.expiration.After(c.now()) {
-		n.remove()
-		n.expiration = c.now().Add(n.ttl) // refresh TTL
-		c.add(n)
+	if n, ok := c.m[key]; ok && n.expiration.After(c.config.now()) {
+		if c.config.refreshTTL {
+			n.remove()
+			n.expiration = c.config.now().Add(n.ttl) // refresh TTL
+			c.add(n)
+		}
 		return n.value
 	}
 	return zero
@@ -77,7 +87,7 @@ func (c *Cache[K, V]) Put(key K, value V, ttl time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	now := c.now()
+	now := c.config.now()
 
 	n, ok := c.m[key]
 	if !ok {

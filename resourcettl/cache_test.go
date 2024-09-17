@@ -17,7 +17,7 @@ func TestCache(t *testing.T) {
 	t.Run("checkout, checkin, then expire", func(t *testing.T) {
 		t.Run("using cleanup", func(t *testing.T) {
 			producer := &MockProducer{}
-			c := resourcettl.NewCache[string, *cleanuper](ttl)
+			c := resourcettl.NewCache[string, *cleanuper](ttl, true)
 
 			r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 			require.NoError(t, err1, "it should be able to create a new resource")
@@ -46,7 +46,7 @@ func TestCache(t *testing.T) {
 
 		t.Run("using closer", func(t *testing.T) {
 			producer := &MockProducer{}
-			c := resourcettl.NewCache[string, *closer](ttl)
+			c := resourcettl.NewCache[string, *closer](ttl, false)
 
 			r1, checkin1, err1 := c.Checkout(key, producer.NewCloser)
 			require.NoError(t, err1, "it should be able to create a new resource")
@@ -76,7 +76,7 @@ func TestCache(t *testing.T) {
 
 	t.Run("expire while being used", func(t *testing.T) {
 		producer := &MockProducer{}
-		c := resourcettl.NewCache[string, *cleanuper](ttl)
+		c := resourcettl.NewCache[string, *cleanuper](ttl, false)
 
 		r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err1, "it should be able to create a new resource")
@@ -108,7 +108,7 @@ func TestCache(t *testing.T) {
 
 	t.Run("invalidate", func(t *testing.T) {
 		producer := &MockProducer{}
-		c := resourcettl.NewCache[string, *cleanuper](ttl)
+		c := resourcettl.NewCache[string, *cleanuper](ttl, false)
 
 		r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err1, "it should be able to create a new resource")

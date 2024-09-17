@@ -14,6 +14,7 @@ import (
 // NewCache creates a new resource cache.
 //
 //   - ttl - is the time after which the resource is considered expired and cleaned up.
+//   - refreshTTL - if true, the resource's ttl is extended every time it is checked out.
 //
 // A resource's ttl is extended every time it is checked out.
 //
@@ -27,14 +28,18 @@ import (
 //   - Close() error
 //   - Stop()
 //   - Stop() error
-func NewCache[K comparable, R any](ttl time.Duration) *Cache[K, R] {
+func NewCache[K comparable, R any](ttl time.Duration, refreshTTL bool) *Cache[K, R] {
+	var opts []cachettl.Opt
+	if !refreshTTL {
+		opts = append(opts, cachettl.WithNoRefreshTTL)
+	}
 	c := &Cache[K, R]{
 		keyMu:     kitsync.NewPartitionLocker(),
 		resources: make(map[string]R),
 		checkouts: make(map[string]int),
 		expiries:  make(map[string]struct{}),
 		ttl:       ttl,
-		ttlcache:  cachettl.New[K, string](),
+		ttlcache:  cachettl.New[K, string](opts...),
 	}
 	c.ttlcache.OnEvicted(c.onEvicted)
 	return c
