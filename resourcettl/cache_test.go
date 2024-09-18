@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/rudderlabs/rudder-go-kit/cachettl"
 	"github.com/rudderlabs/rudder-go-kit/resourcettl"
 )
 
@@ -17,7 +18,7 @@ func TestCache(t *testing.T) {
 	t.Run("checkout, checkin, then expire", func(t *testing.T) {
 		t.Run("using cleanup", func(t *testing.T) {
 			producer := &MockProducer{}
-			c := resourcettl.NewCache[string, *cleanuper](ttl, true)
+			c := resourcettl.NewCache[string, *cleanuper](ttl)
 
 			r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 			require.NoError(t, err1, "it should be able to create a new resource")
@@ -46,7 +47,7 @@ func TestCache(t *testing.T) {
 
 		t.Run("using closer", func(t *testing.T) {
 			producer := &MockProducer{}
-			c := resourcettl.NewCache[string, *closer](ttl, false)
+			c := resourcettl.NewCache[string, *closer](ttl)
 
 			r1, checkin1, err1 := c.Checkout(key, producer.NewCloser)
 			require.NoError(t, err1, "it should be able to create a new resource")
@@ -76,7 +77,7 @@ func TestCache(t *testing.T) {
 
 	t.Run("expire while being used", func(t *testing.T) {
 		producer := &MockProducer{}
-		c := resourcettl.NewCache[string, *cleanuper](ttl, false)
+		c := resourcettl.NewCache[string, *cleanuper](ttl)
 
 		r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err1, "it should be able to create a new resource")
@@ -108,7 +109,7 @@ func TestCache(t *testing.T) {
 
 	t.Run("invalidate", func(t *testing.T) {
 		producer := &MockProducer{}
-		c := resourcettl.NewCache[string, *cleanuper](ttl, false)
+		c := resourcettl.NewCache[string, *cleanuper](ttl)
 
 		r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
 		require.NoError(t, err1, "it should be able to create a new resource")
@@ -136,6 +137,38 @@ func TestCache(t *testing.T) {
 		checkin2()
 		time.Sleep(time.Millisecond) // wait for async cleanup
 		require.EqualValues(t, 1, r1.cleanups.Load(), "it should cleanup the expired resource")
+		checkin3()
+	})
+
+	t.Run("no ttl refresh", func(t *testing.T) {
+		now := time.Now()
+		ttl = 1 * time.Second
+		producer := &MockProducer{}
+		c := resourcettl.NewCache[string, *cleanuper](ttl, cachettl.WithNoRefreshTTL, cachettl.WithNow(func() time.Time { return now }))
+
+		r1, checkin1, err1 := c.Checkout(key, producer.NewCleanuper)
+		require.NoError(t, err1, "it should be able to create a new resource")
+		require.NotNil(t, r1, "it should return a resource")
+		require.EqualValues(t, 1, producer.instances.Load(), "it should create a new resource")
+
+		now = now.Add(ttl / 2) // wait for some time less than ttl
+		checkin1()
+
+		r2, checkin2, err2 := c.Checkout(key, producer.NewCleanuper)
+		require.NoError(t, err2, "it should be able to checkout the same resource")
+		require.NotNil(t, r2, "it should return a resource")
+		require.EqualValues(t, 1, producer.instances.Load(), "it shouldn't create a new resource")
+		require.Equal(t, r1.id, r2.id, "it should return the same resource")
+
+		now = now.Add(ttl / 2) // wait for some time less than ttl
+		checkin2()
+
+		r3, checkin3, err3 := c.Checkout(key, producer.NewCleanuper)
+		require.NoError(t, err3, "it should be able to create a new resource")
+		require.NotNil(t, r3, "it should return a resource")
+		require.EqualValues(t, 2, producer.instances.Load(), "it should create a new resource since the previous one expired")
+		require.NotEqual(t, r1.id, r3.id, "it should return a different resource")
+		time.Sleep(time.Millisecond)
 		checkin3()
 	})
 }
