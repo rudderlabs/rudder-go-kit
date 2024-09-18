@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.42.0...v0.42.1) (2024-09-18)
+
+
+### Miscellaneous
+
+* cachettl configuration option for not refreshing ttl ([#643](https://github.com/rudderlabs/rudder-go-kit/issues/643)) ([1961d98](https://github.com/rudderlabs/rudder-go-kit/commit/1961d9894a68dded99840c4dd398578be503f2e4))
+
 ## [0.42.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.41.1...v0.42.0) (2024-09-11)
 
 
