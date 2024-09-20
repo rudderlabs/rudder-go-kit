@@ -49,7 +49,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Env: []string{
 			"ALLOW_NONE_AUTHENTICATION=yes",
 		},
-		PortBindings: internal.IPv4PortBindings([]string{"2379"}),
+		PortBindings: internal.IPv4PortBindings([]string{"2379"}, false),
 	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {

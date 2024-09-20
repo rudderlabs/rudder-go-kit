@@ -118,7 +118,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 	transformerContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   conf.repository,
 		Tag:          conf.tag,
-		PortBindings: internal.IPv4PortBindings(conf.exposedPorts),
+		PortBindings: internal.IPv4PortBindings(conf.exposedPorts, false),
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 	}, internal.DefaultHostConfig)

@@ -25,7 +25,8 @@ func WithOptions(options ...string) Opt {
 }
 
 type Config struct {
-	Tag     string
-	Network *docker.Network
-	Options []string
+	Tag                      string
+	Network                  *docker.Network
+	Options                  []string
+	AllowBindToAllInterfaces bool
 }

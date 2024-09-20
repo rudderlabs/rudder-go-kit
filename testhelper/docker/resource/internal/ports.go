@@ -11,8 +11,10 @@ const (
 	BindInternalHost = "host.docker.internal"
 )
 
+type additionalBindingOption func([]docker.PortBinding)
+
 // IPv4PortBindings returns the port bindings for the given exposed ports forcing ipv4 address.
-func IPv4PortBindings(exposedPorts []string) map[docker.Port][]docker.PortBinding {
+func IPv4PortBindings(exposedPorts []string, listenToAllInterfaces bool) map[docker.Port][]docker.PortBinding {
 	portBindings := make(map[docker.Port][]docker.PortBinding)
 
 	bindings := []docker.PortBinding{
@@ -21,6 +23,11 @@ func IPv4PortBindings(exposedPorts []string) map[docker.Port][]docker.PortBindin
 			HostPort: "0",
 		},
 	}
+
+	if listenToAllInterfaces {
+		bindings[0].HostIP = "0.0.0.0"
+	}
+
 	if runtime.GOOS == "linux" {
 		bindings = append(bindings, docker.PortBinding{
 			HostIP:   BindInternalHost,
@@ -37,4 +44,14 @@ func IPv4PortBindings(exposedPorts []string) map[docker.Port][]docker.PortBindin
 
 func DefaultHostConfig(hc *docker.HostConfig) {
 	hc.PublishAllPorts = false
+}
+
+// BindToAllInterfaces returns a function that appends a binding to all interfaces
+func BindToAllInterfaces(port string) func([]docker.PortBinding) {
+	return func(bindings []docker.PortBinding) {
+		bindings = append(bindings, docker.PortBinding{
+			HostIP:   "0.0.0.0",
+			HostPort: port,
+		})
+	}
 }
