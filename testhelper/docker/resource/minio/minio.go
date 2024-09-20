@@ -209,3 +209,7 @@ func (r *Resource) UploadFolder(localPath, prefix string) error {
 		return err
 	})
 }
+
+func AllowBindToAllInterfaces(c *Config) {
+	c.AllowBindToAllInterfaces = true
+}
