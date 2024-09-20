@@ -26,14 +26,19 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		opt(c)
 	}
 
-	container, err := pool.RunWithOptions(&dockertest.RunOptions{
+	runOptions := &dockertest.RunOptions{
 		Repository:   "scylladb/scylla",
 		Tag:          c.tag,
 		Env:          []string{},
 		ExposedPorts: []string{"9042/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"9042"}),
 		Cmd:          []string{"--smp 1"},
-	}, internal.DefaultHostConfig, func(hc *docker.HostConfig) {
+	}
+	if len(c.cmdArgs) > 0 {
+		runOptions.Cmd = append(runOptions.Cmd, c.cmdArgs...)
+	}
+
+	container, err := pool.RunWithOptions(runOptions, internal.DefaultHostConfig, func(hc *docker.HostConfig) {
 		hc.CPUCount = 1
 		hc.Memory = 128 * bytesize.MB
 	})

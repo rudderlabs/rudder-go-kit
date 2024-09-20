@@ -14,7 +14,14 @@ func WithKeyspace(keyspace string) Option {
 	}
 }
 
+func WithCmdArg(arg string) Option {
+	return func(c *config) {
+		c.cmdArgs = append(c.cmdArgs, arg)
+	}
+}
+
 type config struct {
 	tag      string
 	keyspace string
+	cmdArgs  []string
 }
