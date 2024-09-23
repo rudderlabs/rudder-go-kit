@@ -125,6 +125,7 @@ func NewStats(
 				enablePrometheusExporter: config.GetBool("OpenTelemetry.metrics.prometheus.enabled", false),
 				prometheusMetricsPort:    config.GetInt("OpenTelemetry.metrics.prometheus.port", 0),
 			},
+			collectorAggregator: &aggregatedCollector{},
 		}
 	}
 

@@ -52,7 +52,7 @@ type otelStats struct {
 	histogramsMu sync.Mutex
 
 	otelManager              otel.Manager
-	collectorAggregator aggregatedCollector
+	collectorAggregator      *aggregatedCollector
 	runtimeStatsCollector    runtimeStatsCollector
 	metricsStatsCollector    metricStatsCollector
 	stopBackgroundCollection func()
@@ -185,9 +185,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	gaugeTagsFunc := func(key string, tags Tags, val uint64) {
 		s.getMeasurement(key, GaugeType, tags).Gauge(val)
 	}
-	s.collectorAggregator = aggregatedCollector{
-		gaugeFunc: gaugeTagsFunc,
-	}
+	s.collectorAggregator.gaugeFunc = gaugeTagsFunc
 	goFactory.Go(func() {
 		s.collectorAggregator.Run(backgroundCollectionCtx)
 	})
