@@ -82,7 +82,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		}
 	})
 
-	endpoint := fmt.Sprintf("localhost:%s", minioContainer.GetPort("9000/tcp"))
+	endpoint := minioContainer.GetHostPort("9000/tcp")
 
 	// check if minio server is up & running.
 	if err := pool.Retry(func() error {
