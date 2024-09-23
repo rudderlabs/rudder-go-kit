@@ -127,10 +127,8 @@ func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {
 	gaugeTagsFunc := func(key string, tags Tags, val uint64) {
 		s.NewTaggedStat(key, GaugeType, tags).Gauge(val)
 	}
-	s.state.ac = aggregatedCollector{
-		gaugeFunc: gaugeTagsFunc,
-		PauseDur:  time.Duration(s.config.periodicStatsConfig.statsCollectionInterval) * time.Second,
-	}
+	s.state.ac.gaugeFunc = gaugeTagsFunc
+	s.state.ac.PauseDur = time.Duration(s.config.periodicStatsConfig.statsCollectionInterval) * time.Second
 
 	if s.config.periodicStatsConfig.enabled {
 		var wg sync.WaitGroup
@@ -151,7 +149,7 @@ func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {
 	}
 }
 
-func (s *statsdStats) RegisterCollector(c collector) {
+func (s *statsdStats) RegisterCollector(c Collector) {
 	s.state.ac.Add(c)
 }
 
@@ -308,7 +306,7 @@ type statsdState struct {
 	conn   statsd.Option
 	client *statsdClient
 	rc     runtimeStatsCollector
-	ac     aggregatedCollector
+	ac     *aggregatedCollector
 	mc     metricStatsCollector
 
 	clientsLock     sync.RWMutex // protects the following

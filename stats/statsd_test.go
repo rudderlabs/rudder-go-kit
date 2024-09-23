@@ -2,6 +2,7 @@ package stats_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"net"
@@ -13,11 +14,13 @@ import (
 	"testing"
 	"time"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats"
+	"github.com/rudderlabs/rudder-go-kit/stats/collectors"
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
@@ -362,6 +365,112 @@ func TestStatsdPeriodicStats(t *testing.T) {
 		}, []string{
 			"test_measurement_table,instanceName=test,namespace=my-namespace,destType=destType,workspaceId=workspace",
 		})
+	})
+}
+
+func TestStatsdRegisterCollector(t *testing.T) {
+
+	runTest := func(t *testing.T, expected []string, cols ...stats.Collector) {
+		var received []string
+		var receivedMu sync.RWMutex
+		server := newStatsdServer(t, func(s string) {
+			if i := strings.Index(s, ":"); i > 0 {
+				s = s[:i]
+			}
+			receivedMu.Lock()
+			received = append(received, s)
+			receivedMu.Unlock()
+		})
+		defer server.Close()
+
+		c := config.New()
+		m := metric.NewManager()
+		t.Setenv("KUBE_NAMESPACE", "my-namespace")
+		c.Set("STATSD_SERVER_URL", server.addr)
+		c.Set("INSTANCE_ID", "test")
+		c.Set("RuntimeStats.enabled", true)
+		c.Set("RuntimeStats.statsCollectionInterval", 60)
+		c.Set("RuntimeStats.enableCPUStats", false)
+		c.Set("RuntimeStats.enabledMemStats", false)
+		c.Set("RuntimeStats.enableGCStats", false)
+
+		l := logger.NewFactory(c)
+		s := stats.NewStats(c, l, m)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		for _, col := range cols {
+			s.RegisterCollector(col)
+		}
+
+		// start stats
+		require.NoError(t, s.Start(ctx, stats.DefaultGoRoutineFactory))
+		defer s.Stop()
+
+		defer func() {
+			receivedMu.RLock()
+			defer receivedMu.RUnlock()
+
+			t.Logf("%s != %s", received, expected)
+		}()
+
+		require.Eventually(t, func() bool {
+			receivedMu.RLock()
+			defer receivedMu.RUnlock()
+
+			if len(received) != len(expected) {
+				return false
+			}
+			return reflect.DeepEqual(received, expected)
+		}, 10*time.Second, time.Millisecond)
+
+	}
+
+	t.Run("static stats", func(t *testing.T) {
+		runTest(t,
+			[]string{"a_custom_metric,instanceName=test,namespace=my-namespace"},
+			collectors.NewStaticMetric("a_custom_metric", nil, 1),
+		)
+
+		runTest(t,
+			[]string{"a_custom_metric,instanceName=test,namespace=my-namespace,foo=bar"},
+			collectors.NewStaticMetric("a_custom_metric", stats.Tags{"foo": "bar"}, 1),
+		)
+	})
+
+	t.Run("multiple collectors", func(t *testing.T) {
+		runTest(t,
+			[]string{
+				"col_1,instanceName=test,namespace=my-namespace",
+				"col_2,instanceName=test,namespace=my-namespace",
+				"col_3,instanceName=test,namespace=my-namespace",
+			},
+			collectors.NewStaticMetric("col_1", nil, 1),
+			collectors.NewStaticMetric("col_2", nil, 1),
+			collectors.NewStaticMetric("col_3", nil, 1),
+		)
+	})
+
+	t.Run("sql collector", func(t *testing.T) {
+		db, err := sql.Open("sqlite3", ":memory:")
+		require.NoError(t, err)
+
+		runTest(t,
+			[]string{
+				"sql_db_max_open_connections,instanceName=test,namespace=my-namespace,name=test",
+				"sql_db_open_connections,instanceName=test,namespace=my-namespace,name=test",
+				"sql_db_in_use_connections,instanceName=test,namespace=my-namespace,name=test",
+				"sql_db_idle_connections,instanceName=test,namespace=my-namespace,name=test",
+				"sql_db_wait_count_total,instanceName=test,namespace=my-namespace,name=test",
+				"sql_db_wait_duration_seconds_total,instanceName=test,namespace=my-namespace,name=test",
+				"sql_db_max_idle_closed_total,instanceName=test,namespace=my-namespace,name=test",
+				"sql_db_max_idle_time_closed_total,instanceName=test,namespace=my-namespace,name=test",
+				"sql_db_max_lifetime_closed_total,instanceName=test,namespace=my-namespace,name=test",
+			},
+			collectors.NewDatabaseSQLStats("test", db),
+		)
+
 	})
 }
 

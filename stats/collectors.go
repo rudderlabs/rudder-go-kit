@@ -6,21 +6,21 @@ import (
 	"time"
 )
 
-type gaugeTagsFunc func(key string, tags Tags, val uint64)
+type gaugeTagsFunc = func(key string, tags Tags, val uint64)
 
-type collector interface {
+type Collector interface {
 	Collect(gaugeTagsFunc)
 	Zero(gaugeTagsFunc)
 }
 
 type aggregatedCollector struct {
-	c         []collector
+	c         []Collector
 	PauseDur  time.Duration
 	gaugeFunc gaugeTagsFunc
 	mu        sync.Mutex
 }
 
-func (p *aggregatedCollector) Add(c collector) {
+func (p *aggregatedCollector) Add(c Collector) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.c = append(p.c, c)

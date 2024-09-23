@@ -52,6 +52,7 @@ type otelStats struct {
 	histogramsMu sync.Mutex
 
 	otelManager              otel.Manager
+	collectorAggregator aggregatedCollector
 	runtimeStatsCollector    runtimeStatsCollector
 	metricsStatsCollector    metricStatsCollector
 	stopBackgroundCollection func()
@@ -181,6 +182,16 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		s.metricsStatsCollector.run(backgroundCollectionCtx)
 	})
 
+	gaugeTagsFunc := func(key string, tags Tags, val uint64) {
+		s.getMeasurement(key, GaugeType, tags).Gauge(val)
+	}
+	s.collectorAggregator = aggregatedCollector{
+		gaugeFunc: gaugeTagsFunc,
+	}
+	goFactory.Go(func() {
+		s.collectorAggregator.Run(backgroundCollectionCtx)
+	})
+
 	if s.config.periodicStatsConfig.enabled {
 		s.runtimeStatsCollector = newRuntimeStatsCollector(gaugeFunc)
 		s.runtimeStatsCollector.PauseDur = time.Duration(s.config.periodicStatsConfig.statsCollectionInterval) * time.Second
@@ -201,6 +212,10 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	}
 
 	return nil
+}
+
+func (s *otelStats) RegisterCollector(c Collector) {
+	s.collectorAggregator.Add(c)
 }
 
 func (s *otelStats) Stop() {

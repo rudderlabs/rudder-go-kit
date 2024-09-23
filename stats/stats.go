@@ -58,6 +58,10 @@ type Stats interface {
 
 	// Stop stops the service and the collection of periodic stats.
 	Stop()
+
+	// RegisterCollector registers a collector that will collect stats periodically.
+	// You can find
+	RegisterCollector(c Collector)
 }
 
 type loggerFactory interface {
@@ -143,6 +147,7 @@ func NewStats(
 			client:         &statsdClient{},
 			clients:        make(map[string]*statsdClient),
 			pendingClients: make(map[string]*statsdClient),
+			ac:             &aggregatedCollector{},
 		},
 	}
 }
