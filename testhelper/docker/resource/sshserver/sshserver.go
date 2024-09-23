@@ -150,6 +150,23 @@ loop:
 			cln.Log("SSH server is ready:", exposedPort, "=>", container.GetPort(exposedPort+"/tcp"))
 			break loop
 		case <-timeout:
+
+					// Print container logs
+				out := new(bytes.Buffer)
+				err = pool.Client.Logs(dc.LogsOptions{
+					Container:    container.Container.ID,
+					OutputStream: out,
+					ErrorStream:  out,
+					Stdout:       true,
+					Stderr:       true,
+					Follow:       false,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("could not fetch container logs: %w", err)
+				}
+				fmt.Println("Container logs:\n", out.String())
+
+
 			return nil, fmt.Errorf("ssh server not health within timeout")
 		}
 	}
