@@ -25,14 +25,13 @@ func IPv4PortBindings(exposedPorts []string, opts ...IPv4PortBindingsOpt) map[do
 	for _, opt := range opts {
 		opt(c)
 	}
-	bindings := lo.Map(c.ips, func(ip string, _ int) docker.PortBinding {
-		return docker.PortBinding{
-			HostIP:   ip,
-			HostPort: "0",
-		}
-	})
 	for _, exposedPort := range exposedPorts {
-		portBindings[docker.Port(exposedPort)+"/tcp"] = bindings
+		portBindings[docker.Port(exposedPort)+"/tcp"] = lo.Map(c.ips, func(ip string, _ int) docker.PortBinding {
+			return docker.PortBinding{
+				HostIP:   ip,
+				HostPort: exposedPort + "/tcp",
+			}
+		})
 	}
 	return portBindings
 }
