@@ -44,7 +44,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"MYSQL_DATABASE=" + defaultDB,
 		},
 		ExposedPorts: []string{"3306/tcp"},
-		PortBindings: internal.IPv4PortBindings([]string{"3306"}, false),
+		PortBindings: internal.IPv4PortBindings([]string{"3306"}),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
 	}, internal.DefaultHostConfig)

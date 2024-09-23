@@ -201,7 +201,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			NetworkID:    network.ID,
 			Hostname:     "schemaregistry",
 			ExposedPorts: []string{"8081/tcp"},
-			PortBindings: internal.IPv4PortBindings([]string{"8081"}, false),
+			PortBindings: internal.IPv4PortBindings([]string{"8081"}),
 			Env: []string{
 				"SCHEMA_REGISTRY_DEBUG=true",
 				"SCHEMA_REGISTRY_KAFKA_BROKERS=" + bootstrapServers[:len(bootstrapServers)-1],

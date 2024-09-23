@@ -2,6 +2,7 @@ package minio
 
 import (
 	"github.com/ory/dockertest/v3/docker"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
 type Opt func(*Config)
@@ -25,8 +26,8 @@ func WithOptions(options ...string) Opt {
 }
 
 type Config struct {
-	Tag                      string
-	Network                  *docker.Network
-	Options                  []string
-	AllowBindToAllInterfaces bool
+	resource.NetworkBindingConfig
+	Tag     string
+	Network *docker.Network
+	Options []string
 }

@@ -31,7 +31,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Tag:          c.tag,
 		Env:          []string{},
 		ExposedPorts: []string{"9042/tcp"},
-		PortBindings: internal.IPv4PortBindings([]string{"9042"}, false),
+		PortBindings: internal.IPv4PortBindings([]string{"9042"}),
 		Cmd:          []string{"--smp 1"},
 	}, internal.DefaultHostConfig, func(hc *docker.HostConfig) {
 		hc.CPUCount = 1

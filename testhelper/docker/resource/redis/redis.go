@@ -70,7 +70,7 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		Env:          conf.envs,
 		Cmd:          []string{"redis-server"},
 		ExposedPorts: []string{redisPort + "/tcp"},
-		PortBindings: internal.IPv4PortBindings([]string{redisPort}, false),
+		PortBindings: internal.IPv4PortBindings([]string{redisPort}),
 	}
 	if len(conf.cmdArgs) > 0 {
 		runOptions.Cmd = append(runOptions.Cmd, conf.cmdArgs...)

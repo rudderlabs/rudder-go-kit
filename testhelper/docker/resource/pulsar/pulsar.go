@@ -34,7 +34,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Tag:          c.tag,
 		Env:          []string{},
 		ExposedPorts: []string{"6650/tcp", "8080/tcp"},
-		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}, false),
+		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}),
 		Cmd:          []string{"bin/pulsar", "standalone"},
 		NetworkID:    networkID,
 	}, internal.DefaultHostConfig)
