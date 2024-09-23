@@ -95,7 +95,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "lscr.io/linuxserver/openssh-server",
-		Tag:        "9.3_p2-r1-ls145",
+		Tag:        "9.7_p1-r4-ls170",
 		NetworkID:  network.ID,
 		Hostname:   "sshserver",
 		ExposedPorts: []string{
@@ -151,21 +151,21 @@ loop:
 			break loop
 		case <-timeout:
 
-					// Print container logs
-				out := new(bytes.Buffer)
-				err = pool.Client.Logs(dc.LogsOptions{
-					Container:    container.Container.ID,
-					OutputStream: out,
-					ErrorStream:  out,
-					Stdout:       true,
-					Stderr:       true,
-					Follow:       false,
-				})
-				if err != nil {
-					return nil, fmt.Errorf("could not fetch container logs: %w", err)
-				}
-				fmt.Println("Container logs:\n", out.String())
-
+			// Print container logs
+			out := new(bytes.Buffer)
+			err = pool.Client.Logs(dc.LogsOptions{
+				Container:    container.Container.ID,
+				OutputStream: out,
+				ErrorStream:  out,
+				RawTerminal:  false,
+				Stdout:       true,
+				Stderr:       true,
+				Follow:       false,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("could not fetch container logs: %w", err)
+			}
+			fmt.Println("Container logs:\n", out.String())
 
 			return nil, fmt.Errorf("ssh server not health within timeout")
 		}
