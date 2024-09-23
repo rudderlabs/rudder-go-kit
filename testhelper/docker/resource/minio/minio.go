@@ -60,11 +60,6 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		networkID = c.Network.ID
 	}
 
-	portBindings := internal.IPv4PortBindings([]string{"9000"})
-	if c.BindToAllInterfaces {
-		portBindings = internal.CreatePortBindingsForAllInterfaces([]string{"9000"})
-	}
-
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "minio/minio",
 		Tag:        c.Tag,
@@ -76,7 +71,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			fmt.Sprintf("MINIO_SITE_REGION=%s", region),
 			"MINIO_API_SELECT_PARQUET=on",
 		}, c.Options...),
-		PortBindings: portBindings,
+		PortBindings: internal.IPv4PortBindings([]string{"9000"}, internal.WithBindIP(c.BindIP)),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("could not start resource: %s", err)

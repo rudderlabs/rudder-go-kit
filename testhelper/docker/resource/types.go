@@ -19,7 +19,3 @@ type NOPLogger struct{}
 
 // Log for the NOP Logger does nothing.
 func (*NOPLogger) Log(...interface{}) {}
-
-type NetworkBindingConfig struct {
-	BindToAllInterfaces bool
-}
