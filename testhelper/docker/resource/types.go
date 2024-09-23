@@ -24,6 +24,6 @@ type NetworkBindingConfig struct {
 	BindToAllInterfaces bool
 }
 
-func (n *NetworkBindingConfig) BindToAll() {
+func BindToAll(n *NetworkBindingConfig) {
 	n.BindToAllInterfaces = true
 }
