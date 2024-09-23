@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.42.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.42.1...v0.42.2) (2024-09-23)
+
+
+### Miscellaneous
+
+* allow overriding the bind ip address in docker containers ([#647](https://github.com/rudderlabs/rudder-go-kit/issues/647)) ([6bb5880](https://github.com/rudderlabs/rudder-go-kit/commit/6bb58808d23ced907874e9cc436dcb4822f9968f))
+
 ## [0.42.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.42.0...v0.42.1) (2024-09-18)
 
 
