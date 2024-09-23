@@ -2,6 +2,7 @@ package minio
 
 import (
 	"github.com/ory/dockertest/v3/docker"
+
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
