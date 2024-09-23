@@ -24,6 +24,8 @@ type NetworkBindingConfig struct {
 	BindToAllInterfaces bool
 }
 
-func BindToAll(n *NetworkBindingConfig) {
-	n.BindToAllInterfaces = true
+func BindToAll() func(*NetworkBindingConfig) {
+	return func(n *NetworkBindingConfig) {
+		n.BindToAllInterfaces = true
+	}
 }
