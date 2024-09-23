@@ -23,9 +23,3 @@ func (*NOPLogger) Log(...interface{}) {}
 type NetworkBindingConfig struct {
 	BindToAllInterfaces bool
 }
-
-func BindToAll() func(*NetworkBindingConfig) {
-	return func(n *NetworkBindingConfig) {
-		n.BindToAllInterfaces = true
-	}
-}

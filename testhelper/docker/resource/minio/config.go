@@ -25,6 +25,12 @@ func WithOptions(options ...string) Opt {
 	}
 }
 
+func WithNetworkBindingConfig(cfg resource.NetworkBindingConfig) Opt {
+	return func(c *Config) {
+		c.NetworkBindingConfig = cfg
+	}
+}
+
 type Config struct {
 	resource.NetworkBindingConfig
 	Tag     string
