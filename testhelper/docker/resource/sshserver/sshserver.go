@@ -120,7 +120,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 
 	var (
 		buf     *bytes.Buffer
-		timeout = time.After(30 * time.Second)
+		timeout = time.After(60 * time.Second)
 		ticker  = time.NewTicker(200 * time.Millisecond)
 	)
 loop:
