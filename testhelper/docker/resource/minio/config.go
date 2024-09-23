@@ -24,8 +24,15 @@ func WithOptions(options ...string) Opt {
 	}
 }
 
+func WithBindIP(ip string) Opt {
+	return func(c *Config) {
+		c.BindIP = ip
+	}
+}
+
 type Config struct {
 	Tag     string
 	Network *docker.Network
 	Options []string
+	BindIP  string
 }
