@@ -12,6 +12,9 @@ import (
 	"time"
 
 	promClient "github.com/prometheus/client_model/go"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -20,8 +23,6 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
 	statsTest "github.com/rudderlabs/rudder-go-kit/stats/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
-	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel"
 )
 
 func ptr[T any](v T) *T {
@@ -191,7 +192,5 @@ func TestOTelPeriodicStats(t *testing.T) {
 			},
 			collectors.NewDatabaseSQLStats("test", db),
 		)
-
 	})
-
 }

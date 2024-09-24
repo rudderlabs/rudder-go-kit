@@ -55,7 +55,6 @@ func (s *sqlDBStats) Zero(gaugeFunc func(key string, tag stats.Tags, val uint64)
 	gaugeFunc("sql_db_max_idle_closed_total", tags, 0)
 	gaugeFunc("sql_db_max_idle_time_closed_total", tags, 0)
 	gaugeFunc("sql_db_max_lifetime_closed_total", tags, 0)
-
 }
 
 func (s *sqlDBStats) ID() string {

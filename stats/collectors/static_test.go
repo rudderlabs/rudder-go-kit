@@ -3,10 +3,11 @@ package collectors_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/collectors"
 	"github.com/rudderlabs/rudder-go-kit/stats/memstats"
-	"github.com/stretchr/testify/require"
 )
 
 func TestStatic(t *testing.T) {

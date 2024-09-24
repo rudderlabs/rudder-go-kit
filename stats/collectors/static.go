@@ -28,7 +28,6 @@ func NewStaticMetric(key string, tags stats.Tags, value uint64) *staticStats {
 
 func (s *staticStats) Collect(gaugeFunc func(key string, tag stats.Tags, val uint64)) {
 	gaugeFunc(s.key, s.tags, s.value)
-
 }
 
 func (s *staticStats) Zero(gaugeFunc func(key string, tag stats.Tags, val uint64)) {

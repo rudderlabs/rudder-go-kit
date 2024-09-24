@@ -97,6 +97,20 @@ func (mr *MockStatsMockRecorder) NewTracer(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTracer", reflect.TypeOf((*MockStats)(nil).NewTracer), arg0)
 }
 
+// RegisterCollector mocks base method.
+func (m *MockStats) RegisterCollector(arg0 stats.Collector) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisterCollector", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RegisterCollector indicates an expected call of RegisterCollector.
+func (mr *MockStatsMockRecorder) RegisterCollector(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCollector", reflect.TypeOf((*MockStats)(nil).RegisterCollector), arg0)
+}
+
 // Start mocks base method.
 func (m *MockStats) Start(arg0 context.Context, arg1 stats.GoRoutineFactory) error {
 	m.ctrl.T.Helper()

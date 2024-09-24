@@ -6,10 +6,11 @@ import (
 
 	_ "github.com/mattn/go-sqlite3" // Import the SQLite driver
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/collectors"
 	"github.com/rudderlabs/rudder-go-kit/stats/memstats"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSQLDatabase(t *testing.T) {
@@ -22,7 +23,8 @@ func TestSQLDatabase(t *testing.T) {
 	testName := "test_sqlite"
 	s := collectors.NewDatabaseSQLStats(testName, db)
 
-	m.RegisterCollector(s)
+	err = m.RegisterCollector(s)
+	require.NoError(t, err)
 
 	require.Equal(t, []memstats.Metric{
 		{
@@ -71,5 +73,4 @@ func TestSQLDatabase(t *testing.T) {
 			Value: 0,
 		},
 	}, m.GetAll())
-
 }

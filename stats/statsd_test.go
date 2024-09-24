@@ -369,7 +369,6 @@ func TestStatsdPeriodicStats(t *testing.T) {
 }
 
 func TestStatsdRegisterCollector(t *testing.T) {
-
 	runTest := func(t *testing.T, expected []string, cols ...stats.Collector) {
 		var received []string
 		var receivedMu sync.RWMutex
@@ -425,7 +424,6 @@ func TestStatsdRegisterCollector(t *testing.T) {
 			}
 			return reflect.DeepEqual(received, expected)
 		}, 10*time.Second, time.Millisecond)
-
 	}
 
 	t.Run("static stats", func(t *testing.T) {
@@ -471,7 +469,6 @@ func TestStatsdRegisterCollector(t *testing.T) {
 			},
 			collectors.NewDatabaseSQLStats("test", db),
 		)
-
 	})
 }
 
