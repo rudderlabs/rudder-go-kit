@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -11,19 +12,30 @@ type gaugeTagsFunc = func(key string, tags Tags, val uint64)
 type Collector interface {
 	Collect(gaugeTagsFunc)
 	Zero(gaugeTagsFunc)
+	ID() string
 }
 
 type aggregatedCollector struct {
-	c         []Collector
+	c         map[string]Collector
 	PauseDur  time.Duration
 	gaugeFunc gaugeTagsFunc
 	mu        sync.Mutex
 }
 
-func (p *aggregatedCollector) Add(c Collector) {
+func (p *aggregatedCollector) Add(c Collector) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.c = append(p.c, c)
+
+	if p.c == nil {
+		p.c = make(map[string]Collector)
+	}
+
+	if _, ok := p.c[c.ID()]; ok {
+		return fmt.Errorf("collector with ID %s already register", c.ID())
+	}
+
+	p.c[c.ID()] = c
+	return nil
 }
 
 func (p *aggregatedCollector) Run(ctx context.Context) {

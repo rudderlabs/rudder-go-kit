@@ -2,8 +2,13 @@ package collectors
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
+)
+
+const (
+	uniqName = "database_sql_%s"
 )
 
 type sqlDBStats struct {
@@ -51,4 +56,8 @@ func (s *sqlDBStats) Zero(gaugeFunc func(key string, tag stats.Tags, val uint64)
 	gaugeFunc("sql_db_max_idle_time_closed_total", tags, 0)
 	gaugeFunc("sql_db_max_lifetime_closed_total", tags, 0)
 
+}
+
+func (s *sqlDBStats) ID() string {
+	return fmt.Sprintf(uniqName, s.name)
 }

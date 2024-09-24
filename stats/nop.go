@@ -40,4 +40,4 @@ func (*nop) NewTracer(_ string) Tracer {
 func (*nop) Start(_ context.Context, _ GoRoutineFactory) error { return nil }
 func (*nop) Stop()                                             {}
 
-func (*nop) RegisterCollector(c Collector) {}
+func (*nop) RegisterCollector(c Collector) error { return nil }

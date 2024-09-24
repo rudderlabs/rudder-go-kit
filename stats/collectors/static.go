@@ -1,31 +1,40 @@
 package collectors
 
-import "github.com/rudderlabs/rudder-go-kit/stats"
+import (
+	"fmt"
+
+	"github.com/rudderlabs/rudder-go-kit/stats"
+)
+
+const (
+	statsUniqName = "static_%s_%s"
+)
 
 type staticStats struct {
-	tags stats.Tags
-	kv   map[string]uint64
+	tags  stats.Tags
+	key   string
+	value uint64
 }
 
 // NewStaticMetric allows to capture a gauge metric that does not change during the lifetime of the application.
 // Can be useful for capturing configuration values or application version.
 func NewStaticMetric(key string, tags stats.Tags, value uint64) *staticStats {
 	return &staticStats{
-		tags: tags,
-		kv: map[string]uint64{
-			key: value,
-		},
+		tags:  tags,
+		key:   key,
+		value: value,
 	}
 }
 
 func (s *staticStats) Collect(gaugeFunc func(key string, tag stats.Tags, val uint64)) {
-	for k, v := range s.kv {
-		gaugeFunc(k, s.tags, v)
-	}
+	gaugeFunc(s.key, s.tags, s.value)
+
 }
 
 func (s *staticStats) Zero(gaugeFunc func(key string, tag stats.Tags, val uint64)) {
-	for k := range s.kv {
-		gaugeFunc(k, s.tags, 0)
-	}
+	gaugeFunc(s.key, s.tags, 0)
+}
+
+func (s *staticStats) ID() string {
+	return fmt.Sprintf(statsUniqName, s.key, s.tags.String())
 }

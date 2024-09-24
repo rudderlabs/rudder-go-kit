@@ -61,7 +61,7 @@ type Stats interface {
 
 	// RegisterCollector registers a collector that will collect stats periodically.
 	// You can find
-	RegisterCollector(c Collector)
+	RegisterCollector(c Collector) error
 }
 
 type loggerFactory interface {

@@ -68,7 +68,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 		)
 
 		for _, col := range cols {
-			s.RegisterCollector(col)
+			err := s.RegisterCollector(col)
+			require.NoError(t, err)
 		}
 
 		// start stats

@@ -149,8 +149,8 @@ func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {
 	}
 }
 
-func (s *statsdStats) RegisterCollector(c Collector) {
-	s.state.ac.Add(c)
+func (s *statsdStats) RegisterCollector(c Collector) error {
+	return s.state.ac.Add(c)
 }
 
 // Stop stops periodic collection of stats.

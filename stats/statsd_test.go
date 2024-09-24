@@ -401,7 +401,8 @@ func TestStatsdRegisterCollector(t *testing.T) {
 		defer cancel()
 
 		for _, col := range cols {
-			s.RegisterCollector(col)
+			err := s.RegisterCollector(col)
+			require.NoError(t, err)
 		}
 
 		// start stats

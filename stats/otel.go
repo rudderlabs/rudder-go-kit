@@ -212,8 +212,8 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	return nil
 }
 
-func (s *otelStats) RegisterCollector(c Collector) {
-	s.collectorAggregator.Add(c)
+func (s *otelStats) RegisterCollector(c Collector) error {
+	return s.collectorAggregator.Add(c)
 }
 
 func (s *otelStats) Stop() {

@@ -354,10 +354,11 @@ func (*Store) Start(_ context.Context, _ stats.GoRoutineFactory) error { return 
 // Stop implements stats.Stats
 func (*Store) Stop() {}
 
-func (s *Store) RegisterCollector(c stats.Collector) {
+func (s *Store) RegisterCollector(c stats.Collector) error {
 	c.Collect(func(key string, tags stats.Tags, val uint64) {
 		s.NewTaggedStat(key, stats.GaugeType, tags).Gauge(val)
 	})
+	return nil
 }
 
 // getKey maps name and tags, to a store lookup key.
