@@ -470,6 +470,19 @@ func TestStatsdRegisterCollector(t *testing.T) {
 			collectors.NewDatabaseSQLStats("test", db),
 		)
 	})
+
+	t.Run("error on duplicate collector", func(t *testing.T) {
+		c := config.New()
+		m := metric.NewManager()
+		l := logger.NewFactory(c)
+		s := stats.NewStats(c, l, m)
+
+		err := s.RegisterCollector(collectors.NewStaticMetric("col_1", nil, 1))
+		require.NoError(t, err)
+
+		err = s.RegisterCollector(collectors.NewStaticMetric("col_1", nil, 1))
+		require.Error(t, err)
+	})
 }
 
 func TestStatsdExcludedTags(t *testing.T) {

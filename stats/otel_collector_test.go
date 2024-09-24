@@ -193,4 +193,28 @@ func TestOTelPeriodicStats(t *testing.T) {
 			collectors.NewDatabaseSQLStats("test", db),
 		)
 	})
+	t.Run("error on duplicate collector", func(t *testing.T) {
+		_, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+			filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
+		)
+
+		c := config.New()
+		c.Set("INSTANCE_ID", "my-instance-id")
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.endpoint", grpcEndpoint)
+		c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+		m := metric.NewManager()
+
+		l := logger.NewFactory(c)
+		s := stats.NewStats(c, l, m,
+			stats.WithServiceName("TestOTelPeriodicStats"),
+			stats.WithServiceVersion("v1.2.3"),
+		)
+
+		err := s.RegisterCollector(collectors.NewStaticMetric("col_1", nil, 1))
+		require.NoError(t, err)
+
+		err = s.RegisterCollector(collectors.NewStaticMetric("col_1", nil, 1))
+		require.Error(t, err)
+	})
 }
