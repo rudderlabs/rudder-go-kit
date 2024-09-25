@@ -106,8 +106,8 @@ github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDk
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/compose-spec/compose-go/v2 v2.1.0 h1:qdW2qISQlCQG8v1O2TChcdxgAWTUGgUX/CPSO+ES9+E=
 github.com/compose-spec/compose-go/v2 v2.1.0/go.mod h1:bEPizBkIojlQ20pi2vNluBa58tevvj0Y18oUSHPyfdc=
-github.com/confluentinc/confluent-kafka-go/v2 v2.5.3 h1:3AAMHvhiv3d4ajW4fSnZw+liipffhtunkEWz23zTXXM=
-github.com/confluentinc/confluent-kafka-go/v2 v2.5.3/go.mod h1:QxYLPRKR1MVlkXCCjzjjrpXb0VyFNfVaZXi0obZykJ0=
+github.com/confluentinc/confluent-kafka-go/v2 v2.5.4 h1:wqTPWwIQYguGIBL8XOJv0txVSHiAGkHuaFlZBQ76MRE=
+github.com/confluentinc/confluent-kafka-go/v2 v2.5.4/go.mod h1:UupuBgPAYzqS+I2P0H9zEUCqoFei2JSkBjTTtpNN454=
 github.com/containerd/console v1.0.4 h1:F2g4+oChYvBTsASRTz8NP6iIAi97J3TtSAsLbIFn4ro=
 github.com/containerd/console v1.0.4/go.mod h1:YynlIjWYF8myEu6sdkwKIvGQq+cOckRm6So2avqoYAk=
 github.com/containerd/containerd v1.7.15 h1:afEHXdil9iAm03BmhjzKyXnnEBtjaLJefdU7DV0IFes=

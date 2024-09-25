@@ -10,7 +10,7 @@ require (
 	github.com/DataDog/zstd v1.5.6
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/confluentinc/confluent-kafka-go/v2 v2.5.3
+	github.com/confluentinc/confluent-kafka-go/v2 v2.5.4
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-redis/redis/v8 v8.11.5
