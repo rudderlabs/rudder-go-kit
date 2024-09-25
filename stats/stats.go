@@ -60,7 +60,7 @@ type Stats interface {
 	Stop()
 
 	// RegisterCollector registers a collector that will collect stats periodically.
-	// You can find
+	// You can find available collectors in the stats/collectors package.
 	RegisterCollector(c Collector) error
 }
 
