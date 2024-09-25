@@ -382,6 +382,7 @@ func (s *otelStats) getGauge(
 
 	if s.gauges == nil {
 		s.gauges = make(map[string]*otelGauge)
+		s.gaugesOtel = make(map[string]metric.Float64ObservableGauge)
 	} else {
 		og, ok = s.gauges[mapKey]
 	}
