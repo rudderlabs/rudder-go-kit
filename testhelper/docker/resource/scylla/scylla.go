@@ -21,9 +21,7 @@ type Resource struct {
 }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
-	c := &config{
-		tag: "5.4.9",
-	}
+	c := &config{tag: "6.1"}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -47,7 +45,6 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "scylladb/scylla",
 		Tag:          c.tag,
-		Env:          []string{},
 		ExposedPorts: []string{"9042/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"9042"}),
 		Cmd:          []string{"--smp 1"},
@@ -115,7 +112,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 			return nil, err
 		}
 		defer session.Close()
-		err = session.Query(fmt.Sprintf("CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };", c.keyspace)).Exec()
+		err = session.Query(fmt.Sprintf(
+			"CREATE KEYSPACE IF NOT EXISTS %s WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };",
+			c.keyspace,
+		)).Exec()
 		if err != nil {
 			return nil, err
 		}
