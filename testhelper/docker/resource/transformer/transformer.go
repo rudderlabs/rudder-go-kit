@@ -6,14 +6,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/samber/lo"
-
-	dockertesthelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
-
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+	"github.com/samber/lo"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
+	dockertesthelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 )
@@ -30,6 +28,7 @@ type config struct {
 	exposedPorts []string
 	envs         []string
 	extraHosts   []string
+	network      *docker.Network
 }
 
 func (c *config) setBackendConfigURL(url string) {
@@ -90,6 +89,12 @@ func WithDockerImageTag(tag string) func(*config) {
 	}
 }
 
+func WithDockerNetwork(network *docker.Network) func(*config) {
+	return func(conf *config) {
+		conf.network = network
+	}
+}
+
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)) (*Resource, error) {
 	// Set Rudder Transformer
 	// pulls an image first to make sure we don't have an old cached version locally,
@@ -115,12 +120,17 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
+	var networkID string
+	if conf.network != nil {
+		networkID = conf.network.ID
+	}
 	transformerContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   conf.repository,
 		Tag:          conf.tag,
 		PortBindings: internal.IPv4PortBindings(conf.exposedPorts),
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
+		NetworkID:    networkID,
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
