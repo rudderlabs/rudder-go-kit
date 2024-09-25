@@ -3,6 +3,7 @@ package scylla
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"github.com/gocql/gocql"
 	"github.com/ory/dockertest/v3"
@@ -11,6 +12,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 )
 
 type Resource struct {
@@ -26,6 +28,22 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		opt(c)
 	}
 
+	if c.network == nil {
+		var err error
+		c.network, err = pool.Client.CreateNetwork(docker.CreateNetworkOptions{
+			Name:       "scylla_network_test_" + time.Now().Format("YY-MM-DD-") + rand.UniqueString(6),
+			EnableIPv6: false,
+		})
+		if err != nil {
+			return nil, err
+		}
+		d.Cleanup(func() {
+			if err := pool.Client.RemoveNetwork(c.network.ID); err != nil {
+				d.Logf("Error while removing Docker network: %v", err)
+			}
+		})
+	}
+
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "scylladb/scylla",
 		Tag:          c.tag,
@@ -33,6 +51,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		ExposedPorts: []string{"9042/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"9042"}),
 		Cmd:          []string{"--smp 1"},
+		NetworkID:    c.network.ID,
 	}, internal.DefaultHostConfig, func(hc *docker.HostConfig) {
 		hc.CPUCount = 1
 		hc.Memory = 128 * bytesize.MB
