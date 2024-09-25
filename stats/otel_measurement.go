@@ -38,7 +38,8 @@ func (c *otelCounter) Increment() {
 // otelGauge represents a gauge stat
 type otelGauge struct {
 	*otelMeasurement
-	value atomic.Value
+	value           atomic.Value
+	observableGauge metric.Float64ObservableGauge
 }
 
 // Gauge records an absolute value for this stat. Only applies to GaugeType stats

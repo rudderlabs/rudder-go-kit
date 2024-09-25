@@ -40,16 +40,18 @@ type otelStats struct {
 	tracerMap           map[string]Tracer
 	tracerMapMu         sync.Mutex
 
-	meter        metric.Meter
-	noopMeter    metric.Meter
-	counters     map[string]metric.Int64Counter
-	countersMu   sync.Mutex
-	gauges       map[string]*otelGauge
-	gaugesMu     sync.Mutex
-	timers       map[string]metric.Float64Histogram
-	timersMu     sync.Mutex
-	histograms   map[string]metric.Float64Histogram
-	histogramsMu sync.Mutex
+	meter              metric.Meter
+	noopMeter          metric.Meter
+	counters           map[string]metric.Int64Counter
+	countersMu         sync.Mutex
+	gauges             map[string]*otelGauge
+	gaugesOtel         map[string]metric.Float64ObservableGauge
+	gaugesMu           sync.RWMutex
+	gaugesRegisterOnce sync.Once
+	timers             map[string]metric.Float64Histogram
+	timersMu           sync.Mutex
+	histograms         map[string]metric.Float64Histogram
+	histogramsMu       sync.Mutex
 
 	otelManager              otel.Manager
 	collectorAggregator      *aggregatedCollector
@@ -385,29 +387,45 @@ func (s *otelStats) getGauge(
 	}
 
 	if !ok {
-		og = &otelGauge{otelMeasurement: &otelMeasurement{
-			genericMeasurement: genericMeasurement{statType: GaugeType},
-			attributes:         attributes,
-		}}
-
-		g, err := s.meter.Float64ObservableGauge(name)
-		if err != nil {
-			s.logger.Warnf("failed to create gauge %s: %v", name, err)
-			g, _ = s.noopMeter.Float64ObservableGauge(name)
-		} else {
-			_, err = s.meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
-				if value := og.getValue(); value != nil {
-					o.ObserveFloat64(g, cast.ToFloat64(value), metric.WithAttributes(attributes...))
-				}
-				return nil
-			}, g)
+		g, exists := s.gaugesOtel[name]
+		if !exists {
+			var err error
+			g, err = s.meter.Float64ObservableGauge(name)
 			if err != nil {
-				panic(fmt.Errorf("failed to register callback for gauge %s: %w", name, err))
+				s.logger.Warnf("failed to create observable gauge %s: %v", name, err)
+				g, _ = s.noopMeter.Float64ObservableGauge(name)
 			}
 		}
 
+		og = &otelGauge{otelMeasurement: &otelMeasurement{
+			genericMeasurement: genericMeasurement{statType: GaugeType},
+			attributes:         attributes,
+		}, observableGauge: g}
+
 		s.gauges[mapKey] = og
+		s.gaugesOtel[name] = g
 	}
+
+	s.gaugesRegisterOnce.Do(func() {
+		_, err := s.meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
+			s.gaugesMu.RLock()
+			defer s.gaugesMu.RUnlock()
+
+			for _, og := range s.gauges {
+				if og.disabled {
+					continue
+				}
+				if value := og.getValue(); value != nil {
+					o.ObserveFloat64(og.observableGauge, cast.ToFloat64(value), metric.WithAttributes(og.attributes...))
+				}
+			}
+
+			return nil
+		})
+		if err != nil {
+			panic(fmt.Errorf("failed to register callback for gauge %s: %w", name, err))
+		}
+	})
 
 	return og
 }
