@@ -1,6 +1,6 @@
 module github.com/rudderlabs/rudder-go-kit
 
-go 1.23.1
+go 1.22.7
 
 replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.2
 
@@ -73,6 +73,7 @@ require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/actgardner/gogen-avro/v10 v10.2.1 // indirect
@@ -118,7 +119,6 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
-	github.com/mattn/go-sqlite3 v1.14.23
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/term v0.5.0 // indirect
