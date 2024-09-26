@@ -76,7 +76,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			return err
 		}
 		if code != 0 {
-			return fmt.Errorf("mysql not ready:\n%s" + w.String())
+			return fmt.Errorf("mysql not ready:\n%s", w.String())
 		}
 		return nil
 	})

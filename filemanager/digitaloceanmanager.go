@@ -102,7 +102,7 @@ func (manager *digitalOceanManager) Upload(ctx context.Context, file *os.File, p
 	output, err := DOmanager.UploadWithContext(ctx, uploadInput)
 	if err != nil {
 		if awsError, ok := err.(awserr.Error); ok && awsError.Code() == "MissingRegion" {
-			err = fmt.Errorf(fmt.Sprintf(`Bucket '%s' not found.`, manager.Config.Bucket))
+			err = fmt.Errorf(`Bucket '%s' not found.`, manager.Config.Bucket)
 		}
 		return UploadedFile{}, err
 	}

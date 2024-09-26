@@ -126,7 +126,7 @@ func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...strin
 	output, err := s3manager.UploadWithContext(ctx, uploadInput)
 	if err != nil {
 		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "MissingRegion" {
-			err = fmt.Errorf(fmt.Sprintf(`Bucket '%s' not found.`, m.config.Bucket))
+			err = fmt.Errorf(`Bucket '%s' not found.`, m.config.Bucket)
 		}
 		return UploadedFile{}, err
 	}
