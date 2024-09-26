@@ -10,7 +10,7 @@ require (
 	github.com/DataDog/zstd v1.5.6
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/confluentinc/confluent-kafka-go/v2 v2.5.3
+	github.com/confluentinc/confluent-kafka-go/v2 v2.5.4
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-redis/redis/v8 v8.11.5
@@ -57,7 +57,7 @@ require (
 	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.8.0
 	golang.org/x/text v0.18.0
-	google.golang.org/api v0.198.0
+	google.golang.org/api v0.199.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -65,9 +65,9 @@ require (
 
 require (
 	cloud.google.com/go v0.115.1 // indirect
-	cloud.google.com/go/auth v0.9.4 // indirect
+	cloud.google.com/go/auth v0.9.5 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
-	cloud.google.com/go/compute/metadata v0.5.1 // indirect
+	cloud.google.com/go/compute/metadata v0.5.2 // indirect
 	cloud.google.com/go/iam v1.2.1 // indirect
 	cloud.google.com/go/pubsub v1.43.0 // indirect
 	dario.cat/mergo v1.0.0 // indirect
