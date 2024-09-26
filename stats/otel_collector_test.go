@@ -2,7 +2,6 @@ package stats_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	promClient "github.com/prometheus/client_model/go"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
@@ -154,8 +154,11 @@ func TestOTelPeriodicStats(t *testing.T) {
 	})
 
 	t.Run("sql collector", func(t *testing.T) {
-		db, err := sql.Open("sqlite3", ":memory:")
-		require.NoError(t, err)
+		db, _, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		}
+		defer db.Close()
 
 		runTest(t,
 			[]expectation{

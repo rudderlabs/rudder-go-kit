@@ -2,7 +2,6 @@ package stats_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"io"
 	"net"
@@ -14,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
@@ -452,8 +451,11 @@ func TestStatsdRegisterCollector(t *testing.T) {
 	})
 
 	t.Run("sql collector", func(t *testing.T) {
-		db, err := sql.Open("sqlite3", ":memory:")
-		require.NoError(t, err)
+		db, _, err := sqlmock.New()
+		if err != nil {
+			t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		}
+		defer db.Close()
 
 		runTest(t,
 			[]string{

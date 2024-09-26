@@ -1,10 +1,9 @@
 package collectors_test
 
 import (
-	"database/sql"
 	"testing"
 
-	_ "github.com/mattn/go-sqlite3" // Import the SQLite driver
+	"github.com/DATA-DOG/go-sqlmock"
 
 	"github.com/stretchr/testify/require"
 
@@ -14,8 +13,11 @@ import (
 )
 
 func TestSQLDatabase(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
+	db, _, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
 
 	m, err := memstats.New()
 	require.NoError(t, err)
