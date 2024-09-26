@@ -12,6 +12,7 @@ import (
 	"time"
 
 	promClient "github.com/prometheus/client_model/go"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 
@@ -25,20 +26,16 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 )
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 const (
 	metricsPort = "8889"
 )
 
 var globalDefaultAttrs = []*promClient.LabelPair{
-	{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
-	{Name: ptr("service_version"), Value: ptr("v1.2.3")},
-	{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
-	{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-	{Name: ptr("telemetry_sdk_version"), Value: ptr(otel.Version())},
+	{Name: lo.ToPtr("instanceName"), Value: lo.ToPtr("my-instance-id")},
+	{Name: lo.ToPtr("service_version"), Value: lo.ToPtr("v1.2.3")},
+	{Name: lo.ToPtr("telemetry_sdk_language"), Value: lo.ToPtr("go")},
+	{Name: lo.ToPtr("telemetry_sdk_name"), Value: lo.ToPtr("opentelemetry")},
+	{Name: lo.ToPtr("telemetry_sdk_version"), Value: lo.ToPtr(otel.Version())},
 }
 
 func TestOTelPeriodicStats(t *testing.T) {
@@ -107,14 +104,14 @@ func TestOTelPeriodicStats(t *testing.T) {
 		for _, exp := range expected {
 			metricName := strings.ReplaceAll(exp.name, ".", "_")
 			require.EqualValues(t, &metricName, metrics[metricName].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_GAUGE), metrics[metricName].Type)
+			require.EqualValues(t, lo.ToPtr(promClient.MetricType_GAUGE), metrics[metricName].Type)
 			require.Len(t, metrics[metricName].Metric, 1)
 
 			expectedLabels := append(globalDefaultAttrs,
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-				&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
-				&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestOTelPeriodicStats")},
-				&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestOTelPeriodicStats")},
+				&promClient.LabelPair{Name: lo.ToPtr("label1"), Value: lo.ToPtr("value1")},
+				&promClient.LabelPair{Name: lo.ToPtr("job"), Value: lo.ToPtr("TestOTelPeriodicStats")},
+				&promClient.LabelPair{Name: lo.ToPtr("service_name"), Value: lo.ToPtr("TestOTelPeriodicStats")},
 			)
 			if exp.tags != nil {
 				expectedLabels = append(expectedLabels, exp.tags...)
@@ -136,7 +133,7 @@ func TestOTelPeriodicStats(t *testing.T) {
 		runTest(t,
 			[]expectation{
 				{name: "a_custom_metric", tags: []*promClient.LabelPair{
-					{Name: ptr("foo"), Value: ptr("bar")},
+					{Name: lo.ToPtr("foo"), Value: lo.ToPtr("bar")},
 				}},
 			},
 			collectors.NewStaticMetric("a_custom_metric", stats.Tags{"foo": "bar"}, 1),
@@ -163,31 +160,31 @@ func TestOTelPeriodicStats(t *testing.T) {
 		runTest(t,
 			[]expectation{
 				{name: "sql_db_max_open_connections", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 				{name: "sql_db_open_connections", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 				{name: "sql_db_in_use_connections", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 				{name: "sql_db_idle_connections", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 				{name: "sql_db_wait_count_total", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 				{name: "sql_db_wait_duration_seconds_total", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 				{name: "sql_db_max_idle_closed_total", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 				{name: "sql_db_max_idle_time_closed_total", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 				{name: "sql_db_max_lifetime_closed_total", tags: []*promClient.LabelPair{
-					{Name: ptr("name"), Value: ptr("test")},
+					{Name: lo.ToPtr("name"), Value: lo.ToPtr("test")},
 				}},
 			},
 			collectors.NewDatabaseSQLStats("test", db),

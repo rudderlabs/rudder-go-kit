@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const defaultPauseDur = 10 * time.Second
+
 type gaugeTagsFunc = func(key string, tags Tags, val uint64)
 
 type Collector interface {
@@ -43,8 +45,7 @@ func (p *aggregatedCollector) Run(ctx context.Context) {
 	p.allCollect()
 
 	if p.PauseDur <= 0 {
-		p.PauseDur = 10 * time.Second
-		return
+		p.PauseDur = defaultPauseDur
 	}
 
 	tick := time.NewTicker(p.PauseDur)

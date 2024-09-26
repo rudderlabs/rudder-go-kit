@@ -412,7 +412,7 @@ func TestStatsdRegisterCollector(t *testing.T) {
 			receivedMu.RLock()
 			defer receivedMu.RUnlock()
 
-			t.Logf("%s != %s", received, expected)
+			t.Logf("received: %s \n!=\n expected: %s", received, expected)
 		}()
 
 		require.Eventually(t, func() bool {

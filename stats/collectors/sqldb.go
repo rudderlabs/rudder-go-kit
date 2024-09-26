@@ -11,19 +11,19 @@ const (
 	uniqName = "database_sql_%s"
 )
 
-type sqlDBStats struct {
+type SQLDBStats struct {
 	name string
 	db   *sql.DB
 }
 
-func NewDatabaseSQLStats(name string, db *sql.DB) *sqlDBStats {
-	return &sqlDBStats{
+func NewDatabaseSQLStats(name string, db *sql.DB) *SQLDBStats {
+	return &SQLDBStats{
 		name: name,
 		db:   db,
 	}
 }
 
-func (s *sqlDBStats) Collect(gaugeFunc func(key string, tag stats.Tags, val uint64)) {
+func (s *SQLDBStats) Collect(gaugeFunc func(key string, tag stats.Tags, val uint64)) {
 	dbStats := s.db.Stats()
 	tags := stats.Tags{"name": s.name}
 
@@ -40,7 +40,7 @@ func (s *sqlDBStats) Collect(gaugeFunc func(key string, tag stats.Tags, val uint
 	gaugeFunc("sql_db_max_lifetime_closed_total", tags, uint64(dbStats.MaxLifetimeClosed))
 }
 
-func (s *sqlDBStats) Zero(gaugeFunc func(key string, tag stats.Tags, val uint64)) {
+func (s *SQLDBStats) Zero(gaugeFunc func(key string, tag stats.Tags, val uint64)) {
 	tags := stats.Tags{"name": s.name}
 
 	gaugeFunc("sql_db_max_open_connections", tags, 0)
@@ -57,6 +57,6 @@ func (s *sqlDBStats) Zero(gaugeFunc func(key string, tag stats.Tags, val uint64)
 	gaugeFunc("sql_db_max_lifetime_closed_total", tags, 0)
 }
 
-func (s *sqlDBStats) ID() string {
+func (s *SQLDBStats) ID() string {
 	return fmt.Sprintf(uniqName, s.name)
 }
