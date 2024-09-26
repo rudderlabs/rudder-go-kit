@@ -63,7 +63,7 @@ func StartOTelCollector(t testing.TB, metricsPort, configPath string, opts ...St
 		}
 	})
 
-	healthEndpoint := fmt.Sprintf("http://localhost:%d", dt.GetHostPort(t, healthPort, collector.Container))
+	healthEndpoint := fmt.Sprintf("http://%s:%d", collector.GetBoundIP(healthPort), dt.GetHostPort(t, healthPort, collector.Container))
 	require.Eventually(t, func() bool {
 		resp, err := http.Get(healthEndpoint)
 		if err != nil {
@@ -75,7 +75,7 @@ func StartOTelCollector(t testing.TB, metricsPort, configPath string, opts ...St
 
 	t.Log("Container is healthy")
 
-	return collector.Container, "localhost:" + strconv.Itoa(conf.port)
+	return collector.Container, collector.GetBoundIP("4317/tcp") + ":" + strconv.Itoa(conf.port)
 }
 
 type startOTelCollectorConf struct {

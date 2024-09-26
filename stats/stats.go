@@ -58,6 +58,10 @@ type Stats interface {
 
 	// Stop stops the service and the collection of periodic stats.
 	Stop()
+
+	// RegisterCollector registers a collector that will collect stats periodically.
+	// You can find available collectors in the stats/collectors package.
+	RegisterCollector(c Collector) error
 }
 
 type loggerFactory interface {
@@ -121,6 +125,7 @@ func NewStats(
 				enablePrometheusExporter: config.GetBool("OpenTelemetry.metrics.prometheus.enabled", false),
 				prometheusMetricsPort:    config.GetInt("OpenTelemetry.metrics.prometheus.port", 0),
 			},
+			collectorAggregator: &aggregatedCollector{},
 		}
 	}
 
@@ -143,6 +148,7 @@ func NewStats(
 			client:         &statsdClient{},
 			clients:        make(map[string]*statsdClient),
 			pendingClients: make(map[string]*statsdClient),
+			ac:             &aggregatedCollector{},
 		},
 	}
 }
