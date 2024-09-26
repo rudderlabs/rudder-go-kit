@@ -19,6 +19,8 @@ func TestSQLDatabase(t *testing.T) {
 	}
 	defer db.Close()
 
+	db.SetMaxOpenConns(5)
+
 	m, err := memstats.New()
 	require.NoError(t, err)
 
@@ -32,7 +34,7 @@ func TestSQLDatabase(t *testing.T) {
 		{
 			Name:  "sql_db_idle_connections",
 			Tags:  stats.Tags{"name": testName},
-			Value: 0,
+			Value: 1,
 		},
 		{
 			Name:  "sql_db_in_use_connections",
@@ -57,12 +59,12 @@ func TestSQLDatabase(t *testing.T) {
 		{
 			Name:  "sql_db_max_open_connections",
 			Tags:  stats.Tags{"name": testName},
-			Value: 0,
+			Value: 5,
 		},
 		{
 			Name:  "sql_db_open_connections",
 			Tags:  stats.Tags{"name": testName},
-			Value: 0,
+			Value: 1,
 		},
 		{
 			Name:  "sql_db_wait_count_total",
