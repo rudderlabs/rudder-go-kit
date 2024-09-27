@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.43.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.42.2...v0.43.0) (2024-09-27)
+
+
+### Features
+
+* introduce db stats collector ([#648](https://github.com/rudderlabs/rudder-go-kit/issues/648)) ([8ac166b](https://github.com/rudderlabs/rudder-go-kit/commit/8ac166b620b576da4fcfe88bf5c1cda07c3ba079))
+
+
+### Bug Fixes
+
+* flaky test: slice comparison to ignore element order ([#661](https://github.com/rudderlabs/rudder-go-kit/issues/661)) ([545da59](https://github.com/rudderlabs/rudder-go-kit/commit/545da59ca5f90dd9c5f59c2df94a01fecbca6237))
+
+
+### Miscellaneous
+
+* **deps:** bump the all group across 1 directory with 2 updates ([#659](https://github.com/rudderlabs/rudder-go-kit/issues/659)) ([38eaf4a](https://github.com/rudderlabs/rudder-go-kit/commit/38eaf4ae4094f389588b19c3aa50a605bf0b66de))
+* **deps:** bump the all group across 1 directory with 5 updates ([#653](https://github.com/rudderlabs/rudder-go-kit/issues/653)) ([4f65bca](https://github.com/rudderlabs/rudder-go-kit/commit/4f65bcabdfeee6022dd6263243cf9f56dfa6e906))
+* scylla no ipv6 ([#658](https://github.com/rudderlabs/rudder-go-kit/issues/658)) ([d8083ae](https://github.com/rudderlabs/rudder-go-kit/commit/d8083ae8f5514abe6416bf6b4a059989e21c6752))
+* transformer network ([#656](https://github.com/rudderlabs/rudder-go-kit/issues/656)) ([96fb376](https://github.com/rudderlabs/rudder-go-kit/commit/96fb376ba70d60ad9c64d55a5affa2db6d89601b))
+* update go and linter version ([#660](https://github.com/rudderlabs/rudder-go-kit/issues/660)) ([1d7c2ce](https://github.com/rudderlabs/rudder-go-kit/commit/1d7c2ce98c996dd1f51fd45524b8f46a0a613cea))
+
 ## [0.42.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.42.1...v0.42.2) (2024-09-23)
 
 
