@@ -122,11 +122,17 @@ func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {
 	s.state.rc.EnableCPU = s.config.periodicStatsConfig.enableCPUStats
 	s.state.rc.EnableMem = s.config.periodicStatsConfig.enableMemStats
 	s.state.rc.EnableGC = s.config.periodicStatsConfig.enableGCStats
-
 	s.state.mc = newMetricStatsCollector(s, s.config.periodicStatsConfig.metricManager)
+
+	gaugeTagsFunc := func(key string, tags Tags, val uint64) {
+		s.NewTaggedStat(key, GaugeType, tags).Gauge(val)
+	}
+	s.state.ac.gaugeFunc = gaugeTagsFunc
+	s.state.ac.PauseDur = time.Duration(s.config.periodicStatsConfig.statsCollectionInterval) * time.Second
+
 	if s.config.periodicStatsConfig.enabled {
 		var wg sync.WaitGroup
-		wg.Add(2)
+		wg.Add(3)
 		goFactory.Go(func() {
 			defer wg.Done()
 			s.state.rc.run(s.backgroundCollectionCtx)
@@ -135,8 +141,16 @@ func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {
 			defer wg.Done()
 			s.state.mc.run(s.backgroundCollectionCtx)
 		})
+		goFactory.Go(func() {
+			defer wg.Done()
+			s.state.ac.Run(s.backgroundCollectionCtx)
+		})
 		wg.Wait()
 	}
+}
+
+func (s *statsdStats) RegisterCollector(c Collector) error {
+	return s.state.ac.Add(c)
 }
 
 // Stop stops periodic collection of stats.
@@ -292,6 +306,7 @@ type statsdState struct {
 	conn   statsd.Option
 	client *statsdClient
 	rc     runtimeStatsCollector
+	ac     *aggregatedCollector
 	mc     metricStatsCollector
 
 	clientsLock     sync.RWMutex // protects the following
