@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -421,6 +422,10 @@ func TestStatsdRegisterCollector(t *testing.T) {
 			if len(received) != len(expected) {
 				return false
 			}
+
+			sort.Strings(received)
+			sort.Strings(expected)
+
 			return reflect.DeepEqual(received, expected)
 		}, 10*time.Second, time.Millisecond)
 	}
