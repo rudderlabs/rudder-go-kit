@@ -22,6 +22,8 @@ type Resource struct {
 	TransformerURL string
 }
 
+type Option func(*config)
+
 type config struct {
 	repository   string
 	tag          string
@@ -55,7 +57,7 @@ func (c *config) setBackendConfigURL(url string) {
 //											return event;
 //										}`,
 //			})
-func WithUserTransformations(transformations map[string]string, cleaner resource.Cleaner) func(*config) {
+func WithUserTransformations(transformations map[string]string, cleaner resource.Cleaner) Option {
 	return func(conf *config) {
 		backendConfigSvc := newTestBackendConfigServer(transformations)
 
@@ -69,7 +71,7 @@ func WithUserTransformations(transformations map[string]string, cleaner resource
 
 // WithConnectionToHostEnabled lets transformer container connect with the host machine
 // i.e. transformer container will be able to access localhost of the host machine
-func WithConnectionToHostEnabled() func(*config) {
+func WithConnectionToHostEnabled() Option {
 	return func(conf *config) {
 		conf.extraHosts = append(conf.extraHosts, "host.docker.internal:host-gateway")
 	}
@@ -77,25 +79,37 @@ func WithConnectionToHostEnabled() func(*config) {
 
 // WithConfigBackendURL lets transformer use custom backend config server for transformations
 // WithConfigBackendURL should not be used with WithUserTransformations option
-func WithConfigBackendURL(url string) func(*config) {
+func WithConfigBackendURL(url string) Option {
 	return func(conf *config) {
 		conf.setBackendConfigURL(dockertesthelper.ToInternalDockerHost(url))
 	}
 }
 
-func WithDockerImageTag(tag string) func(*config) {
+func WithDockerImageTag(tag string) Option {
 	return func(conf *config) {
 		conf.tag = tag
 	}
 }
 
-func WithDockerNetwork(network *docker.Network) func(*config) {
+func WithDockerNetwork(network *docker.Network) Option {
 	return func(conf *config) {
 		conf.network = network
 	}
 }
 
-func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(conf *config)) (*Resource, error) {
+func WithEnv(env string) Option {
+	return func(conf *config) {
+		conf.envs = append(conf.envs, env)
+	}
+}
+
+func WithRepository(repository string) Option {
+	return func(conf *config) {
+		conf.repository = repository
+	}
+}
+
+func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	// Set Rudder Transformer
 	// pulls an image first to make sure we don't have an old cached version locally,
 	// then it creates a container based on it and runs it
