@@ -63,7 +63,7 @@ func TestGitServer(t *testing.T) {
 		require.NoError(t, err, "should be able to get the HEAD commit")
 		require.NotEmpty(t, out, "HEAD commit should not be empty")
 
-		latestCommit := s.GetLatestCommitHash(t, "develop")
+		latestCommit := s.GetLatestCommitHash(t, "branch", "develop")
 		require.Equal(t, strings.TrimSpace(out), latestCommit, "HEAD commit should match the latest commit")
 	})
 
@@ -79,7 +79,15 @@ func TestGitServer(t *testing.T) {
 		require.NoError(t, err, "should be able to get the HEAD commit")
 		require.NotEmpty(t, out, "HEAD commit should not be empty")
 
-		latestCommit := s.GetLatestCommitHash(t, "main")
+		out, err = execCmd("git", "-C", tempDir, "tag", "-a", "v1.0.0", "-m", "tag v1.0.0")
+		require.NoErrorf(t, err, "should be able to create a new tag: %s", out)
+		out, err = execCmd("git", "-c", "http.sslVerify=false", "-C", tempDir, "push", "origin", "v1.0.0")
+		require.NoErrorf(t, err, "should be able to push the new tag: %s", out)
+
+		out, err = execCmd("git", "-C", tempDir, "rev-parse", "v1.0.0")
+		require.NoError(t, err, "should be able to get the HEAD commit")
+		latestCommit := s.GetLatestCommitHash(t, "tag", "v1.0.0")
+
 		require.Equal(t, strings.TrimSpace(out), latestCommit, "HEAD commit should match the latest commit")
 	})
 }
