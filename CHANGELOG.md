@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.44.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.43.0...v0.44.0) (2024-10-17)
+
+
+### Features
+
+* allow retrieval of commits for tags ([#675](https://github.com/rudderlabs/rudder-go-kit/issues/675)) ([801d27b](https://github.com/rudderlabs/rudder-go-kit/commit/801d27b091fd6b834c54bc294e70bf280eb24433))
+
+
+### Miscellaneous
+
+* add support for WithEnv and WithRepository for transformer resource ([#673](https://github.com/rudderlabs/rudder-go-kit/issues/673)) ([f907f10](https://github.com/rudderlabs/rudder-go-kit/commit/f907f1082e1246b2210be24010f8aa1d47b16d47))
+
 ## [0.43.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.42.2...v0.43.0) (2024-09-27)
 
 

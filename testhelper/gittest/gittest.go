@@ -109,8 +109,17 @@ func (s *Server) GetServerCA() []byte {
 	return getServerCA(s.Server)
 }
 
-func (s *Server) GetLatestCommitHash(t testing.TB, branch string) string {
-	cmd := exec.Command("git", "-c", "http.sslVerify=false", "ls-remote", s.URL, fmt.Sprintf("refs/heads/%s", branch))
+func (s *Server) GetLatestCommitHash(t testing.TB, referenceType, ref string) string {
+	var refType string
+	switch referenceType {
+	case "branch":
+		refType = "heads"
+	case "tag":
+		refType = "tags"
+	default:
+		require.Fail(t, "invalid refType")
+	}
+	cmd := exec.Command("git", "-c", "http.sslVerify=false", "ls-remote", s.URL, fmt.Sprintf("refs/%s/%s", refType, ref))
 	out, err := cmd.Output()
 	require.NoError(t, err, "should be able to run the ls-remote command")
 	commitHash := strings.Split(string(out), "\t")[0]
