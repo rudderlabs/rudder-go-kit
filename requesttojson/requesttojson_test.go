@@ -191,7 +191,6 @@ func TestRequestToJSON_MultipartFormData(t *testing.T) {
 }
 
 func TestRequestToJSON_ErrorHandling(t *testing.T) {
-
 	// Simulate a request with an unreadable body
 	req, err := http.NewRequest("POST", "http://example.com/path", iotest.ErrReader(errors.New("read error")))
 	require.NoError(t, err)
