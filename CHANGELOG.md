@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.44.0...v0.45.0) (2024-10-21)
+
+
+### Features
+
+* request to json function usually used as pre-step for storing r… ([#668](https://github.com/rudderlabs/rudder-go-kit/issues/668)) ([50d8320](https://github.com/rudderlabs/rudder-go-kit/commit/50d8320aaac34384b905fab4b99d7de6b04fe6d8))
+
 ## [0.44.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.43.0...v0.44.0) (2024-10-17)
 
 
