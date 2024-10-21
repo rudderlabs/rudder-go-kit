@@ -18,7 +18,8 @@ func TestRequestToJSON_SimpleGET(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Check the struct fields
 	require.Equal(t, "GET", reqJSON.Method)
@@ -31,7 +32,7 @@ func TestRequestToJSON_SimpleGET(t *testing.T) {
 	require.Contains(t, string(jsonData), `"method":"GET"`)
 	require.Contains(t, string(jsonData), `"url":"/path?query=1"`)
 	require.Contains(t, string(jsonData), `"proto":"HTTP/1.1"`)
-	require.Contains(t, string(jsonData), `"query":{"query":["1"]}`)
+	require.Contains(t, string(jsonData), `"query_parameters":{"query":["1"]}`)
 }
 
 func TestRequestToJSON_WithHeaders(t *testing.T) {
@@ -42,7 +43,8 @@ func TestRequestToJSON_WithHeaders(t *testing.T) {
 	req.Header.Add("X-Custom-Header", "CustomValue")
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Check the headers in struct
 	require.Equal(t, map[string][]string{
@@ -62,7 +64,8 @@ func TestRequestToJSON_WithBody(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Check the body
 	require.Equal(t, body, reqJSON.Body)
@@ -77,7 +80,8 @@ func TestRequestToJSON_WithQueryParams(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Check the query parameters
 	expectedQuery := map[string][]string{
@@ -87,7 +91,23 @@ func TestRequestToJSON_WithQueryParams(t *testing.T) {
 	require.Equal(t, expectedQuery, reqJSON.Query)
 
 	// Check the JSON output
-	require.Contains(t, string(jsonData), `"query":{"q":["golang"],"sort":["asc"]}`)
+	require.Contains(t, string(jsonData), `"query_parameters":{"q":["golang"],"sort":["asc"]}`)
+}
+
+func TestRequestToJSON_EmptyBodyReplaced(t *testing.T) {
+	// Create a POST request with an empty body
+	req, err := http.NewRequest("POST", "http://example.com/path", nil)
+	require.NoError(t, err)
+
+	// Call the function
+	jsonData, reqJSON, err := RequestToJSON(req, "{}")
+	require.NoError(t, err)
+
+	// Check the body is empty
+	require.Equal(t, reqJSON.Body, "{}")
+
+	// Check the JSON output
+	require.Contains(t, string(jsonData), `"body":"{}"`)
 }
 
 func TestRequestToJSON_EmptyBody(t *testing.T) {
@@ -96,7 +116,8 @@ func TestRequestToJSON_EmptyBody(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Check the body is empty
 	require.Empty(t, reqJSON.Body)
@@ -114,7 +135,8 @@ func TestRequestToJSON_VariousHTTPMethods(t *testing.T) {
 		require.NoError(t, err)
 
 		// Call the function
-		jsonData, reqJSON := RequestToJSON(req)
+		jsonData, reqJSON, err := RequestToJSON(req, "")
+		require.NoError(t, err)
 
 		// Check the method is correctly set
 		require.Equal(t, method, reqJSON.Method)
@@ -130,11 +152,12 @@ func TestRequestToJSON_URLEncodedBody(t *testing.T) {
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Check that the body is treated as a raw string
 	require.Equal(t, body, reqJSON.Body)
-	require.Contains(t, string(jsonData), `"body":"name=John+Doe&age=30"`)
+	require.Contains(t, string(jsonData), `"body":"name=John+Doe\u0026age=30"`)
 	require.Contains(t, string(jsonData), `"Content-Type":["application/x-www-form-urlencoded"]`)
 }
 
@@ -146,7 +169,8 @@ func TestRequestToJSON_MultipleHeadersWithSameKey(t *testing.T) {
 	req.Header.Add("X-Forwarded-For", "10.0.0.1")
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Check the headers in the struct
 	expectedHeaders := map[string][]string{
@@ -166,7 +190,8 @@ func TestRequestToJSON_InvalidJSONBody(t *testing.T) {
 	req.Header.Add("Content-Type", "application/json")
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Check that the raw body is still captured as a string
 	require.Equal(t, body, reqJSON.Body)
@@ -188,7 +213,8 @@ func TestRequestToJSON_MultipartFormData(t *testing.T) {
 	req.Header.Add("Content-Type", "multipart/form-data; boundary=----WebKitFormBoundary")
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.NoError(t, err)
 
 	// Verify that the body is captured as a raw string
 	require.Contains(t, reqJSON.Body, "Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"")
@@ -205,7 +231,8 @@ func TestRequestToJSON_ErrorHandling(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call the function
-	jsonData, reqJSON := RequestToJSON(req)
+	jsonData, reqJSON, err := RequestToJSON(req, "")
+	require.Error(t, err)
 
 	// Ensure the function gracefully returns empty JSON and struct
 	require.Equal(t, json.RawMessage{}, jsonData)

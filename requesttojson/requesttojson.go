@@ -14,12 +14,28 @@ type RequestJSON struct {
 	Proto   string              `json:"proto"`
 	Headers map[string][]string `json:"headers"`
 	Body    string              `json:"body"`
-	Query   map[string][]string `json:"query"`
+	Query   map[string][]string `json:"query_parameters"`
 }
 
-func RequestToJSON(req *http.Request) (json.RawMessage, RequestJSON) {
-	// Parse query parameters from URL
-	queryParams := req.URL.Query()
+func RequestToJSON(req *http.Request, replaceEmptyBodyWith string) (json.RawMessage, RequestJSON, error) {
+	defer func() {
+		_ = req.Body.Close()
+	}()
+
+	var bodyBytes []byte
+	var err error
+
+	// Read the body (if present)
+	if req.Body != nil {
+		bodyBytes, err = io.ReadAll(req.Body)
+		if err != nil {
+			return json.RawMessage{}, RequestJSON{}, err
+		}
+	}
+
+	if len(bodyBytes) == 0 {
+		bodyBytes = []byte(replaceEmptyBodyWith) // If body is empty, set it to an empty JSON object
+	}
 
 	// Create a RequestJSON struct to hold the necessary fields
 	requestJSON := RequestJSON{
@@ -27,31 +43,16 @@ func RequestToJSON(req *http.Request) (json.RawMessage, RequestJSON) {
 		URL:     req.URL.RequestURI(),
 		Proto:   req.Proto,
 		Headers: req.Header,
-		Query:   queryParams, // Include query parameters here
+		Query:   req.URL.Query(),
+		Body:    string(bodyBytes),
 	}
 
-	// Read the body (if present)
-	if req.Body != nil {
-		bodyBytes, err := io.ReadAll(req.Body)
-		if err != nil {
-			return json.RawMessage{}, RequestJSON{}
-		}
-		requestJSON.Body = string(bodyBytes)
-		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore body for further reading
-	}
+	req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore body for further reading
 
-	// Create a buffer to store the JSON output
-	var buf bytes.Buffer
-
-	// Create a JSON encoder and disable HTML escaping
-	encoder := json.NewEncoder(&buf)
-	encoder.SetEscapeHTML(false) // Disable escaping of special characters like & and +
-
-	// Marshal the struct into JSON using the custom encoder
-	err := encoder.Encode(requestJSON)
+	requestBytes, err := json.Marshal(requestJSON)
 	if err != nil {
-		return json.RawMessage{}, RequestJSON{}
+		return json.RawMessage{}, RequestJSON{}, err
 	}
 
-	return json.RawMessage(buf.Bytes()), requestJSON
+	return requestBytes, requestJSON, nil
 }
