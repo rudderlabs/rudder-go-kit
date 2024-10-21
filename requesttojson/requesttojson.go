@@ -2,12 +2,12 @@ package requesttojson
 
 import (
 	"bytes"
-	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 )
 
-// Struct to represent the HTTP request in JSON format
+// RequestJSON represents an HTTP request in a simplified JSON-friendly format.
 type RequestJSON struct {
 	Method  string              `json:"method"`
 	URL     string              `json:"url"`
@@ -17,11 +17,16 @@ type RequestJSON struct {
 	Query   map[string][]string `json:"query_parameters"`
 }
 
-func RequestToJSON(req *http.Request, replaceEmptyBodyWith string) (json.RawMessage, RequestJSON, error) {
+// RequestToJson converts a http.Request into a JSON-friendly RequestJson struct and returns its pointer
+// Function takes 2 arguments
+//   - req *http.Request : The request that needs to be converted to RequestJson
+//   - defaultBodyContent string: RequestJson's Body field is assigned with defaultBodyContent in case of a request with an empty body
+func RequestToJSON(req *http.Request, defaultBodyContent string) (*RequestJSON, error) {
 	defer func() {
-		_ = req.Body.Close()
+		if req.Body != nil {
+			_ = req.Body.Close()
+		}
 	}()
-
 	var bodyBytes []byte
 	var err error
 
@@ -29,16 +34,18 @@ func RequestToJSON(req *http.Request, replaceEmptyBodyWith string) (json.RawMess
 	if req.Body != nil {
 		bodyBytes, err = io.ReadAll(req.Body)
 		if err != nil {
-			return json.RawMessage{}, RequestJSON{}, err
+			return nil, fmt.Errorf("reading request body: %w", err)
 		}
 	}
-
 	if len(bodyBytes) == 0 {
-		bodyBytes = []byte(replaceEmptyBodyWith) // If body is empty, set it to an empty JSON object
+		bodyBytes = []byte(defaultBodyContent) // If body is empty, set it to an empty JSON object
 	}
 
+	// Restore body for further reading
+	req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	// Create a RequestJSON struct to hold the necessary fields
-	requestJSON := RequestJSON{
+	requestJSON := &RequestJSON{
 		Method:  req.Method,
 		URL:     req.URL.RequestURI(),
 		Proto:   req.Proto,
@@ -46,13 +53,5 @@ func RequestToJSON(req *http.Request, replaceEmptyBodyWith string) (json.RawMess
 		Query:   req.URL.Query(),
 		Body:    string(bodyBytes),
 	}
-
-	req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Restore body for further reading
-
-	requestBytes, err := json.Marshal(requestJSON)
-	if err != nil {
-		return json.RawMessage{}, RequestJSON{}, err
-	}
-
-	return requestBytes, requestJSON, nil
+	return requestJSON, nil
 }
