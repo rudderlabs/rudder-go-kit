@@ -73,9 +73,9 @@ func BenchmarkCompress(b *testing.B) {
 /*
 Benchmark to prove that no matter the compression level, the decompression always takes the same time.
 
-BenchmarkDecompress/zstd-cgo/fastest-24 	  567346	      2048 ns/op	     448 B/op	       1 allocs/op
-BenchmarkDecompress/zstd-cgo/default-24 	  527701	      2210 ns/op	     448 B/op	       1 allocs/op
-BenchmarkDecompress/zstd-cgo/best-24    	  525459	      2208 ns/op	     448 B/op	       1 allocs/op
+BenchmarkDecompress/zstd-cgo/fastest-24 	  562878	      2031 ns/op	     448 B/op	       1 allocs/op
+BenchmarkDecompress/zstd-cgo/default-24 	  506319	      2210 ns/op	     448 B/op	       1 allocs/op
+BenchmarkDecompress/zstd-cgo/best-24    	  526634	      2198 ns/op	     448 B/op	       1 allocs/op
 */
 func BenchmarkDecompress(b *testing.B) {
 	b.Run("zstd-cgo", func(b *testing.B) {
@@ -85,6 +85,7 @@ func BenchmarkDecompress(b *testing.B) {
 			r, _ := c.Compress(loremIpsumDolor)
 			defer func() { _ = c.Close() }()
 
+			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = c.Decompress(r)
 			}
@@ -95,6 +96,7 @@ func BenchmarkDecompress(b *testing.B) {
 			r, _ := c.Compress(loremIpsumDolor)
 			defer func() { _ = c.Close() }()
 
+			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = c.Decompress(r)
 			}
@@ -105,6 +107,7 @@ func BenchmarkDecompress(b *testing.B) {
 			r, _ := c.Compress(loremIpsumDolor)
 			defer func() { _ = c.Close() }()
 
+			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = c.Decompress(r)
 			}
