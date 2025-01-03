@@ -48,8 +48,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		}
 	})
 
-	url := fmt.Sprintf("pulsar://%s:%s", container.GetBoundIP("6650/tcp"), container.GetPort("6650/tcp"))
-	adminURL := fmt.Sprintf("http://%s:%s", container.GetBoundIP("8080/tcp"), container.GetPort("8080/tcp"))
+	url := fmt.Sprintf("pulsar://127.0.0.1:%s", container.GetPort("6650/tcp"))
+	adminURL := fmt.Sprintf("http://127.0.0.1:%s", container.GetPort("8080/tcp"))
 
 	if err := pool.Retry(func() (err error) {
 		var w bytes.Buffer
