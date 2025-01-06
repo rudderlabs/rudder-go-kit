@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.45.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.45.0...v0.45.1) (2025-01-06)
+
+
+### Miscellaneous
+
+* **deps:** bump codecov/codecov-action from 4 to 5 ([#689](https://github.com/rudderlabs/rudder-go-kit/issues/689)) ([92117f7](https://github.com/rudderlabs/rudder-go-kit/commit/92117f78c0b8ffad3c316fd20e9bd01b1254e8da))
+* **deps:** bump the all group across 1 directory with 28 updates ([#692](https://github.com/rudderlabs/rudder-go-kit/issues/692)) ([bf2c5fb](https://github.com/rudderlabs/rudder-go-kit/commit/bf2c5fbad93024398526354b203ea70fc7bd1a9a))
+* **deps:** bump the all group with 2 updates ([#695](https://github.com/rudderlabs/rudder-go-kit/issues/695)) ([9f5f561](https://github.com/rudderlabs/rudder-go-kit/commit/9f5f5613b4808eca37f9419c2d6ea7d37382512f))
+* update pulsar endpoint to use 127.0.0.1 ([#705](https://github.com/rudderlabs/rudder-go-kit/issues/705)) ([e469555](https://github.com/rudderlabs/rudder-go-kit/commit/e4695556fa663c02573927543e5cd01198e3f58e))
+
 ## [0.45.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.44.0...v0.45.0) (2024-10-23)
 
 
