@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.45.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.45.1...v0.45.2) (2025-01-08)
+
+
+### Miscellaneous
+
+* **deps:** bump golang.org/x/crypto from 0.31.0 to 0.32.0 in the go_modules group across 1 directory ([#709](https://github.com/rudderlabs/rudder-go-kit/issues/709)) ([d794c02](https://github.com/rudderlabs/rudder-go-kit/commit/d794c02cfc4b5c66969dc97f6b0aef4fb458a31a))
+* **deps:** bump the all group across 1 directory with 20 updates ([#707](https://github.com/rudderlabs/rudder-go-kit/issues/707)) ([d4e77e9](https://github.com/rudderlabs/rudder-go-kit/commit/d4e77e9789b4e3ae8cc6ad37251642c8369770b3))
+
 ## [0.45.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.45.0...v0.45.1) (2025-01-06)
 
 
