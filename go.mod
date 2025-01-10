@@ -64,6 +64,12 @@ require (
 )
 
 require (
+	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/go-resty/resty/v2 v2.14.0 // indirect
+	github.com/itlightning/dateparse v0.2.0 // indirect
+)
+
+require (
 	cloud.google.com/go v0.115.1 // indirect
 	cloud.google.com/go/auth v0.9.5 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
@@ -74,6 +80,7 @@ require (
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/Flagsmith/flagsmith-go-client/v3 v3.7.0
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/actgardner/gogen-avro/v10 v10.2.1 // indirect
