@@ -8,11 +8,10 @@ import (
 )
 
 func main() {
-	featureflags.SetDefaultTraits(map[string]string{"tier": "ENTERPRISE_V1"})
-	isenabled, err := featureflags.IsFeatureEnabled("entTest", "enterpriseonlyfeature")
+	featureflags.SetDefaultTraits(map[string]string{"exampleTrait": "exampleTraitValue"})
+	isenabled, err := featureflags.IsFeatureEnabled("testWs", "testFeature")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(isenabled)
-	
 }
