@@ -78,6 +78,9 @@ func Set(cpuRequests string, opts ...Option) {
 
 	// Set GOMAXPROCS
 	runtime.GOMAXPROCS(gomaxprocs)
+
+	// Log new GOMAXPROCS
+	conf.logger.Infon("GOMAXPROCS has been configured", logger.NewIntField("GOMAXPROCS", int64(runtime.GOMAXPROCS(0))))
 }
 
 func SetWithConfig(c *config.Config, opts ...Option) {
