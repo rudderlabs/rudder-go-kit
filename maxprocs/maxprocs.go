@@ -41,7 +41,7 @@ func WithRoundQuotaFunc(roundQuotaFunc func(float64) int) Option {
 	return func(c *conf) { c.roundQuotaFunc = roundQuotaFunc }
 }
 
-func Set(cpuRequests string, opts ...Option) {
+func Set(raw string, opts ...Option) {
 	conf := &conf{
 		logger:                logger.NOP,
 		minProcs:              1,
@@ -52,26 +52,25 @@ func Set(cpuRequests string, opts ...Option) {
 		opt(conf)
 	}
 
-	cpuRequest := 1.0
-	if strings.HasSuffix(cpuRequests, "m") {
-		value, err := strconv.Atoi(strings.TrimSuffix(cpuRequests, "m"))
+	cpuRequests := 1.0
+	if strings.HasSuffix(raw, "m") {
+		value, err := strconv.Atoi(strings.TrimSuffix(raw, "m"))
 		if err == nil {
-			cpuRequest = float64(value) / 1000
+			cpuRequests = float64(value) / 1000
 		} else {
 			conf.logger.Warnn("unable to parse CPU requests with Atoi, using default value")
 		}
 	} else {
-		value, err := strconv.ParseFloat(cpuRequests, 64)
+		value, err := strconv.ParseFloat(raw, 64)
 		if err == nil {
-			cpuRequest = value
+			cpuRequests = value
 		} else {
 			conf.logger.Warnn("unable to parse CPU requests with ParseFloat, using default value")
 		}
 	}
 
 	// Calculate GOMAXPROCS
-	gomaxprocs := conf.roundQuotaFunc(cpuRequest * conf.cpuRequestsMultiplier)
-
+	gomaxprocs := conf.roundQuotaFunc(cpuRequests * conf.cpuRequestsMultiplier)
 	if gomaxprocs < conf.minProcs {
 		gomaxprocs = conf.minProcs
 	}
@@ -80,7 +79,13 @@ func Set(cpuRequests string, opts ...Option) {
 	runtime.GOMAXPROCS(gomaxprocs)
 
 	// Log new GOMAXPROCS
-	conf.logger.Infon("GOMAXPROCS has been configured", logger.NewIntField("GOMAXPROCS", int64(runtime.GOMAXPROCS(0))))
+	conf.logger.Infon("GOMAXPROCS has been configured",
+		logger.NewFloatField("cpuRequests", cpuRequests),
+		logger.NewFloatField("multiplier", conf.cpuRequestsMultiplier),
+		logger.NewIntField("minProcs", int64(conf.minProcs)),
+		logger.NewIntField("result", int64(gomaxprocs)),
+		logger.NewIntField("GOMAXPROCS", int64(runtime.GOMAXPROCS(0))),
+	)
 }
 
 func SetWithConfig(c *config.Config, opts ...Option) {
