@@ -10,6 +10,11 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
+const (
+	defaultMinProcs              = 1
+	defaultCPURequestsMultiplier = 1.5
+)
+
 func init() {
 	setDefault()
 }
@@ -48,8 +53,8 @@ func WithRoundQuotaFunc(roundQuotaFunc func(float64) int) Option {
 func Set(raw string, opts ...Option) {
 	conf := &conf{
 		logger:                logger.NOP,
-		minProcs:              1,
-		cpuRequestsMultiplier: 3,
+		minProcs:              defaultMinProcs,
+		cpuRequestsMultiplier: defaultCPURequestsMultiplier,
 		roundQuotaFunc:        roundQuotaCeil,
 	}
 	for _, opt := range opts {
@@ -95,8 +100,8 @@ func Set(raw string, opts ...Option) {
 func SetWithConfig(c *config.Config, opts ...Option) {
 	conf := &conf{
 		logger:                logger.NOP,
-		minProcs:              c.GetInt("MinProcs", 1),
-		cpuRequestsMultiplier: c.GetFloat64("RequestsMultiplier", 3),
+		minProcs:              c.GetInt("MinProcs", defaultMinProcs),
+		cpuRequestsMultiplier: c.GetFloat64("RequestsMultiplier", defaultCPURequestsMultiplier),
 		roundQuotaFunc:        roundQuotaCeil,
 	}
 	for _, opt := range opts {

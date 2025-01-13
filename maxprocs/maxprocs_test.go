@@ -17,9 +17,9 @@ func TestSet_Default(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)  // Capture original value
 	defer runtime.GOMAXPROCS(before) // Restore after test
 
-	mockLog := requireLoggerInfo(t, 1.1, 1, 3, 4)
+	mockLog := requireLoggerInfo(t, 1.1, 1, 1.5, 2)
 	Set("1100m", WithLogger(mockLog))
-	require.Equal(t, 4, runtime.GOMAXPROCS(0)) // 1100m * 3 = 3.3 → ceil = 4
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // 1100m * 1.5 = 1.65 → ceil = 2
 }
 
 func TestSetWithConfig_Default(t *testing.T) {
@@ -29,10 +29,10 @@ func TestSetWithConfig_Default(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
-	mockLog := requireLoggerInfo(t, 1.1, 1, 3, 4)
+	mockLog := requireLoggerInfo(t, 1.1, 1, 1.5, 2)
 	SetWithConfig(cfg, WithLogger(mockLog))
 
-	require.Equal(t, 4, runtime.GOMAXPROCS(0)) // 1100m * 3 = 3.3 → ceil = 4
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // 1100m * 1.5 = 1.65 → ceil = 2
 }
 
 func TestSet_WithInvalidCPURequest_Invalid1(t *testing.T) {
@@ -44,15 +44,15 @@ func TestSet_WithInvalidCPURequest_Invalid1(t *testing.T) {
 	mockLog.EXPECT().Warnn("unable to parse CPU requests with ParseFloat, using default value").Times(1)
 	mockLog.EXPECT().Infon("GOMAXPROCS has been configured",
 		logger.NewFloatField("cpuRequests", 1),
-		logger.NewFloatField("multiplier", 3),
+		logger.NewFloatField("multiplier", 1.5),
 		logger.NewIntField("minProcs", 1),
-		logger.NewIntField("result", 3),
-		logger.NewIntField("GOMAXPROCS", 3),
+		logger.NewIntField("result", 2),
+		logger.NewIntField("GOMAXPROCS", 2),
 	).Times(1)
 
 	Set("invalid", WithLogger(mockLog))
 
-	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // Defaults to 1 * 3 → ceil = 3
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Defaults to 1 * 1.5 → ceil = 2
 }
 
 func TestSetWithConfig_WithInvalidCPURequest_Invalid1(t *testing.T) {
@@ -67,15 +67,15 @@ func TestSetWithConfig_WithInvalidCPURequest_Invalid1(t *testing.T) {
 	mockLog.EXPECT().Warnn("unable to parse CPU requests with ParseFloat, using default value").Times(1)
 	mockLog.EXPECT().Infon("GOMAXPROCS has been configured",
 		logger.NewFloatField("cpuRequests", 1),
-		logger.NewFloatField("multiplier", 3),
+		logger.NewFloatField("multiplier", 1.5),
 		logger.NewIntField("minProcs", 1),
-		logger.NewIntField("result", 3),
-		logger.NewIntField("GOMAXPROCS", 3),
+		logger.NewIntField("result", 2),
+		logger.NewIntField("GOMAXPROCS", 2),
 	).Times(1)
 
 	SetWithConfig(cfg, WithLogger(mockLog))
 
-	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // Defaults to 1 * 3 → ceil = 3
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Defaults to 1 * 1.5 → ceil = 2
 }
 
 func TestSet_WithInvalidCPURequest_Invalid2(t *testing.T) {
@@ -87,15 +87,15 @@ func TestSet_WithInvalidCPURequest_Invalid2(t *testing.T) {
 	mockLog.EXPECT().Warnn("unable to parse CPU requests with Atoi, using default value").Times(1)
 	mockLog.EXPECT().Infon("GOMAXPROCS has been configured",
 		logger.NewFloatField("cpuRequests", 1),
-		logger.NewFloatField("multiplier", 3),
+		logger.NewFloatField("multiplier", 1.5),
 		logger.NewIntField("minProcs", 1),
-		logger.NewIntField("result", 3),
-		logger.NewIntField("GOMAXPROCS", 3),
+		logger.NewIntField("result", 2),
+		logger.NewIntField("GOMAXPROCS", 2),
 	).Times(1)
 
 	Set("invalid_m", WithLogger(mockLog))
 
-	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // Defaults to 1 * 3 → ceil = 3
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Defaults to 1 * 1.5 → ceil = 2
 }
 
 func TestSetWithConfig_WithInvalidCPURequest_Invalid2(t *testing.T) {
@@ -110,22 +110,22 @@ func TestSetWithConfig_WithInvalidCPURequest_Invalid2(t *testing.T) {
 	mockLog.EXPECT().Warnn("unable to parse CPU requests with Atoi, using default value").Times(1)
 	mockLog.EXPECT().Infon("GOMAXPROCS has been configured",
 		logger.NewFloatField("cpuRequests", 1),
-		logger.NewFloatField("multiplier", 3),
+		logger.NewFloatField("multiplier", 1.5),
 		logger.NewIntField("minProcs", 1),
-		logger.NewIntField("result", 3),
-		logger.NewIntField("GOMAXPROCS", 3),
+		logger.NewIntField("result", 2),
+		logger.NewIntField("GOMAXPROCS", 2),
 	).Times(1)
 
 	SetWithConfig(cfg, WithLogger(mockLog))
 
-	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // Defaults to 1 * 3 → ceil = 3
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Defaults to 1 * 1.5 → ceil = 2
 }
 
 func TestSet_WithMinProcs(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
-	mockLog := requireLoggerInfo(t, 0.1, 5, 3, 5)
+	mockLog := requireLoggerInfo(t, 0.1, 5, 1.5, 5)
 	Set("100m",
 		WithMinProcs(5),
 		WithLogger(mockLog),
@@ -142,7 +142,7 @@ func TestSetWithConfig_WithMinProcs(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
-	mockLog := requireLoggerInfo(t, 0.1, 5, 3, 5)
+	mockLog := requireLoggerInfo(t, 0.1, 5, 1.5, 5)
 	SetWithConfig(cfg, WithLogger(mockLog))
 
 	require.Equal(t, 5, runtime.GOMAXPROCS(0)) // MinProcs overrides calculated value
@@ -181,13 +181,13 @@ func TestSet_CustomRoundQuotaFunc(t *testing.T) {
 
 	roundFloor := func(f float64) int { return int(math.Floor(f)) }
 
-	mockLog := requireLoggerInfo(t, 1.5, 1, 3, 4)
+	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, 2)
 	Set("1500m",
 		WithRoundQuotaFunc(roundFloor),
 		WithLogger(mockLog),
 	)
 
-	require.Equal(t, 4, runtime.GOMAXPROCS(0)) // 1500m * 3 = 4.5 → floor = 4
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // 1500m * 1.5 = 2.25 → floor = 2
 }
 
 func TestSetWithConfig_CustomRoundQuotaFunc(t *testing.T) {
@@ -199,13 +199,13 @@ func TestSetWithConfig_CustomRoundQuotaFunc(t *testing.T) {
 
 	roundFloor := func(f float64) int { return int(math.Floor(f)) }
 
-	mockLog := requireLoggerInfo(t, 1.5, 1, 3, 4)
+	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, 2)
 	SetWithConfig(cfg,
 		WithRoundQuotaFunc(roundFloor),
 		WithLogger(mockLog),
 	)
 
-	require.Equal(t, 4, runtime.GOMAXPROCS(0)) // 1500m * 3 = 4.5 → floor = 4
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // 1500m * 1.5 = 2.25 → floor = 2
 }
 
 func TestEnvironmentVariables(t *testing.T) {
@@ -215,7 +215,7 @@ func TestEnvironmentVariables(t *testing.T) {
 	t.Setenv("MAXPROCS_REQUESTS", "1100m")
 
 	setDefault()
-	require.Equal(t, 4, runtime.GOMAXPROCS(0)) // 1100m * 3 = 3.3 → ceil = 4
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // 1100m * 1.5 = 1.65 → ceil = 2
 
 	t.Setenv("MAXPROCS_MIN_PROCS", "5")
 	setDefault()
