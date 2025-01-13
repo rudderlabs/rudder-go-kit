@@ -11,7 +11,11 @@ import (
 )
 
 func init() {
-	SetWithConfig(config.New(),
+	setDefault()
+}
+
+func setDefault() {
+	SetWithConfig(config.New(config.WithEnvPrefix("MAXPROCS")),
 		WithLogger(logger.NewLogger().Child("maxprocs")),
 	)
 }
@@ -91,15 +95,15 @@ func Set(raw string, opts ...Option) {
 func SetWithConfig(c *config.Config, opts ...Option) {
 	conf := &conf{
 		logger:                logger.NOP,
-		minProcs:              c.GetInt("MaxProcs.MinProcs", 1),
-		cpuRequestsMultiplier: c.GetFloat64("MaxProcs.CPURequestsMultiplier", 3),
+		minProcs:              c.GetInt("MinProcs", 1),
+		cpuRequestsMultiplier: c.GetFloat64("RequestsMultiplier", 3),
 		roundQuotaFunc:        roundQuotaCeil,
 	}
 	for _, opt := range opts {
 		opt(conf)
 	}
 
-	Set(c.GetString("MaxProcs.CPURequests", "1"),
+	Set(c.GetString("Requests", "1"),
 		WithLogger(conf.logger),
 		WithMinProcs(conf.minProcs),
 		WithCPURequestsMultiplier(conf.cpuRequestsMultiplier),
