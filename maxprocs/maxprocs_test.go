@@ -212,6 +212,7 @@ func TestEnvironmentVariables(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
+	t.Setenv("MAXPROCS_LOGGER_CONSOLE_JSON_FORMAT", "true")
 	t.Setenv("MAXPROCS_REQUESTS", "1100m")
 
 	setDefault()

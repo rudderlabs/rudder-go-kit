@@ -20,9 +20,9 @@ func init() {
 }
 
 func setDefault() {
-	SetWithConfig(config.New(config.WithEnvPrefix("MAXPROCS")),
-		WithLogger(logger.NewLogger().Child("maxprocs")),
-	)
+	c := config.New(config.WithEnvPrefix("MAXPROCS"))
+	l := logger.NewFactory(c).NewLogger().Child("maxprocs")
+	SetWithConfig(c, WithLogger(l))
 }
 
 type conf struct {
