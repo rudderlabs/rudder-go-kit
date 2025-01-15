@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.46.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.0...v0.46.1) (2025-01-15)
+
+
+### Miscellaneous
+
+* **deps:** bump the all group with 4 updates ([#716](https://github.com/rudderlabs/rudder-go-kit/issues/716)) ([0e63f29](https://github.com/rudderlabs/rudder-go-kit/commit/0e63f297812c58df1b0b401a1e6a7afec779b820))
+* logger with config ([#717](https://github.com/rudderlabs/rudder-go-kit/issues/717)) ([d5c4932](https://github.com/rudderlabs/rudder-go-kit/commit/d5c4932fc247dc1c444f7b874e5e71c4392a0add))
+
 ## [0.46.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.45.1...v0.46.0) (2025-01-14)
 
 
