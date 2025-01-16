@@ -58,7 +58,7 @@ require (
 	golang.org/x/sync v0.10.0
 	golang.org/x/text v0.21.0
 	google.golang.org/api v0.215.0
-	google.golang.org/protobuf v1.36.2
+	google.golang.org/protobuf v1.36.3
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
