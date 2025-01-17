@@ -18,38 +18,39 @@ type client interface {
 	SetDefaultTraits(traits map[string]string)
 }
 
-var (
-	ffclient     client
-	clientOnce sync.Once
-)
+var ffclient client
 
 // getFeatureFlagClient returns the singleton feature flag client instance
 func getFeatureFlagClient() client {
-	clientOnce.Do(func() {
-		// read the api key from env vars and create the default cache config
-		apiKey := os.Getenv("FLAGSMITH_SERVER_SIDE_ENVIRONMENT_KEY")
-		if apiKey == "" {
-			panic("FLAGSMITH_SERVER_SIDE_ENVIRONMENT_KEY is not set")
-		}
-		defaultCacheConfig := cache.CacheConfig{
-			Enabled:      true,
-			TTLInSeconds: 60,
-		}
-
-		// create the provider
-		provider, err := provider.NewProvider(provider.ProviderConfig{
-			Type:   "flagsmith",
-			ApiKey: apiKey,
-		})
-		if err != nil {
-			panic(err)
-		}
-		ffclient = &clientImpl{
-			provider: provider,
-			cache:    cache.NewMemoryCache(defaultCacheConfig),
-		}
-	})
+	initFeatureFlagClientOnce()
 	return ffclient
+}
+
+var initFeatureFlagClientOnce = sync.OnceFunc(initFeatureFlagClient)
+
+func initFeatureFlagClient() {
+	// read the api key from env vars and create the default cache config
+	apiKey := os.Getenv("FLAGSMITH_SERVER_SIDE_ENVIRONMENT_KEY")
+	if apiKey == "" {
+		panic("FLAGSMITH_SERVER_SIDE_ENVIRONMENT_KEY is not set")
+	}
+	defaultCacheConfig := cache.CacheConfig{
+		Enabled:      true,
+		TTLInSeconds: 60,
+	}
+
+	// create the provider
+	provider, err := provider.NewProvider(provider.ProviderConfig{
+		Type:   "flagsmith",
+		ApiKey: apiKey,
+	})
+	if err != nil {
+		panic(err)
+	}
+	ffclient = &clientImpl{
+		provider: provider,
+		cache:    cache.NewMemoryCache(defaultCacheConfig),
+	}
 }
 
 type clientImpl struct {
@@ -61,13 +62,9 @@ type clientImpl struct {
 // IsFeatureEnabled checks if a feature is enabled for a workspace
 // Note: Result may be stale if returned from cache. Use IsFeatureEnabledLatest if stale values are not acceptable.
 func (c *clientImpl) IsFeatureEnabled(workspaceID string, feature string) (bool, error) {
-	ff, err := c.getAllFeatures(workspaceID, c.defaultTraits, false)
+	featureval, err := c.getFeatureValue(workspaceID, feature, false)
 	if err != nil {
 		return false, err
-	}
-	featureval, ok := ff[feature]
-	if !ok {
-		return false, newFeatureError(fmt.Sprintf("feature %s does not exist", feature))
 	}
 	return featureval.Enabled, nil
 }
@@ -75,34 +72,30 @@ func (c *clientImpl) IsFeatureEnabled(workspaceID string, feature string) (bool,
 // IsFeatureEnabledLatest checks if a feature is enabled for a workspace, bypassing the cache
 // Note: This method always fetches fresh values from the provider(bypassing the cache), which may impact performance.
 func (c *clientImpl) IsFeatureEnabledLatest(workspaceID string, feature string) (bool, error) {
-	ff, err := c.getAllFeatures(workspaceID, c.defaultTraits, true)
+	featureval, err := c.getFeatureValue(workspaceID, feature, true)
 	if err != nil {
 		return false, err
 	}
-	return ff[feature].Enabled, nil
+	return featureval.Enabled, nil
 }
 
 // GetFeatureValue gets the value of a feature for a workspace
 // Note: Result may be stale if returned from cache. Use GetFeatureValueLatest if stale values are not acceptable.
 func (c *clientImpl) GetFeatureValue(workspaceID string, feature string) (provider.FeatureValue, error) {
-	ff, err := c.getAllFeatures(workspaceID, c.defaultTraits, false)
+	featureval, err := c.getFeatureValue(workspaceID, feature, false)
 	if err != nil {
 		return provider.FeatureValue{}, err
 	}
-	// create a copy of the feature value and return it
-	featureval := *ff[feature]
 	return featureval, nil
 }
 
 // GetFeatureValueLatest gets the value of a feature for a workspace, bypassing the cache
 // Note: This method always fetches fresh values from the provider(bypassing the cache), which may impact performance.
 func (c *clientImpl) GetFeatureValueLatest(workspaceID string, feature string) (provider.FeatureValue, error) {
-	ff, err := c.getAllFeatures(workspaceID, c.defaultTraits, true)
+	featureval, err := c.getFeatureValue(workspaceID, feature, true)
 	if err != nil {
 		return provider.FeatureValue{}, err
 	}
-	// create a copy of the feature value and return it
-	featureval := *ff[feature]
 	return featureval, nil
 }
 
@@ -140,6 +133,21 @@ func (c *clientImpl) getAllFeatures(workspaceID string, traits map[string]string
 		}
 	}
 	return ff, nil
+}
+
+func (c *clientImpl) getFeatureValue(workspaceID string, feature string, skipCache bool) (provider.FeatureValue, error) {
+	ff, err := c.getAllFeatures(workspaceID, c.defaultTraits, skipCache)
+	if err != nil {
+		return provider.FeatureValue{}, err
+	}
+	featureval, ok := ff[feature]
+	if !ok {
+		return provider.FeatureValue{}, newFeatureError(fmt.Sprintf("feature %s does not exist", feature))
+	}
+	// create a copy of the feature value and return it
+	// return a copy since the feature value might be stored in a cache and should be immutable
+	featurevalCopy := *featureval
+	return featurevalCopy, nil
 }
 
 func (c *clientImpl) refreshFeatureFlags(workspaceID string) error {
