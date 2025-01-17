@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.46.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.0...v0.46.1) (2025-01-15)
+
+
+### Miscellaneous
+
+* **deps:** bump the all group with 4 updates ([#716](https://github.com/rudderlabs/rudder-go-kit/issues/716)) ([0e63f29](https://github.com/rudderlabs/rudder-go-kit/commit/0e63f297812c58df1b0b401a1e6a7afec779b820))
+* logger with config ([#717](https://github.com/rudderlabs/rudder-go-kit/issues/717)) ([d5c4932](https://github.com/rudderlabs/rudder-go-kit/commit/d5c4932fc247dc1c444f7b874e5e71c4392a0add))
+
+## [0.46.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.45.1...v0.46.0) (2025-01-14)
+
+
+### Features
+
+* max procs ([#714](https://github.com/rudderlabs/rudder-go-kit/issues/714)) ([5210b20](https://github.com/rudderlabs/rudder-go-kit/commit/5210b208fd38fa3fbd4fae2ee0afa82cf432b83b))
+
+
+### Miscellaneous
+
+* **deps:** bump golang.org/x/crypto from 0.31.0 to 0.32.0 in the go_modules group across 1 directory ([#709](https://github.com/rudderlabs/rudder-go-kit/issues/709)) ([d794c02](https://github.com/rudderlabs/rudder-go-kit/commit/d794c02cfc4b5c66969dc97f6b0aef4fb458a31a))
+* **deps:** bump the all group across 1 directory with 20 updates ([#707](https://github.com/rudderlabs/rudder-go-kit/issues/707)) ([d4e77e9](https://github.com/rudderlabs/rudder-go-kit/commit/d4e77e9789b4e3ae8cc6ad37251642c8369770b3))
+
+## [0.45.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.45.0...v0.45.1) (2025-01-06)
+
+
+### Miscellaneous
+
+* **deps:** bump codecov/codecov-action from 4 to 5 ([#689](https://github.com/rudderlabs/rudder-go-kit/issues/689)) ([92117f7](https://github.com/rudderlabs/rudder-go-kit/commit/92117f78c0b8ffad3c316fd20e9bd01b1254e8da))
+* **deps:** bump the all group across 1 directory with 28 updates ([#692](https://github.com/rudderlabs/rudder-go-kit/issues/692)) ([bf2c5fb](https://github.com/rudderlabs/rudder-go-kit/commit/bf2c5fbad93024398526354b203ea70fc7bd1a9a))
+* **deps:** bump the all group with 2 updates ([#695](https://github.com/rudderlabs/rudder-go-kit/issues/695)) ([9f5f561](https://github.com/rudderlabs/rudder-go-kit/commit/9f5f5613b4808eca37f9419c2d6ea7d37382512f))
+* update pulsar endpoint to use 127.0.0.1 ([#705](https://github.com/rudderlabs/rudder-go-kit/issues/705)) ([e469555](https://github.com/rudderlabs/rudder-go-kit/commit/e4695556fa663c02573927543e5cd01198e3f58e))
+
+## [0.45.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.44.0...v0.45.0) (2024-10-23)
+
+
+### Features
+
+* request to json function usually used as pre-step for storing r… ([#668](https://github.com/rudderlabs/rudder-go-kit/issues/668)) ([50d8320](https://github.com/rudderlabs/rudder-go-kit/commit/50d8320aaac34384b905fab4b99d7de6b04fe6d8))
+
+
+### Miscellaneous
+
+* compression benchmarks ([#678](https://github.com/rudderlabs/rudder-go-kit/issues/678)) ([21abca6](https://github.com/rudderlabs/rudder-go-kit/commit/21abca63c3bcb4cad698c815e1a8a80650c7e934))
+
 ## [0.44.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.43.0...v0.44.0) (2024-10-17)
 
 
