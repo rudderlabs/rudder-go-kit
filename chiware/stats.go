@@ -13,8 +13,14 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats"
 )
 
+const (
+	defaultConcurrentRequestsUpdateInterval = 10 * time.Second
+	minConcurrentRequestsUpdateInterval     = time.Second
+)
+
 type config struct {
-	redactUnknownPaths bool
+	redactUnknownPaths               bool
+	concurrentRequestsUpdateInterval time.Duration
 }
 
 type Option func(*config)
@@ -28,22 +34,34 @@ func RedactUnknownPaths(redactUnknownPaths bool) Option {
 	}
 }
 
+func ConcurrentRequestsUpdateInterval(interval time.Duration) Option {
+	return func(c *config) {
+		c.concurrentRequestsUpdateInterval = interval
+	}
+}
+
 func StatMiddleware(ctx context.Context, s stats.Stats, component string, options ...Option) func(http.Handler) http.Handler {
 	conf := config{
-		redactUnknownPaths: true,
+		redactUnknownPaths:               true,
+		concurrentRequestsUpdateInterval: defaultConcurrentRequestsUpdateInterval,
 	}
 	for _, option := range options {
 		option(&conf)
 	}
-	var concurrentRequests int32
+	if conf.concurrentRequestsUpdateInterval < minConcurrentRequestsUpdateInterval {
+		conf.concurrentRequestsUpdateInterval = time.Second
+	}
+
+	var concurrentRequests atomic.Int64
 	activeClientCount := s.NewStat(fmt.Sprintf("%s.concurrent_requests_count", component), stats.GaugeType)
+
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(10 * time.Second):
-				activeClientCount.Gauge(atomic.LoadInt32(&concurrentRequests))
+			case <-time.After(conf.concurrentRequestsUpdateInterval):
+				activeClientCount.Gauge(concurrentRequests.Load())
 			}
 		}
 	}()
@@ -64,8 +82,8 @@ func StatMiddleware(ctx context.Context, s stats.Stats, component string, option
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sw := newStatusCapturingWriter(w)
 			start := time.Now()
-			atomic.AddInt32(&concurrentRequests, 1)
-			defer atomic.AddInt32(&concurrentRequests, -1)
+			concurrentRequests.Add(1)
+			defer concurrentRequests.Add(-1)
 
 			next.ServeHTTP(sw, r)
 			s.NewSampledTaggedStat(
