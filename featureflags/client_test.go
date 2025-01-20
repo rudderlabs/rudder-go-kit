@@ -36,6 +36,7 @@ func TestGetFeatureFlagClient(t *testing.T) {
 
 	t.Run("creates singleton client", func(t *testing.T) {
 		os.Setenv("FLAGSMITH_SERVER_SIDE_ENVIRONMENT_KEY", "test-key")
+		defer os.Unsetenv("FLAGSMITH_SERVER_SIDE_ENVIRONMENT_KEY")
 
 		// Get client first time
 		client1 := featureflags.GetFeatureFlagClient()
