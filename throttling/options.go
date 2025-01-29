@@ -36,9 +36,12 @@ func WithRedisSortedSet(rc *redis.Client) Option {
 	}
 }
 
-// WithStatsCollector allows to setup a stats collector for the limiter
+// WithStatsCollector allows to set up a stats collector for the limiter
 func WithStatsCollector(sc statsCollector) Option {
-	return func(l *Limiter) {
-		l.statsCollector = sc
-	}
+	return func(l *Limiter) { l.statsCollector = sc }
+}
+
+// WithStatsTagger allows to set up a stats tagger for the limiter
+func WithStatsTagger(st statsTagger) Option {
+	return func(l *Limiter) { l.statsTagger = st }
 }

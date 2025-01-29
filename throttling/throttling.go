@@ -42,6 +42,8 @@ type statsCollector interface {
 	NewTaggedStat(name, statType string, tags stats.Tags) stats.Measurement
 }
 
+type statsTagger func(key, algo string, rate, window int64) stats.Tags
+
 type Limiter struct {
 	// for Redis configurations
 	// a default redisSpeaker should always be provided for Redis configurations
@@ -56,10 +58,20 @@ type Limiter struct {
 
 	// metrics
 	statsCollector statsCollector
+	statsTagger    statsTagger
 }
 
 func New(options ...Option) (*Limiter, error) {
-	rl := &Limiter{}
+	rl := &Limiter{
+		statsTagger: func(key, algo string, rate, window int64) stats.Tags {
+			return stats.Tags{
+				"key":    key,
+				"algo":   algo,
+				"rate":   strconv.FormatInt(rate, 10),
+				"window": strconv.FormatInt(window, 10),
+			}
+		},
+	}
 	for i := range options {
 		options[i](rl)
 	}
@@ -227,12 +239,7 @@ func (l *Limiter) gcraLimit(ctx context.Context, cost, rate, window int64, key s
 }
 
 func (l *Limiter) getTimer(key, algo string, rate, window int64) func() {
-	m := l.statsCollector.NewTaggedStat("throttling", stats.TimerType, stats.Tags{
-		"key":    key,
-		"algo":   algo,
-		"rate":   strconv.FormatInt(rate, 10),
-		"window": strconv.FormatInt(window, 10),
-	})
+	m := l.statsCollector.NewTaggedStat("throttling", stats.TimerType, l.statsTagger(key, algo, rate, window))
 	start := time.Now()
 	return func() {
 		m.Since(start)

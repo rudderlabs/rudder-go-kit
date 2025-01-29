@@ -11,6 +11,8 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/rudderlabs/rudder-go-kit/stats"
+	"github.com/rudderlabs/rudder-go-kit/stats/memstats"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 )
 
@@ -405,6 +407,33 @@ func TestRetryAfter(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestTags(t *testing.T) {
+	ms, err := memstats.New()
+	require.NoError(t, err)
+
+	l, err := New(
+		WithStatsCollector(ms),
+		WithStatsTagger(func(key, algo string, rate, window int64) stats.Tags {
+			return stats.Tags{
+				"algo":   algo,
+				"custom": "bar",
+			}
+		}),
+		WithInMemoryGCRA(1),
+	)
+	require.NoError(t, err)
+	allowed, _, err := l.Allow(context.Background(), 1, 1, 1, "foo")
+	require.NoError(t, err)
+	require.True(t, allowed)
+
+	metrics := ms.GetByName("throttling")
+	require.Len(t, metrics, 1)
+	require.Contains(t, metrics[0].Tags, "algo")
+	require.Equal(t, "gcra", metrics[0].Tags["algo"])
+	require.Contains(t, metrics[0].Tags, "custom")
+	require.Equal(t, "bar", metrics[0].Tags["custom"])
 }
 
 func testName(name string, rate, window int64) string {
