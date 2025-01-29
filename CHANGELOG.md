@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.46.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.1...v0.46.2) (2025-01-29)
+
+
+### Miscellaneous
+
+* **deps:** bump the all group across 1 directory with 17 updates ([#731](https://github.com/rudderlabs/rudder-go-kit/issues/731)) ([8b0de4f](https://github.com/rudderlabs/rudder-go-kit/commit/8b0de4f4f2117a4cc9677cfde1e3d55d420f1dd4))
+* throttling tagger ([#730](https://github.com/rudderlabs/rudder-go-kit/issues/730)) ([26e7749](https://github.com/rudderlabs/rudder-go-kit/commit/26e7749dba321324fa833f40fb59070cee0403e5))
+
 ## [0.46.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.0...v0.46.1) (2025-01-15)
 
 
