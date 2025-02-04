@@ -12,7 +12,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.8.0
 	github.com/fsnotify/fsnotify v1.8.0
-	github.com/go-chi/chi/v5 v5.2.0
+	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gocql/gocql v1.14.2
 	github.com/gofrs/uuid v4.4.0+incompatible
