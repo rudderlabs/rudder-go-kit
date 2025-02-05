@@ -12,7 +12,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.8.0
 	github.com/fsnotify/fsnotify v1.8.0
-	github.com/go-chi/chi/v5 v5.2.0
+	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/gocql/gocql v1.14.2
 	github.com/gofrs/uuid v4.4.0+incompatible
@@ -54,9 +54,9 @@ require (
 	go.uber.org/mock v0.5.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.32.0
-	golang.org/x/oauth2 v0.25.0
-	golang.org/x/sync v0.10.0
-	golang.org/x/text v0.21.0
+	golang.org/x/oauth2 v0.26.0
+	golang.org/x/sync v0.11.0
+	golang.org/x/text v0.22.0
 	google.golang.org/api v0.219.0
 	google.golang.org/protobuf v1.36.4
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
