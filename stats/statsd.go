@@ -155,9 +155,6 @@ func (s *statsdStats) RegisterCollector(c Collector) error {
 
 // Stop stops periodic collection of stats.
 func (s *statsdStats) Stop() {
-	s.state.clientsLock.RLock()
-	defer s.state.clientsLock.RUnlock()
-
 	if !s.config.enabled.Load() || !s.state.connEstablished {
 		return
 	}
