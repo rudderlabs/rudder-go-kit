@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.2...v0.46.3) (2025-02-17)
+
+
+### Bug Fixes
+
+* **stats:** deadlock during stats stop ([#739](https://github.com/rudderlabs/rudder-go-kit/issues/739)) ([17ec61c](https://github.com/rudderlabs/rudder-go-kit/commit/17ec61c3b93ab24a0f4b5e90ceb5c0416faab489))
+
 ## [0.46.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.1...v0.46.2) (2025-01-29)
 
 
