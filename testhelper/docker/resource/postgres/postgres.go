@@ -59,7 +59,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"POSTGRES_USER=" + postgresDefaultUser,
 		},
 		Cmd:          cmd,
-		PortBindings: internal.IPv4PortBindings([]string{"5432"}),
+		PortBindings: internal.IPv4PortBindings([]string{"5432"}, internal.WithBindIP(c.BindIP)),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
 		hc.OOMKillDisable = c.OOMKillDisable
