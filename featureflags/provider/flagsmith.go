@@ -9,7 +9,29 @@ import (
 
 // FlagsmithProvider implements the Provider interface using Flagsmith
 type FlagsmithProvider struct {
+	Client FlagsmithClient
+}
+
+type FlagsmithFlags interface {
+	AllFlags() []flagsmith.Flag
+}
+
+type FlagsmithClient interface {
+	GetIdentityFlags(ctx context.Context, identifier string, traits []*flagsmith.Trait) (FlagsmithFlags, error)
+}
+
+// FlagsmithClientAdapter wraps the flagsmith client to implement FlagsmithClient interface
+type FlagsmithClientAdapter struct {
 	client *flagsmith.Client
+}
+
+// GetIdentityFlags implements FlagsmithClient interface
+func (a *FlagsmithClientAdapter) GetIdentityFlags(ctx context.Context, identifier string, traits []*flagsmith.Trait) (FlagsmithFlags, error) {
+	flags, err := a.client.GetIdentityFlags(ctx, identifier, traits)
+	if err != nil {
+		return nil, err
+	}
+	return &flags, nil
 }
 
 // NewFlagsmithProvider creates a new Flagsmith provider instance
@@ -24,7 +46,7 @@ func NewFlagsmithProvider(config ProviderConfig) (*FlagsmithProvider, error) {
 	}
 
 	return &FlagsmithProvider{
-		client: client,
+		Client: &FlagsmithClientAdapter{client: client},
 	}, nil
 }
 
@@ -40,7 +62,7 @@ func (p *FlagsmithProvider) GetFeatureFlags(params ProviderParams) (map[string]*
 	}
 
 	// Get flags for identity with traits
-	flags, err := p.client.GetIdentityFlags(context.Background(), params.WorkspaceID, traits)
+	flags, err := p.Client.GetIdentityFlags(context.Background(), params.WorkspaceID, traits)
 	if err != nil {
 		return nil, err
 	}
