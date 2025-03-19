@@ -46,6 +46,12 @@ func WithNetwork(network *docker.Network) Opt {
 	}
 }
 
+func WithBindIP(bindIP string) Opt {
+	return func(c *Config) {
+		c.BindIP = bindIP
+	}
+}
+
 type Config struct {
 	Tag              string
 	Options          []string
@@ -54,4 +60,5 @@ type Config struct {
 	OOMKillDisable   bool
 	PrintLogsOnError bool
 	NetworkID        string
+	BindIP           string
 }
