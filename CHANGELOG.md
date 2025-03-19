@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.47.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.2...v0.47.0) (2025-03-19)
+
+
+### Features
+
+* allow specifying bind ip for postgres ([#742](https://github.com/rudderlabs/rudder-go-kit/issues/742)) ([fc26a01](https://github.com/rudderlabs/rudder-go-kit/commit/fc26a01541cb2077d371772197ef05e2caa58661))
+
+
+### Bug Fixes
+
+* **stats:** deadlock during stats stop ([#739](https://github.com/rudderlabs/rudder-go-kit/issues/739)) ([17ec61c](https://github.com/rudderlabs/rudder-go-kit/commit/17ec61c3b93ab24a0f4b5e90ceb5c0416faab489))
+
 ## [0.46.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.1...v0.46.2) (2025-01-29)
 
 
