@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.47.0...v0.47.1) (2025-03-21)
+
+
+### Bug Fixes
+
+* ip not getting assigned immediately ([#757](https://github.com/rudderlabs/rudder-go-kit/issues/757)) ([e1f222e](https://github.com/rudderlabs/rudder-go-kit/commit/e1f222e8e58fe5ebfb7fa27c00f23eb23afb227b))
+
 ## [0.47.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.46.2...v0.47.0) (2025-03-19)
 
 
