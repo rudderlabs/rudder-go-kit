@@ -2,13 +2,12 @@ run:
   timeout: 5m
 
 linters:
-  enable:
+  enable: # https://golangci-lint.run/usage/linters
     - errcheck
     - gosimple
     - govet
     - ineffassign
     - staticcheck
-    - typecheck
     - unused
     - unparam
     - unconvert
