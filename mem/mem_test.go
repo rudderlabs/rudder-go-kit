@@ -10,6 +10,7 @@ import (
 func TestMemCollector(t *testing.T) {
 	const expectedCgroupsTotal = 100000 // setting a pretty low value to make sure the system running the test will have more memory than this
 	const expectedCgroupsUsed = 9000
+	const expectedCgroupsRSS = 8000
 	mem, err := gomem.VirtualMemory()
 	require.NoError(t, err)
 	require.Greater(t, mem.Total, uint64(expectedCgroupsTotal), "cgroups total should be less than the actual total memory of the system running the tests")
@@ -21,11 +22,15 @@ func TestMemCollector(t *testing.T) {
 		require.Greater(t, s.Total, uint64(0))
 		require.Greater(t, s.Used, uint64(0))
 		require.EqualValues(t, s.Total-s.Used, s.Available, "available memory should be total memory minus used memory")
+		require.Equal(t, s.Used, s.RSS, "used memory should be equal to RSS")
 		require.Greater(t, s.Total, s.Used, "total memory should be greater than used memory")
 		require.Greater(t, s.Total, s.Available, "total memory should be greater than available memory")
 		require.LessOrEqual(t, s.UsedPercent, float64(100))
 		require.LessOrEqual(t, s.AvailablePercent, float64(100))
 		require.EqualValues(t, float64(s.Used)*100/float64(s.Total), s.UsedPercent)
+		require.Equal(t, s.UsedPercent, s.RSSPercent())
+		require.Equal(t, s.Available, s.AvailableIgnoreCache())
+		require.Equal(t, s.AvailablePercent, s.AvailableIgnoreCachePercent())
 	})
 	t.Run("with cgroups", func(t *testing.T) {
 		c := &collector{basePath: "testdata/cgroups_v1_mem_limit"}
@@ -34,7 +39,10 @@ func TestMemCollector(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, expectedCgroupsTotal, s.Total)
 		require.EqualValues(t, expectedCgroupsUsed, s.Used)
+		require.EqualValues(t, expectedCgroupsRSS, s.RSS)
 		require.EqualValues(t, s.Total-s.Used, s.Available)
+		require.EqualValues(t, s.Total-s.RSS, s.AvailableIgnoreCache())
 		require.EqualValues(t, float64(s.Used)*100/float64(s.Total), s.UsedPercent)
+		require.EqualValues(t, float64(s.RSS)*100/float64(s.Total), s.RSSPercent())
 	})
 }

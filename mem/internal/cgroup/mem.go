@@ -22,6 +22,14 @@ func GetMemoryUsage(basePath string) int64 {
 	return getWSSMemoryCgroup2(basePath, n)
 }
 
+// GetMemoryRSS returns cgroup (v1 or v2) rss memory
+func GetMemoryRSS(basePath string) int64 {
+	if rss := getRSSMemoryCgroup1(basePath); rss > 0 {
+		return rss
+	}
+	return getRSSMemoryCgroup2(basePath)
+}
+
 // GetMemoryLimit returns the cgroup's (v1 or v2) memory limit, or [totalMem] if there is no limit set.
 // If using cgroups v1, hierarchical memory limit is also taken into consideration if there is no limit set.
 //
@@ -89,6 +97,10 @@ func getWSSMemoryCgroup2(basePath string, used int64) int64 {
 		return 0
 	}
 	return used - inactive
+}
+
+func getRSSMemoryCgroup2(basePath string) int64 {
+	return memStatCgroup2(basePath, "anon")
 }
 
 func memStatCgroup1(basePath, key string) int64 {
