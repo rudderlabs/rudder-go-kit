@@ -49,7 +49,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v1.61.0
+          version: v2.0.2
       - id: govulncheck
         uses: golang/govulncheck-action@v1
         with:
