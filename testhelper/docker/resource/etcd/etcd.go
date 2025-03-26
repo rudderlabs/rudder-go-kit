@@ -75,7 +75,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	}
 
 	err = pool.Retry(func() (err error) {
-		_, err = etcdClient.Cluster.MemberList(context.Background())
+		_, err = etcdClient.MemberList(context.Background())
 
 		return err
 	})

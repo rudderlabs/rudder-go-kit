@@ -290,7 +290,7 @@ func (ms *Store) Spans() ([]tracemodel.Span, error) {
 
 	// adding missing curly brackets and converting to a valid JSON array
 	jsonData := "[" + ms.tracingBuffer.String() + "]"
-	jsonData = strings.Replace(jsonData, "}\n{", "},{", -1)
+	jsonData = strings.ReplaceAll(jsonData, "}\n{", "},{")
 
 	var spans []tracemodel.Span
 	err := json.Unmarshal([]byte(jsonData), &spans)
