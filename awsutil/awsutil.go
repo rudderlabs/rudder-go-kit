@@ -31,6 +31,7 @@ type SessionConfig struct {
 	Service             string         `mapstructure:"service"`
 	Timeout             *time.Duration `mapstructure:"timeout"`
 	SharedConfigProfile string         `mapstructure:"sharedConfigProfile"`
+	MaxIdleConnsPerHost int            `mapstructure:"maxIdleConnsPerHost"`
 }
 
 // CreateSession creates a new AWS session using the provided config
@@ -90,8 +91,14 @@ func NewSimpleSessionConfig(config map[string]interface{}, serviceName string) (
 func getHttpClient(config *SessionConfig) *http.Client {
 	var httpClient *http.Client
 	if config.Timeout != nil {
+		transport := &http.Transport{}
+		if config.MaxIdleConnsPerHost > 0 {
+			transport.MaxIdleConnsPerHost = config.MaxIdleConnsPerHost
+		}
+
 		httpClient = &http.Client{
-			Timeout: *config.Timeout,
+			Timeout:   *config.Timeout,
+			Transport: transport,
 		}
 	}
 	return httpClient
