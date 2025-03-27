@@ -3,6 +3,7 @@ package awsutil
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -31,6 +32,7 @@ type SessionConfig struct {
 	Service             string         `mapstructure:"service"`
 	Timeout             *time.Duration `mapstructure:"timeout"`
 	SharedConfigProfile string         `mapstructure:"sharedConfigProfile"`
+	MaxIdleConnsPerHost int            `mapstructure:"maxIdleConnsPerHost"`
 }
 
 // CreateSession creates a new AWS session using the provided config
@@ -88,12 +90,33 @@ func NewSimpleSessionConfig(config map[string]interface{}, serviceName string) (
 }
 
 func getHttpClient(config *SessionConfig) *http.Client {
-	var httpClient *http.Client
-	if config.Timeout != nil {
-		httpClient = &http.Client{
-			Timeout: *config.Timeout,
-		}
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
 	}
+
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           dialer.DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		MaxIdleConnsPerHost:   config.MaxIdleConnsPerHost,
+	}
+	if config.MaxIdleConnsPerHost > 0 {
+		transport.MaxIdleConnsPerHost = config.MaxIdleConnsPerHost
+		transport.MaxIdleConns = max(transport.MaxIdleConns, config.MaxIdleConnsPerHost)
+	}
+
+	httpClient := &http.Client{
+		Transport: transport,
+	}
+	if config.Timeout != nil {
+		httpClient.Timeout = *config.Timeout
+	}
+
 	return httpClient
 }
 
