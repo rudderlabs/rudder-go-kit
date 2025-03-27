@@ -9,7 +9,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
@@ -60,7 +59,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		},
 		Cmd:          cmd,
 		PortBindings: internal.IPv4PortBindings([]string{"5432"}, internal.WithBindIP(c.BindIP)),
-	}, func(hc *dc.HostConfig) {
+	}, func(hc *docker.HostConfig) {
 		hc.ShmSize = c.ShmSize
 		hc.OOMKillDisable = c.OOMKillDisable
 		hc.Memory = c.Memory
@@ -82,7 +81,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 					OutputStream: b,
 					ErrorStream:  b,
 				}); err != nil {
-					_, _ = b.Write([]byte(fmt.Sprintf("could not get logs: %s", err)))
+					_, _ = fmt.Fprintf(b, "could not get logs: %s", err)
 				}
 				d.Log(fmt.Sprintf("%q postgres container logs:\n%s", c.Container.Name, b.String()))
 			}

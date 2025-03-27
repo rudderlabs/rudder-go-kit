@@ -86,7 +86,7 @@ func testLimiter(
 		stop        = make(chan struct{}, 1)
 	)
 
-	run := func() (err error, allowed bool, redisTime time.Duration) {
+	run := func() (allowed bool, redisTime time.Duration, err error) {
 		switch {
 		case l.redisSpeaker != nil && l.useGCRA:
 			redisTime, allowed, _, _, err = l.redisGCRA(ctx, cost, rate, window, key)
@@ -120,7 +120,7 @@ loop:
 				defer wg.Done()
 				defer func() { <-maxRoutines }()
 
-				err, allowed, redisTime := run()
+				allowed, redisTime, err := run()
 				require.NoError(t, err)
 				now := time.Now().UnixNano()
 

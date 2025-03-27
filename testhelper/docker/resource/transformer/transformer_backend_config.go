@@ -33,7 +33,7 @@ func getByVersionIdHandler(transformations map[string]string) func(http.Response
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		_, err := w.Write([]byte(fmt.Sprintf(`{
+		_, err := fmt.Fprintf(w, `{
 		"id": %q,
 		"createdAt": "2023-03-27T11:40:00.894Z",
 		"updatedAt": "2023-03-27T11:40:00.894Z",
@@ -46,7 +46,7 @@ func getByVersionIdHandler(transformations map[string]string) func(http.Response
 		"language": "javascript",
 		"imports": [],
 		"secrets": {}
-	}`, uuid.NewString(), transformationVersionId, transformationCode)))
+	}`, uuid.NewString(), transformationVersionId, transformationCode)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = fmt.Errorf("error writing response: %v", err)

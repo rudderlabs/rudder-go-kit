@@ -288,10 +288,7 @@ func (l *gcsListSession) Next() (fileObjects []*FileInfo, err error) {
 		})
 	}
 	var attrs *storage.ObjectAttrs
-	for {
-		if maxItems <= 0 {
-			break
-		}
+	for maxItems > 0 {
 		attrs, err = l.Iterator.Next()
 		if err == iterator.Done || err != nil {
 			if err == iterator.Done {

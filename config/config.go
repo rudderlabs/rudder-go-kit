@@ -313,7 +313,7 @@ func getOrCreatePointer[T configTypes](
 		}
 		if dvs[key] != dvKey {
 			panic(fmt.Errorf(
-				"Detected misuse of config variable registered with different default values %+v - %+v\n",
+				"detected misuse of config variable registered with different default values %+v - %+v",
 				dvs[key], dvKey,
 			))
 		}
