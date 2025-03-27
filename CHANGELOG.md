@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.48.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.0...v0.48.1) (2025-03-27)
+
+
+### Miscellaneous
+
+* aws util max idle connections property ([#763](https://github.com/rudderlabs/rudder-go-kit/issues/763)) ([e24b01c](https://github.com/rudderlabs/rudder-go-kit/commit/e24b01c6209e6427615eb819ddd7c8f16eef1b9e))
+* **deps:** bump the all group across 1 directory with 25 updates ([#753](https://github.com/rudderlabs/rudder-go-kit/issues/753)) ([399cfb3](https://github.com/rudderlabs/rudder-go-kit/commit/399cfb3cb5b3b602b7a64cb7d195cf2676b365ea))
+
 ## [0.48.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.47.1...v0.48.0) (2025-03-27)
 
 
