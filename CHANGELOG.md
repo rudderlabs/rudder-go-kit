@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.48.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.47.1...v0.48.0) (2025-03-27)
+
+
+### Features
+
+* include rss memory in calculated mem stats ([#760](https://github.com/rudderlabs/rudder-go-kit/issues/760)) ([e335ca0](https://github.com/rudderlabs/rudder-go-kit/commit/e335ca090fb8bc7f7c70a79f1bbd17ee3c776363))
+
+
+### Miscellaneous
+
+* **deps:** bump golangci/golangci-lint-action from 6 to 7 ([#761](https://github.com/rudderlabs/rudder-go-kit/issues/761)) ([f968432](https://github.com/rudderlabs/rudder-go-kit/commit/f9684327239aeb6b6a27c03591e9f42ec6c3cfd3))
+
 ## [0.47.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.47.0...v0.47.1) (2025-03-21)
 
 
