@@ -1,46 +1,48 @@
-run:
-  timeout: 5m
-
+version: "2"
 linters:
   enable:
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
-    - unparam
-    - unconvert
     - bodyclose
     - decorder
-    - makezero
-    - nilnil
-    - nilerr
-    - rowserrcheck
-    - tenv
-    - wastedassign
-    - unparam
-    - misspell
-    - unconvert
     - depguard
-
+    - makezero
+    - misspell
+    - nilerr
+    - nilnil
+    - rowserrcheck
+    - unconvert
+    - unparam
+    - wastedassign
+  settings:
+    depguard:
+      rules:
+        main:
+          files:
+            - $all
+            - '!**/uuid_test.go'
+          deny:
+            - pkg: github.com/gofrs/uuid
+              desc: use github.com/google/uuid instead
+            - pkg: golang.org/x/exp/slices
+              desc: use "slices" instead
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  exclude-use-default: true
-  exclude-case-sensitive: false
   max-issues-per-linter: 50
   max-same-issues: 10
   new: false
-
-linters-settings:
-  depguard:
-    rules:
-      main:
-        files:
-          - $all
-          - "!**/uuid_test.go"
-        deny:
-          - pkg: "github.com/gofrs/uuid"
-            desc: 'use github.com/google/uuid instead'
-          - pkg: "golang.org/x/exp/slices"
-            desc: 'use "slices" instead'
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
