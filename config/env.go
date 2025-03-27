@@ -9,7 +9,7 @@ import (
 
 func isUpperCaseConfigKey(s string) bool {
 	for _, ch := range s {
-		if !(ch == '_' || unicode.IsUpper(ch) || unicode.IsDigit(ch)) {
+		if ch != '_' && !unicode.IsUpper(ch) && !unicode.IsDigit(ch) {
 			return false
 		}
 	}
