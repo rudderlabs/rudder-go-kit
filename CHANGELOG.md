@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.1...v0.48.2) (2025-04-02)
+
+
+### Miscellaneous
+
+* nop tracer ([#769](https://github.com/rudderlabs/rudder-go-kit/issues/769)) ([fce5502](https://github.com/rudderlabs/rudder-go-kit/commit/fce55029c7c1087f0568ba4628a0b878052a1a99))
+
 ## [0.48.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.0...v0.48.1) (2025-03-27)
 
 
