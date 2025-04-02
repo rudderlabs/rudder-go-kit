@@ -3,11 +3,12 @@ package stats
 import (
 	"context"
 	"time"
-
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
-var NOP Stats = &nop{}
+var (
+	NOP       Stats  = &nop{}
+	NOPTracer Tracer = &nopTracer{}
+)
 
 type nop struct{}
 
@@ -33,11 +34,27 @@ func (*nop) NewSampledTaggedStat(_, _ string, _ Tags) Measurement {
 	return &nopMeasurement{}
 }
 
-func (*nop) NewTracer(_ string) Tracer {
-	return NewTracerFromOpenTelemetry(noop.NewTracerProvider().Tracer(""))
-}
+func (*nop) NewTracer(_ string) Tracer { return NOPTracer }
 
 func (*nop) Start(_ context.Context, _ GoRoutineFactory) error { return nil }
 func (*nop) Stop()                                             {}
 
 func (*nop) RegisterCollector(c Collector) error { return nil }
+
+type nopTracer struct{}
+
+func (*nopTracer) Start(ctx context.Context, _ string, _ SpanKind, _ ...SpanOption) (context.Context, TraceSpan) {
+	return ctx, &nopSpan{}
+}
+
+func (*nopTracer) SpanFromContext(_ context.Context) TraceSpan {
+	return &nopSpan{}
+}
+
+type nopSpan struct{}
+
+func (*nopSpan) AddEvent(_ string, _ ...SpanOption) {}
+func (*nopSpan) SetStatus(_ SpanStatus, _ string)   {}
+func (*nopSpan) SpanContext() SpanContext           { return SpanContext{} }
+func (*nopSpan) SetAttributes(_ Tags)               {}
+func (*nopSpan) End()                               {}
