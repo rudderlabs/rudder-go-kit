@@ -31,6 +31,7 @@ type config struct {
 	envs         []string
 	extraHosts   []string
 	network      *docker.Network
+	checkpull    bool
 }
 
 func (c *config) setBackendConfigURL(url string) {
@@ -109,6 +110,12 @@ func WithRepository(repository string) Option {
 	}
 }
 
+func WithCheckPull(checkpull bool) Option {
+	return func(conf *config) {
+		conf.checkpull = checkpull
+	}
+}
+
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	// Set Rudder Transformer
 	// pulls an image first to make sure we don't have an old cached version locally,
@@ -120,18 +127,22 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		envs: []string{
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 		},
+		checkpull: true,
 	}
 
 	for _, opt := range opts {
 		opt(conf)
 	}
 
-	err := pool.Client.PullImage(docker.PullImageOptions{
-		Repository: conf.repository,
-		Tag:        conf.tag,
-	}, docker.AuthConfiguration{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to pull image: %w", err)
+	// The PullImage function uses only the provided AuthConfiguration and always try to pull the image from registry
+	// For usecase where we already have the image locally, we can skip the pull step
+	if conf.checkpull {
+		if err := pool.Client.PullImage(docker.PullImageOptions{
+			Repository: conf.repository,
+			Tag:        conf.tag,
+		}, docker.AuthConfiguration{}); err != nil {
+			return nil, fmt.Errorf("failed to pull image: %w", err)
+		}
 	}
 
 	var networkID string
