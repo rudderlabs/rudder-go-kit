@@ -110,9 +110,9 @@ func WithRepository(repository string) Option {
 	}
 }
 
-func WithAlwaysPull(allowPull bool) Option {
+func WithAlwaysPull(alwayPull bool) Option {
 	return func(conf *config) {
-		conf.alwaysPull = allowPull
+		conf.alwaysPull = alwayPull
 	}
 }
 
