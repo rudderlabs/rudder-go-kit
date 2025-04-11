@@ -106,29 +106,29 @@ func TestSetup(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, gjson.Get(string(respData), "0.output.transformed").Bool())
 	})
-	t.Run("test image pull behavior based on checkpull flag", func(t *testing.T) {
+	t.Run("test image pull behavior based on alwaysPull flag", func(t *testing.T) {
 		tests := []struct {
 			name            string
 			tag             string
 			urlPath         string
 			repository      string
-			checkpull       bool
+			alwaysPull      bool
 			expectPullError bool
 		}{
 			{
-				name:            "checkpull=true: should return image pull error",
+				name:            "alwaysPull=true: should return image pull error",
 				tag:             "feat.salesforce.cache.support.search",
 				urlPath:         "health",
 				repository:      "rudderstack/develop-rudder-transformer",
-				checkpull:       true,
+				alwaysPull:      true,
 				expectPullError: true,
 			},
 			{
-				name:            "checkpull=false: should ignore image pull error",
+				name:            "alwaysPull=false: should ignore image pull error",
 				tag:             "feat.salesforce.cache.support.search",
 				urlPath:         "health",
 				repository:      "rudderstack/develop-rudder-transformer",
-				checkpull:       false,
+				alwaysPull:      false,
 				expectPullError: false,
 			},
 		}
@@ -138,7 +138,7 @@ func TestSetup(t *testing.T) {
 				_, err := transformer.Setup(pool, t,
 					transformer.WithRepository(tt.repository),
 					transformer.WithDockerImageTag(tt.tag),
-					transformer.WithCheckPull(tt.checkpull),
+					transformer.WithAlwaysPull(tt.alwaysPull),
 				)
 
 				require.Error(t, err)

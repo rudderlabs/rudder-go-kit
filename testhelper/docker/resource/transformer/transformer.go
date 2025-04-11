@@ -31,7 +31,7 @@ type config struct {
 	envs         []string
 	extraHosts   []string
 	network      *docker.Network
-	checkpull    bool
+	alwaysPull   bool
 }
 
 func (c *config) setBackendConfigURL(url string) {
@@ -110,9 +110,9 @@ func WithRepository(repository string) Option {
 	}
 }
 
-func WithCheckPull(checkpull bool) Option {
+func WithAlwaysPull(allowPull bool) Option {
 	return func(conf *config) {
-		conf.checkpull = checkpull
+		conf.alwaysPull = allowPull
 	}
 }
 
@@ -127,7 +127,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		envs: []string{
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 		},
-		checkpull: true,
+		alwaysPull: true,
 	}
 
 	for _, opt := range opts {
@@ -136,7 +136,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 
 	// The PullImage function uses only the provided AuthConfiguration and always try to pull the image from registry
 	// For usecase where we already have the image locally, we can skip the pull step
-	if conf.checkpull {
+	if conf.alwaysPull {
 		if err := pool.Client.PullImage(docker.PullImageOptions{
 			Repository: conf.repository,
 			Tag:        conf.tag,
