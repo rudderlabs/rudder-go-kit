@@ -65,9 +65,8 @@ func (t *Trie) Insert(word string) {
 //   - string: The shortest matching prefix word found. Returns an empty string
 //     if no matching prefix word is found.
 //
-// Note: If the input string is empty, the function returns (false, "") immediately,
-// regardless of whether an empty string was inserted via Insert(""). The root node's
-// isEndOfWord flag is not considered in this specific scenario.
+// Note: If the input string is empty, the function always returns (false, ""),
+// regardless of whether an empty string was inserted via Insert("").
 func (t *Trie) Get(input string) (bool, string) {
 	node := t.root
 	var matched strings.Builder
@@ -78,7 +77,10 @@ func (t *Trie) Get(input string) (bool, string) {
 			break
 		}
 
-		matched.WriteRune(r)
+		_, err := matched.WriteRune(r)
+		if err != nil {
+			panic(err)
+		}
 		if node.isEndOfWord {
 			// Found a prefix that is a word.
 			return true, matched.String()
