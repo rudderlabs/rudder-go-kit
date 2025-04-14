@@ -1,6 +1,6 @@
 module github.com/rudderlabs/rudder-go-kit
 
-go 1.23.8
+go 1.24.2
 
 replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.2
 
