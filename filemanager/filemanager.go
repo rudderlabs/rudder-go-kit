@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -39,8 +40,9 @@ type FileInfo struct {
 type FileManager interface {
 	// ListFilesWithPrefix starts a list session for files with given prefix
 	ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession
-	// Download downloads the file with given key to the passed in file
-	Download(context.Context, *os.File, string) error
+	// Download retrieves an object with the given key and writes it to the provided writer.
+	// Pass *os.File as output to write the downloaded file on disk.
+	Download(context.Context, io.WriterAt, string) error
 	// Upload uploads the passed in file to the file manager
 	Upload(context.Context, *os.File, ...string) (UploadedFile, error)
 	// Delete deletes the file(s) with given key(s)

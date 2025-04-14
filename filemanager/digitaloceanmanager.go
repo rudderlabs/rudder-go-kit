@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -16,11 +17,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	SpacesManager "github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/samber/lo"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
-
-	SpacesManager "github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 type DigitalOceanConfig struct {
@@ -58,7 +58,7 @@ func (manager *digitalOceanManager) ListFilesWithPrefix(ctx context.Context, sta
 	}
 }
 
-func (manager *digitalOceanManager) Download(ctx context.Context, output *os.File, key string) error {
+func (manager *digitalOceanManager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	downloadSession, err := manager.getSession()
 	if err != nil {
 		return fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)

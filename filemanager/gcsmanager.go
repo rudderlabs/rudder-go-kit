@@ -12,14 +12,13 @@ import (
 	"sync"
 	"time"
 
+	"cloud.google.com/go/storage"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 
 	"github.com/rudderlabs/rudder-go-kit/googleutil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
-
-	"cloud.google.com/go/storage"
-	"google.golang.org/api/option"
 )
 
 type GCSConfig struct {
@@ -71,7 +70,9 @@ func (m *gcsManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix
 	}
 }
 
-func (m *gcsManager) Download(ctx context.Context, output *os.File, key string) error {
+// Download retrieves an object with the given key and writes it to the provided writer.
+// Pass *os.File as output to write the downloaded file on disk.
+func (m *gcsManager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return err
@@ -86,7 +87,8 @@ func (m *gcsManager) Download(ctx context.Context, output *os.File, key string) 
 	}
 	defer func() { _ = rc.Close() }()
 
-	_, err = io.Copy(output, rc)
+	writer := &writerAtAdapter{w: output}
+	_, err = io.Copy(writer, rc)
 	return err
 }
 

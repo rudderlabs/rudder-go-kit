@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -50,7 +51,7 @@ func (m *minioManager) ListFilesWithPrefix(ctx context.Context, startAfter, pref
 	}
 }
 
-func (m *minioManager) Download(ctx context.Context, file *os.File, key string) error {
+func (m *minioManager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	minioClient, err := m.getClient()
 	if err != nil {
 		return err
@@ -59,7 +60,20 @@ func (m *minioManager) Download(ctx context.Context, file *os.File, key string) 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	err = minioClient.FGetObject(ctx, m.config.Bucket, key, file.Name(), minio.GetObjectOptions{})
+	// Check if output is *os.File to use FGetObject
+	if file, ok := output.(*os.File); ok {
+		return minioClient.FGetObject(ctx, m.config.Bucket, key, file.Name(), minio.GetObjectOptions{})
+	}
+
+	// Use GetObject with WriterAt interface instead of FGetObject
+	obj, err := minioClient.GetObject(ctx, m.config.Bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = obj.Close() }()
+
+	writer := &writerAtAdapter{w: output}
+	_, err = io.Copy(writer, obj)
 	return err
 }
 

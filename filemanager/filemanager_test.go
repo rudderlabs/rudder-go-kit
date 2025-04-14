@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/Azure/azure-storage-blob-go/azblob"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -26,8 +27,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
-
-	"github.com/Azure/azure-storage-blob-go/azblob"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/filemanager"
@@ -62,7 +61,7 @@ func run(m *testing.M) int {
 	// docker pool setup
 	pool, err := dockertest.NewPool("")
 	if err != nil {
-		panic(fmt.Errorf("Could not connect to docker: %s", err))
+		panic(fmt.Errorf("could not connect to docker: %s", err))
 	}
 
 	// running minio container on docker
@@ -77,7 +76,7 @@ func run(m *testing.M) int {
 		},
 	})
 	if err != nil {
-		panic(fmt.Errorf("Could not start resource: %s", err))
+		panic(fmt.Errorf("could not start resource: %s", err))
 	}
 	defer func() {
 		if err := pool.Purge(minioResource); err != nil {
@@ -105,10 +104,9 @@ func run(m *testing.M) int {
 	}
 	fmt.Println("minio is up & running properly")
 
-	useSSL := false
 	minioClient, err := minio.New(minioEndpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyId, secretAccessKey, ""),
-		Secure: useSSL,
+		Secure: false, // no SSL
 	})
 	if err != nil {
 		panic(err)
@@ -166,11 +164,10 @@ func run(m *testing.M) int {
 	GCSEndpoint := fmt.Sprintf("localhost:%s", GCSResource.GetPort("4443/tcp"))
 	fmt.Println("GCS test server successfully created with endpoint: ", GCSEndpoint)
 	gcsURL = fmt.Sprintf("http://%s/storage/v1/", GCSEndpoint)
-	os.Setenv("STORAGE_EMULATOR_HOST", GCSEndpoint)
-	os.Setenv("RSERVER_WORKLOAD_IDENTITY_TYPE", "GKE")
+	_ = os.Setenv("STORAGE_EMULATOR_HOST", GCSEndpoint)
+	_ = os.Setenv("RSERVER_WORKLOAD_IDENTITY_TYPE", "GKE")
 
 	for i := 0; i < 10; i++ {
-
 		if err := func() error {
 			client, err := storage.NewClient(context.TODO(), option.WithEndpoint(gcsURL))
 			if err != nil {
@@ -367,7 +364,7 @@ func TestFileManager(t *testing.T) {
 				require.Equal(t, path.Join(paths...),
 					uploadOutput.ObjectName)
 				uploadOutputs = append(uploadOutputs, uploadOutput)
-				filePtr.Close()
+				require.NoError(t, filePtr.Close())
 			}
 
 			// list files using ListFilesWithPrefix
@@ -442,7 +439,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				fmt.Printf("error: %s, while reading file: %s", err, fileList[0])
 			}
-			filePtr.Close()
+			require.NoError(t, filePtr.Close())
 
 			DownloadedFileName := path.Join(t.TempDir(), "TmpDownloadedFile")
 
@@ -455,7 +452,7 @@ func TestFileManager(t *testing.T) {
 			cancel()
 			err = fm.Download(ctx, filePtr, key)
 			require.Error(t, err, "expected error while downloading file")
-			filePtr.Close()
+			require.NoError(t, filePtr.Close())
 
 			filePtr, err = os.OpenFile(DownloadedFileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
 			if err != nil {
@@ -464,7 +461,7 @@ func TestFileManager(t *testing.T) {
 			err = fm.Download(context.TODO(), filePtr, key)
 
 			require.NoError(t, err, "expected no error")
-			filePtr.Close()
+			require.NoError(t, filePtr.Close())
 			filePtr, err = os.OpenFile(DownloadedFileName, os.O_RDWR, 0o644)
 			if err != nil {
 				fmt.Println("error while Creating file to download data: ", err)
@@ -473,7 +470,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				fmt.Println("error while reading downloaded file: ", err)
 			}
-			filePtr.Close()
+			require.NoError(t, filePtr.Close())
 
 			ans := strings.Compare(string(originalFile), string(downloadedFile))
 			require.Equal(t, 0, ans, "downloaded file different than actual file")
@@ -524,7 +521,7 @@ func TestFileManager(t *testing.T) {
 			cancel()
 			_, err = fm.Upload(ctx, filePtr)
 			require.Error(t, err, "expected error while uploading file")
-			filePtr.Close()
+			require.NoError(t, filePtr.Close())
 
 			// MINIO doesn't support list files with context cancellation
 			if tt.destName != "MINIO" {
@@ -546,7 +543,7 @@ func TestFileManager(t *testing.T) {
 }
 
 func TestGCSManager_unsupported_credentials(t *testing.T) {
-	var config map[string]interface{}
+	var conf map[string]any
 	err := jsoniter.Unmarshal(
 		[]byte(`{
 			"project": "my-project",
@@ -558,10 +555,10 @@ func TestGCSManager_unsupported_credentials(t *testing.T) {
 			"syncFrequency": "1440",
 			"syncStartAt": "09:00"
 		}`),
-		&config,
+		&conf,
 	)
 	assert.NoError(t, err)
-	manager, err := filemanager.NewGCSManager(config, logger.NOP, func() time.Duration { return time.Minute })
+	manager, err := filemanager.NewGCSManager(conf, logger.NOP, func() time.Duration { return time.Minute })
 	assert.NoError(t, err)
 	_, err = manager.ListFilesWithPrefix(context.TODO(), "", "/tests", 100).Next()
 	assert.NotNil(t, err)

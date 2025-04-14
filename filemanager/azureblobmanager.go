@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -84,7 +85,9 @@ func (manager *azureBlobManager) Upload(ctx context.Context, file *os.File, pref
 	return UploadedFile{Location: manager.blobLocation(&blobURL), ObjectName: fileName}, nil
 }
 
-func (manager *azureBlobManager) Download(ctx context.Context, output *os.File, key string) error {
+// Download retrieves an object with the given key and writes it to the provided writer.
+// Pass *os.File as output to write the downloaded file on disk.
+func (manager *azureBlobManager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	containerURL, err := manager.getContainerURL()
 	if err != nil {
 		return err
@@ -111,7 +114,8 @@ func (manager *azureBlobManager) Download(ctx context.Context, output *os.File, 
 		return err
 	}
 
-	_, err = output.Write(downloadedData.Bytes())
+	writer := &writerAtAdapter{w: output}
+	_, err = writer.Write(downloadedData.Bytes())
 	return err
 }
 

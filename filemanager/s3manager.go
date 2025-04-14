@@ -75,8 +75,9 @@ func (m *S3Manager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix 
 	}
 }
 
-// Download downloads a file from S3
-func (m *S3Manager) Download(ctx context.Context, output *os.File, key string) error {
+// Download retrieves an object with the given key and writes it to the provided writer.
+// Pass *os.File as output to write the downloaded file on disk.
+func (m *S3Manager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
