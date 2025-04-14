@@ -95,6 +95,7 @@ func TestTrie(t *testing.T) {
 
 		found, matched = trie.Get("abc")
 		require.False(t, found)
+		require.Equal(t, "", matched)
 	})
 
 	t.Run("multiple word insertions with common prefixes", func(t *testing.T) {

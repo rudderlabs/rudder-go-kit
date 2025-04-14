@@ -1,9 +1,8 @@
 package trie
 
 import (
-	"fmt"
-
 	"crypto/rand"
+	"fmt"
 	mathrand "math/rand"
 	"testing"
 )
