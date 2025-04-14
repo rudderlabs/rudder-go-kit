@@ -72,7 +72,6 @@ func (m *MinioManager) Download(ctx context.Context, output io.WriterAt, key str
 	if err != nil {
 		return err
 	}
-	defer func() { _ = obj.Close() }()
 
 	writer := &writerAtAdapter{w: output}
 	_, err = io.Copy(writer, obj)
