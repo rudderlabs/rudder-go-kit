@@ -25,7 +25,30 @@ BenchmarkTrie/Get/10000_items_10_chars_0.0_hit_rate-12             14371        
 BenchmarkTrie/Get/100000_items_50_chars_1.0_hit_rate-12             1318            868631 ns/op          248000 B/op       5000 allocs/op
 BenchmarkTrie/Get/100000_items_50_chars_0.5_hit_rate-12             2562            475571 ns/op          130176 B/op       3120 allocs/op
 BenchmarkTrie/Get/100000_items_50_chars_0.0_hit_rate-12            10000            108950 ns/op           12624 B/op       1260 allocs/op
+
+
+
+memory profile:
+
+Showing nodes accounting for 23638.81MB, 99.71% of 23707.34MB total
+Dropped 45 nodes (cum <= 118.54MB)
+Showing top 10 nodes out of 11
+
+	flat  flat%   sum%        cum   cum%
+
+22098.73MB 93.21% 93.21% 22098.73MB 93.21%  github.com/rudderlabs/rudder-go-kit/trie.(*Trie).Insert (inline)
+
+	1105.05MB  4.66% 97.88%  1105.05MB  4.66%  unicode/utf8.appendRuneNonASCII
+	 435.02MB  1.83% 99.71%  1540.07MB  6.50%  unicode/utf8.AppendRune (inline)
+	        0     0% 99.71%  1540.07MB  6.50%  github.com/rudderlabs/rudder-go-kit/trie.(*Trie).Get
+	        0     0% 99.71% 19397.43MB 81.82%  github.com/rudderlabs/rudder-go-kit/trie.BenchmarkTrie.func1.1
+	        0     0% 99.71%  2744.61MB 11.58%  github.com/rudderlabs/rudder-go-kit/trie.BenchmarkTrie.func2
+	        0     0% 99.71%  1540.07MB  6.50%  github.com/rudderlabs/rudder-go-kit/trie.BenchmarkTrie.func2.1
+	        0     0% 99.71%  1540.07MB  6.50%  strings.(*Builder).WriteRune
+	        0     0% 99.71% 19854.87MB 83.75%  testing.(*B).launch
+	        0     0% 99.71%  3846.46MB 16.22%  testing.(*B).run1.func1
 */
+
 func BenchmarkTrie(b *testing.B) {
 	b.Run("Insert", func(b *testing.B) {
 		testCases := []struct {
