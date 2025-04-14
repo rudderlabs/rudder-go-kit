@@ -17,7 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	SpacesManager "github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/samber/lo"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -35,8 +35,8 @@ type DigitalOceanConfig struct {
 }
 
 // NewDigitalOceanManager creates a new file manager for digital ocean spaces
-func NewDigitalOceanManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*digitalOceanManager, error) {
-	return &digitalOceanManager{
+func NewDigitalOceanManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*DigitalOceanManager, error) {
+	return &DigitalOceanManager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
@@ -45,7 +45,7 @@ func NewDigitalOceanManager(config map[string]interface{}, log logger.Logger, de
 	}, nil
 }
 
-func (manager *digitalOceanManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+func (m *DigitalOceanManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
 	return &digitalOceanListSession{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -53,67 +53,71 @@ func (manager *digitalOceanManager) ListFilesWithPrefix(ctx context.Context, sta
 			prefix:     prefix,
 			maxItems:   maxItems,
 		},
-		manager:     manager,
+		manager:     m,
 		isTruncated: true,
 	}
 }
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (manager *digitalOceanManager) Download(ctx context.Context, output io.WriterAt, key string) error {
-	downloadSession, err := manager.getSession()
+func (m *DigitalOceanManager) Download(ctx context.Context, output io.WriterAt, key string) error {
+	downloadSession, err := m.getSession()
 	if err != nil {
 		return fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, manager.getTimeout())
+	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	downloader := SpacesManager.NewDownloader(downloadSession)
+	downloader := s3manager.NewDownloader(downloadSession)
 	_, err = downloader.DownloadWithContext(ctx, output,
 		&s3.GetObjectInput{
-			Bucket: aws.String(manager.Config.Bucket),
+			Bucket: aws.String(m.Config.Bucket),
 			Key:    aws.String(key),
 		})
 
 	return err
 }
 
-func (manager *digitalOceanManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
-	if manager.Config.Bucket == "" {
+func (m *DigitalOceanManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+	fileName := path.Join(m.Config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, fileName, file)
+}
+
+func (m *DigitalOceanManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
+	if m.Config.Bucket == "" {
 		return UploadedFile{}, errors.New("no storage bucket configured to uploader")
 	}
 
-	fileName := path.Join(manager.Config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-
-	uploadInput := &SpacesManager.UploadInput{
+	uploadInput := &s3manager.UploadInput{
 		ACL:    aws.String("bucket-owner-full-control"),
-		Bucket: aws.String(manager.Config.Bucket),
-		Key:    aws.String(fileName),
-		Body:   file,
+		Bucket: aws.String(m.Config.Bucket),
+		Key:    aws.String(objName),
+		Body:   rdr,
 	}
-	uploadSession, err := manager.getSession()
+	uploadSession, err := m.getSession()
 	if err != nil {
 		return UploadedFile{}, fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)
 	}
-	DOmanager := SpacesManager.NewUploader(uploadSession)
+	doManager := s3manager.NewUploader(uploadSession)
 
-	ctx, cancel := context.WithTimeout(ctx, manager.getTimeout())
+	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	output, err := DOmanager.UploadWithContext(ctx, uploadInput)
+	output, err := doManager.UploadWithContext(ctx, uploadInput)
 	if err != nil {
-		if awsError, ok := err.(awserr.Error); ok && awsError.Code() == "MissingRegion" {
-			err = fmt.Errorf("bucket %q not found", manager.Config.Bucket)
+		var awsError awserr.Error
+		if errors.As(err, &awsError) && awsError.Code() == "MissingRegion" {
+			err = fmt.Errorf("bucket %q not found", m.Config.Bucket)
 		}
 		return UploadedFile{}, err
 	}
 
-	return UploadedFile{Location: output.Location, ObjectName: fileName}, err
+	return UploadedFile{Location: output.Location, ObjectName: objName}, err
 }
 
-func (manager *digitalOceanManager) Delete(ctx context.Context, keys []string) error {
-	sess, err := manager.getSession()
+func (m *DigitalOceanManager) Delete(ctx context.Context, keys []string) error {
+	sess, err := m.getSession()
 	if err != nil {
 		return fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)
 	}
@@ -129,21 +133,18 @@ func (manager *digitalOceanManager) Delete(ctx context.Context, keys []string) e
 	chunks := lo.Chunk(objects, batchSize)
 	for _, chunk := range chunks {
 		input := &s3.DeleteObjectsInput{
-			Bucket: aws.String(manager.Config.Bucket),
+			Bucket: aws.String(m.Config.Bucket),
 			Delete: &s3.Delete{
 				Objects: chunk,
 			},
 		}
 
-		_ctx, cancel := context.WithTimeout(ctx, manager.getTimeout())
+		_ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 		_, err := svc.DeleteObjectsWithContext(_ctx, input)
 		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				manager.logger.Errorf(`Error while deleting digital ocean spaces objects: %v, error code: %v`, aerr.Error(), aerr.Code())
-			} else {
-				// Print the error, cast err to awserr.Error to get the Code and
-				// Message from an error.
-				manager.logger.Errorf(`Error while deleting digital ocean spaces objects: %v`, aerr.Error())
+			var awsErr awserr.Error
+			if errors.As(err, &awsErr) {
+				m.logger.Errorf(`Error while deleting digital ocean spaces objects: %v, error code: %v`, awsErr.Error(), awsErr.Code())
 			}
 			cancel()
 			return err
@@ -153,20 +154,20 @@ func (manager *digitalOceanManager) Delete(ctx context.Context, keys []string) e
 	return nil
 }
 
-func (manager *digitalOceanManager) Prefix() string {
-	return manager.Config.Prefix
+func (m *DigitalOceanManager) Prefix() string {
+	return m.Config.Prefix
 }
 
-func (manager *digitalOceanManager) GetDownloadKeyFromFileLocation(location string) string {
+func (m *DigitalOceanManager) GetDownloadKeyFromFileLocation(location string) string {
 	parsedUrl, err := url.Parse(location)
 	if err != nil {
 		fmt.Println("error while parsing location url: ", err)
 	}
-	trimedUrl := strings.TrimLeft(parsedUrl.Path, "/")
-	if (manager.Config.ForcePathStyle != nil && *manager.Config.ForcePathStyle) || (!strings.Contains(parsedUrl.Host, manager.Config.Bucket)) {
-		return strings.TrimPrefix(trimedUrl, fmt.Sprintf(`%s/`, manager.Config.Bucket))
+	trimmedURL := strings.TrimLeft(parsedUrl.Path, "/")
+	if (m.Config.ForcePathStyle != nil && *m.Config.ForcePathStyle) || (!strings.Contains(parsedUrl.Host, m.Config.Bucket)) {
+		return strings.TrimPrefix(trimmedURL, fmt.Sprintf(`%s/`, m.Config.Bucket))
 	}
-	return trimedUrl
+	return trimmedURL
 }
 
 /*
@@ -174,31 +175,31 @@ GetObjectNameFromLocation gets the object name/key name from the object location
 
 	https://rudder.sgp1.digitaloceanspaces.com/key - >> key
 */
-func (manager *digitalOceanManager) GetObjectNameFromLocation(location string) (string, error) {
+func (m *DigitalOceanManager) GetObjectNameFromLocation(location string) (string, error) {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
 		return "", err
 	}
-	trimedUrl := strings.TrimLeft(parsedURL.Path, "/")
-	if (manager.Config.ForcePathStyle != nil && *manager.Config.ForcePathStyle) || (!strings.Contains(parsedURL.Host, manager.Config.Bucket)) {
-		return strings.TrimPrefix(trimedUrl, fmt.Sprintf(`%s/`, manager.Config.Bucket)), nil
+	trimmedURL := strings.TrimLeft(parsedURL.Path, "/")
+	if (m.Config.ForcePathStyle != nil && *m.Config.ForcePathStyle) || (!strings.Contains(parsedURL.Host, m.Config.Bucket)) {
+		return strings.TrimPrefix(trimmedURL, fmt.Sprintf(`%s/`, m.Config.Bucket)), nil
 	}
-	return trimedUrl, nil
+	return trimmedURL, nil
 }
 
-func (manager *digitalOceanManager) getSession() (*session.Session, error) {
+func (m *DigitalOceanManager) getSession() (*session.Session, error) {
 	var region string
-	if manager.Config.Region != nil {
-		region = *manager.Config.Region
+	if m.Config.Region != nil {
+		region = *m.Config.Region
 	} else {
-		region = getSpacesLocation(manager.Config.EndPoint)
+		region = getSpacesLocation(m.Config.EndPoint)
 	}
 	return session.NewSession(&aws.Config{
 		Region:           aws.String(region),
-		Credentials:      credentials.NewStaticCredentials(manager.Config.AccessKeyID, manager.Config.AccessKey, ""),
-		Endpoint:         aws.String(manager.Config.EndPoint),
-		DisableSSL:       manager.Config.DisableSSL,
-		S3ForcePathStyle: manager.Config.ForcePathStyle,
+		Credentials:      credentials.NewStaticCredentials(m.Config.AccessKeyID, m.Config.AccessKey, ""),
+		Endpoint:         aws.String(m.Config.EndPoint),
+		DisableSSL:       m.Config.DisableSSL,
+		S3ForcePathStyle: m.Config.ForcePathStyle,
 	})
 }
 
@@ -212,7 +213,7 @@ func getSpacesLocation(location string) (region string) {
 	return region
 }
 
-type digitalOceanManager struct {
+type DigitalOceanManager struct {
 	*baseManager
 	Config *DigitalOceanConfig
 }
@@ -283,7 +284,7 @@ func digitalOceanConfig(config map[string]interface{}) *DigitalOceanConfig {
 
 type digitalOceanListSession struct {
 	*baseListSession
-	manager *digitalOceanManager
+	manager *DigitalOceanManager
 
 	continuationToken *string
 	isTruncated       bool

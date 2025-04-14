@@ -44,12 +44,12 @@ func WithGCSUploadIfObjectNotExist(uploadIfNotExist bool) func(*GCSConfig) {
 // NewGCSManager creates a new file manager for Google Cloud Storage
 func NewGCSManager(
 	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration, opts ...GCSOpt,
-) (*gcsManager, error) {
+) (*GcsManager, error) {
 	conf := gcsConfig(config)
 	for _, opt := range opts {
 		opt(conf)
 	}
-	return &gcsManager{
+	return &GcsManager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
@@ -58,7 +58,7 @@ func NewGCSManager(
 	}, nil
 }
 
-func (m *gcsManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+func (m *GcsManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
 	return &gcsListSession{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -72,7 +72,7 @@ func (m *gcsManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *gcsManager) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *GcsManager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return err
@@ -92,9 +92,12 @@ func (m *gcsManager) Download(ctx context.Context, output io.WriterAt, key strin
 	return err
 }
 
-func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+func (m *GcsManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
 	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, fileName, file)
+}
 
+func (m *GcsManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return UploadedFile{}, err
@@ -103,13 +106,13 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	object := client.Bucket(m.config.Bucket).Object(fileName)
+	object := client.Bucket(m.config.Bucket).Object(objName)
 	if m.config.uploadIfNotExist {
 		object = object.If(storage.Conditions{DoesNotExist: true})
 	}
-	w := object.NewWriter(ctx)
 
-	if _, err := io.Copy(w, file); err != nil {
+	w := object.NewWriter(ctx)
+	if _, err := io.Copy(w, rdr); err != nil {
 		return UploadedFile{}, fmt.Errorf("copying file to writer: %w", err)
 	}
 
@@ -120,12 +123,11 @@ func (m *gcsManager) Upload(ctx context.Context, file *os.File, prefixes ...stri
 		}
 		return UploadedFile{}, fmt.Errorf("closing writer: %w", err)
 	}
-	attrs := w.Attrs()
 
-	return UploadedFile{Location: m.objectURL(attrs), ObjectName: fileName}, err
+	return UploadedFile{Location: m.objectURL(w.Attrs()), ObjectName: objName}, err
 }
 
-func (m *gcsManager) Delete(ctx context.Context, keys []string) (err error) {
+func (m *GcsManager) Delete(ctx context.Context, keys []string) (err error) {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return err
@@ -142,23 +144,23 @@ func (m *gcsManager) Delete(ctx context.Context, keys []string) (err error) {
 	return
 }
 
-func (m *gcsManager) Prefix() string {
+func (m *GcsManager) Prefix() string {
 	return m.config.Prefix
 }
 
-func (m *gcsManager) GetObjectNameFromLocation(location string) (string, error) {
+func (m *GcsManager) GetObjectNameFromLocation(location string) (string, error) {
 	splitStr := strings.Split(location, m.config.Bucket)
 	object := strings.TrimLeft(splitStr[len(splitStr)-1], "/")
 	return object, nil
 }
 
-func (m *gcsManager) GetDownloadKeyFromFileLocation(location string) string {
+func (m *GcsManager) GetDownloadKeyFromFileLocation(location string) string {
 	splitStr := strings.Split(location, m.config.Bucket)
 	key := strings.TrimLeft(splitStr[len(splitStr)-1], "/")
 	return key
 }
 
-func (m *gcsManager) objectURL(objAttrs *storage.ObjectAttrs) string {
+func (m *GcsManager) objectURL(objAttrs *storage.ObjectAttrs) string {
 	if m.config.EndPoint != nil && *m.config.EndPoint != "" {
 		endpoint := strings.TrimSuffix(*m.config.EndPoint, "/")
 		return fmt.Sprintf("%s/%s/%s", endpoint, objAttrs.Bucket, objAttrs.Name)
@@ -166,7 +168,7 @@ func (m *gcsManager) objectURL(objAttrs *storage.ObjectAttrs) string {
 	return fmt.Sprintf("https://storage.googleapis.com/%s/%s", objAttrs.Bucket, objAttrs.Name)
 }
 
-func (m *gcsManager) getClient(ctx context.Context) (*storage.Client, error) {
+func (m *GcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 	m.clientMu.Lock()
 	defer m.clientMu.Unlock()
 
@@ -196,7 +198,7 @@ func (m *gcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 	return m.client, err
 }
 
-type gcsManager struct {
+type GcsManager struct {
 	*baseManager
 	config *GCSConfig
 
@@ -265,7 +267,7 @@ func gcsConfig(config map[string]interface{}) *GCSConfig {
 
 type gcsListSession struct {
 	*baseListSession
-	manager *gcsManager
+	manager *GcsManager
 
 	Iterator *storage.ObjectIterator
 }

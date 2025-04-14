@@ -28,8 +28,8 @@ type MinioConfig struct {
 }
 
 // NewMinioManager creates a new file manager for minio
-func NewMinioManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*minioManager, error) {
-	return &minioManager{
+func NewMinioManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*MinioManager, error) {
+	return &MinioManager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
@@ -38,7 +38,7 @@ func NewMinioManager(config map[string]interface{}, log logger.Logger, defaultTi
 	}, nil
 }
 
-func (m *minioManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+func (m *MinioManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
 	return &minioListSession{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -53,7 +53,7 @@ func (m *minioManager) ListFilesWithPrefix(ctx context.Context, startAfter, pref
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *minioManager) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *MinioManager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	minioClient, err := m.getClient()
 	if err != nil {
 		return err
@@ -79,7 +79,12 @@ func (m *minioManager) Download(ctx context.Context, output io.WriterAt, key str
 	return err
 }
 
-func (m *minioManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+func (m *MinioManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, fileName, file)
+}
+
+func (m *MinioManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
 	if m.config.Bucket == "" {
 		return UploadedFile{}, errors.New("no storage bucket configured to uploader")
 	}
@@ -102,17 +107,15 @@ func (m *minioManager) Upload(ctx context.Context, file *os.File, prefixes ...st
 		}
 	}
 
-	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-
-	_, err = minioClient.FPutObject(ctx, m.config.Bucket, fileName, file.Name(), minio.PutObjectOptions{})
+	_, err = minioClient.PutObject(ctx, m.config.Bucket, objName, rdr, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return UploadedFile{}, err
 	}
 
-	return UploadedFile{Location: m.objectUrl(fileName), ObjectName: fileName}, nil
+	return UploadedFile{Location: m.objectUrl(objName), ObjectName: objName}, nil
 }
 
-func (m *minioManager) Delete(ctx context.Context, keys []string) (err error) {
+func (m *MinioManager) Delete(ctx context.Context, keys []string) (err error) {
 	objectChannel := make(chan minio.ObjectInfo, len(keys))
 	for _, key := range keys {
 		objectChannel <- minio.ObjectInfo{Key: key}
@@ -131,7 +134,7 @@ func (m *minioManager) Delete(ctx context.Context, keys []string) (err error) {
 	return tmp.Err
 }
 
-func (m *minioManager) Prefix() string {
+func (m *MinioManager) Prefix() string {
 	return m.config.Prefix
 }
 
@@ -141,7 +144,7 @@ GetObjectNameFromLocation gets the object name/key name from the object location
 	https://minio-endpoint/bucket-name/key1 - >> key1
 	http://minio-endpoint/bucket-name/key2 - >> key2
 */
-func (m *minioManager) GetObjectNameFromLocation(location string) (string, error) {
+func (m *MinioManager) GetObjectNameFromLocation(location string) (string, error) {
 	var baseURL string
 	if m.config.UseSSL {
 		baseURL += "https://"
@@ -153,7 +156,7 @@ func (m *minioManager) GetObjectNameFromLocation(location string) (string, error
 	return location[len(baseURL):], nil
 }
 
-func (m *minioManager) GetDownloadKeyFromFileLocation(location string) string {
+func (m *MinioManager) GetDownloadKeyFromFileLocation(location string) string {
 	parsedUrl, err := url.Parse(location)
 	if err != nil {
 		fmt.Println("error while parsing location url: ", err)
@@ -162,7 +165,7 @@ func (m *minioManager) GetDownloadKeyFromFileLocation(location string) string {
 	return strings.TrimPrefix(trimedUrl, fmt.Sprintf(`%s/`, m.config.Bucket))
 }
 
-func (m *minioManager) objectUrl(objectName string) string {
+func (m *MinioManager) objectUrl(objectName string) string {
 	protocol := "http"
 	if m.config.UseSSL {
 		protocol = "https"
@@ -170,7 +173,7 @@ func (m *minioManager) objectUrl(objectName string) string {
 	return protocol + "://" + m.config.EndPoint + "/" + m.config.Bucket + "/" + objectName
 }
 
-func (m *minioManager) getClient() (*minio.Client, error) {
+func (m *MinioManager) getClient() (*minio.Client, error) {
 	m.clientOnce.Do(func() {
 		m.client, m.clientErr = minio.New(m.config.EndPoint, &minio.Options{
 			Creds:  credentials.NewStaticV4(m.config.AccessKeyID, m.config.SecretAccessKey, ""),
@@ -184,7 +187,7 @@ func (m *minioManager) getClient() (*minio.Client, error) {
 	return m.client, m.clientErr
 }
 
-type minioManager struct {
+type MinioManager struct {
 	*baseManager
 	config *MinioConfig
 
@@ -244,7 +247,7 @@ func minioConfig(config map[string]interface{}) *MinioConfig {
 
 type minioListSession struct {
 	*baseListSession
-	manager *minioManager
+	manager *MinioManager
 
 	continuationToken string
 	isTruncated       bool

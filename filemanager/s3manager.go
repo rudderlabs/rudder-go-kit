@@ -102,6 +102,12 @@ func (m *S3Manager) Download(ctx context.Context, output io.WriterAt, key string
 	return nil
 }
 
+// Upload uploads a file to S3
+func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, fileName, file)
+}
+
 // UploadReader uploads an object to S3 using the provided reader and object name.
 // It supports server-side encryption if enabled in the configuration.
 // Returns an UploadedFile containing the file's location and object name, or an error.
@@ -134,12 +140,6 @@ func (m *S3Manager) UploadReader(ctx context.Context, objName string, rdr io.Rea
 	}
 
 	return UploadedFile{Location: output.Location, ObjectName: objName}, err
-}
-
-// Upload uploads a file to S3
-func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
-	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-	return m.UploadReader(ctx, fileName, file)
 }
 
 func (m *S3Manager) Delete(ctx context.Context, keys []string) (err error) {

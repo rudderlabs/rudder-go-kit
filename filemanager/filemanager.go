@@ -45,6 +45,8 @@ type FileManager interface {
 	Download(context.Context, io.WriterAt, string) error
 	// Upload uploads the passed in file to the file manager
 	Upload(context.Context, *os.File, ...string) (UploadedFile, error)
+	// UploadReader uploads the passed io.Reader to the file manager
+	UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error)
 	// Delete deletes the file(s) with given key(s)
 	Delete(ctx context.Context, keys []string) error
 
