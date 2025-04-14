@@ -51,6 +51,8 @@ func (m *minioManager) ListFilesWithPrefix(ctx context.Context, startAfter, pref
 	}
 }
 
+// Download retrieves an object with the given key and writes it to the provided writer.
+// Pass *os.File as output to write the downloaded file on disk.
 func (m *minioManager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	minioClient, err := m.getClient()
 	if err != nil {

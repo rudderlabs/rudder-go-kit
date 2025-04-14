@@ -58,6 +58,8 @@ func (manager *digitalOceanManager) ListFilesWithPrefix(ctx context.Context, sta
 	}
 }
 
+// Download retrieves an object with the given key and writes it to the provided writer.
+// Pass *os.File as output to write the downloaded file on disk.
 func (manager *digitalOceanManager) Download(ctx context.Context, output io.WriterAt, key string) error {
 	downloadSession, err := manager.getSession()
 	if err != nil {
