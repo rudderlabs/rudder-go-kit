@@ -31,7 +31,6 @@ type config struct {
 	envs         []string
 	extraHosts   []string
 	network      *docker.Network
-	alwaysPull   bool
 	authConfig   docker.AuthConfiguration
 }
 
