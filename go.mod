@@ -31,6 +31,7 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.63.0
+	github.com/rudderlabs/rudder-observability-kit v0.0.4
 	github.com/samber/lo v1.49.1
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/shirou/gopsutil/v3 v3.24.5

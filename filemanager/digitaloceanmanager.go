@@ -21,6 +21,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 type DigitalOceanConfig struct {
@@ -142,10 +143,14 @@ func (m *DigitalOceanManager) Delete(ctx context.Context, keys []string) error {
 		_ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 		_, err := svc.DeleteObjectsWithContext(_ctx, input)
 		if err != nil {
+			var errCode string
 			var awsErr awserr.Error
 			if errors.As(err, &awsErr) {
-				m.logger.Errorf(`Error while deleting digital ocean spaces objects: %v, error code: %v`, awsErr.Error(), awsErr.Code())
+				errCode = awsErr.Code()
 			}
+			m.logger.Errorn("Error while deleting digital ocean spaces objects", obskit.Error(err),
+				logger.NewStringField("code", errCode),
+			)
 			cancel()
 			return err
 		}
