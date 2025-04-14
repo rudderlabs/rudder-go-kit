@@ -11,6 +11,7 @@ package mock_filemanager
 
 import (
 	context "context"
+	io "io"
 	os "os"
 	reflect "reflect"
 	time "time"
@@ -57,7 +58,7 @@ func (mr *MockFileManagerMockRecorder) Delete(arg0, arg1 any) *gomock.Call {
 }
 
 // Download mocks base method.
-func (m *MockFileManager) Download(arg0 context.Context, arg1 *os.File, arg2 string) error {
+func (m *MockFileManager) Download(arg0 context.Context, arg1 io.WriterAt, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
