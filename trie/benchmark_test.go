@@ -27,7 +27,6 @@ BenchmarkTrie/Get/100000_items_50_chars_0.5_hit_rate-12             2481        
 BenchmarkTrie/Get/100000_items_50_chars_0.0_hit_rate-12            10333            123480 ns/op           12568 B/op       1262 allocs/op
 */
 func BenchmarkTrie(b *testing.B) {
-
 	b.Run("Insert", func(b *testing.B) {
 		testCases := []struct {
 			numItems  int
