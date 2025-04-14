@@ -1,7 +1,6 @@
 package filemanager
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -113,16 +112,8 @@ func (m *AzureBlobManager) Download(ctx context.Context, output io.WriterAt, key
 
 	// NOTE: automatically retries are performed if the connection fails
 	bodyStream := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20})
-
-	// read the body into a buffer
-	downloadedData := bytes.Buffer{}
-	_, err = downloadedData.ReadFrom(bodyStream)
-	if err != nil {
-		return err
-	}
-
-	writer := &writerAtAdapter{w: output}
-	_, err = writer.Write(downloadedData.Bytes())
+	_, err = io.Copy(&writerAtAdapter{w: output}, bodyStream)
+	_ = bodyStream.Close()
 	return err
 }
 
