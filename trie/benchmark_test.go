@@ -12,19 +12,19 @@ goos: darwin
 goarch: arm64
 pkg: github.com/rudderlabs/rudder-go-kit/trie
 cpu: Apple M2 Pro
-BenchmarkTrie/Insert/1000_items_10_chars-12                 1449            765763 ns/op         1571211 B/op      23404 allocs/op
-BenchmarkTrie/Insert/10000_items_10_chars-12                 140           8791232 ns/op        14210344 B/op     212759 allocs/op
-BenchmarkTrie/Insert/100000_items_10_chars-12                 13          88382346 ns/op        132672852 B/op   1975541 allocs/op
-BenchmarkTrie/Insert/1000_items_50_chars-12                  248           4839381 ns/op         9587178 B/op     139020 allocs/op
-BenchmarkTrie/Insert/10000_items_50_chars-12                  25          46529992 ns/op        94296304 B/op    1368181 allocs/op
-BenchmarkTrie/Insert/100000_items_50_chars-12                  3         468312653 ns/op        933582800 B/op  13526962 allocs/op
+BenchmarkTrie/Insert/1000_items_10_chars-12                 1440            917506 ns/op         1563102 B/op      23287 allocs/op
+BenchmarkTrie/Insert/10000_items_10_chars-12                 122           9826675 ns/op        14141638 B/op     212074 allocs/op
+BenchmarkTrie/Insert/100000_items_10_chars-12                 13          91967837 ns/op        132748437 B/op   1976261 allocs/op
+BenchmarkTrie/Insert/1000_items_50_chars-12                  247           5039432 ns/op         9564105 B/op     138687 allocs/op
+BenchmarkTrie/Insert/10000_items_50_chars-12                  22          47210977 ns/op        94315532 B/op    1368365 allocs/op
+BenchmarkTrie/Insert/100000_items_50_chars-12                  2         509287521 ns/op        933780416 B/op  13530038 allocs/op
 
-BenchmarkTrie/Get/10000_items_10_chars_1.0_hit_rate-12              5466            211260 ns/op           46720 B/op       2710 allocs/op
-BenchmarkTrie/Get/10000_items_10_chars_0.5_hit_rate-12              7622            147444 ns/op           29072 B/op       1955 allocs/op
-BenchmarkTrie/Get/10000_items_10_chars_0.0_hit_rate-12             15283             78597 ns/op           11816 B/op       1217 allocs/op
-BenchmarkTrie/Get/100000_items_50_chars_1.0_hit_rate-12             1315            865524 ns/op          248000 B/op       5000 allocs/op
-BenchmarkTrie/Get/100000_items_50_chars_0.5_hit_rate-12             2481            472676 ns/op          130312 B/op       3126 allocs/op
-BenchmarkTrie/Get/100000_items_50_chars_0.0_hit_rate-12            10333            123480 ns/op           12568 B/op       1262 allocs/op
+BenchmarkTrie/Get/10000_items_10_chars_1.0_hit_rate-12              5078            220148 ns/op           46912 B/op       2716 allocs/op
+BenchmarkTrie/Get/10000_items_10_chars_0.5_hit_rate-12              6721            164567 ns/op           29368 B/op       1960 allocs/op
+BenchmarkTrie/Get/10000_items_10_chars_0.0_hit_rate-12             14371             86925 ns/op           11736 B/op       1200 allocs/op
+BenchmarkTrie/Get/100000_items_50_chars_1.0_hit_rate-12             1318            868631 ns/op          248000 B/op       5000 allocs/op
+BenchmarkTrie/Get/100000_items_50_chars_0.5_hit_rate-12             2562            475571 ns/op          130176 B/op       3120 allocs/op
+BenchmarkTrie/Get/100000_items_50_chars_0.0_hit_rate-12            10000            108950 ns/op           12624 B/op       1260 allocs/op
 */
 func BenchmarkTrie(b *testing.B) {
 	b.Run("Insert", func(b *testing.B) {
@@ -75,11 +75,9 @@ func BenchmarkTrie(b *testing.B) {
 		for _, tc := range searchTestCases {
 			// 1. Pre-populate a trie
 			t := NewTrie()
-			data := generateData(tc.numItems, tc.keyLength)
-			searchKeys := make([]string, 0, tc.numItems)
-			for _, key := range data {
+			dataToInsert := generateData(tc.numItems, tc.keyLength)
+			for _, key := range dataToInsert {
 				t.Insert(key)
-				searchKeys = append(searchKeys, key)
 			}
 
 			// 2. Generate search keys based on hitRatio
@@ -90,7 +88,7 @@ func BenchmarkTrie(b *testing.B) {
 			for i := 0; i < numSearchOps; i++ {
 				if i < numHits {
 					// Pick a random existing key
-					keysToSearch[i] = searchKeys[mathrand.Intn(len(searchKeys))]
+					keysToSearch[i] = dataToInsert[mathrand.Intn(len(dataToInsert))]
 				} else {
 					// Generate a random key likely not in the trie
 					keysToSearch[i], err = generateRandomString(tc.keyLength)
