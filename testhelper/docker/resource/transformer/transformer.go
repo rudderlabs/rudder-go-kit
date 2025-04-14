@@ -32,6 +32,7 @@ type config struct {
 	extraHosts   []string
 	network      *docker.Network
 	alwaysPull   bool
+	authConfig   docker.AuthConfiguration
 }
 
 func (c *config) setBackendConfigURL(url string) {
@@ -110,9 +111,9 @@ func WithRepository(repository string) Option {
 	}
 }
 
-func WithAlwaysPull(alwaysPull bool) Option {
+func WithDockerAuth(authConfig docker.AuthConfiguration) Option {
 	return func(conf *config) {
-		conf.alwaysPull = alwaysPull
+		conf.authConfig = authConfig
 	}
 }
 
@@ -127,22 +128,18 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		envs: []string{
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 		},
-		alwaysPull: true,
+		authConfig: docker.AuthConfiguration{},
 	}
 
 	for _, opt := range opts {
 		opt(conf)
 	}
 
-	// The PullImage function uses only the provided AuthConfiguration and always try to pull the image from registry
-	// For usecase where we already have the image locally, we can skip the pull step
-	if conf.alwaysPull {
-		if err := pool.Client.PullImage(docker.PullImageOptions{
-			Repository: conf.repository,
-			Tag:        conf.tag,
-		}, docker.AuthConfiguration{}); err != nil {
-			return nil, fmt.Errorf("failed to pull image: %w", err)
-		}
+	if err := pool.Client.PullImage(docker.PullImageOptions{
+		Repository: conf.repository,
+		Tag:        conf.tag,
+	}, conf.authConfig); err != nil {
+		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
 	var networkID string
@@ -156,6 +153,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 		NetworkID:    networkID,
+		Auth:         conf.authConfig,
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
