@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.48.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.2...v0.48.3) (2025-04-15)
+
+
+### Miscellaneous
+
+* add options to run image using docker credentials ([#774](https://github.com/rudderlabs/rudder-go-kit/issues/774)) ([4b45004](https://github.com/rudderlabs/rudder-go-kit/commit/4b45004347044f0401073e122ae397449e18f3c2))
+* **deps:** bump beatlabs/delete-old-branches-action from 0.0.10 to 0.0.11 ([#756](https://github.com/rudderlabs/rudder-go-kit/issues/756)) ([774086e](https://github.com/rudderlabs/rudder-go-kit/commit/774086ee161cee02691fa57f3a2e3310bcf2443b))
+
 ## [0.48.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.1...v0.48.2) (2025-04-02)
 
 
