@@ -128,7 +128,7 @@ func BenchmarkTrie(b *testing.B) {
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					for _, key := range keysToSearch {
-						_, _ = t.Get(key)
+						_, _ = t.GetMatchedPrefixWord(key)
 					}
 				}
 			})

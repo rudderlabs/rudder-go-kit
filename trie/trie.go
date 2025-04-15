@@ -33,8 +33,10 @@ func NewTrie() *Trie {
 // its end marker might be updated, but the structure remains the same.
 // Intermediate nodes are created as needed.
 //
-// Note: If the input string is empty, the function will not insert anything.
+// Note: trailing and leading spaces are trimmed before inserting.
+// If the input string is empty, the function will not insert anything.
 func (t *Trie) Insert(word string) {
+	word = strings.TrimSpace(word)
 	if word == "" {
 		return
 	}
@@ -54,8 +56,9 @@ func (t *Trie) Insert(word string) {
 	node.isEndOfWord = true
 }
 
-// Get checks if any prefix of the input string is registered as a complete word
-// in the trie.
+// GetMatchedPrefixWord checks if any prefix of the input string is registered as a complete word
+// in the trie. Use HasMatchedPrefixWords for performance when only the existence of a matching
+// prefix is needed.
 //
 // It traverses the trie character by character based on the input string.
 // If it encounters a node marked as the end of a word during this traversal,
@@ -66,9 +69,29 @@ func (t *Trie) Insert(word string) {
 //   - string: The shortest matching prefix word found. Returns an empty string
 //     if no matching prefix word is found.
 //
-// Note: If the input string is empty, the function always returns (false, ""),
-// regardless of whether an empty string was inserted via Insert("").
-func (t *Trie) Get(input string) (bool, string) {
+// Note: If the input string is empty, the function always returns (false, "")
+func (t *Trie) GetMatchedPrefixWord(input string) (bool, string) {
+	return t.traverse(input, true)
+}
+
+// HasMatchedPrefixWords checks if any prefix of the input string is registered as a complete word
+// in the trie. Unlike GetMatchedPrefixWord, it does not construct the matching prefix string.
+//
+// It traverses the trie character by character based on the input string.
+// If it encounters a node marked as the end of a word during this traversal,
+// it means a prefix of the input is a complete word in the trie.
+//
+// Return value:
+//   - bool: true if a prefix matching a complete word is found, false otherwise.
+//
+// Note: This method is optimized for performance when only the existence of a matching
+// prefix is needed, as it avoids string construction operations.
+func (t *Trie) HasMatchedPrefixWords(input string) bool {
+	matched, _ := t.traverse(input, false)
+	return matched
+}
+
+func (t *Trie) traverse(input string, buildString bool) (bool, string) {
 	node := t.root
 	var matched strings.Builder
 	for _, r := range input {
@@ -78,13 +101,19 @@ func (t *Trie) Get(input string) (bool, string) {
 			break
 		}
 
-		_, err := matched.WriteRune(r)
-		if err != nil {
-			panic(err)
+		if buildString {
+			_, err := matched.WriteRune(r)
+			if err != nil {
+				panic(err)
+			}
 		}
+
 		if node.isEndOfWord {
 			// Found a prefix that is a word.
-			return true, matched.String()
+			if buildString {
+				return true, matched.String()
+			}
+			return true, ""
 		}
 	}
 
