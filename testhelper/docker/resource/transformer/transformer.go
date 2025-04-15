@@ -31,6 +31,7 @@ type config struct {
 	envs         []string
 	extraHosts   []string
 	network      *docker.Network
+	authConfig   docker.AuthConfiguration
 }
 
 func (c *config) setBackendConfigURL(url string) {
@@ -109,6 +110,12 @@ func WithRepository(repository string) Option {
 	}
 }
 
+func WithDockerAuth(authConfig docker.AuthConfiguration) Option {
+	return func(conf *config) {
+		conf.authConfig = authConfig
+	}
+}
+
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	// Set Rudder Transformer
 	// pulls an image first to make sure we don't have an old cached version locally,
@@ -120,17 +127,17 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		envs: []string{
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 		},
+		authConfig: docker.AuthConfiguration{},
 	}
 
 	for _, opt := range opts {
 		opt(conf)
 	}
 
-	err := pool.Client.PullImage(docker.PullImageOptions{
+	if err := pool.Client.PullImage(docker.PullImageOptions{
 		Repository: conf.repository,
 		Tag:        conf.tag,
-	}, docker.AuthConfiguration{})
-	if err != nil {
+	}, conf.authConfig); err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
@@ -145,6 +152,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 		NetworkID:    networkID,
+		Auth:         conf.authConfig,
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err
