@@ -75,10 +75,8 @@ func TestTrie(t *testing.T) {
 
 	t.Run("empty string", func(t *testing.T) {
 		trie := NewTrie()
-		trie.Insert("")
+		trie.Insert("") // word is not added to the trie as it's empty after trimming
 
-		// Test querying with an empty string. Even if "" was inserted,
-		// it shouldn't be considered a valid match.
 		found, matched := trie.GetMatchedPrefixWord("")
 		require.False(t, found)
 		require.Equal(t, "", matched)
