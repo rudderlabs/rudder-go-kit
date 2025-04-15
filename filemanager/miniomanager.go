@@ -107,7 +107,12 @@ func (m *MinioManager) UploadReader(ctx context.Context, objName string, rdr io.
 		}
 	}
 
-	_, err = minioClient.PutObject(ctx, m.config.Bucket, objName, rdr, -1, minio.PutObjectOptions{})
+	// Check if output is *os.File to use FGetObject
+	if file, ok := rdr.(*os.File); ok {
+		_, err = minioClient.FPutObject(ctx, m.config.Bucket, objName, file.Name(), minio.PutObjectOptions{})
+	} else {
+		_, err = minioClient.PutObject(ctx, m.config.Bucket, objName, rdr, -1, minio.PutObjectOptions{})
+	}
 	if err != nil {
 		return UploadedFile{}, err
 	}
