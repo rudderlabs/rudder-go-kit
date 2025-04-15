@@ -36,6 +36,15 @@ func TestTrie(t *testing.T) {
 		require.Equal(t, "1234567890", matched)
 	})
 
+	t.Run("only complete words can match", func(t *testing.T) {
+		trie := NewTrie()
+		trie.Insert("Message in a bottle")
+
+		found, matched := trie.Get("bot")
+		require.False(t, found)
+		require.Empty(t, matched)
+	})
+
 	t.Run("non-ascii", func(t *testing.T) {
 		trie := NewTrie()
 

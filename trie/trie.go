@@ -4,6 +4,7 @@ import "strings"
 
 // Trie is a prefix tree data structure.
 // It stores words in a way that allows for efficient prefix-based searching.
+// This implementation is case sensitive; "word" and "Word" are treated as different entries.
 
 // This implementation is not concurrent safe.
 // It should not be used from multiple goroutines concurrently without additional synchronization.
