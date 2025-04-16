@@ -1,10 +1,10 @@
 package filemanager
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -29,8 +29,8 @@ type AzureBlobConfig struct {
 }
 
 // NewAzureBlobManager creates a new file manager for Azure Blob Storage
-func NewAzureBlobManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*azureBlobManager, error) {
-	return &azureBlobManager{
+func NewAzureBlobManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*AzureBlobManager, error) {
+	return &AzureBlobManager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
@@ -39,7 +39,7 @@ func NewAzureBlobManager(config map[string]interface{}, log logger.Logger, defau
 	}, nil
 }
 
-func (manager *azureBlobManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+func (m *AzureBlobManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
 	return &azureBlobListSession{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -47,52 +47,61 @@ func (manager *azureBlobManager) ListFilesWithPrefix(ctx context.Context, startA
 			prefix:     prefix,
 			maxItems:   maxItems,
 		},
-		manager: manager,
+		manager: m,
 	}
 }
 
 // Upload passed in file to Azure Blob Storage
-func (manager *azureBlobManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
-	containerURL, err := manager.getContainerURL()
+func (m *AzureBlobManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+	objName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, objName, file)
+}
+
+func (m *AzureBlobManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
+	containerURL, err := m.getContainerURL()
 	if err != nil {
 		return UploadedFile{}, err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, manager.getTimeout())
+	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	if manager.createContainer() {
+	if m.createContainer() {
 		_, err = containerURL.Create(ctx, azblob.Metadata{}, azblob.PublicAccessNone)
-		err = manager.suppressMinorErrors(err)
+		err = m.suppressMinorErrors(err)
 		if err != nil {
 			return UploadedFile{}, err
 		}
 	}
 
-	fileName := path.Join(manager.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-
 	// Here's how to upload a blob.
-	blobURL := containerURL.NewBlockBlobURL(fileName)
-	_, err = azblob.UploadFileToBlockBlob(ctx, file, blobURL, azblob.UploadToBlockBlobOptions{
-		BlockSize:   4 * 1024 * 1024,
-		Parallelism: 16,
-	})
+	blobURL := containerURL.NewBlockBlobURL(objName)
+	if file, ok := rdr.(*os.File); ok {
+		_, err = azblob.UploadFileToBlockBlob(ctx, file, blobURL, azblob.UploadToBlockBlobOptions{
+			BlockSize:   4 * 1024 * 1024,
+			Parallelism: 16,
+		})
+	} else {
+		_, err = azblob.UploadStreamToBlockBlob(ctx, rdr, blobURL, azblob.UploadStreamToBlockBlobOptions{})
+	}
 	if err != nil {
 		return UploadedFile{}, err
 	}
 
-	return UploadedFile{Location: manager.blobLocation(&blobURL), ObjectName: fileName}, nil
+	return UploadedFile{Location: m.blobLocation(&blobURL), ObjectName: objName}, nil
 }
 
-func (manager *azureBlobManager) Download(ctx context.Context, output *os.File, key string) error {
-	containerURL, err := manager.getContainerURL()
+// Download retrieves an object with the given key and writes it to the provided writer.
+// Pass *os.File as output to write the downloaded file on disk.
+func (m *AzureBlobManager) Download(ctx context.Context, output io.WriterAt, key string) error {
+	containerURL, err := m.getContainerURL()
 	if err != nil {
 		return err
 	}
 
 	blobURL := containerURL.NewBlockBlobURL(key)
 
-	ctx, cancel := context.WithTimeout(ctx, manager.getTimeout())
+	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
 	// Here's how to download the blob
@@ -103,20 +112,13 @@ func (manager *azureBlobManager) Download(ctx context.Context, output *os.File, 
 
 	// NOTE: automatically retries are performed if the connection fails
 	bodyStream := downloadResponse.Body(azblob.RetryReaderOptions{MaxRetryRequests: 20})
-
-	// read the body into a buffer
-	downloadedData := bytes.Buffer{}
-	_, err = downloadedData.ReadFrom(bodyStream)
-	if err != nil {
-		return err
-	}
-
-	_, err = output.Write(downloadedData.Bytes())
+	_, err = io.Copy(&writerAtAdapter{w: output}, bodyStream)
+	_ = bodyStream.Close()
 	return err
 }
 
-func (manager *azureBlobManager) Delete(ctx context.Context, keys []string) (err error) {
-	containerURL, err := manager.getContainerURL()
+func (m *AzureBlobManager) Delete(ctx context.Context, keys []string) (err error) {
+	containerURL, err := m.getContainerURL()
 	if err != nil {
 		return err
 	}
@@ -124,7 +126,7 @@ func (manager *azureBlobManager) Delete(ctx context.Context, keys []string) (err
 	for _, key := range keys {
 		blobURL := containerURL.NewBlockBlobURL(key)
 
-		_ctx, cancel := context.WithTimeout(ctx, manager.getTimeout())
+		_ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 		_, err := blobURL.Delete(_ctx, azblob.DeleteSnapshotsOptionNone, azblob.BlobAccessConditions{})
 		if err != nil {
 			cancel()
@@ -135,26 +137,27 @@ func (manager *azureBlobManager) Delete(ctx context.Context, keys []string) (err
 	return
 }
 
-func (manager *azureBlobManager) Prefix() string {
-	return manager.config.Prefix
+func (m *AzureBlobManager) Prefix() string {
+	return m.config.Prefix
 }
 
-func (manager *azureBlobManager) GetObjectNameFromLocation(location string) (string, error) {
-	strToken := strings.Split(location, fmt.Sprintf("%s/", manager.config.Container))
+func (m *AzureBlobManager) GetObjectNameFromLocation(location string) (string, error) {
+	strToken := strings.Split(location, fmt.Sprintf("%s/", m.config.Container))
 	return strToken[len(strToken)-1], nil
 }
 
-func (manager *azureBlobManager) GetDownloadKeyFromFileLocation(location string) string {
-	str := strings.Split(location, fmt.Sprintf("%s/", manager.config.Container))
+func (m *AzureBlobManager) GetDownloadKeyFromFileLocation(location string) string {
+	str := strings.Split(location, fmt.Sprintf("%s/", m.config.Container))
 	return str[len(str)-1]
 }
 
-func (manager *azureBlobManager) suppressMinorErrors(err error) error {
+func (m *AzureBlobManager) suppressMinorErrors(err error) error {
 	if err != nil {
-		if storageError, ok := err.(azblob.StorageError); ok { // This error is a Service-specific
+		var storageError azblob.StorageError
+		if errors.As(err, &storageError) { // This error is a Service-specific
 			switch storageError.ServiceCode() { // Compare serviceCode to ServiceCodeXxx constants
 			case azblob.ServiceCodeContainerAlreadyExists:
-				manager.logger.Debug("Received 409. Container already exists")
+				m.logger.Debug("Received 409. Container already exists")
 				return nil
 			}
 		}
@@ -162,40 +165,40 @@ func (manager *azureBlobManager) suppressMinorErrors(err error) error {
 	return err
 }
 
-func (manager *azureBlobManager) getBaseURL() *url.URL {
+func (m *AzureBlobManager) getBaseURL() *url.URL {
 	protocol := "https"
-	if manager.config.DisableSSL != nil && *manager.config.DisableSSL {
+	if m.config.DisableSSL != nil && *m.config.DisableSSL {
 		protocol = "http"
 	}
 
 	endpoint := "blob.core.windows.net"
-	if manager.config.EndPoint != nil && *manager.config.EndPoint != "" {
-		endpoint = *manager.config.EndPoint
+	if m.config.EndPoint != nil && *m.config.EndPoint != "" {
+		endpoint = *m.config.EndPoint
 	}
 
 	baseURL := url.URL{
 		Scheme: protocol,
-		Host:   fmt.Sprintf("%s.%s", manager.config.AccountName, endpoint),
+		Host:   fmt.Sprintf("%s.%s", m.config.AccountName, endpoint),
 	}
 
-	if manager.config.UseSASTokens {
-		baseURL.RawQuery = manager.config.SASToken
+	if m.config.UseSASTokens {
+		baseURL.RawQuery = m.config.SASToken
 	}
 
-	if manager.config.ForcePathStyle != nil && *manager.config.ForcePathStyle {
+	if m.config.ForcePathStyle != nil && *m.config.ForcePathStyle {
 		baseURL.Host = endpoint
-		baseURL.Path = fmt.Sprintf("/%s/", manager.config.AccountName)
+		baseURL.Path = fmt.Sprintf("/%s/", m.config.AccountName)
 	}
 
 	return &baseURL
 }
 
-func (manager *azureBlobManager) getContainerURL() (azblob.ContainerURL, error) {
-	if manager.config.Container == "" {
+func (m *AzureBlobManager) getContainerURL() (azblob.ContainerURL, error) {
+	if m.config.Container == "" {
 		return azblob.ContainerURL{}, errors.New("no container configured")
 	}
 
-	credential, err := manager.getCredentials()
+	credential, err := m.getCredentials()
 	if err != nil {
 		return azblob.ContainerURL{}, err
 	}
@@ -203,19 +206,19 @@ func (manager *azureBlobManager) getContainerURL() (azblob.ContainerURL, error) 
 	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
 
 	// From the Azure portal, get your storage account blob service URL endpoint.
-	baseURL := manager.getBaseURL()
+	baseURL := m.getBaseURL()
 	serviceURL := azblob.NewServiceURL(*baseURL, p)
-	containerURL := serviceURL.NewContainerURL(manager.config.Container)
+	containerURL := serviceURL.NewContainerURL(m.config.Container)
 
 	return containerURL, nil
 }
 
-func (manager *azureBlobManager) getCredentials() (azblob.Credential, error) {
-	if manager.config.UseSASTokens {
+func (m *AzureBlobManager) getCredentials() (azblob.Credential, error) {
+	if m.config.UseSASTokens {
 		return azblob.NewAnonymousCredential(), nil
 	}
 
-	accountName, accountKey := manager.config.AccountName, manager.config.AccountKey
+	accountName, accountKey := m.config.AccountName, m.config.AccountKey
 	if accountName == "" || accountKey == "" {
 		return nil, errors.New("either accountName or accountKey is empty")
 	}
@@ -224,12 +227,12 @@ func (manager *azureBlobManager) getCredentials() (azblob.Credential, error) {
 	return azblob.NewSharedKeyCredential(accountName, accountKey)
 }
 
-func (manager *azureBlobManager) createContainer() bool {
-	return !manager.config.UseSASTokens
+func (m *AzureBlobManager) createContainer() bool {
+	return !m.config.UseSASTokens
 }
 
-func (manager *azureBlobManager) blobLocation(blobURL *azblob.BlockBlobURL) string {
-	if !manager.config.UseSASTokens {
+func (m *AzureBlobManager) blobLocation(blobURL *azblob.BlockBlobURL) string {
+	if !m.config.UseSASTokens {
 		return blobURL.String()
 	}
 
@@ -240,7 +243,7 @@ func (manager *azureBlobManager) blobLocation(blobURL *azblob.BlockBlobURL) stri
 	return newBlobURL.String()
 }
 
-type azureBlobManager struct {
+type AzureBlobManager struct {
 	*baseManager
 	config *AzureBlobConfig
 }
@@ -319,7 +322,7 @@ func azureBlobConfig(config map[string]interface{}) *AzureBlobConfig {
 
 type azureBlobListSession struct {
 	*baseListSession
-	manager *azureBlobManager
+	manager *AzureBlobManager
 
 	Marker azblob.Marker
 }
