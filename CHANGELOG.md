@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.49.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.3...v0.49.0) (2025-04-16)
+
+
+### Features
+
+* add trie data structure for prefix string matching ([#775](https://github.com/rudderlabs/rudder-go-kit/issues/775)) ([f00fc28](https://github.com/rudderlabs/rudder-go-kit/commit/f00fc284cbe1577ad0c928259e23937cb414e0d3))
+* file manager direct uploads/downloads i.e. skip disk ([#777](https://github.com/rudderlabs/rudder-go-kit/issues/777)) ([82c1694](https://github.com/rudderlabs/rudder-go-kit/commit/82c1694aa34d20e4fbfd823139009c4eed66ddcd))
+* support reloadable limiter limits ([#780](https://github.com/rudderlabs/rudder-go-kit/issues/780)) ([103a934](https://github.com/rudderlabs/rudder-go-kit/commit/103a93420fc85b348c237e892fb0343efd763a4f))
+
+
+### Miscellaneous
+
+* **deps:** bump the all group across 1 directory with 13 updates ([#776](https://github.com/rudderlabs/rudder-go-kit/issues/776)) ([309c68e](https://github.com/rudderlabs/rudder-go-kit/commit/309c68ec00b658409cb2e4e5261c47ad1e0d642c))
+
 ## [0.48.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.2...v0.48.3) (2025-04-15)
 
 
