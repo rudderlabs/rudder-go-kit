@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.49.0...v0.49.1) (2025-04-16)
+
+
+### Miscellaneous
+
+* **deps:** bump google.golang.org/api from 0.224.0 to 0.228.0 in the frequent group ([#765](https://github.com/rudderlabs/rudder-go-kit/issues/765)) ([ca3a1d6](https://github.com/rudderlabs/rudder-go-kit/commit/ca3a1d6663d20dd470abc85d03a33f45b4eb99e7))
+
 ## [0.49.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.3...v0.49.0) (2025-04-16)
 
 
