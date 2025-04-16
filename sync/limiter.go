@@ -9,6 +9,7 @@ import (
 
 	"github.com/samber/lo"
 
+	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/queue"
 	"github.com/rudderlabs/rudder-go-kit/stats"
 )
@@ -70,7 +71,12 @@ var WithLimiterTags = func(tags stats.Tags) func(*limiter) {
 
 // NewLimiter creates a new limiter
 func NewLimiter(ctx context.Context, wg *sync.WaitGroup, name string, limit int, statsf stats.Stats, opts ...func(*limiter)) Limiter {
-	if limit <= 0 {
+	return NewReloadableLimiter(ctx, wg, name, config.SingleValueLoader(limit), statsf, opts...)
+}
+
+// NewReloadableLimiter creates a new limiter with a hot-reloadable limit, i.e. the limit can be changed at runtime
+func NewReloadableLimiter(ctx context.Context, wg *sync.WaitGroup, name string, limit config.ValueLoader[int], statsf stats.Stats, opts ...func(*limiter)) Limiter {
+	if limit.Load() <= 0 {
 		panic(fmt.Errorf("limit for %q must be greater than 0", name))
 	}
 	l := &limiter{
@@ -104,7 +110,8 @@ func NewLimiter(ctx context.Context, wg *sync.WaitGroup, name string, limit int,
 			l.mu.Lock()
 			l.stats.activeGauge.Gauge(l.count)
 			l.stats.waitGauge.Gauge(len(l.waitList))
-			availability := float64(l.limit-l.count) / float64(l.limit)
+			limit := l.limit.Load()
+			availability := float64(limit-l.count) / float64(limit)
 			l.stats.availabilityGauge.Gauge(availability)
 			l.mu.Unlock()
 		}
@@ -114,7 +121,7 @@ func NewLimiter(ctx context.Context, wg *sync.WaitGroup, name string, limit int,
 
 type limiter struct {
 	name          string
-	limit         int
+	limit         config.ValueLoader[int]
 	tags          stats.Tags
 	dynamicPeriod time.Duration
 
@@ -174,7 +181,12 @@ func (l *limiter) BeginWithPriority(key string, priority LimiterPriorityValue) (
 // wait until a slot becomes available
 func (l *limiter) wait(priority LimiterPriorityValue) {
 	l.mu.Lock()
-	if l.count < l.limit {
+	limit := l.limit.Load()
+	if limit <= 0 {
+		l.mu.Unlock()
+		panic(fmt.Errorf("limit for %q must be greater than 0", l.name))
+	}
+	if l.count < limit {
 		l.count++
 		l.mu.Unlock()
 		return
