@@ -81,8 +81,8 @@ func (m *DigitalOceanManager) Download(ctx context.Context, output io.WriterAt, 
 }
 
 func (m *DigitalOceanManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
-	fileName := path.Join(m.Config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-	return m.UploadReader(ctx, fileName, file)
+	objName := path.Join(m.Config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, objName, file)
 }
 
 func (m *DigitalOceanManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {

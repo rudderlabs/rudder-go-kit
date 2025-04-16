@@ -53,8 +53,8 @@ func (m *AzureBlobManager) ListFilesWithPrefix(ctx context.Context, startAfter, 
 
 // Upload passed in file to Azure Blob Storage
 func (m *AzureBlobManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
-	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-	return m.UploadReader(ctx, fileName, file)
+	objName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, objName, file)
 }
 
 func (m *AzureBlobManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {

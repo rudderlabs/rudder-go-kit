@@ -104,8 +104,8 @@ func (m *S3Manager) Download(ctx context.Context, output io.WriterAt, key string
 
 // Upload uploads a file to S3
 func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
-	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-	return m.UploadReader(ctx, fileName, file)
+	objName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, objName, file)
 }
 
 // UploadReader uploads an object to S3 using the provided reader and object name.

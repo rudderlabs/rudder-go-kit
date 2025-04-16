@@ -80,8 +80,8 @@ func (m *MinioManager) Download(ctx context.Context, output io.WriterAt, key str
 }
 
 func (m *MinioManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
-	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-	return m.UploadReader(ctx, fileName, file)
+	objName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	return m.UploadReader(ctx, objName, file)
 }
 
 func (m *MinioManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
