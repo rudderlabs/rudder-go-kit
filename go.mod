@@ -10,7 +10,7 @@ require (
 	github.com/DataDog/zstd v1.5.7
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/confluentinc/confluent-kafka-go/v2 v2.8.0
+	github.com/confluentinc/confluent-kafka-go/v2 v2.10.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-redis/redis/v8 v8.11.5
@@ -23,7 +23,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/linkedin/goavro/v2 v2.13.1
 	github.com/melbahja/goph v1.4.0
-	github.com/minio/minio-go/v7 v7.0.90
+	github.com/minio/minio-go/v7 v7.0.91
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -32,7 +32,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.63.0
 	github.com/rudderlabs/rudder-observability-kit v0.0.4
-	github.com/samber/lo v1.49.1
+	github.com/samber/lo v1.50.0
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spf13/cast v1.7.1
