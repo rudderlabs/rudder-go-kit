@@ -28,6 +28,7 @@ type ProducerConfig struct {
 	ReadTimeout,
 	BatchTimeout time.Duration
 	BatchSize   int
+	BatchBytes  int64
 	Compression Compression
 	Logger      Logger
 	ErrorLogger Logger
@@ -92,6 +93,7 @@ func (c *Client) NewProducer(producerConf ProducerConfig) (p *Producer, err erro
 			ReadTimeout:            producerConf.ReadTimeout,
 			BatchTimeout:           producerConf.BatchTimeout,
 			BatchSize:              producerConf.BatchSize,
+			BatchBytes:             producerConf.BatchBytes,
 			MaxAttempts:            3,
 			RequiredAcks:           kafka.RequireAll,
 			AllowAutoTopicCreation: true,
