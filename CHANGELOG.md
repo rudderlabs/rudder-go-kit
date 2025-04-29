@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.49.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.49.0...v0.49.1) (2025-04-29)
+
+
+### Miscellaneous
+
+* **deps:** bump gitleaks/gitleaks-action from 2.3.7 to 2.3.9 ([#782](https://github.com/rudderlabs/rudder-go-kit/issues/782)) ([4ed7686](https://github.com/rudderlabs/rudder-go-kit/commit/4ed7686b815af48a559fe81fb48fcf89ba362ce1))
+* **deps:** bump google.golang.org/api from 0.224.0 to 0.228.0 in the frequent group ([#765](https://github.com/rudderlabs/rudder-go-kit/issues/765)) ([ca3a1d6](https://github.com/rudderlabs/rudder-go-kit/commit/ca3a1d6663d20dd470abc85d03a33f45b4eb99e7))
+* expose kafka producer batch bytes configuration property ([#788](https://github.com/rudderlabs/rudder-go-kit/issues/788)) ([e06ee56](https://github.com/rudderlabs/rudder-go-kit/commit/e06ee5666aca2d883739c3bca07ef051ef2f8c55))
+
 ## [0.49.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.48.3...v0.49.0) (2025-04-16)
 
 
