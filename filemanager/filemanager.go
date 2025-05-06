@@ -77,6 +77,8 @@ type Settings struct {
 	// when S3ManagerV2 is set to true, the client uses the new S3 manager
 	S3ManagerV2 bool
 
+	// when DigitalOceanSpacesManagerV2 is set to true, the client uses the new DigitalOcean Spaces manager
+	DigitalOceanSpacesManagerV2 bool
 	// when GCSUploadIfNotExist is set to true, the client uploads to GCS storage
 	// only if a file with the same name doesn't exist already
 	GCSUploadIfNotExist bool
@@ -113,6 +115,9 @@ func New(settings *Settings) (FileManager, error) {
 	case "MINIO":
 		return NewMinioManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "DIGITAL_OCEAN_SPACES":
+		if settings.DigitalOceanSpacesManagerV2 {
+			return NewDigitalOceanManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		}
 		return NewDigitalOceanManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	}
 	return nil, fmt.Errorf("%w: %s", ErrInvalidServiceProvider, settings.Provider)
