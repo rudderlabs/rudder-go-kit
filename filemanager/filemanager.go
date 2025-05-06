@@ -74,6 +74,9 @@ type Settings struct {
 	Logger   logger.Logger
 	Conf     *config.Config
 
+	// when S3ManagerV2 is set to true, the client uses the new S3 manager
+	S3ManagerV2 bool
+
 	// when GCSUploadIfNotExist is set to true, the client uploads to GCS storage
 	// only if a file with the same name doesn't exist already
 	GCSUploadIfNotExist bool
@@ -92,8 +95,14 @@ func New(settings *Settings) (FileManager, error) {
 
 	switch settings.Provider {
 	case "S3_DATALAKE":
+		if settings.S3ManagerV2 {
+			return NewS3ManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		}
 		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "S3":
+		if settings.S3ManagerV2 {
+			return NewS3ManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		}
 		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
 		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider),
