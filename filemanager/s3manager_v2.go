@@ -40,7 +40,7 @@ type S3ManagerV2 struct {
 
 // NewS3ManagerV2 creates a new file manager for S3 using v2 AWS SDK.
 func NewS3ManagerV2(
-	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+	appConfig *appConfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
 ) (*S3ManagerV2, error) {
 	var s3Config S3Config
 	if err := mapstructure.Decode(config, &s3Config); err != nil {

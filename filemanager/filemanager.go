@@ -98,14 +98,14 @@ func New(settings *Settings) (FileManager, error) {
 	switch settings.Provider {
 	case "S3_DATALAKE":
 		if settings.S3ManagerV2 {
-			return NewS3ManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+			return NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 		}
-		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "S3":
 		if settings.S3ManagerV2 {
-			return NewS3ManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+			return NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 		}
-		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
 		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider),
 			WithGCSUploadIfObjectNotExist(settings.GCSUploadIfNotExist),

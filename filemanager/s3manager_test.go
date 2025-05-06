@@ -9,17 +9,18 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/rudderlabs/rudder-go-kit/awsutil"
+	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 func TestNewS3ManagerWithNil(t *testing.T) {
-	s3Manager, err := NewS3Manager(nil, logger.NOP, func() time.Duration { return time.Minute })
+	s3Manager, err := NewS3Manager(nil, nil, logger.NOP, func() time.Duration { return time.Minute })
 	assert.EqualError(t, err, "config should not be nil")
 	assert.Nil(t, s3Manager)
 }
 
 func TestNewS3ManagerWithAccessKeys(t *testing.T) {
-	s3Manager, err := NewS3Manager(map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
 		"bucketName":  "someBucket",
 		"region":      "someRegion",
 		"accessKeyID": "someAccessKeyId",
@@ -35,7 +36,7 @@ func TestNewS3ManagerWithAccessKeys(t *testing.T) {
 }
 
 func TestNewS3ManagerWithRole(t *testing.T) {
-	s3Manager, err := NewS3Manager(map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
 		"bucketName": "someBucket",
 		"region":     "someRegion",
 		"iamRoleARN": "someIAMRole",
@@ -51,7 +52,7 @@ func TestNewS3ManagerWithRole(t *testing.T) {
 }
 
 func TestNewS3ManagerWithBothAccessKeysAndRole(t *testing.T) {
-	s3Manager, err := NewS3Manager(map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
 		"bucketName":  "someBucket",
 		"region":      "someRegion",
 		"iamRoleARN":  "someIAMRole",
@@ -71,7 +72,7 @@ func TestNewS3ManagerWithBothAccessKeysAndRole(t *testing.T) {
 }
 
 func TestNewS3ManagerWithBothAccessKeysAndRoleButRoleBasedAuthFalse(t *testing.T) {
-	s3Manager, err := NewS3Manager(map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
 		"bucketName":    "someBucket",
 		"region":        "someRegion",
 		"iamRoleARN":    "someIAMRole",
