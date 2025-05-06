@@ -95,14 +95,14 @@ func (m *S3ManagerV2) Download(ctx context.Context, output io.WriterAt, key stri
 			Bucket: aws.String(m.config.Bucket),
 			Key:    aws.String(key),
 		})
-	if err != nil {
-		var nsk *types.NoSuchKey
-		if errors.As(err, &nsk) {
-			return ErrKeyNotFound
-		}
-		return fmt.Errorf("failed to download from S3: %w", err)
+	if err == nil {
+		return nil
 	}
-	return nil
+	var nsk *types.NoSuchKey
+	if errors.As(err, &nsk) {
+		return ErrKeyNotFound
+	}
+	return fmt.Errorf("failed to download from S3: %w", err)
 }
 
 // Upload uploads a file to S3 and returns the uploaded file info.
@@ -130,15 +130,15 @@ func (m *S3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...str
 	defer cancel()
 
 	output, err := uploader.Upload(ctx, uploadInput)
-	if err != nil {
-		var regionError *aws.MissingRegionError
-		if errors.As(err, &regionError) {
-			err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
-		}
-		return UploadedFile{}, fmt.Errorf("failed to upload to S3: %w", err)
+	if err == nil {
+		return UploadedFile{Location: output.Location, ObjectName: fileName}, nil
+	}
+	var regionError *aws.MissingRegionError
+	if errors.As(err, &regionError) {
+		err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
 	}
 
-	return UploadedFile{Location: output.Location, ObjectName: fileName}, nil
+	return UploadedFile{}, err
 }
 
 // UploadReader uploads data from an io.Reader to S3 with the given object name.
@@ -169,15 +169,14 @@ func (m *S3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 	defer cancel()
 
 	output, err := uploader.Upload(ctx, uploadInput)
-	if err != nil {
-		var regionError *aws.MissingRegionError
-		if errors.As(err, &regionError) {
-			err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
-		}
-		return UploadedFile{}, fmt.Errorf("failed to upload to S3: %w", err)
+	if err == nil {
+		return UploadedFile{Location: output.Location, ObjectName: fileName}, nil
 	}
-
-	return UploadedFile{Location: output.Location, ObjectName: fileName}, nil
+	var regionError *aws.MissingRegionError
+	if errors.As(err, &regionError) {
+		err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
+	}
+	return UploadedFile{}, err
 }
 
 // Delete removes the specified keys from S3.
@@ -210,9 +209,9 @@ func (m *S3ManagerV2) Delete(ctx context.Context, keys []string) error {
 		if err != nil {
 			var apiErr smithy.APIError
 			if errors.As(err, &apiErr) {
-				m.logger.Errorf(`Error while deleting S3 objects: %v, error code: %q`, err.Error(), apiErr.ErrorCode())
+				m.logger.Errorn("Error while deleting S3 objects", logger.NewErrorField(err), logger.NewStringField("error_code", apiErr.ErrorCode()))
 			} else {
-				m.logger.Errorf(`Error while deleting S3 objects: %v`, err.Error())
+				m.logger.Errorn("Error while deleting S3 objects", logger.NewErrorField(err))
 			}
 			return fmt.Errorf("failed to delete S3 objects: %w", err)
 		}
@@ -244,7 +243,7 @@ func (m *S3ManagerV2) GetObjectNameFromLocation(location string) (string, error)
 func (m *S3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
-		m.logger.Errorf("error while parsing location url: %v", err)
+		m.logger.Errorn("error while parsing location url", logger.NewErrorField(err))
 		return ""
 	}
 	trimmedURL := strings.TrimLeft(parsedURL.Path, "/")
@@ -289,7 +288,7 @@ func (m *S3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 
 	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
 		if m.config.Endpoint != nil {
-			o.BaseEndpoint = aws.String("http://" + *m.config.Endpoint)
+			o.BaseEndpoint = aws.String(*m.config.Endpoint)
 		}
 
 		o.UsePathStyle = aws.ToBool(m.config.S3ForcePathStyle)
@@ -330,7 +329,7 @@ type s3ListSessionV2 struct {
 func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 	manager := l.manager
 	if !l.isTruncated {
-		manager.logger.Infof("Manager is truncated: %v so returning here", l.isTruncated)
+		manager.logger.Debugn("Manager is truncated: returning here", logger.NewBoolField("isTruncated", l.isTruncated))
 		return nil, nil
 	}
 	fileObjects = make([]*FileInfo, 0)
@@ -355,7 +354,7 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 
 	resp, err := client.ListObjectsV2(ctx, &listObjectsV2Input)
 	if err != nil {
-		manager.logger.Errorf("Error while listing S3 objects: %v", err)
+		manager.logger.Errorn("Error while listing S3 objects", logger.NewErrorField(err))
 		return nil, fmt.Errorf("failed to list S3 objects: %w", err)
 	}
 	l.isTruncated = *resp.IsTruncated

@@ -219,9 +219,9 @@ func (m *DigitalOceanManagerV2) Delete(ctx context.Context, keys []string) error
 		if err != nil {
 			var apiErr smithy.APIError
 			if errors.As(err, &apiErr) {
-				m.logger.Errorf(`Error while deleting DigitalOcean Spaces objects: %v, error code: %q`, err.Error(), apiErr.ErrorCode())
+				m.logger.Errorn("Error while deleting DigitalOcean Spaces objects", logger.NewErrorField(err), logger.NewStringField("error_code", apiErr.ErrorCode()))
 			} else {
-				m.logger.Errorf(`Error while deleting DigitalOcean Spaces objects: %v`, err.Error())
+				m.logger.Errorn("Error while deleting DigitalOcean Spaces objects", logger.NewErrorField(err))
 			}
 			return fmt.Errorf("failed to delete DigitalOcean Spaces objects: %w", err)
 		}
@@ -249,7 +249,7 @@ func (m *DigitalOceanManagerV2) GetObjectNameFromLocation(location string) (stri
 func (m *DigitalOceanManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
-		m.logger.Errorf("error while parsing location url: %v", err)
+		m.logger.Errorn("error while parsing location url", logger.NewErrorField(err))
 		return ""
 	}
 	trimmedURL := strings.TrimLeft(parsedURL.Path, "/")
@@ -281,7 +281,7 @@ type digitalOceanListSessionV2 struct {
 func (l *digitalOceanListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 	manager := l.manager
 	if !l.isTruncated {
-		manager.logger.Infof("Manager is truncated: %v so returning here", l.isTruncated)
+		manager.logger.Debugn("Manager is truncated: returning here", logger.NewBoolField("isTruncated", l.isTruncated))
 		return nil, nil
 	}
 	fileObjects = make([]*FileInfo, 0)
@@ -306,7 +306,7 @@ func (l *digitalOceanListSessionV2) Next() (fileObjects []*FileInfo, err error) 
 
 	resp, err := client.ListObjectsV2(ctx, &listObjectsV2Input)
 	if err != nil {
-		manager.logger.Errorf("Error while listing DigitalOcean Spaces objects: %v", err)
+		manager.logger.Errorn("Error while listing DigitalOcean Spaces objects", logger.NewErrorField(err))
 		return nil, fmt.Errorf("failed to list DigitalOcean Spaces objects: %w", err)
 	}
 	l.isTruncated = *resp.IsTruncated
