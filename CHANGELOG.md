@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.49.1...v0.50.0) (2025-05-05)
+
+
+### Features
+
+* add MapLookup function ([#790](https://github.com/rudderlabs/rudder-go-kit/issues/790)) ([6d9eb7e](https://github.com/rudderlabs/rudder-go-kit/commit/6d9eb7e8b6a8001720477041c3ce81638bae3eae))
+
 ## [0.49.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.49.0...v0.49.1) (2025-04-29)
 
 
