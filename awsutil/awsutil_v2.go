@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
@@ -26,51 +27,104 @@ func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, er
 		return zero, errors.New("awsutil: SessionConfig cannot be nil")
 	}
 
+	// Handle credentials - either role-based or static
 	if config.RoleBasedAuth {
 		awsCredentials, err = createV2CredentialsForRole(ctx, config)
 		if err != nil {
 			return zero, fmt.Errorf("awsutil: failed to create credentials for role: %w", err)
 		}
 	} else if config.AccessKeyID != "" && config.AccessKey != "" {
-		awsCredentials = credentials.NewStaticCredentialsProvider(config.AccessKeyID, config.AccessKey, "")
+		awsCredentials = credentials.NewStaticCredentialsProvider(config.AccessKeyID, config.AccessKey, config.SessionToken)
 	}
 
-	return aws.Config{
-		Region:      config.Region,
-		Credentials: awsCredentials,
-	}, nil
+	// Configure HTTP client with timeout and connection settings
+	httpClient := configureHTTPClient(config)
+
+	// Load default config with options
+	optFuncs := []func(*awsconfig.LoadOptions) error{
+		awsconfig.WithRegion(config.Region),
+		awsconfig.WithHTTPClient(httpClient),
+		awsconfig.WithCredentialsProvider(awsCredentials),
+	}
+
+	// Add shared config profile if specified
+	if config.SharedConfigProfile != "" {
+		optFuncs = append(optFuncs, awsconfig.WithSharedConfigProfile(config.SharedConfigProfile))
+	}
+
+	// Load the AWS configuration
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, optFuncs...)
+	if err != nil {
+		return zero, fmt.Errorf("awsutil: failed to load AWS config: %w", err)
+	}
+
+	return cfg, nil
 }
 
-// createDefaultConfig loads the default AWS config with the provided SessionConfig.
-func createDefaultConfig(ctx context.Context, config *SessionConfig) (aws.Config, error) {
-	customClient := awshttp.NewBuildableClient()
-	if config.Timeout != nil {
-		customClient = customClient.WithTimeout(*config.Timeout)
+// configureHTTPClient creates an HTTP client with the configuration settings
+func configureHTTPClient(config *SessionConfig) *http.Client {
+	// Create transport with proper connection settings
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		MaxIdleConnsPerHost:   config.MaxIdleConnsPerHost,
 	}
 
-	return awsconfig.LoadDefaultConfig(ctx,
-		awsconfig.WithRegion(config.Region),
-		awsconfig.WithHTTPClient(customClient),
-	)
+	// Adjust MaxIdleConns if necessary
+	if config.MaxIdleConnsPerHost > 0 {
+		if transport.MaxIdleConns < config.MaxIdleConnsPerHost {
+			transport.MaxIdleConns = config.MaxIdleConnsPerHost
+		}
+	}
+
+	// Create client with transport and timeout
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	// Set timeout if provided
+	if config.Timeout != nil {
+		client.Timeout = *config.Timeout
+	}
+
+	return client
 }
 
 // createV2CredentialsForRole creates a credentials provider for assuming an IAM role.
+// This is the v2 equivalent of createCredentialsForRole in v1.
 func createV2CredentialsForRole(ctx context.Context, config *SessionConfig) (aws.CredentialsProvider, error) {
-	var zero aws.CredentialsProvider
-
 	if config.ExternalID == "" {
-		return zero, errors.New("awsutil: externalID is required for IAM role")
-	}
-	cfg, err := createDefaultConfig(ctx, config)
-	if err != nil {
-		return zero, fmt.Errorf("awsutil: failed to load default config for role: %w", err)
+		return nil, errors.New("awsutil: externalID is required for IAM role")
 	}
 
+	// Configure HTTP client for the base session
+	httpClient := configureHTTPClient(config)
+
+	// Create base config for STS operations
+	optFuncs := []func(*awsconfig.LoadOptions) error{
+		awsconfig.WithRegion(config.Region),
+		awsconfig.WithHTTPClient(httpClient),
+	}
+
+	// Load configuration for STS client
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, optFuncs...)
+	if err != nil {
+		return nil, fmt.Errorf("awsutil: failed to load default config for role: %w", err)
+	}
+
+	// Create STS client for assuming role
 	client := sts.NewFromConfig(cfg)
 
-	appCreds := stscreds.NewAssumeRoleProvider(client, config.IAMRoleARN, func(aro *stscreds.AssumeRoleOptions) {
-		aro.ExternalID = aws.String(config.ExternalID)
-		aro.RoleSessionName = createRoleSessionName(config.Service)
-	})
-	return appCreds, nil
+	// Create role options
+	roleOptions := func(o *stscreds.AssumeRoleOptions) {
+		o.ExternalID = aws.String(config.ExternalID)
+		o.RoleSessionName = createRoleSessionName(config.Service)
+	}
+
+	// Return role credentials provider
+	return stscreds.NewAssumeRoleProvider(client, config.IAMRoleARN, roleOptions), nil
 }
