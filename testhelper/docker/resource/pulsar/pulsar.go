@@ -39,7 +39,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		NetworkID:    networkID,
 	}, internal.DefaultHostConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot run pulsar container: %w", err)
 	}
 
 	d.Cleanup(func() {
