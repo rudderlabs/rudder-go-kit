@@ -1,12 +1,18 @@
 package internal
 
 import (
+	"context"
+	"net"
+	"runtime"
+	"time"
+
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/samber/lo"
 )
 
 const (
-	BindHostIP = "127.0.0.1"
+	BindHostIP       = "127.0.0.1"
+	BindInternalHost = "host.docker.internal"
 )
 
 // IPv4PortBindings returns the port bindings for the given exposed ports forcing ipv4 address.
@@ -15,6 +21,9 @@ func IPv4PortBindings(exposedPorts []string, opts ...IPv4PortBindingsOpt) map[do
 
 	c := &ipv4PortBindingsConfig{
 		ips: []string{BindHostIP},
+	}
+	if runtime.GOOS == "linux" && hostInternalAvailable() {
+		c.ips = append(c.ips, BindInternalHost)
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -47,4 +56,17 @@ func WithBindIP(ip string) IPv4PortBindingsOpt {
 
 func DefaultHostConfig(hc *docker.HostConfig) {
 	hc.PublishAllPorts = false
+}
+
+func hostInternalAvailable() bool {
+	resolver := &net.Resolver{
+		PreferGo: true,
+		Dial: func(_ context.Context, _, _ string) (net.Conn, error) {
+			// Set a very short timeout so tests fail fast if DNS isn't set up.
+			d := net.Dialer{Timeout: 200 * time.Millisecond}
+			return d.Dial("udp", "8.8.8.8:53")
+		},
+	}
+	ips, err := resolver.LookupHost(context.Background(), "host.docker.internal")
+	return err == nil && len(ips) > 0
 }
