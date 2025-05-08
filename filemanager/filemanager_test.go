@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -578,4 +579,94 @@ func blockOnHold() {
 
 	<-c
 	close(c)
+}
+
+func TestFileManager_S3(t *testing.T) {
+	// Prepare a small file for upload
+	tempDir := t.TempDir()
+	config.Reset()
+	testFilePath := filepath.Join(tempDir, "testfile.txt")
+	testFileContent := []byte("integration test content")
+	require.NoError(t, os.WriteFile(testFilePath, testFileContent, 0644))
+
+	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
+	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	envIAMRole := os.Getenv("AWS_IAM_ROLE_ARN")
+
+	isV2ManagerEnabled := []bool{true, false}
+	for _, enabled := range isV2ManagerEnabled {
+		authMethods := []struct {
+			name   string
+			config map[string]any
+		}{
+			{
+				name: "AccessKey/Secret",
+				config: map[string]any{
+					"bucketName":       bucket,
+					"accessKeyID":      envAccessKey,
+					"secretAccessKey":  envSecretKey,
+					"region":           region,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+				},
+			},
+			{
+				name: "IAM Role",
+				config: map[string]any{
+					"bucketName":       bucket,
+					"roleBasedAuth":    true,
+					"iamRoleARN":       envIAMRole,
+					"externalID":       "123456789012",
+					"workspaceID":      "123456789012",
+					"region":           region,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+				},
+			},
+		}
+
+		for _, auth := range authMethods {
+			t.Run("running with: "+auth.name+" and v2 manager enabled: "+strconv.FormatBool(enabled), func(t *testing.T) {
+				fm, err := filemanager.New(&filemanager.Settings{
+					Provider:    "S3",
+					Config:      auth.config,
+					Logger:      logger.NOP,
+					S3ManagerV2: enabled,
+				})
+				require.NoError(t, err)
+
+				// 1. Upload a file
+				filePtr, err := os.Open(testFilePath)
+				require.NoError(t, err)
+				uploadOutput, err := fm.Upload(context.TODO(), filePtr)
+				require.NoError(t, err)
+				require.NoError(t, filePtr.Close())
+
+				// 2. List files and check our file is present
+				session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+				files, err := session.Next()
+				require.NoError(t, err)
+				var found bool
+				for _, f := range files {
+					if f.Key == uploadOutput.ObjectName {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "uploaded file should be listed")
+
+				// 3. Download the file and verify contents
+				downloadPath := filepath.Join(tempDir, "downloaded.txt")
+				downloadPtr, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+				require.NoError(t, err)
+				err = fm.Download(context.TODO(), downloadPtr, uploadOutput.ObjectName)
+				require.NoError(t, err)
+				require.NoError(t, downloadPtr.Close())
+
+				downloadedContent, err := os.ReadFile(downloadPath)
+				require.NoError(t, err)
+				require.Equal(t, testFileContent, downloadedContent, "downloaded file content should match uploaded")
+			})
+		}
+	}
 }
