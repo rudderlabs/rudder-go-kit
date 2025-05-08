@@ -1,6 +1,7 @@
 package filemanager_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"flag"
@@ -666,6 +667,45 @@ func TestFileManager_S3(t *testing.T) {
 				downloadedContent, err := os.ReadFile(downloadPath)
 				require.NoError(t, err)
 				require.Equal(t, testFileContent, downloadedContent, "downloaded file content should match uploaded")
+
+				// 4. Test GetObjectNameFromLocation
+				objectName, err := fm.GetObjectNameFromLocation(uploadOutput.Location)
+				require.NoError(t, err)
+				require.Equal(t, uploadOutput.ObjectName, objectName, "object name from location should match")
+
+				// 5. Test GetDownloadKeyFromFileLocation
+				downloadKey := fm.GetDownloadKeyFromFileLocation(uploadOutput.Location)
+				require.Equal(t, uploadOutput.ObjectName, downloadKey, "download key from location should match")
+
+				// 6. Test UploadReader
+				readerContent := []byte("test content from reader")
+				readerObjName := "test-reader-upload.txt"
+				uploadReaderOutput, err := fm.UploadReader(context.TODO(), readerObjName, bytes.NewReader(readerContent))
+				require.NoError(t, err)
+
+				// 7. Download file uploaded via UploadReader and verify
+				downloadReaderPath := filepath.Join(tempDir, "downloaded-reader.txt")
+				downloadReaderPtr, err := os.OpenFile(downloadReaderPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+				require.NoError(t, err)
+				err = fm.Download(context.TODO(), downloadReaderPtr, uploadReaderOutput.ObjectName)
+				require.NoError(t, err)
+				require.NoError(t, downloadReaderPtr.Close())
+
+				downloadedReaderContent, err := os.ReadFile(downloadReaderPath)
+				require.NoError(t, err)
+				require.Equal(t, readerContent, downloadedReaderContent, "downloaded content should match uploaded reader content")
+
+				// 8. Test Delete
+				err = fm.Delete(context.TODO(), []string{uploadReaderOutput.ObjectName})
+				require.NoError(t, err)
+
+				// 9. Verify deletion
+				deletedSession := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+				deletedFiles, err := deletedSession.Next()
+				require.NoError(t, err)
+				for _, f := range deletedFiles {
+					require.NotEqual(t, uploadReaderOutput.ObjectName, f.Key, "deleted file should not be present")
+				}
 			})
 		}
 	}
