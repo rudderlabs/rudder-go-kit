@@ -1,16 +1,12 @@
 package internal
 
 import (
-	"net"
-	"runtime"
-
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/samber/lo"
 )
 
 const (
-	BindHostIP       = "127.0.0.1"
-	BindInternalHost = "host.docker.internal"
+	BindHostIP = "127.0.0.1"
 )
 
 // IPv4PortBindings returns the port bindings for the given exposed ports forcing ipv4 address.
@@ -19,9 +15,6 @@ func IPv4PortBindings(exposedPorts []string, opts ...IPv4PortBindingsOpt) map[do
 
 	c := &ipv4PortBindingsConfig{
 		ips: []string{BindHostIP},
-	}
-	if runtime.GOOS == "linux" && isHostDockerInternalAvailable() {
-		c.ips = append(c.ips, BindInternalHost)
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -54,9 +47,4 @@ func WithBindIP(ip string) IPv4PortBindingsOpt {
 
 func DefaultHostConfig(hc *docker.HostConfig) {
 	hc.PublishAllPorts = false
-}
-
-func isHostDockerInternalAvailable() bool {
-	ips, err := net.LookupHost("host.docker.internal")
-	return err == nil && len(ips) > 0
 }
