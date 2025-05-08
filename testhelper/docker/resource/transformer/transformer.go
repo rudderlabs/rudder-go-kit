@@ -32,6 +32,7 @@ type config struct {
 	extraHosts   []string
 	network      *docker.Network
 	authConfig   docker.AuthConfiguration
+	bindIP       string
 }
 
 func (c *config) setBackendConfigURL(url string) {
@@ -116,6 +117,12 @@ func WithDockerAuth(authConfig docker.AuthConfiguration) Option {
 	}
 }
 
+func WithBindIP(bindIP string) Option {
+	return func(conf *config) {
+		conf.bindIP = bindIP
+	}
+}
+
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	// Set Rudder Transformer
 	// pulls an image first to make sure we don't have an old cached version locally,
@@ -148,7 +155,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	transformerContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   conf.repository,
 		Tag:          conf.tag,
-		PortBindings: internal.IPv4PortBindings(conf.exposedPorts),
+		PortBindings: internal.IPv4PortBindings(conf.exposedPorts, internal.WithBindIP(conf.bindIP)),
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 		NetworkID:    networkID,
