@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/storage v1.51.0
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/DataDog/zstd v1.5.7
-	github.com/apache/pulsar-client-go v0.15.0
+	github.com/apache/pulsar-client-go v0.15.0-candidate-1
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.8.0
@@ -91,6 +91,7 @@ require (
 	github.com/moby/sys/capability v0.4.0 // indirect
 	github.com/moby/sys/user v0.3.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
+	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
