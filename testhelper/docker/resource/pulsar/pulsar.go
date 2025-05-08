@@ -19,7 +19,7 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	c := &config{
-		tag: "3.2.4",
+		tag: "3.3.6",
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -39,7 +39,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		NetworkID:    networkID,
 	}, internal.DefaultHostConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot run pulsar container: %w", err)
 	}
 
 	d.Cleanup(func() {
