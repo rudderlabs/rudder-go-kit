@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"log"
 	"net"
 	"runtime"
 
@@ -58,5 +59,8 @@ func DefaultHostConfig(hc *docker.HostConfig) {
 
 func isHostDockerInternalAvailable() bool {
 	ips, err := net.LookupHost("host.docker.internal")
+	if err != nil {
+		log.Printf("Error looking up host.docker.internal: %v", err)
+	}
 	return err == nil && len(ips) > 0
 }
