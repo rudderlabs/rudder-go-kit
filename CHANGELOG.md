@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.50.1...v0.50.2) (2025-05-08)
+
+
+### Miscellaneous
+
+* allow transformer container to bind to specific IP ([#800](https://github.com/rudderlabs/rudder-go-kit/issues/800)) ([57ff124](https://github.com/rudderlabs/rudder-go-kit/commit/57ff124cd734a0dce82c1d2d48e188c495b33308))
+
 ## [0.50.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.50.0...v0.50.1) (2025-05-08)
 
 
