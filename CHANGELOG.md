@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.50.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.50.0...v0.50.1) (2025-05-08)
+
+
+### Bug Fixes
+
+* no host.docker.internal for linux ([#797](https://github.com/rudderlabs/rudder-go-kit/issues/797)) ([5089859](https://github.com/rudderlabs/rudder-go-kit/commit/5089859986861801bdbd6ea0e387689d2f56ee58))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/golang-jwt/jwt/v5 from 5.2.1 to 5.2.2 in the go_modules group ([#799](https://github.com/rudderlabs/rudder-go-kit/issues/799)) ([a3ac44d](https://github.com/rudderlabs/rudder-go-kit/commit/a3ac44d48371ba4dbc7eb64f554132ec6687c00e))
+
 ## [0.50.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.49.1...v0.50.0) (2025-05-05)
 
 
