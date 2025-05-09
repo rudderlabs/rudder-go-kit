@@ -593,6 +593,8 @@ func TestFileManager_S3(t *testing.T) {
 	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
 	envIAMRole := os.Getenv("AWS_IAM_ROLE_ARN")
+	envBucket := os.Getenv("AWS_BUCKET_NAME")
+	externalID := os.Getenv("AWS_EXTERNAL_ID")
 
 	isV2ManagerEnabled := []bool{true, false}
 	for _, enabled := range isV2ManagerEnabled {
@@ -603,7 +605,7 @@ func TestFileManager_S3(t *testing.T) {
 			{
 				name: "AccessKey/Secret",
 				config: map[string]any{
-					"bucketName":       bucket,
+					"bucketName":       envBucket,
 					"accessKeyID":      envAccessKey,
 					"secretAccessKey":  envSecretKey,
 					"region":           region,
@@ -614,11 +616,11 @@ func TestFileManager_S3(t *testing.T) {
 			{
 				name: "IAM Role",
 				config: map[string]any{
-					"bucketName":       bucket,
+					"bucketName":       envBucket,
 					"roleBasedAuth":    true,
 					"iamRoleARN":       envIAMRole,
-					"externalID":       "123456789012",
-					"workspaceID":      "123456789012",
+					"externalID":       externalID,
+					"workspaceID":      externalID,
 					"region":           region,
 					"s3ForcePathStyle": true,
 					"disableSSL":       true,
