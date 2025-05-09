@@ -588,7 +588,7 @@ func TestFileManager_S3(t *testing.T) {
 	config.Reset()
 	testFilePath := filepath.Join(tempDir, "testfile.txt")
 	testFileContent := []byte("integration test content")
-	require.NoError(t, os.WriteFile(testFilePath, testFileContent, 0644))
+	require.NoError(t, os.WriteFile(testFilePath, testFileContent, 0o644))
 
 	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
@@ -658,7 +658,7 @@ func TestFileManager_S3(t *testing.T) {
 
 				// 3. Download the file and verify contents
 				downloadPath := filepath.Join(tempDir, "downloaded.txt")
-				downloadPtr, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+				downloadPtr, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
 				require.NoError(t, err)
 				err = fm.Download(context.TODO(), downloadPtr, uploadOutput.ObjectName)
 				require.NoError(t, err)
@@ -685,7 +685,7 @@ func TestFileManager_S3(t *testing.T) {
 
 				// 7. Download file uploaded via UploadReader and verify
 				downloadReaderPath := filepath.Join(tempDir, "downloaded-reader.txt")
-				downloadReaderPtr, err := os.OpenFile(downloadReaderPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0644)
+				downloadReaderPtr, err := os.OpenFile(downloadReaderPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
 				require.NoError(t, err)
 				err = fm.Download(context.TODO(), downloadReaderPtr, uploadReaderOutput.ObjectName)
 				require.NoError(t, err)
