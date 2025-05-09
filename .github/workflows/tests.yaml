@@ -59,6 +59,11 @@ jobs:
           TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_HOST: ${{ secrets.TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_HOST }}
           TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_EVENTHUB_NAME: ${{ secrets.TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_EVENTHUB_NAME }}
           TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_CONNECTION_STRING: ${{ secrets.TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_CONNECTION_STRING }}
+          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+          AWS_EXTERNAL_ID: ${{ secrets.AWS_EXTERNAL_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_IAM_ROLE: ${{ secrets.AWS_IAM_ROLE_ARN }}
         run: make test exclude="${{ matrix.exclude }}" package=${{ matrix.package }}
       - name: Sanitize name for Artifact
         run: |
