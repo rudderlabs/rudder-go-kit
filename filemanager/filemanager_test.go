@@ -596,7 +596,7 @@ func TestFileManager_S3(t *testing.T) {
 	envBucket := os.Getenv("AWS_BUCKET_NAME")
 	externalID := os.Getenv("AWS_EXTERNAL_ID")
 
-	isV2ManagerEnabled := []bool{true, false}
+	isV2ManagerEnabled := []bool{false, true}
 	for _, enabled := range isV2ManagerEnabled {
 		authMethods := []struct {
 			name   string
