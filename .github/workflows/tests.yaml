@@ -25,6 +25,9 @@ jobs:
   test-package:
     name: Test package
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # allows the JWT to be requested from GitHub's OIDC provider
+      contents: read # This is required for actions/checkout
     strategy:
       fail-fast: false
       matrix:
