@@ -1,10 +1,11 @@
-package awsutil
+package awsutil_v2
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -12,7 +13,28 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/mitchellh/mapstructure"
 )
+
+// Some AWS destinations are using SecretAccessKey instead of accessKey
+type SessionConfig struct {
+	Region              string         `mapstructure:"region"`
+	AccessKeyID         string         `mapstructure:"accessKeyID"`
+	AccessKey           string         `mapstructure:"accessKey"`
+	SecretAccessKey     string         `mapstructure:"secretAccessKey"`
+	SessionToken        string         `mapstructure:"sessionToken"`
+	RoleBasedAuth       bool           `mapstructure:"roleBasedAuth"`
+	IAMRoleARN          string         `mapstructure:"iamRoleARN"`
+	ExternalID          string         `mapstructure:"externalID"`
+	WorkspaceID         string         `mapstructure:"workspaceID"`
+	Endpoint            *string        `mapstructure:"endpoint"`
+	S3ForcePathStyle    *bool          `mapstructure:"s3ForcePathStyle"`
+	DisableSSL          *bool          `mapstructure:"disableSSL"`
+	Service             string         `mapstructure:"service"`
+	Timeout             *time.Duration `mapstructure:"timeout"`
+	SharedConfigProfile string         `mapstructure:"sharedConfigProfile"`
+	MaxIdleConnsPerHost int            `mapstructure:"maxIdleConnsPerHost"`
+}
 
 // CreateAWSConfig creates an AWS config using the provided SessionConfig.
 // It supports both static credentials and role-based authentication.
@@ -127,4 +149,39 @@ func createV2CredentialsForRole(ctx context.Context, config *SessionConfig) (aws
 
 	// Return role credentials provider
 	return stscreds.NewAssumeRoleProvider(client, config.IAMRoleARN, roleOptions), nil
+}
+
+func createRoleSessionName(serviceName string) string {
+	return fmt.Sprintf("rudderstack-aws-%s-access", strings.ToLower(strings.ReplaceAll(serviceName, " ", "-")))
+}
+
+// NewSimpleSessionConfig creates a new session config using the provided config map
+func NewSimpleSessionConfig(config map[string]interface{}, serviceName string) (*SessionConfig, error) {
+	if config == nil {
+		return nil, errors.New("config should not be nil")
+	}
+	sessionConfig := SessionConfig{}
+	if err := mapstructure.Decode(config, &sessionConfig); err != nil {
+		return nil, fmt.Errorf("unable to populate session config using destinationConfig: %w", err)
+	}
+
+	if !isRoleBasedAuthFieldExist(config) {
+		sessionConfig.RoleBasedAuth = sessionConfig.IAMRoleARN != ""
+	}
+
+	if sessionConfig.IAMRoleARN == "" {
+		sessionConfig.RoleBasedAuth = false
+	}
+
+	// Some AWS destinations are using SecretAccessKey instead of accessKey
+	if sessionConfig.SecretAccessKey != "" {
+		sessionConfig.AccessKey = sessionConfig.SecretAccessKey
+	}
+	sessionConfig.Service = serviceName
+	return &sessionConfig, nil
+}
+
+func isRoleBasedAuthFieldExist(config map[string]interface{}) bool {
+	_, ok := config["roleBasedAuth"].(bool)
+	return ok
 }

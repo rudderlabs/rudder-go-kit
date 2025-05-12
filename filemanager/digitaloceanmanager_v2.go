@@ -22,7 +22,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
 
-	"github.com/rudderlabs/rudder-go-kit/awsutil"
+	awsutil "github.com/rudderlabs/rudder-go-kit/awsutil_v2"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
