@@ -592,10 +592,11 @@ func TestFileManager_S3(t *testing.T) {
 
 	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	envIAMRole := os.Getenv("AWS_IAM_ROLE_ARN")
+	envIAMRole := "arn:aws:iam::454531037350:role/rudder-go-kit-s3-access"
 	envBucket := os.Getenv("AWS_BUCKET_NAME")
 	externalID := os.Getenv("AWS_EXTERNAL_ID")
 
+	t.Logf("envIAMRole: %v", base64.StdEncoding.EncodeToString([]byte(os.Getenv("AWS_IAM_ROLE"))))
 	isV2ManagerEnabled := []bool{false, true}
 	for _, enabled := range isV2ManagerEnabled {
 		authMethods := []struct {
