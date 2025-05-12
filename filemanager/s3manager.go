@@ -136,7 +136,7 @@ func (m *S3Manager) UploadReader(ctx context.Context, objName string, rdr io.Rea
 		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "MissingRegion" {
 			err = fmt.Errorf("bucket %q not found", m.config.Bucket)
 		}
-		return UploadedFile{}, err
+		return UploadedFile{}, fmt.Errorf("error uploading file to S3: %w", err)
 	}
 
 	return UploadedFile{Location: output.Location, ObjectName: objName}, err
