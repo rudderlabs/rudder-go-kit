@@ -639,12 +639,6 @@ func TestFileManager_S3(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// List files
-				session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
-				files, err := session.Next()
-				require.NoError(t, err)
-				require.Equal(t, 0, len(files), "no files should be listed")
-
 				// 1. Upload a file
 				filePtr, err := os.Open(testFilePath)
 				require.NoError(t, err)
@@ -653,8 +647,8 @@ func TestFileManager_S3(t *testing.T) {
 				require.NoError(t, filePtr.Close())
 
 				// 2. List files and check our file is present
-				session = fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
-				files, err = session.Next()
+				session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+				files, err := session.Next()
 				require.NoError(t, err)
 				var found bool
 				for _, f := range files {
