@@ -10,10 +10,12 @@ import (
 func TestSwitcher(t *testing.T) {
 	marshaller := StdLib
 	unmarshaller := StdLib
+	validator := StdLib
 
 	switcher := &switcher{
 		marshallerFn:   func() string { return marshaller },
 		unmarshallerFn: func() string { return unmarshaller },
+		validatorFn:    func() string { return validator },
 		impls: map[string]JSON{
 			StdLib:      &stdJSON{},
 			JsoniterLib: &jsoniterJSON{},
@@ -37,6 +39,7 @@ func TestSwitcher(t *testing.T) {
 	t.Run("invalid config uses default", func(t *testing.T) {
 		marshaller = "invalid"
 		unmarshaller = "invalid"
+		validator = "invalid"
 
 		v, err := switcher.Marshal("text")
 		require.NoError(t, err)
@@ -45,15 +48,21 @@ func TestSwitcher(t *testing.T) {
 		var text string
 		err = switcher.Unmarshal([]byte(`"text"`), &text)
 		require.NoError(t, err)
+
+		isValid := switcher.Valid([]byte(`"text"`))
+		require.True(t, isValid)
 	})
 
-	t.Run("proper marshaller and unmarshaller", func(t *testing.T) {
+	t.Run("proper marshaller, unmarshaller, and validator", func(t *testing.T) {
 		oneJSON := &mockJSON{}
 		twoJSON := &mockJSON{}
+		threeJSON := &mockJSON{}
 		switcher.impls["one"] = oneJSON
 		switcher.impls["two"] = twoJSON
+		switcher.impls["three"] = threeJSON
 		marshaller = "one"
 		unmarshaller = "two"
+		validator = "three"
 
 		_, _ = switcher.Marshal("")
 		require.Equal(t, 1, oneJSON.called)
@@ -68,6 +77,9 @@ func TestSwitcher(t *testing.T) {
 		require.Equal(t, 1, twoJSON.called)
 		_ = switcher.NewDecoder(nil)
 		require.Equal(t, 2, twoJSON.called)
+
+		_ = switcher.Valid([]byte(`""`))
+		require.Equal(t, 1, threeJSON.called)
 	})
 }
 
@@ -103,4 +115,9 @@ func (m *mockJSON) NewDecoder(r io.Reader) Decoder {
 func (m *mockJSON) NewEncoder(w io.Writer) Encoder {
 	m.called++
 	return nil
+}
+
+func (m *mockJSON) Valid(data []byte) bool {
+	m.called++
+	return true
 }
