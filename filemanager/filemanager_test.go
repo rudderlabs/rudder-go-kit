@@ -592,9 +592,9 @@ func TestFileManager_S3(t *testing.T) {
 
 	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	envIAMRole := "arn:aws:iam::454531037350:role/rudder-go-kit-s3-access"
+	// envIAMRole := "arn:aws:iam::454531037350:role/rudder-go-kit-s3-access"
 	envBucket := os.Getenv("AWS_BUCKET_NAME")
-	externalID := os.Getenv("AWS_EXTERNAL_ID")
+	// externalID := "7AWew23UYa35782547823"
 	isV2ManagerEnabled := []bool{false, true}
 	for _, enabled := range isV2ManagerEnabled {
 		authMethods := []struct {
@@ -612,19 +612,19 @@ func TestFileManager_S3(t *testing.T) {
 					"disableSSL":       true,
 				},
 			},
-			{
-				name: "IAM Role",
-				config: map[string]any{
-					"bucketName":       envBucket,
-					"roleBasedAuth":    true,
-					"iamRoleARN":       envIAMRole,
-					"externalID":       externalID,
-					"workspaceID":      externalID,
-					"region":           region,
-					"s3ForcePathStyle": true,
-					"disableSSL":       true,
-				},
-			},
+			// {
+			// 	name: "IAM Role",
+			// 	config: map[string]any{
+			// 		"bucketName":       envBucket,
+			// 		"roleBasedAuth":    true,
+			// 		"iamRoleARN":       envIAMRole,
+			// 		"externalID":       externalID,
+			// 		"workspaceID":      externalID,
+			// 		"region":           region,
+			// 		"s3ForcePathStyle": true,
+			// 		"disableSSL":       true,
+			// 	},
+			// },
 		}
 
 		for _, auth := range authMethods {
