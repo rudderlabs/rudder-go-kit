@@ -6,6 +6,7 @@ import "io"
 type switcher struct {
 	marshallerFn   func() string
 	unmarshallerFn func() string
+	validatorFn    func() string
 	impls          map[string]JSON
 }
 
@@ -33,6 +34,9 @@ func (s *switcher) NewEncoder(w io.Writer) Encoder {
 	return s.marshaller().NewEncoder(w)
 }
 
+func (s *switcher) Valid(data []byte) bool {
+	return s.validator().Valid(data)
+}
 func (s *switcher) marshaller() Marshaller {
 	if impl, ok := s.impls[s.marshallerFn()]; ok {
 		return impl
@@ -42,6 +46,13 @@ func (s *switcher) marshaller() Marshaller {
 
 func (s *switcher) unmarshaller() Unmarshaller {
 	if impl, ok := s.impls[s.unmarshallerFn()]; ok {
+		return impl
+	}
+	return s.impls[DefaultLib]
+}
+
+func (s *switcher) validator() Valid {
+	if impl, ok := s.impls[s.validatorFn()]; ok {
 		return impl
 	}
 	return s.impls[DefaultLib]

@@ -48,3 +48,7 @@ func (j *sonnetJSON) NewEncoder(w io.Writer) Encoder {
 	// Issue is easy to reproduce by running warehouse api tests with sonnet streaming enabled
 	// return sonnet.NewEncoder(w)
 }
+
+func (j *sonnetJSON) Valid(data []byte) bool {
+	return sonnet.Valid(data)
+}

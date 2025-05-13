@@ -36,10 +36,15 @@ type Unmarshaller interface {
 	NewDecoder(r io.Reader) Decoder
 }
 
+type Valid interface {
+	Valid(data []byte) bool
+}
+
 // JSON is the interface that wraps the basic JSON operations.
 type JSON interface {
 	Marshaller
 	Unmarshaller
+	Valid
 }
 
 // Decoder is the interface that wraps the basic JSON decoder operations.
@@ -62,6 +67,7 @@ type Encoder interface {
 func New(conf *config.Config) JSON {
 	marshaller := conf.GetReloadableStringVar(DefaultLib, "Json.Library.Marshaller", "Json.Library").Load
 	unmarshaller := conf.GetReloadableStringVar(DefaultLib, "Json.Library.Unmarshaller", "Json.Library").Load
+	validator := conf.GetReloadableStringVar(DefaultLib, "Json.Library.Validator", "Json.Library").Load
 	return &switcher{
 		impls: map[string]JSON{
 			StdLib:      &stdJSON{},
@@ -70,6 +76,7 @@ func New(conf *config.Config) JSON {
 		},
 		marshallerFn:   marshaller,
 		unmarshallerFn: unmarshaller,
+		validatorFn:    validator,
 	}
 }
 

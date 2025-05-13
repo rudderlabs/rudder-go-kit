@@ -35,3 +35,7 @@ func (j *stdJSON) NewDecoder(r io.Reader) Decoder {
 func (j *stdJSON) NewEncoder(w io.Writer) Encoder {
 	return json.NewEncoder(w) // nolint: forbidigo
 }
+
+func (j *stdJSON) Valid(data []byte) bool {
+	return json.Valid(data)
+}

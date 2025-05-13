@@ -32,3 +32,7 @@ func (j *jsoniterJSON) NewDecoder(r io.Reader) Decoder {
 func (j *jsoniterJSON) NewEncoder(w io.Writer) Encoder {
 	return jsoniter.ConfigCompatibleWithStandardLibrary.NewEncoder(w)
 }
+
+func (j *jsoniterJSON) Valid(data []byte) bool {
+	return jsoniter.ConfigCompatibleWithStandardLibrary.Valid(data)
+}
