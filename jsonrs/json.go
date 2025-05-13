@@ -36,7 +36,7 @@ type Unmarshaller interface {
 	NewDecoder(r io.Reader) Decoder
 }
 
-type Valid interface {
+type Validator interface {
 	Valid(data []byte) bool
 }
 
@@ -44,7 +44,7 @@ type Valid interface {
 type JSON interface {
 	Marshaller
 	Unmarshaller
-	Valid
+	Validator
 }
 
 // Decoder is the interface that wraps the basic JSON decoder operations.
@@ -127,4 +127,9 @@ func NewDecoder(r io.Reader) Decoder {
 // NewEncoder returns a new json encoder that writes to w. Uses the default JSON implementation.
 func NewEncoder(w io.Writer) Encoder {
 	return Default.NewEncoder(w)
+}
+
+// Valid returns true if the data is valid JSON. Uses the default JSON implementation.
+func Valid(data []byte) bool {
+	return Default.Valid(data)
 }
