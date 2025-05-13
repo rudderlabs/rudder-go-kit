@@ -49,6 +49,7 @@ func CreateSession(config *SessionConfig) (*session.Session, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return session.NewSessionWithOptions(session.Options{
 		Config: aws.Config{
 			HTTPClient:                    getHttpClient(config),

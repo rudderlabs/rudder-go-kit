@@ -74,6 +74,11 @@ type Settings struct {
 	Logger   logger.Logger
 	Conf     *config.Config
 
+	// when S3ManagerV2 is set to true, the client uses the new S3 manager
+	S3ManagerV2 bool
+
+	// when DigitalOceanSpacesManagerV2 is set to true, the client uses the new DigitalOcean Spaces manager
+	DigitalOceanSpacesManagerV2 bool
 	// when GCSUploadIfNotExist is set to true, the client uploads to GCS storage
 	// only if a file with the same name doesn't exist already
 	GCSUploadIfNotExist bool
@@ -92,9 +97,15 @@ func New(settings *Settings) (FileManager, error) {
 
 	switch settings.Provider {
 	case "S3_DATALAKE":
-		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		if settings.S3ManagerV2 {
+			return NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		}
+		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "S3":
-		return NewS3Manager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		if settings.S3ManagerV2 {
+			return NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		}
+		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
 		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider),
 			WithGCSUploadIfObjectNotExist(settings.GCSUploadIfNotExist),
@@ -104,6 +115,9 @@ func New(settings *Settings) (FileManager, error) {
 	case "MINIO":
 		return NewMinioManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "DIGITAL_OCEAN_SPACES":
+		if settings.DigitalOceanSpacesManagerV2 {
+			return NewDigitalOceanManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		}
 		return NewDigitalOceanManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	}
 	return nil, fmt.Errorf("%w: %s", ErrInvalidServiceProvider, settings.Provider)
