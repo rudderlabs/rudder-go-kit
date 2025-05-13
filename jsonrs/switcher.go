@@ -52,7 +52,7 @@ func (s *switcher) unmarshaller() Unmarshaller {
 	return s.impls[DefaultLib]
 }
 
-func (s *switcher) validator() Valid {
+func (s *switcher) validator() Validator {
 	if impl, ok := s.impls[s.validatorFn()]; ok {
 		return impl
 	}
