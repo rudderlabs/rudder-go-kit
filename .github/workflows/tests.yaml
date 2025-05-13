@@ -23,9 +23,10 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@f24d7193d98baebaeacc7e2227925dd47cc267f5  # v4.2.0
         with:
-          role-to-assume: ${{ secrets.CI_MACHINE_AWS_ROLE }}
+          role-to-assume: arn:aws:iam::454531037350:role/rudder-go-kit-role
           aws-region: us-east-1
-
+      - name: Debug AWS identity
+        run: aws sts get-caller-identity
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
