@@ -37,6 +37,7 @@ func (s *switcher) NewEncoder(w io.Writer) Encoder {
 func (s *switcher) Valid(data []byte) bool {
 	return s.validator().Valid(data)
 }
+
 func (s *switcher) marshaller() Marshaller {
 	if impl, ok := s.impls[s.marshallerFn()]; ok {
 		return impl
