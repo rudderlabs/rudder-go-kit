@@ -1,13 +1,13 @@
-package jsonrs_test
+package json_test
 
 import (
 	"bytes"
-	"encoding/json"
+	stadjson "encoding/json"
 	"errors"
 	"strings"
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/jsonrs"
+	"github.com/rudderlabs/rudder-go-kit/json"
 
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +19,7 @@ func TestJSONCommonFunctionality(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c := config.New()
 			c.Set("Json.Library", name)
-			j := jsonrs.New(c)
+			j := json.New(c)
 
 			t.Run("marshall", func(t *testing.T) {
 				type test struct {
@@ -31,9 +31,9 @@ func TestJSONCommonFunctionality(t *testing.T) {
 
 				t.Run("json.RawMessage", func(t *testing.T) {
 					type test struct {
-						A json.RawMessage `json:"a"`
+						A stadjson.RawMessage `json:"a"`
 					}
-					data, err := j.Marshal(test{A: json.RawMessage(`{"a":"a"}`)})
+					data, err := j.Marshal(test{A: stadjson.RawMessage(`{"a":"a"}`)})
 					require.NoError(t, err)
 					require.Equal(t, `{"a":{"a":"a"}}`, string(data))
 				})
@@ -50,7 +50,7 @@ func TestJSONCommonFunctionality(t *testing.T) {
 
 				t.Run("json.RawMessage", func(t *testing.T) {
 					type test struct {
-						A json.RawMessage `json:"a"`
+						A stadjson.RawMessage `json:"a"`
 					}
 					var v test
 					err := j.Unmarshal([]byte(`{"a":{"a":"a"}}`), &v)
@@ -87,7 +87,7 @@ func TestJSONCommonFunctionality(t *testing.T) {
 					})
 				}
 				escapeChar := "�"
-				if name == jsonrs.JsoniterLib {
+				if name == json.JsoniterLib {
 					escapeChar = `\ufffd` // unique behaviour: jsoniter uses the \ufffd instead of � that all other libraries use
 				}
 				ecTimes := func(i int) string {
@@ -114,9 +114,9 @@ func TestJSONCommonFunctionality(t *testing.T) {
 			})
 		})
 	}
-	run(t, jsonrs.StdLib)
-	run(t, jsonrs.SonnetLib)
-	run(t, jsonrs.JsoniterLib)
+	run(t, json.StdLib)
+	run(t, json.SonnetLib)
+	run(t, json.JsoniterLib)
 }
 
 func TestJSONValidFunctionality(t *testing.T) {
@@ -124,7 +124,7 @@ func TestJSONValidFunctionality(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c := config.New()
 			c.Set("Json.Library", name)
-			j := jsonrs.New(c)
+			j := json.New(c)
 
 			t.Run("valid json", func(t *testing.T) {
 				// Test valid JSON objects
@@ -141,7 +141,7 @@ func TestJSONValidFunctionality(t *testing.T) {
 				// Test valid JSON primitives
 				// Note: jsoniter's Valid method doesn't consider standalone primitives as valid JSON,
 				// unlike the standard library and sonnet implementations
-				if name != jsonrs.JsoniterLib {
+				if name != json.JsoniterLib {
 					require.True(t, j.Valid([]byte(`"string"`)), "string should be valid")
 					require.True(t, j.Valid([]byte(`123`)), "number should be valid")
 					require.True(t, j.Valid([]byte(`true`)), "boolean true should be valid")
@@ -174,7 +174,7 @@ func TestJSONValidFunctionality(t *testing.T) {
 		})
 	}
 
-	run(t, jsonrs.StdLib)
-	run(t, jsonrs.SonnetLib)
-	run(t, jsonrs.JsoniterLib)
+	run(t, json.StdLib)
+	run(t, json.SonnetLib)
+	run(t, json.JsoniterLib)
 }

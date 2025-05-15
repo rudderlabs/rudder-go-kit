@@ -1,4 +1,4 @@
-package jsonrs
+package json
 
 import (
 	"io"
@@ -26,13 +26,13 @@ type Marshaller interface {
 	MarshalToString(v any) (string, error)
 	// MarshalIndent returns the JSON encoding of v with indentation.
 	MarshalIndent(v any, prefix, indent string) ([]byte, error)
-	// NewEncoder returns a new json encoder that writes to w.
+	// NewEncoder returns a new json encoder that writes to an io.Writer
 	NewEncoder(w io.Writer) Encoder
 }
 type Unmarshaller interface {
 	// Unmarshal parses the JSON-encoded data and stores the result in the value pointed to by v.
 	Unmarshal(data []byte, v any) error
-	// NewDecoder returns a new json decoder that reads from r.
+	// NewDecoder returns a new json decoder that reads from an io.Reader.
 	NewDecoder(r io.Reader) Decoder
 }
 

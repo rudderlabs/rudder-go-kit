@@ -1,9 +1,7 @@
-package jsonrs
+package json
 
 import (
 	"io"
-
-	jsoniter "github.com/json-iterator/go"
 
 	"github.com/rudderlabs/sonnet"
 )
@@ -33,7 +31,7 @@ func (j *sonnetJSON) MarshalToString(v any) (string, error) {
 
 func (j *sonnetJSON) NewDecoder(r io.Reader) Decoder {
 	// We are always using jsoniter for streaming due to: https://github.com/go-json-experiment/jsonbench?tab=readme-ov-file#streaming
-	return jsoniter.ConfigCompatibleWithStandardLibrary.NewDecoder(r)
+	return defaultJsoniter.NewDecoder(r)
 
 	// TODO: if we were to enable sonnet streaming it would be unreliable.
 	// Issue is easy to reproduce by running warehouse api tests with sonnet streaming enabled
@@ -42,7 +40,7 @@ func (j *sonnetJSON) NewDecoder(r io.Reader) Decoder {
 
 func (j *sonnetJSON) NewEncoder(w io.Writer) Encoder {
 	// always using jsoniter for streaming due to: https://github.com/go-json-experiment/jsonbench?tab=readme-ov-file#streaming
-	return jsoniter.ConfigCompatibleWithStandardLibrary.NewEncoder(w)
+	return defaultJsoniter.NewEncoder(w)
 
 	// TODO: if we were to enable sonnet streaming it would be unreliable.
 	// Issue is easy to reproduce by running warehouse api tests with sonnet streaming enabled

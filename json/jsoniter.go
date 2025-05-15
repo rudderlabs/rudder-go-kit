@@ -1,4 +1,4 @@
-package jsonrs
+package json
 
 import (
 	"io"
@@ -6,33 +6,35 @@ import (
 	jsoniter "github.com/json-iterator/go"
 )
 
+var defaultJsoniter = jsoniter.ConfigCompatibleWithStandardLibrary
+
 // jsoniterJSON is the JSON implementation of github.com/json-iterator/go.
 type jsoniterJSON struct{}
 
 func (j *jsoniterJSON) Marshal(v any) ([]byte, error) {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.Marshal(v)
+	return defaultJsoniter.Marshal(v)
 }
 
 func (j *jsoniterJSON) MarshalIndent(v any, prefix, indent string) ([]byte, error) {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.MarshalIndent(v, prefix, indent)
+	return defaultJsoniter.MarshalIndent(v, prefix, indent)
 }
 
 func (j *jsoniterJSON) Unmarshal(data []byte, v any) error {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(data, v)
+	return defaultJsoniter.Unmarshal(data, v)
 }
 
 func (j *jsoniterJSON) MarshalToString(v any) (string, error) {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.MarshalToString(v)
+	return defaultJsoniter.MarshalToString(v)
 }
 
 func (j *jsoniterJSON) NewDecoder(r io.Reader) Decoder {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.NewDecoder(r)
+	return defaultJsoniter.NewDecoder(r)
 }
 
 func (j *jsoniterJSON) NewEncoder(w io.Writer) Encoder {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.NewEncoder(w)
+	return defaultJsoniter.NewEncoder(w)
 }
 
 func (j *jsoniterJSON) Valid(data []byte) bool {
-	return jsoniter.ConfigCompatibleWithStandardLibrary.Valid(data)
+	return defaultJsoniter.Valid(data)
 }

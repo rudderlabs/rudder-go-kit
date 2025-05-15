@@ -1,4 +1,4 @@
-package jsonrs
+package json
 
 import (
 	"encoding/json"
@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStdJSON(t *testing.T) {
-	jsonrs := &stdJSON{}
+func TestSonnetJSON(t *testing.T) {
+	jsonrs := &sonnetJSON{}
 
 	t.Run("json.RawMessage", func(t *testing.T) {
 		t.Run("marshal nil", func(t *testing.T) {
