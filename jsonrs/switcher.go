@@ -1,4 +1,4 @@
-package json
+package jsonrs
 
 import "io"
 

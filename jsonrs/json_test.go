@@ -1,4 +1,4 @@
-package json_test
+package jsonrs_test
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/json"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 
 	"github.com/stretchr/testify/require"
 
@@ -19,7 +19,7 @@ func TestJSONCommonFunctionality(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c := config.New()
 			c.Set("Json.Library", name)
-			j := json.New(c)
+			j := jsonrs.New(c)
 
 			t.Run("marshall", func(t *testing.T) {
 				type test struct {
@@ -87,7 +87,7 @@ func TestJSONCommonFunctionality(t *testing.T) {
 					})
 				}
 				escapeChar := "�"
-				if name == json.JsoniterLib {
+				if name == jsonrs.JsoniterLib {
 					escapeChar = `\ufffd` // unique behaviour: jsoniter uses the \ufffd instead of � that all other libraries use
 				}
 				ecTimes := func(i int) string {
@@ -114,9 +114,9 @@ func TestJSONCommonFunctionality(t *testing.T) {
 			})
 		})
 	}
-	run(t, json.StdLib)
-	run(t, json.SonnetLib)
-	run(t, json.JsoniterLib)
+	run(t, jsonrs.StdLib)
+	run(t, jsonrs.SonnetLib)
+	run(t, jsonrs.JsoniterLib)
 }
 
 func TestJSONValidFunctionality(t *testing.T) {
@@ -124,7 +124,7 @@ func TestJSONValidFunctionality(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			c := config.New()
 			c.Set("Json.Library", name)
-			j := json.New(c)
+			j := jsonrs.New(c)
 
 			t.Run("valid json", func(t *testing.T) {
 				// Test valid JSON objects
@@ -141,7 +141,7 @@ func TestJSONValidFunctionality(t *testing.T) {
 				// Test valid JSON primitives
 				// Note: jsoniter's Valid method doesn't consider standalone primitives as valid JSON,
 				// unlike the standard library and sonnet implementations
-				if name != json.JsoniterLib {
+				if name != jsonrs.JsoniterLib {
 					require.True(t, j.Valid([]byte(`"string"`)), "string should be valid")
 					require.True(t, j.Valid([]byte(`123`)), "number should be valid")
 					require.True(t, j.Valid([]byte(`true`)), "boolean true should be valid")
@@ -174,7 +174,7 @@ func TestJSONValidFunctionality(t *testing.T) {
 		})
 	}
 
-	run(t, json.StdLib)
-	run(t, json.SonnetLib)
-	run(t, json.JsoniterLib)
+	run(t, jsonrs.StdLib)
+	run(t, jsonrs.SonnetLib)
+	run(t, jsonrs.JsoniterLib)
 }

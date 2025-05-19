@@ -1,11 +1,11 @@
-package json_test
+package jsonrs_test
 
 import (
 	"math"
 	"reflect"
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/json"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 
 	"github.com/stretchr/testify/require"
 
@@ -13,11 +13,11 @@ import (
 )
 
 func FuzzSonnet(f *testing.F) {
-	fuzzScenario(json.SonnetLib, f)
+	fuzzScenario(jsonrs.SonnetLib, f)
 }
 
 func FuzzJsoniter(f *testing.F) {
-	fuzzScenario(json.JsoniterLib, f)
+	fuzzScenario(jsonrs.JsoniterLib, f)
 }
 
 type Scenario struct {
@@ -29,7 +29,7 @@ type Scenario struct {
 }
 
 func fuzzScenario(name string, f *testing.F) {
-	j := json.NewWithLibrary(name)
+	j := jsonrs.NewWithLibrary(name)
 
 	seed := []Scenario{
 		{}, // zero values
@@ -105,8 +105,8 @@ func fuzzScenario(name string, f *testing.F) {
 	})
 }
 
-func verify[T any](t *testing.T, libName string, j json.JSON, value T) {
-	std := json.NewWithLibrary(json.StdLib)
+func verify[T any](t *testing.T, libName string, j jsonrs.JSON, value T) {
+	std := jsonrs.NewWithLibrary(jsonrs.StdLib)
 	valueType := reflect.TypeOf(value)
 
 	jsonValue, err := std.Marshal(value)
@@ -130,11 +130,11 @@ func verify[T any](t *testing.T, libName string, j json.JSON, value T) {
 	require.EqualValues(t, value, libValue, "unexpected unmarshal result for %v", value)
 }
 
-func verifyAsFloat32(t *testing.T, libName string, j json.JSON, value float64) {
+func verifyAsFloat32(t *testing.T, libName string, j jsonrs.JSON, value float64) {
 	if math.IsInf(value, 0) || math.IsNaN(value) {
 		return
 	}
-	std := json.NewWithLibrary(json.StdLib)
+	std := jsonrs.NewWithLibrary(jsonrs.StdLib)
 	jsonValue, err := std.Marshal(value)
 
 	var f32Std float32
