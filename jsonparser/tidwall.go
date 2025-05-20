@@ -172,3 +172,22 @@ func (p *tidwallJSONParser) SetFloat(data []byte, key string, value float64) ([]
 func (p *tidwallJSONParser) SetString(data []byte, key, value string) ([]byte, error) {
 	return p.SetValue(data, key, value)
 }
+
+// DeleteKey deletes a key from JSON bytes using sjson
+func (p *tidwallJSONParser) DeleteKey(data []byte, key string) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty JSON data")
+	}
+
+	if key == "" {
+		return nil, fmt.Errorf("empty key")
+	}
+
+	// Use sjson to delete the key
+	resultData, err := sjson.DeleteBytes(data, key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete key: %w", err)
+	}
+
+	return resultData, nil
+}

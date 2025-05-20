@@ -224,3 +224,24 @@ func (p *grafanaJSONParser) SetFloat(data []byte, key string, value float64) ([]
 func (p *grafanaJSONParser) SetString(data []byte, key, value string) ([]byte, error) {
 	return p.SetValue(data, key, value)
 }
+
+// DeleteKey deletes a key from JSON bytes
+func (p *grafanaJSONParser) DeleteKey(data []byte, key string) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty JSON data")
+	}
+
+	if key == "" {
+		return nil, fmt.Errorf("empty key")
+	}
+
+	keys, err := getKeys(key, data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Use jsonparser.Delete to delete the key
+	resultData := jsonparser.Delete(data, keys...)
+
+	return resultData, nil
+}
