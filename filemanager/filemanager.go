@@ -86,17 +86,9 @@ func New(settings *Settings) (FileManager, error) {
 		conf = config.Default
 	}
 
-	s3ManagerV2 := settings.Conf.GetBool("FileManager.S3ManagerV2", false)
-	digitalOceanSpacesManagerV2 := settings.Conf.GetBool("FileManager.DigitalOceanSpacesManagerV2", false)
-
 	switch settings.Provider {
-	case "S3_DATALAKE":
-		if s3ManagerV2 {
-			return NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
-		}
-		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
-	case "S3":
-		if s3ManagerV2 {
+	case "S3_DATALAKE", "S3":
+		if settings.Conf.GetBool("FileManager.S3ManagerV2", false) {
 			return NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 		}
 		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
@@ -107,7 +99,7 @@ func New(settings *Settings) (FileManager, error) {
 	case "MINIO":
 		return NewMinioManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "DIGITAL_OCEAN_SPACES":
-		if digitalOceanSpacesManagerV2 {
+		if settings.Conf.GetBool("FileManager.DigitalOceanSpacesManagerV2", false) {
 			return NewDigitalOceanManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 		}
 		return NewDigitalOceanManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
