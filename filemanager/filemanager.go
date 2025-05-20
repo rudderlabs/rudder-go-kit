@@ -88,10 +88,19 @@ func New(settings *Settings) (FileManager, error) {
 
 	switch settings.Provider {
 	case "S3_DATALAKE", "S3":
-		if settings.Conf.GetBool("FileManager.S3ManagerV2", false) {
-			return NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		s3ManagerV2, err := NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		if err != nil {
+			return nil, err
 		}
-		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		s3Manager, err := NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		if err != nil {
+			return nil, err
+		}
+		return &switchingS3Manager{
+			isV2ManagerEnabled: conf.GetReloadableBoolVar(false, "FileManager.S3ManagerV2"),
+			s3ManagerV2:        s3ManagerV2,
+			s3Manager:          s3Manager,
+		}, nil
 	case "GCS":
 		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "AZURE_BLOB":
@@ -99,10 +108,19 @@ func New(settings *Settings) (FileManager, error) {
 	case "MINIO":
 		return NewMinioManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "DIGITAL_OCEAN_SPACES":
-		if settings.Conf.GetBool("FileManager.DigitalOceanSpacesManagerV2", false) {
-			return NewDigitalOceanManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		digitalOceanManagerV2, err := NewDigitalOceanManagerV2(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		if err != nil {
+			return nil, err
 		}
-		return NewDigitalOceanManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		digitalOceanManager, err := NewDigitalOceanManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		if err != nil {
+			return nil, err
+		}
+		return &switchingDigitalOceanManager{
+			isV2ManagerEnabled:    conf.GetReloadableBoolVar(false, "FileManager.DigitalOceanSpacesManagerV2"),
+			digitalOceanManagerV2: digitalOceanManagerV2,
+			digitalOceanManager:   digitalOceanManager,
+		}, nil
 	}
 	return nil, fmt.Errorf("%w: %s", ErrInvalidServiceProvider, settings.Provider)
 }
