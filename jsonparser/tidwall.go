@@ -41,7 +41,7 @@ func (p *tidwallJSONParser) GetValue(data []byte, key string) (interface{}, erro
 	case gjson.False:
 		return false, nil
 	case gjson.Null:
-		//nolint(nilnil)
+		// nolint: nilnil
 		return nil, nil
 	case gjson.JSON:
 		if result.IsArray() {
