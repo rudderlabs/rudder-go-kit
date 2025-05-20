@@ -854,22 +854,46 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 }
 
 func TestJsonParser(t *testing.T) {
-	libs := []string{GjsonLib, JsonparserLib}
+	libs := []string{TidwallLib, GrafanaLib}
 	for _, lib := range libs {
 		t.Run(lib, func(t *testing.T) {
 			jsonParser := NewWithLibrary(lib)
-			suiteGetValue(t, jsonParser)
-			suiteSetValue(t, jsonParser)
-			suiteArrayHandling(t, jsonParser)
-			suiteEdgeCases(t, jsonParser)
-			suiteGetBoolean(t, jsonParser)
-			suiteGetInt(t, jsonParser)
-			suiteGetFloat(t, jsonParser)
-			suiteGetString(t, jsonParser)
-			suiteSetBoolean(t, jsonParser)
-			suiteSetInt(t, jsonParser)
-			suiteSetFloat(t, jsonParser)
-			suiteSetString(t, jsonParser)
+			t.Run("GetValue", func(t *testing.T) {
+				suiteGetValue(t, jsonParser)
+			})
+			t.Run("SetValue", func(t *testing.T) {
+				suiteSetValue(t, jsonParser)
+			})
+			t.Run("GetBoolean", func(t *testing.T) {
+				suiteGetBoolean(t, jsonParser)
+			})
+			t.Run("SetBoolean", func(t *testing.T) {
+				suiteSetBoolean(t, jsonParser)
+			})
+			t.Run("GetInt", func(t *testing.T) {
+				suiteGetInt(t, jsonParser)
+			})
+			t.Run("SetInt", func(t *testing.T) {
+				suiteSetInt(t, jsonParser)
+			})
+			t.Run("GetFloat", func(t *testing.T) {
+				suiteGetFloat(t, jsonParser)
+			})
+			t.Run("SetFloat", func(t *testing.T) {
+				suiteSetFloat(t, jsonParser)
+			})
+			t.Run("GetString", func(t *testing.T) {
+				suiteGetString(t, jsonParser)
+			})
+			t.Run("SetString", func(t *testing.T) {
+				suiteSetString(t, jsonParser)
+			})
+			t.Run("EdgeCases", func(t *testing.T) {
+				suiteEdgeCases(t, jsonParser)
+			})
+			t.Run("ArrayHandling", func(t *testing.T) {
+				suiteArrayHandling(t, jsonParser)
+			})
 		})
 	}
 }
