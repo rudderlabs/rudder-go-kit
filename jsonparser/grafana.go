@@ -81,8 +81,6 @@ func (p *grafanaJSONParser) GetValue(data []byte, key string) (interface{}, erro
 		return f, nil
 	case jsonparser.Boolean:
 		return string(value) == "true", nil
-	case jsonparser.Null:
-		return nil, nil
 	case jsonparser.Array, jsonparser.Object:
 		var result interface{}
 		if err := json.Unmarshal(value, &result); err != nil {
