@@ -52,7 +52,7 @@ type JSONSetter interface {
 	// SetString sets a string value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes.
-	SetString(data []byte, key string, value string) ([]byte, error)
+	SetString(data []byte, key, value string) ([]byte, error)
 }
 
 // JSONParser is the interface that combines both JSONGetter and JSONSetter interfaces.
@@ -120,7 +120,7 @@ func SetFloat(data []byte, key string, value float64) ([]byte, error) {
 }
 
 // SetString is a convenience function that uses the default JSONParser.
-func SetString(data []byte, key string, value string) ([]byte, error) {
+func SetString(data []byte, key, value string) ([]byte, error) {
 	return Default.SetString(data, key, value)
 }
 
