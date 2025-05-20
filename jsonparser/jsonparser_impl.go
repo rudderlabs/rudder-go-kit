@@ -23,11 +23,9 @@ func getKeys(key string) []string {
 	keys := []string{key}
 	if strings.Contains(key, ".") {
 		keys = strings.Split(key, ".")
-		if len(keys) > 1 {
-			for i, k := range keys {
-				if isNumeric(k) {
-					keys[i] = "[" + k + "]"
-				}
+		for i, k := range keys {
+			if isNumeric(k) {
+				keys[i] = "[" + k + "]"
 			}
 		}
 	}
@@ -232,6 +230,6 @@ func (p *jsonparserJSONParser) SetFloat(data []byte, key string, value float64) 
 }
 
 // SetString sets a string value for a given key in JSON bytes
-func (p *jsonparserJSONParser) SetString(data []byte, key string, value string) ([]byte, error) {
+func (p *jsonparserJSONParser) SetString(data []byte, key, value string) ([]byte, error) {
 	return p.SetValue(data, key, value)
 }

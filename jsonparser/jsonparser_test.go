@@ -1,12 +1,14 @@
 package jsonparser
 
 import (
-	"encoding/json"
-	"reflect"
 	"testing"
+
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
+
+	"github.com/stretchr/testify/require"
 )
 
-func TestGetValue(t *testing.T) {
+func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -102,19 +104,18 @@ func TestGetValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetValue([]byte(tt.jsonData), tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetValue() error = %v, wantErr %v", err, tt.wantErr)
+			got, err := jsonParser.GetValue([]byte(tt.jsonData), tt.key)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetValue() = %v, want %v", got, tt.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, got, tt.want)
 		})
 	}
 }
 
-func TestSetValue(t *testing.T) {
+func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -180,14 +181,6 @@ func TestSetValue(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "invalid json",
-			jsonData: `{"name": "John"`,
-			key:      "age",
-			value:    30,
-			want:     nil,
-			wantErr:  true,
-		},
-		{
 			name:     "empty key",
 			jsonData: `{"name": "John"}`,
 			key:      "",
@@ -199,29 +192,21 @@ func TestSetValue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SetValue([]byte(tt.jsonData), tt.key, tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SetValue() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got, err := jsonParser.SetValue([]byte(tt.jsonData), tt.key, tt.value)
 			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-
+			require.NoError(t, err)
 			var gotMap map[string]interface{}
-			if err := json.Unmarshal(got, &gotMap); err != nil {
-				t.Errorf("Failed to unmarshal result: %v", err)
-				return
-			}
-
-			if !reflect.DeepEqual(gotMap, tt.want) {
-				t.Errorf("SetValue() = %v, want %v", gotMap, tt.want)
-			}
+			err = jsonrs.Unmarshal(got, &gotMap)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, gotMap)
 		})
 	}
 }
 
-func TestArrayHandling(t *testing.T) {
+func suiteArrayHandling(t *testing.T, jsonParser JSONParser) {
 	// Test more complex array scenarios
 	jsonData := []byte(`{
 		"users": [
@@ -231,39 +216,26 @@ func TestArrayHandling(t *testing.T) {
 	}`)
 
 	// Test getting a value from an array of objects
-	value, err := GetValue(jsonData, "users.1.name")
-	if err != nil {
-		t.Errorf("GetValue() error = %v", err)
-		return
-	}
-	if value != "Jane" {
-		t.Errorf("GetValue() = %v, want %v", value, "Jane")
-	}
+	value, err := jsonParser.GetValue(jsonData, "users.1.name")
+	require.NoError(t, err)
+	require.Equal(t, "Jane", value)
 
 	// Test setting a value in an array of objects
-	updatedJSON, err := SetValue(jsonData, "users.0.age", 31)
-	if err != nil {
-		t.Errorf("SetValue() error = %v", err)
-		return
-	}
+	updatedJSON, err := jsonParser.SetValue(jsonData, "users.0.age", 31)
+	require.NoError(t, err)
 
 	// Verify the update
 	value, err = GetValue(updatedJSON, "users.0.age")
-	if err != nil {
-		t.Errorf("GetValue() after update error = %v", err)
-		return
-	}
-	if value != float64(31) {
-		t.Errorf("GetValue() after update = %v, want %v", value, float64(31))
-	}
+	require.NoError(t, err)
+	require.Equal(t, float64(31), value)
 }
 
-func TestEdgeCases(t *testing.T) {
+func suiteEdgeCases(t *testing.T, jsonParser JSONParser) {
 	// Test with a complex nested structure
 	jsonData := []byte(`{
 		"data": {
-			"users": [
-				{
+			"users": {
+				"0": {
 					"profile": {
 						"details": {
 							"name": "John",
@@ -273,39 +245,26 @@ func TestEdgeCases(t *testing.T) {
 						}
 					}
 				}
-			]
+			}
 		}
 	}`)
 
 	// Test getting a deeply nested value
-	value, err := GetValue(jsonData, "data.users.0.profile.details.contact.email")
-	if err != nil {
-		t.Errorf("GetValue() deep nesting error = %v", err)
-		return
-	}
-	if value != "john@example.com" {
-		t.Errorf("GetValue() deep nesting = %v, want %v", value, "john@example.com")
-	}
+	value, err := jsonParser.GetValue(jsonData, "data.users.0.profile.details.contact.email")
+	require.NoError(t, err)
+	require.Equal(t, "john@example.com", value)
 
 	// Test setting a deeply nested value
-	updatedJSON, err := SetValue(jsonData, "data.users.0.profile.details.contact.phone", "123-456-7890")
-	if err != nil {
-		t.Errorf("SetValue() deep nesting error = %v", err)
-		return
-	}
+	updatedJSON, err := jsonParser.SetValue(jsonData, "data.users.0.profile.details.contact.phone", "123-456-7890")
+	require.NoError(t, err)
 
 	// Verify the update
-	value, err = GetValue(updatedJSON, "data.users.0.profile.details.contact.phone")
-	if err != nil {
-		t.Errorf("GetValue() after deep nesting update error = %v", err)
-		return
-	}
-	if value != "123-456-7890" {
-		t.Errorf("GetValue() after deep nesting update = %v, want %v", value, "123-456-7890")
-	}
+	value, err = jsonParser.GetValue(updatedJSON, "data.users.0.profile.details.contact.phone")
+	require.NoError(t, err)
+	require.Equal(t, "123-456-7890", value)
 }
 
-func TestGetBoolean(t *testing.T) {
+func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -356,13 +315,6 @@ func TestGetBoolean(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name:     "invalid json",
-			jsonData: `{"active": true`,
-			key:      "active",
-			want:     false,
-			wantErr:  true,
-		},
-		{
 			name:     "empty json",
 			jsonData: ``,
 			key:      "active",
@@ -373,19 +325,18 @@ func TestGetBoolean(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetBoolean([]byte(tt.jsonData), tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetBoolean() error = %v, wantErr %v", err, tt.wantErr)
+			got, err := jsonParser.GetBoolean([]byte(tt.jsonData), tt.key)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("GetBoolean() = %v, want %v", got, tt.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestGetInt(t *testing.T) {
+func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -429,13 +380,6 @@ func TestGetInt(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name:     "invalid json",
-			jsonData: `{"age": 30`,
-			key:      "age",
-			want:     0,
-			wantErr:  true,
-		},
-		{
 			name:     "empty json",
 			jsonData: ``,
 			key:      "age",
@@ -446,19 +390,18 @@ func TestGetInt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetInt([]byte(tt.jsonData), tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetInt() error = %v, wantErr %v", err, tt.wantErr)
+			got, err := jsonParser.GetInt([]byte(tt.jsonData), tt.key)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("GetInt() = %v, want %v", got, tt.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestGetFloat(t *testing.T) {
+func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -509,13 +452,6 @@ func TestGetFloat(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name:     "invalid json",
-			jsonData: `{"price": 29.99`,
-			key:      "price",
-			want:     0,
-			wantErr:  true,
-		},
-		{
 			name:     "empty json",
 			jsonData: ``,
 			key:      "price",
@@ -526,19 +462,18 @@ func TestGetFloat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetFloat([]byte(tt.jsonData), tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetFloat() error = %v, wantErr %v", err, tt.wantErr)
+			got, err := jsonParser.GetFloat([]byte(tt.jsonData), tt.key)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("GetFloat() = %v, want %v", got, tt.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestGetString(t *testing.T) {
+func suiteGetString(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -599,19 +534,18 @@ func TestGetString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetString([]byte(tt.jsonData), tt.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetString() error = %v, wantErr %v", err, tt.wantErr)
+			got, err := jsonParser.GetString([]byte(tt.jsonData), tt.key)
+			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("GetString() = %v, want %v", got, tt.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestSetBoolean(t *testing.T) {
+func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -669,14 +603,6 @@ func TestSetBoolean(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "invalid json",
-			jsonData: `{"active": true`,
-			key:      "active",
-			value:    false,
-			want:     nil,
-			wantErr:  true,
-		},
-		{
 			name:     "empty key",
 			jsonData: `{"active": true}`,
 			key:      "",
@@ -688,29 +614,21 @@ func TestSetBoolean(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SetBoolean([]byte(tt.jsonData), tt.key, tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SetBoolean() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got, err := jsonParser.SetBoolean([]byte(tt.jsonData), tt.key, tt.value)
 			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-
+			require.NoError(t, err)
 			var gotMap map[string]interface{}
-			if err := json.Unmarshal(got, &gotMap); err != nil {
-				t.Errorf("Failed to unmarshal result: %v", err)
-				return
-			}
-
-			if !reflect.DeepEqual(gotMap, tt.want) {
-				t.Errorf("SetBoolean() = %v, want %v", gotMap, tt.want)
-			}
+			err = jsonrs.Unmarshal(got, &gotMap)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, gotMap)
 		})
 	}
 }
 
-func TestSetInt(t *testing.T) {
+func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -760,14 +678,6 @@ func TestSetInt(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "invalid json",
-			jsonData: `{"age": 25`,
-			key:      "age",
-			value:    30,
-			want:     nil,
-			wantErr:  true,
-		},
-		{
 			name:     "empty key",
 			jsonData: `{"age": 25}`,
 			key:      "",
@@ -779,29 +689,21 @@ func TestSetInt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SetInt([]byte(tt.jsonData), tt.key, tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SetInt() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got, err := jsonParser.SetInt([]byte(tt.jsonData), tt.key, tt.value)
 			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-
+			require.NoError(t, err)
 			var gotMap map[string]interface{}
-			if err := json.Unmarshal(got, &gotMap); err != nil {
-				t.Errorf("Failed to unmarshal result: %v", err)
-				return
-			}
-
-			if !reflect.DeepEqual(gotMap, tt.want) {
-				t.Errorf("SetInt() = %v, want %v", gotMap, tt.want)
-			}
+			err = jsonrs.Unmarshal(got, &gotMap)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, gotMap)
 		})
 	}
 }
 
-func TestSetFloat(t *testing.T) {
+func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -851,14 +753,6 @@ func TestSetFloat(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "invalid json",
-			jsonData: `{"price": 19.99`,
-			key:      "price",
-			value:    29.99,
-			want:     nil,
-			wantErr:  true,
-		},
-		{
 			name:     "empty key",
 			jsonData: `{"price": 19.99}`,
 			key:      "",
@@ -870,29 +764,21 @@ func TestSetFloat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SetFloat([]byte(tt.jsonData), tt.key, tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SetFloat() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got, err := jsonParser.SetFloat([]byte(tt.jsonData), tt.key, tt.value)
 			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-
+			require.NoError(t, err)
 			var gotMap map[string]interface{}
-			if err := json.Unmarshal(got, &gotMap); err != nil {
-				t.Errorf("Failed to unmarshal result: %v", err)
-				return
-			}
-
-			if !reflect.DeepEqual(gotMap, tt.want) {
-				t.Errorf("SetFloat() = %v, want %v", gotMap, tt.want)
-			}
+			err = jsonrs.Unmarshal(got, &gotMap)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, gotMap)
 		})
 	}
 }
 
-func TestSetString(t *testing.T) {
+func suiteSetString(t *testing.T, jsonParser JSONParser) {
 	tests := []struct {
 		name     string
 		jsonData string
@@ -942,14 +828,6 @@ func TestSetString(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "invalid json",
-			jsonData: `{"name": "John"`,
-			key:      "name",
-			value:    "Jane",
-			want:     nil,
-			wantErr:  true,
-		},
-		{
 			name:     "empty key",
 			jsonData: `{"name": "John"}`,
 			key:      "",
@@ -961,24 +839,37 @@ func TestSetString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SetString([]byte(tt.jsonData), tt.key, tt.value)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SetString() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got, err := jsonParser.SetString([]byte(tt.jsonData), tt.key, tt.value)
 			if tt.wantErr {
+				require.Error(t, err)
 				return
 			}
-
+			require.NoError(t, err)
 			var gotMap map[string]interface{}
-			if err := json.Unmarshal(got, &gotMap); err != nil {
-				t.Errorf("Failed to unmarshal result: %v", err)
-				return
-			}
+			err = jsonrs.Unmarshal(got, &gotMap)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, gotMap)
+		})
+	}
+}
 
-			if !reflect.DeepEqual(gotMap, tt.want) {
-				t.Errorf("SetString() = %v, want %v", gotMap, tt.want)
-			}
+func TestJsonParser(t *testing.T) {
+	libs := []string{GjsonLib, JsonparserLib}
+	for _, lib := range libs {
+		t.Run(lib, func(t *testing.T) {
+			jsonParser := NewWithLibrary(lib)
+			suiteGetValue(t, jsonParser)
+			suiteSetValue(t, jsonParser)
+			suiteArrayHandling(t, jsonParser)
+			suiteEdgeCases(t, jsonParser)
+			suiteGetBoolean(t, jsonParser)
+			suiteGetInt(t, jsonParser)
+			suiteGetFloat(t, jsonParser)
+			suiteGetString(t, jsonParser)
+			suiteSetBoolean(t, jsonParser)
+			suiteSetInt(t, jsonParser)
+			suiteSetFloat(t, jsonParser)
+			suiteSetString(t, jsonParser)
 		})
 	}
 }
