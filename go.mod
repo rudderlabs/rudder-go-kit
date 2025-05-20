@@ -20,6 +20,7 @@ require (
 	github.com/gocql/gocql v1.14.2
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/uuid v1.6.0
+	github.com/grafana/jsonparser v0.0.0-20250430123630-2a684464cca1
 	github.com/joho/godotenv v1.5.1
 	github.com/json-iterator/go v1.1.12
 	github.com/klauspost/compress v1.18.0
@@ -44,6 +45,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/throttled/throttled/v2 v2.13.0
 	github.com/tidwall/gjson v1.18.0
+	github.com/tidwall/sjson v1.2.5
 	github.com/zenizh/go-capturer v0.0.0-20211219060012-52ea6c8fed04
 	go.etcd.io/etcd/client/v3 v3.5.21
 	go.opentelemetry.io/otel v1.35.0
