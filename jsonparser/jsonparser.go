@@ -4,8 +4,8 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
-// JSONGetter is the interface that wraps the basic operations for retrieving values from JSON bytes.
-type JSONGetter interface {
+// getter is the interface that wraps the basic operations for retrieving values from JSON bytes.
+type getter interface {
 	// GetValue retrieves the value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	GetValue(data []byte, key string) (interface{}, error)
@@ -27,8 +27,8 @@ type JSONGetter interface {
 	GetString(data []byte, key string) (string, error)
 }
 
-// JSONSetter is the interface that wraps the basic operations for setting values in JSON bytes.
-type JSONSetter interface {
+// setter is the interface that wraps the basic operations for setting values in JSON bytes.
+type setter interface {
 	// SetValue sets the value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes.
@@ -55,20 +55,19 @@ type JSONSetter interface {
 	SetString(data []byte, key, value string) ([]byte, error)
 }
 
-// JSONParser is the interface that combines both JSONGetter and JSONSetter interfaces.
+// deleter is the interface that wraps the basic operations for deleting keys from JSON bytes.
+type deleter interface {
+	// DeleteKey deletes a key from JSON bytes.
+	// The key can be a dot-separated path to access nested values.
+	// Returns the modified JSON bytes.
+	DeleteKey(data []byte, key string) ([]byte, error)
+}
+
+// JSONParser is the interface that combines getter, setter, and deleter interfaces.
 type JSONParser interface {
-	JSONGetter
-	JSONSetter
-}
-
-// NewGetter returns a new JSONGetter implementation.
-func NewGetter() JSONGetter {
-	return &tidwallJSONParser{}
-}
-
-// NewSetter returns a new JSONSetter implementation.
-func NewSetter() JSONSetter {
-	return &tidwallJSONParser{}
+	getter
+	setter
+	deleter
 }
 
 // Default is the default JSONParser implementation.
@@ -122,6 +121,11 @@ func SetFloat(data []byte, key string, value float64) ([]byte, error) {
 // SetString is a convenience function that uses the default JSONParser.
 func SetString(data []byte, key, value string) ([]byte, error) {
 	return Default.SetString(data, key, value)
+}
+
+// DeleteKey is a convenience function that uses the default JSONParser.
+func DeleteKey(data []byte, key string) ([]byte, error) {
+	return Default.DeleteKey(data, key)
 }
 
 // Reset resets the default JSONParser implementation based on the default configuration.

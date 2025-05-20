@@ -225,7 +225,7 @@ func suiteArrayHandling(t *testing.T, jsonParser JSONParser) {
 	require.NoError(t, err)
 
 	// Verify the update
-	value, err = GetValue(updatedJSON, "users.0.age")
+	value, err = jsonParser.GetValue(updatedJSON, "users.0.age")
 	require.NoError(t, err)
 	require.Equal(t, float64(31), value)
 }
@@ -853,6 +853,74 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 	}
 }
 
+func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
+	tests := []struct {
+		name     string
+		jsonData string
+		key      string
+		want     map[string]interface{}
+		wantErr  bool
+	}{
+		{
+			name:     "simple key",
+			jsonData: `{"name": "John", "age": 30}`,
+			key:      "name",
+			want:     map[string]interface{}{"age": float64(30)},
+			wantErr:  false,
+		},
+		{
+			name:     "nested key",
+			jsonData: `{"user": {"name": "John", "age": 30}}`,
+			key:      "user.name",
+			want:     map[string]interface{}{"user": map[string]interface{}{"age": float64(30)}},
+			wantErr:  false,
+		},
+		{
+			name:     "array element",
+			jsonData: `{"users": ["John", "Jane", "Bob"]}`,
+			key:      "users.1",
+			want:     map[string]interface{}{"users": []interface{}{"John", "Bob"}},
+			wantErr:  false,
+		},
+		{
+			name:     "key not found",
+			jsonData: `{"name": "John"}`,
+			key:      "age",
+			want:     map[string]interface{}{"name": "John"},
+			wantErr:  false,
+		},
+		{
+			name:     "empty json",
+			jsonData: ``,
+			key:      "name",
+			want:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "empty key",
+			jsonData: `{"name": "John"}`,
+			key:      "",
+			want:     nil,
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jsonParser.DeleteKey([]byte(tt.jsonData), tt.key)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			var gotMap map[string]interface{}
+			err = jsonrs.Unmarshal(got, &gotMap)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, gotMap)
+		})
+	}
+}
+
 func TestJsonParser(t *testing.T) {
 	libs := []string{TidwallLib, GrafanaLib}
 	for _, lib := range libs {
@@ -887,6 +955,9 @@ func TestJsonParser(t *testing.T) {
 			})
 			t.Run("SetString", func(t *testing.T) {
 				suiteSetString(t, jsonParser)
+			})
+			t.Run("DeleteKey", func(t *testing.T) {
+				suiteDeleteKey(t, jsonParser)
 			})
 			t.Run("EdgeCases", func(t *testing.T) {
 				suiteEdgeCases(t, jsonParser)
