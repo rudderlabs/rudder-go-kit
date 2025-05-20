@@ -108,37 +108,7 @@ func (m *S3ManagerV2) Download(ctx context.Context, output io.WriterAt, key stri
 // Upload uploads a file to S3 and returns the uploaded file info.
 func (m *S3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
 	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-
-	uploadInput := &s3.PutObjectInput{
-		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
-		Bucket: aws.String(m.config.Bucket),
-		Key:    aws.String(fileName),
-		Body:   file,
-	}
-
-	if m.config.EnableSSE {
-		uploadInput.ServerSideEncryption = types.ServerSideEncryptionAes256
-	}
-
-	client, err := m.getClient(ctx)
-	if err != nil {
-		return UploadedFile{}, fmt.Errorf("s3 client: %w", err)
-	}
-	uploader := s3manager.NewUploader(client)
-
-	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
-	defer cancel()
-
-	output, err := uploader.Upload(ctx, uploadInput)
-	if err == nil {
-		return UploadedFile{Location: output.Location, ObjectName: fileName}, nil
-	}
-	var regionError *aws.MissingRegionError
-	if errors.As(err, &regionError) {
-		err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
-	}
-
-	return UploadedFile{}, err
+	return m.UploadReader(ctx, fileName, file)
 }
 
 // UploadReader uploads data from an io.Reader to S3 with the given object name.
@@ -184,10 +154,6 @@ func (m *S3ManagerV2) Delete(ctx context.Context, keys []string) error {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("s3 client: %w", err)
-	}
-
-	if len(keys) == 0 {
-		return nil
 	}
 
 	var objects []types.ObjectIdentifier

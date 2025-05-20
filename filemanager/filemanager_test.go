@@ -342,6 +342,7 @@ func TestFileManager(t *testing.T) {
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -394,6 +395,7 @@ func TestFileManager(t *testing.T) {
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -491,6 +493,7 @@ func TestFileManager(t *testing.T) {
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			if err != nil {
 				panic(err)
@@ -510,6 +513,7 @@ func TestFileManager(t *testing.T) {
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -585,16 +589,13 @@ func blockOnHold() {
 func TestFileManager_S3(t *testing.T) {
 	// Prepare a small file for upload
 	tempDir := t.TempDir()
-	config.Reset()
 	testFilePath := filepath.Join(tempDir, "testfile.txt")
 	testFileContent := []byte("integration test content")
 	require.NoError(t, os.WriteFile(testFilePath, testFileContent, 0o644))
 
 	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	// envIAMRole := "arn:aws:iam::454531037350:role/rudder-go-kit-s3-access"
 	envBucket := os.Getenv("AWS_BUCKET_NAME")
-	// externalID := "7AWew23UYa35782547823"
 	isV2ManagerEnabled := []bool{false, true}
 	for _, enabled := range isV2ManagerEnabled {
 		authMethods := []struct {
@@ -612,29 +613,17 @@ func TestFileManager_S3(t *testing.T) {
 					"disableSSL":       true,
 				},
 			},
-			// {
-			// 	name: "IAM Role",
-			// 	config: map[string]any{
-			// 		"bucketName":       envBucket,
-			// 		"roleBasedAuth":    true,
-			// 		"iamRoleARN":       envIAMRole,
-			// 		"externalID":       externalID,
-			// 		"workspaceID":      externalID,
-			// 		"region":           region,
-			// 		"s3ForcePathStyle": true,
-			// 		"disableSSL":       true,
-			// 	},
-			// },
 		}
 
 		for _, auth := range authMethods {
 			t.Run("running with: "+auth.name+" and v2 manager enabled: "+strconv.FormatBool(enabled), func(t *testing.T) {
+				conf := config.New()
+				conf.Set("FileManager.S3ManagerV2", enabled)
 				fm, err := filemanager.New(&filemanager.Settings{
-					Provider:    "S3",
-					Config:      auth.config,
-					Logger:      logger.NOP,
-					S3ManagerV2: enabled,
-					Conf:        config.New(),
+					Provider: "S3",
+					Config:   auth.config,
+					Logger:   logger.NOP,
+					Conf:     conf,
 				})
 				require.NoError(t, err)
 

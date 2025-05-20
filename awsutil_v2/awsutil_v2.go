@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -49,18 +50,16 @@ func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, er
 		return zero, errors.New("awsutil: SessionConfig cannot be nil")
 	}
 
+	httpClient := configureHTTPClient(config)
 	// Handle credentials - either role-based or static
 	if config.RoleBasedAuth {
-		awsCredentials, err = createV2CredentialsForRole(ctx, config)
+		awsCredentials, err = createV2CredentialsForRole(ctx, httpClient, config)
 		if err != nil {
 			return zero, fmt.Errorf("awsutil: failed to create credentials for role: %w", err)
 		}
 	} else if config.AccessKeyID != "" && config.AccessKey != "" {
 		awsCredentials = credentials.NewStaticCredentialsProvider(config.AccessKeyID, config.AccessKey, config.SessionToken)
 	}
-
-	// Configure HTTP client with timeout and connection settings
-	httpClient := configureHTTPClient(config)
 
 	// Load default config with options
 	optFuncs := []func(*awsconfig.LoadOptions) error{
@@ -85,9 +84,15 @@ func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, er
 
 // configureHTTPClient creates an HTTP client with the configuration settings
 func configureHTTPClient(config *SessionConfig) *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
 	// Create transport with proper connection settings
 	transport := &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           dialer.DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          100,
 		IdleConnTimeout:       90 * time.Second,
@@ -118,13 +123,10 @@ func configureHTTPClient(config *SessionConfig) *http.Client {
 
 // createV2CredentialsForRole creates a credentials provider for assuming an IAM role.
 // This is the v2 equivalent of createCredentialsForRole in v1.
-func createV2CredentialsForRole(ctx context.Context, config *SessionConfig) (aws.CredentialsProvider, error) {
+func createV2CredentialsForRole(ctx context.Context, httpClient *http.Client, config *SessionConfig) (aws.CredentialsProvider, error) {
 	if config.ExternalID == "" {
 		return nil, errors.New("awsutil: externalID is required for IAM role")
 	}
-
-	// Configure HTTP client for the base session
-	httpClient := configureHTTPClient(config)
 
 	// Create base config for STS operations
 	optFuncs := []func(*awsconfig.LoadOptions) error{

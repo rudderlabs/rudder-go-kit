@@ -185,10 +185,6 @@ func (m *S3Manager) Prefix() string {
 	return m.config.Prefix
 }
 
-func (m *S3Manager) Bucket() string {
-	return m.config.Bucket
-}
-
 /*
 GetObjectNameFromLocation gets the object name/key name from the object location url
 

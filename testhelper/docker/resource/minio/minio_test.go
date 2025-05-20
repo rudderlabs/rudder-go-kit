@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/filemanager"
 )
 
@@ -35,6 +36,7 @@ func TestMinioResource(t *testing.T) {
 		fm, err := filemanager.New(&filemanager.Settings{
 			Provider: "MINIO",
 			Config:   c,
+			Conf:     config.New(),
 		})
 		require.NoError(t, err)
 
@@ -48,6 +50,7 @@ func TestMinioResource(t *testing.T) {
 		fm, err := filemanager.New(&filemanager.Settings{
 			Provider: "S3",
 			Config:   c,
+			Conf:     config.New(),
 		})
 		require.NoError(t, err)
 
