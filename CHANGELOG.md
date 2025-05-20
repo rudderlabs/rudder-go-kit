@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.50.2...v0.51.0) (2025-05-19)
+
+
+### Features
+
+* implement JSON switching mechanism with multiple libraries ([#803](https://github.com/rudderlabs/rudder-go-kit/issues/803)) ([906400e](https://github.com/rudderlabs/rudder-go-kit/commit/906400e6f09adf54e7557c2f19291009392f418b))
+
 ## [0.50.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.50.1...v0.50.2) (2025-05-08)
 
 
