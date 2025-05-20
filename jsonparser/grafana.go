@@ -82,7 +82,7 @@ func (p *grafanaJSONParser) GetValue(data []byte, key string) (interface{}, erro
 	case jsonparser.Boolean:
 		return string(value) == "true", nil
 	case jsonparser.Null:
-		//nolint(nilnil)
+		// nolint: nilnil
 		return nil, nil
 	case jsonparser.Array, jsonparser.Object:
 		var result interface{}
