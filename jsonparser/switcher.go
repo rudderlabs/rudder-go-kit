@@ -66,7 +66,7 @@ func (s *switcher) SetFloat(data []byte, key string, value float64) ([]byte, err
 }
 
 // SetString delegates to the configured setter implementation
-func (s *switcher) SetString(data []byte, key string, value string) ([]byte, error) {
+func (s *switcher) SetString(data []byte, key, value string) ([]byte, error) {
 	return s.setter().SetString(data, key, value)
 }
 

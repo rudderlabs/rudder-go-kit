@@ -169,6 +169,6 @@ func (p *gjsonJSONParser) SetFloat(data []byte, key string, value float64) ([]by
 }
 
 // SetString sets a string value for a given key in JSON bytes using sjson
-func (p *gjsonJSONParser) SetString(data []byte, key string, value string) ([]byte, error) {
+func (p *gjsonJSONParser) SetString(data []byte, key, value string) ([]byte, error) {
 	return p.SetValue(data, key, value)
 }

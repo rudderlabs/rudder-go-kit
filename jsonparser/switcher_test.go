@@ -3,8 +3,9 @@ package jsonparser
 import (
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
 func TestSwitcher(t *testing.T) {
