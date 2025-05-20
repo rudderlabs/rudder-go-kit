@@ -29,7 +29,7 @@ func TestSwitcher(t *testing.T) {
 	assert.Equal(t, float64(31), value)
 
 	// Test with jsonparser implementation
-	conf.Set("JSONParser.Library", JsonparserLib)
+	conf.Set("JSONParser.Library", GrafanaLib)
 	parser = NewWithConfig(conf)
 
 	// Test GetValue with jsonparser implementation
@@ -45,8 +45,8 @@ func TestSwitcher(t *testing.T) {
 	assert.Equal(t, float64(32), value)
 
 	// Test with separate getter and setter implementations
-	conf.Set("JSONParser.Library.Getter", JsonparserLib)
-	conf.Set("JSONParser.Library.Setter", GjsonLib)
+	conf.Set("JSONParser.Library.Getter", GrafanaLib)
+	conf.Set("JSONParser.Library.Setter", TidwallLib)
 	parser = NewWithConfig(conf)
 
 	// Test GetValue with jsonparser implementation
@@ -62,7 +62,7 @@ func TestSwitcher(t *testing.T) {
 	assert.Equal(t, float64(33), value)
 
 	// Test NewWithLibrary
-	parser = NewWithLibrary(JsonparserLib)
+	parser = NewWithLibrary(GrafanaLib)
 	value, err = parser.GetValue(data, "name")
 	assert.NoError(t, err)
 	assert.Equal(t, "John", value)
@@ -95,14 +95,14 @@ func TestGetterSetter(t *testing.T) {
 
 	// Test with NewGetterWithConfig
 	conf := config.New()
-	conf.Set("JSONParser.Library.Getter", JsonparserLib)
+	conf.Set("JSONParser.Library.Getter", GrafanaLib)
 	getter = NewGetterWithConfig(conf)
 	value, err = getter.GetValue(data, "name")
 	assert.NoError(t, err)
 	assert.Equal(t, "John", value)
 
 	// Test with NewSetterWithConfig
-	conf.Set("JSONParser.Library.Setter", GjsonLib)
+	conf.Set("JSONParser.Library.Setter", TidwallLib)
 	setter = NewSetterWithConfig(conf)
 	updatedData, err = setter.SetValue(data, "age", 32)
 	assert.NoError(t, err)
@@ -113,13 +113,13 @@ func TestGetterSetter(t *testing.T) {
 	assert.Equal(t, float64(32), value)
 
 	// Test with NewGetterWithLibrary
-	getter = NewGetterWithLibrary(JsonparserLib)
+	getter = NewGetterWithLibrary(GrafanaLib)
 	value, err = getter.GetValue(data, "name")
 	assert.NoError(t, err)
 	assert.Equal(t, "John", value)
 
 	// Test with NewSetterWithLibrary
-	setter = NewSetterWithLibrary(GjsonLib)
+	setter = NewSetterWithLibrary(TidwallLib)
 	updatedData, err = setter.SetValue(data, "age", 33)
 	assert.NoError(t, err)
 

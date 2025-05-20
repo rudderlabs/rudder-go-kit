@@ -5,12 +5,12 @@ import (
 )
 
 const (
-	// GjsonLib is the implementation using gjson/sjson libraries
-	GjsonLib = "gjson"
-	// JsonparserLib is the implementation using jsonparser library
-	JsonparserLib = "jsonparser"
+	// TidwallLib is the implementation using gjson/sjson libraries
+	TidwallLib = "tidwall"
+	// GrafanaLib is the implementation using jsonparser library
+	GrafanaLib = "grafana"
 	// DefaultLib is the default implementation
-	DefaultLib = GjsonLib
+	DefaultLib = TidwallLib
 )
 
 // switcher is a JSONParser implementation that switches between different implementations based on configuration
@@ -93,8 +93,8 @@ func NewWithConfig(conf *config.Config) JSONParser {
 
 	return &switcher{
 		impls: map[string]JSONParser{
-			GjsonLib:      &gjsonJSONParser{},
-			JsonparserLib: &jsonparserJSONParser{},
+			TidwallLib: &tidwallJSONParser{},
+			GrafanaLib: &grafanaJSONParser{},
 		},
 		getterFn: getter,
 		setterFn: setter,
@@ -107,8 +107,8 @@ func NewGetterWithConfig(conf *config.Config) JSONGetter {
 
 	return &switcher{
 		impls: map[string]JSONParser{
-			GjsonLib:      &gjsonJSONParser{},
-			JsonparserLib: &jsonparserJSONParser{},
+			TidwallLib: &tidwallJSONParser{},
+			GrafanaLib: &grafanaJSONParser{},
 		},
 		getterFn: getter,
 		setterFn: func() string { return "" }, // Not used for getter-only
@@ -121,8 +121,8 @@ func NewSetterWithConfig(conf *config.Config) JSONSetter {
 
 	return &switcher{
 		impls: map[string]JSONParser{
-			GjsonLib:      &gjsonJSONParser{},
-			JsonparserLib: &jsonparserJSONParser{},
+			TidwallLib: &tidwallJSONParser{},
+			GrafanaLib: &grafanaJSONParser{},
 		},
 		getterFn: func() string { return "" }, // Not used for setter-only
 		setterFn: setter,
@@ -132,35 +132,35 @@ func NewSetterWithConfig(conf *config.Config) JSONSetter {
 // NewWithLibrary returns a new JSONParser implementation based on the specified library
 func NewWithLibrary(library string) JSONParser {
 	switch library {
-	case GjsonLib:
-		return &gjsonJSONParser{}
-	case JsonparserLib:
-		return &jsonparserJSONParser{}
+	case TidwallLib:
+		return &tidwallJSONParser{}
+	case GrafanaLib:
+		return &grafanaJSONParser{}
 	default:
-		return &gjsonJSONParser{}
+		return &tidwallJSONParser{}
 	}
 }
 
 // NewGetterWithLibrary returns a new JSONGetter implementation based on the specified library
 func NewGetterWithLibrary(library string) JSONGetter {
 	switch library {
-	case GjsonLib:
-		return &gjsonJSONParser{}
-	case JsonparserLib:
-		return &jsonparserJSONParser{}
+	case TidwallLib:
+		return &tidwallJSONParser{}
+	case GrafanaLib:
+		return &grafanaJSONParser{}
 	default:
-		return &gjsonJSONParser{}
+		return &tidwallJSONParser{}
 	}
 }
 
 // NewSetterWithLibrary returns a new JSONSetter implementation based on the specified library
 func NewSetterWithLibrary(library string) JSONSetter {
 	switch library {
-	case GjsonLib:
-		return &gjsonJSONParser{}
-	case JsonparserLib:
-		return &jsonparserJSONParser{}
+	case TidwallLib:
+		return &tidwallJSONParser{}
+	case GrafanaLib:
+		return &grafanaJSONParser{}
 	default:
-		return &gjsonJSONParser{}
+		return &tidwallJSONParser{}
 	}
 }

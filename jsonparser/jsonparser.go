@@ -63,12 +63,12 @@ type JSONParser interface {
 
 // NewGetter returns a new JSONGetter implementation.
 func NewGetter() JSONGetter {
-	return &gjsonJSONParser{}
+	return &tidwallJSONParser{}
 }
 
 // NewSetter returns a new JSONSetter implementation.
 func NewSetter() JSONSetter {
-	return &gjsonJSONParser{}
+	return &tidwallJSONParser{}
 }
 
 // Default is the default JSONParser implementation.

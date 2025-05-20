@@ -10,11 +10,11 @@ import (
 	"github.com/tidwall/sjson"
 )
 
-// gjsonJSONParser is the implementation of JSONParser using gjson/sjson libraries
-type gjsonJSONParser struct{}
+// tidwallJSONParser is the implementation of JSONParser using gjson/sjson libraries
+type tidwallJSONParser struct{}
 
 // GetValue retrieves the value for a given key from JSON bytes using gjson
-func (p *gjsonJSONParser) GetValue(data []byte, key string) (interface{}, error) {
+func (p *tidwallJSONParser) GetValue(data []byte, key string) (interface{}, error) {
 	// Handle empty key - return the entire JSON object
 	if key == "" {
 		var result interface{}
@@ -61,7 +61,7 @@ func (p *gjsonJSONParser) GetValue(data []byte, key string) (interface{}, error)
 }
 
 // GetBoolean retrieves a boolean value for a given key from JSON bytes using gjson
-func (p *gjsonJSONParser) GetBoolean(data []byte, key string) (bool, error) {
+func (p *tidwallJSONParser) GetBoolean(data []byte, key string) (bool, error) {
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, key)
 	if !result.Exists() {
@@ -77,7 +77,7 @@ func (p *gjsonJSONParser) GetBoolean(data []byte, key string) (bool, error) {
 }
 
 // GetInt retrieves an integer value for a given key from JSON bytes using gjson
-func (p *gjsonJSONParser) GetInt(data []byte, key string) (int64, error) {
+func (p *tidwallJSONParser) GetInt(data []byte, key string) (int64, error) {
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, key)
 	if !result.Exists() {
@@ -93,7 +93,7 @@ func (p *gjsonJSONParser) GetInt(data []byte, key string) (int64, error) {
 }
 
 // GetFloat retrieves a float value for a given key from JSON bytes using gjson
-func (p *gjsonJSONParser) GetFloat(data []byte, key string) (float64, error) {
+func (p *tidwallJSONParser) GetFloat(data []byte, key string) (float64, error) {
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, key)
 	if !result.Exists() {
@@ -109,7 +109,7 @@ func (p *gjsonJSONParser) GetFloat(data []byte, key string) (float64, error) {
 }
 
 // GetString retrieves a string value for a given key from JSON bytes using gjson
-func (p *gjsonJSONParser) GetString(data []byte, key string) (string, error) {
+func (p *tidwallJSONParser) GetString(data []byte, key string) (string, error) {
 	if len(data) == 0 {
 		return "", fmt.Errorf("empty JSON data")
 	}
@@ -134,7 +134,7 @@ func (p *gjsonJSONParser) GetString(data []byte, key string) (string, error) {
 }
 
 // SetValue sets the value for a given key in JSON bytes using sjson
-func (p *gjsonJSONParser) SetValue(data []byte, key string, value interface{}) ([]byte, error) {
+func (p *tidwallJSONParser) SetValue(data []byte, key string, value interface{}) ([]byte, error) {
 	if len(data) == 0 {
 		// If data is empty, create a new JSON object
 		data = []byte("{}")
@@ -154,21 +154,21 @@ func (p *gjsonJSONParser) SetValue(data []byte, key string, value interface{}) (
 }
 
 // SetBoolean sets a boolean value for a given key in JSON bytes using sjson
-func (p *gjsonJSONParser) SetBoolean(data []byte, key string, value bool) ([]byte, error) {
+func (p *tidwallJSONParser) SetBoolean(data []byte, key string, value bool) ([]byte, error) {
 	return p.SetValue(data, key, value)
 }
 
 // SetInt sets an integer value for a given key in JSON bytes using sjson
-func (p *gjsonJSONParser) SetInt(data []byte, key string, value int64) ([]byte, error) {
+func (p *tidwallJSONParser) SetInt(data []byte, key string, value int64) ([]byte, error) {
 	return p.SetValue(data, key, value)
 }
 
 // SetFloat sets a float value for a given key in JSON bytes using sjson
-func (p *gjsonJSONParser) SetFloat(data []byte, key string, value float64) ([]byte, error) {
+func (p *tidwallJSONParser) SetFloat(data []byte, key string, value float64) ([]byte, error) {
 	return p.SetValue(data, key, value)
 }
 
 // SetString sets a string value for a given key in JSON bytes using sjson
-func (p *gjsonJSONParser) SetString(data []byte, key, value string) ([]byte, error) {
+func (p *tidwallJSONParser) SetString(data []byte, key, value string) ([]byte, error) {
 	return p.SetValue(data, key, value)
 }
