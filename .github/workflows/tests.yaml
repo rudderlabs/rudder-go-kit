@@ -17,14 +17,6 @@ jobs:
       id-token: write # allows the JWT to be requested from GitHub's OIDC provider
       contents: read # This is required for actions/checkout
     steps:
-      - name: Install AWS CLI
-        uses: unfor19/install-aws-cli-action@2ff7a6968c81b173eaaef188869215870f44902b  # master
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@f24d7193d98baebaeacc7e2227925dd47cc267f5  # v4.2.0
-        with:
-          role-to-assume: ${{ secrets.CI_MACHINE_AWS_ROLE }}
-          aws-region: us-east-1
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
@@ -34,10 +26,8 @@ jobs:
       - name: Configure AWS credentials
         env:
           AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
-          AWS_EXTERNAL_ID: ${{ secrets.AWS_EXTERNAL_ID }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_IAM_ROLE: ${{ secrets.AWS_IAM_ROLE_ARN }}
         run: make test exclude="(kafkaclient|testhelper)"
       - uses: codecov/codecov-action@v5
   test-package:
