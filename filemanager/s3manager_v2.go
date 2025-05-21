@@ -22,14 +22,14 @@ import (
 	"github.com/samber/lo"
 
 	awsutil "github.com/rudderlabs/rudder-go-kit/awsutil_v2"
-	appConfig "github.com/rudderlabs/rudder-go-kit/config"
+	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 const ServiceName = "s3"
 
-// S3ManagerV2 manages S3 file operations using AWS SDK v2.
-type S3ManagerV2 struct {
+// s3ManagerV2 manages S3 file operations using AWS SDK v2.
+type s3ManagerV2 struct {
 	*baseManager
 	config *S3Config
 
@@ -38,10 +38,10 @@ type S3ManagerV2 struct {
 	clientMu      sync.Mutex
 }
 
-// NewS3ManagerV2 creates a new file manager for S3 using v2 AWS SDK.
-func NewS3ManagerV2(
-	appConfig *appConfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
-) (*S3ManagerV2, error) {
+// newS3ManagerV2 creates a new file manager for S3 using v2 AWS SDK.
+func newS3ManagerV2(
+	kitconfig *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+) (*s3ManagerV2, error) {
 	var s3Config S3Config
 	if err := mapstructure.Decode(config, &s3Config); err != nil {
 		return nil, fmt.Errorf("failed to decode S3 config: %w", err)
@@ -52,9 +52,9 @@ func NewS3ManagerV2(
 		return nil, fmt.Errorf("failed to create AWS session config: %w", err)
 	}
 
-	s3Config.RegionHint = appConfig.GetString("AWS_S3_REGION_HINT", "us-east-1")
+	s3Config.RegionHint = kitconfig.GetString("AWS_S3_REGION_HINT", "us-east-1")
 
-	return &S3ManagerV2{
+	return &s3ManagerV2{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
@@ -65,7 +65,7 @@ func NewS3ManagerV2(
 }
 
 // ListFilesWithPrefix returns a session for listing files with the given prefix.
-func (m *S3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+func (m *s3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
 	return &s3ListSessionV2{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -79,7 +79,7 @@ func (m *S3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 }
 
 // Download downloads a file from S3 to the provided io.WriterAt.
-func (m *S3ManagerV2) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key string) error {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("s3 client: %w", err)
@@ -106,13 +106,13 @@ func (m *S3ManagerV2) Download(ctx context.Context, output io.WriterAt, key stri
 }
 
 // Upload uploads a file to S3 and returns the uploaded file info.
-func (m *S3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+func (m *s3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
 	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
 	return m.UploadReader(ctx, fileName, file)
 }
 
 // UploadReader uploads data from an io.Reader to S3 with the given object name.
-func (m *S3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
+func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
 	if objName == "" {
 		return UploadedFile{}, errors.New("object name cannot be empty")
 	}
@@ -150,7 +150,7 @@ func (m *S3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 }
 
 // Delete removes the specified keys from S3.
-func (m *S3ManagerV2) Delete(ctx context.Context, keys []string) error {
+func (m *s3ManagerV2) Delete(ctx context.Context, keys []string) error {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("s3 client: %w", err)
@@ -186,17 +186,17 @@ func (m *S3ManagerV2) Delete(ctx context.Context, keys []string) error {
 }
 
 // Prefix returns the configured S3 prefix.
-func (m *S3ManagerV2) Prefix() string {
+func (m *s3ManagerV2) Prefix() string {
 	return m.config.Prefix
 }
 
-func (m *S3ManagerV2) Bucket() string {
+func (m *s3ManagerV2) Bucket() string {
 	return m.config.Bucket
 }
 
 // GetObjectNameFromLocation extracts the object key from the S3 object location URL.
 // Example: https://bucket-name.s3.amazonaws.com/key -> key
-func (m *S3ManagerV2) GetObjectNameFromLocation(location string) (string, error) {
+func (m *s3ManagerV2) GetObjectNameFromLocation(location string) (string, error) {
 	parsedUrl, err := url.Parse(location)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse location URL: %w", err)
@@ -210,7 +210,7 @@ func (m *S3ManagerV2) GetObjectNameFromLocation(location string) (string, error)
 }
 
 // GetDownloadKeyFromFileLocation extracts the S3 key from a file location URL.
-func (m *S3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
+func (m *s3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
 		m.logger.Errorn("error while parsing location url", logger.NewErrorField(err))
@@ -225,7 +225,7 @@ func (m *S3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 }
 
 // getClient returns a cached S3 client or creates a new one if needed.
-func (m *S3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
+func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	m.clientMu.Lock()
 	defer m.clientMu.Unlock()
 
@@ -276,7 +276,7 @@ func (m *S3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 }
 
 // getTimeout returns the configured timeout for S3 operations.
-func (m *S3ManagerV2) getTimeout() time.Duration {
+func (m *s3ManagerV2) getTimeout() time.Duration {
 	if m.timeout > 0 {
 		return m.timeout
 	}
@@ -289,7 +289,7 @@ func (m *S3ManagerV2) getTimeout() time.Duration {
 // s3ListSessionV2 implements ListSession for S3 using AWS SDK v2.
 type s3ListSessionV2 struct {
 	*baseListSession
-	manager *S3ManagerV2
+	manager *s3ManagerV2
 
 	continuationToken *string
 	isTruncated       bool

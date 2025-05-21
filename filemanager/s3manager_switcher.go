@@ -2,17 +2,46 @@ package filemanager
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"time"
 
-	"github.com/rudderlabs/rudder-go-kit/config"
+	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
+type S3Manager interface {
+	FileManager
+	Bucket() string
+}
+
+func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (S3Manager, error) {
+	v2Enabled := conf.GetReloadableBoolVar(false, "FileManager.useAwsSdkV2")
+	s3Manager, err := newS3ManagerV1(conf, config, log, defaultTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create S3 V1 manager: %w", err)
+	}
+	s3ManagerV2, err := newS3ManagerV2(conf, config, log, defaultTimeout)
+	if err != nil {
+		if v2Enabled.Load() { // if v2 is enabled, return error
+			return nil, fmt.Errorf("failed to create S3 V2 manager: %w", err)
+		} else {
+			// if v2 is not enabled, log the error
+			log.Errorn("Failed to create S3 V2 manager, falling back to V1", logger.NewErrorField(err))
+		}
+	}
+	return &switchingS3Manager{
+		isV2ManagerEnabled: v2Enabled,
+		s3Manager:          s3Manager,
+		s3ManagerV2:        s3ManagerV2,
+	}, nil
+}
+
 type switchingS3Manager struct {
-	isV2ManagerEnabled config.ValueLoader[bool]
-	s3ManagerV2        *S3ManagerV2
-	s3Manager          *S3Manager
+	isV2ManagerEnabled kitconfig.ValueLoader[bool]
+	s3ManagerV2        *s3ManagerV2
+	s3Manager          *s3ManagerV1
 }
 
 // ListFilesWithPrefix starts a list session for files with given prefix
@@ -61,8 +90,12 @@ func (s *switchingS3Manager) GetDownloadKeyFromFileLocation(location string) str
 	return s.getManager().GetDownloadKeyFromFileLocation(location)
 }
 
-func (s *switchingS3Manager) getManager() FileManager {
-	if s.isV2ManagerEnabled.Load() {
+func (s *switchingS3Manager) Bucket() string {
+	return s.getManager().Bucket()
+}
+
+func (s *switchingS3Manager) getManager() S3Manager {
+	if s.isV2ManagerEnabled.Load() && s.s3ManagerV2 != nil {
 		return s.s3ManagerV2
 	}
 	return s.s3Manager
