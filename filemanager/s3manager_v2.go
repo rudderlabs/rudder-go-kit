@@ -190,6 +190,10 @@ func (m *S3ManagerV2) Prefix() string {
 	return m.config.Prefix
 }
 
+func (m *S3ManagerV2) Bucket() string {
+	return m.config.Bucket
+}
+
 // GetObjectNameFromLocation extracts the object key from the S3 object location URL.
 // Example: https://bucket-name.s3.amazonaws.com/key -> key
 func (m *S3ManagerV2) GetObjectNameFromLocation(location string) (string, error) {

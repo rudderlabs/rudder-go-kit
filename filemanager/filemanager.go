@@ -88,16 +88,37 @@ func New(settings *Settings) (FileManager, error) {
 
 	switch settings.Provider {
 	case "S3_DATALAKE", "S3":
-		s3ManagerV2, err := NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
-		if err != nil {
-			return nil, err
+		isV2Enabled := conf.GetReloadableBoolVar(false, "FileManager.S3ManagerV2")
+
+		if isV2Enabled.Load() {
+			s3ManagerV2, err := NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create S3 V2 manager: %w", err)
+			}
+			s3Manager, err := NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+			if err != nil {
+				return nil, fmt.Errorf("failed to create S3 V1 manager: %w", err)
+			}
+			return &switchingS3Manager{
+				isV2ManagerEnabled: isV2Enabled,
+				s3ManagerV2:        s3ManagerV2,
+				s3Manager:          s3Manager,
+			}, nil
 		}
+
 		s3Manager, err := NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create S3 V1 manager: %w", err)
 		}
+
+		s3ManagerV2, err := NewS3ManagerV2(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		if err != nil {
+			log.Warnf("Failed to create S3 V2 manager (non-critical): %v", err)
+			return s3Manager, nil
+		}
+
 		return &switchingS3Manager{
-			isV2ManagerEnabled: conf.GetReloadableBoolVar(false, "FileManager.S3ManagerV2"),
+			isV2ManagerEnabled: isV2Enabled,
 			s3ManagerV2:        s3ManagerV2,
 			s3Manager:          s3Manager,
 		}, nil

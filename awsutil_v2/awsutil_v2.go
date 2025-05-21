@@ -28,9 +28,6 @@ type SessionConfig struct {
 	IAMRoleARN          string         `mapstructure:"iamRoleARN"`
 	ExternalID          string         `mapstructure:"externalID"`
 	WorkspaceID         string         `mapstructure:"workspaceID"`
-	Endpoint            *string        `mapstructure:"endpoint"`
-	S3ForcePathStyle    *bool          `mapstructure:"s3ForcePathStyle"`
-	DisableSSL          *bool          `mapstructure:"disableSSL"`
 	Service             string         `mapstructure:"service"`
 	Timeout             *time.Duration `mapstructure:"timeout"`
 	SharedConfigProfile string         `mapstructure:"sharedConfigProfile"`
