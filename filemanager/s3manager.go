@@ -20,7 +20,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/rudderlabs/rudder-go-kit/awsutil"
-	appConfig "github.com/rudderlabs/rudder-go-kit/config"
+	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
@@ -36,10 +36,10 @@ type S3Config struct {
 	UseGlue          bool    `mapstructure:"useGlue"`
 }
 
-// NewS3Manager creates a new file manager for S3
-func NewS3Manager(
-	appConfig *appConfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
-) (*S3Manager, error) {
+// newS3ManagerV1 creates a new file manager for S3
+func newS3ManagerV1(
+	kitconfig *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+) (*s3ManagerV1, error) {
 	var s3Config S3Config
 	if err := mapstructure.Decode(config, &s3Config); err != nil {
 		return nil, err
@@ -50,9 +50,9 @@ func NewS3Manager(
 		return nil, err
 	}
 
-	s3Config.RegionHint = appConfig.GetString("AWS_S3_REGION_HINT", "us-east-1")
+	s3Config.RegionHint = kitconfig.GetString("AWS_S3_REGION_HINT", "us-east-1")
 
-	return &S3Manager{
+	return &s3ManagerV1{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
@@ -62,7 +62,7 @@ func NewS3Manager(
 	}, nil
 }
 
-func (m *S3Manager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+func (m *s3ManagerV1) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
 	return &s3ListSession{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -77,7 +77,7 @@ func (m *S3Manager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix 
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *S3Manager) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string) error {
 	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
@@ -103,7 +103,7 @@ func (m *S3Manager) Download(ctx context.Context, output io.WriterAt, key string
 }
 
 // Upload uploads a file to S3
-func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+func (m *s3ManagerV1) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
 	objName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
 	return m.UploadReader(ctx, objName, file)
 }
@@ -111,7 +111,7 @@ func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...strin
 // UploadReader uploads an object to S3 using the provided reader and object name.
 // It supports server-side encryption if enabled in the configuration.
 // Returns an UploadedFile containing the file's location and object name, or an error.
-func (m *S3Manager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
+func (m *s3ManagerV1) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
 	uploadInput := &awsS3Manager.UploadInput{
 		ACL:    aws.String("bucket-owner-full-control"),
 		Bucket: aws.String(m.config.Bucket),
@@ -142,7 +142,7 @@ func (m *S3Manager) UploadReader(ctx context.Context, objName string, rdr io.Rea
 	return UploadedFile{Location: output.Location, ObjectName: objName}, err
 }
 
-func (m *S3Manager) Delete(ctx context.Context, keys []string) (err error) {
+func (m *s3ManagerV1) Delete(ctx context.Context, keys []string) (err error) {
 	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
@@ -181,11 +181,11 @@ func (m *S3Manager) Delete(ctx context.Context, keys []string) (err error) {
 	return nil
 }
 
-func (m *S3Manager) Prefix() string {
+func (m *s3ManagerV1) Prefix() string {
 	return m.config.Prefix
 }
 
-func (m *S3Manager) Bucket() string {
+func (m *s3ManagerV1) Bucket() string {
 	return m.config.Bucket
 }
 
@@ -194,7 +194,7 @@ GetObjectNameFromLocation gets the object name/key name from the object location
 
 	https://bucket-name.s3.amazonaws.com/key - >> key
 */
-func (m *S3Manager) GetObjectNameFromLocation(location string) (string, error) {
+func (m *s3ManagerV1) GetObjectNameFromLocation(location string) (string, error) {
 	parsedUrl, err := url.Parse(location)
 	if err != nil {
 		return "", err
@@ -207,7 +207,7 @@ func (m *S3Manager) GetObjectNameFromLocation(location string) (string, error) {
 	return trimmedURL, nil
 }
 
-func (m *S3Manager) GetDownloadKeyFromFileLocation(location string) string {
+func (m *s3ManagerV1) GetDownloadKeyFromFileLocation(location string) string {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
 		fmt.Println("error while parsing location url: ", err)
@@ -220,7 +220,7 @@ func (m *S3Manager) GetDownloadKeyFromFileLocation(location string) string {
 	return trimmedURL
 }
 
-func (m *S3Manager) GetSession(ctx context.Context) (*session.Session, error) {
+func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) {
 	m.sessionMu.Lock()
 	defer m.sessionMu.Unlock()
 
@@ -259,7 +259,7 @@ func (m *S3Manager) GetSession(ctx context.Context) (*session.Session, error) {
 	return m.session, err
 }
 
-type S3Manager struct {
+type s3ManagerV1 struct {
 	*baseManager
 	config *S3Config
 
@@ -268,7 +268,7 @@ type S3Manager struct {
 	sessionMu     sync.Mutex
 }
 
-func (m *S3Manager) getTimeout() time.Duration {
+func (m *s3ManagerV1) getTimeout() time.Duration {
 	if m.timeout > 0 {
 		return m.timeout
 	}
@@ -280,7 +280,7 @@ func (m *S3Manager) getTimeout() time.Duration {
 
 type s3ListSession struct {
 	*baseListSession
-	manager *S3Manager
+	manager *s3ManagerV1
 
 	continuationToken *string
 	isTruncated       bool

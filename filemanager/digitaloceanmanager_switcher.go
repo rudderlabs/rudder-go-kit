@@ -2,17 +2,38 @@ package filemanager
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"time"
 
-	"github.com/rudderlabs/rudder-go-kit/config"
+	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
+func NewDigitalOceanManager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (FileManager, error) {
+	v2Enabled := conf.GetReloadableBoolVar(false, "FileManager.useAwsSdkV2")
+	doManager := newDigitalOceanManagerV1(config, log, defaultTimeout)
+	doManagerV2, err := newDigitalOceanManagerV2(config, log, defaultTimeout)
+	if err != nil {
+		if v2Enabled.Load() { // if v2 is enabled, return error
+			return nil, fmt.Errorf("failed to create DigitalOcean V2 manager: %w", err)
+		} else {
+			// if v2 is not enabled, log the error
+			log.Errorn("Failed to create DigitalOcean V2 manager, falling back to V1", logger.NewErrorField(err))
+		}
+	}
+	return &switchingDigitalOceanManager{
+		isV2ManagerEnabled:    v2Enabled,
+		digitalOceanManagerV2: doManagerV2,
+		digitalOceanManager:   doManager,
+	}, nil
+}
+
 type switchingDigitalOceanManager struct {
-	isV2ManagerEnabled    config.ValueLoader[bool]
-	digitalOceanManagerV2 *DigitalOceanManagerV2
-	digitalOceanManager   *DigitalOceanManager
+	isV2ManagerEnabled    kitconfig.ValueLoader[bool]
+	digitalOceanManagerV2 *digitalOceanManagerV2
+	digitalOceanManager   *digitalOceanManagerV1
 }
 
 // ListFilesWithPrefix starts a list session for files with given prefix
@@ -62,7 +83,7 @@ func (s *switchingDigitalOceanManager) GetDownloadKeyFromFileLocation(location s
 }
 
 func (s *switchingDigitalOceanManager) getManager() FileManager {
-	if s.isV2ManagerEnabled.Load() {
+	if s.isV2ManagerEnabled.Load() && s.digitalOceanManagerV2 != nil {
 		return s.digitalOceanManagerV2
 	}
 	return s.digitalOceanManager
