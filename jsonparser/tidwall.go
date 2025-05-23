@@ -3,6 +3,9 @@ package jsonparser
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	"github.com/samber/lo"
 
 	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 
@@ -14,9 +17,9 @@ import (
 type tidwallJSONParser struct{}
 
 // GetValue retrieves the value for a given key from JSON bytes using gjson
-func (p *tidwallJSONParser) GetValue(data []byte, key string) (interface{}, error) {
-	// Handle empty key - return the entire JSON object
-	if key == "" {
+func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) (interface{}, error) {
+	// Handle empty keys or no keys - return the entire JSON object
+	if len(keys) == 0 || (len(keys) == 1 && keys[0] == "") {
 		var result interface{}
 		if err := json.Unmarshal(data, &result); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
@@ -25,9 +28,9 @@ func (p *tidwallJSONParser) GetValue(data []byte, key string) (interface{}, erro
 	}
 
 	// Use gjson to get the value
-	result := gjson.GetBytes(data, key)
+	result := gjson.GetBytes(data, getPath(keys...))
 	if !result.Exists() {
-		return nil, fmt.Errorf("key not found: %s", key)
+		return nil, fmt.Errorf("key not found: %s", keys)
 	}
 
 	// Convert the gjson.Result to the appropriate Go type
@@ -62,91 +65,108 @@ func (p *tidwallJSONParser) GetValue(data []byte, key string) (interface{}, erro
 }
 
 // GetBoolean retrieves a boolean value for a given key from JSON bytes using gjson
-func (p *tidwallJSONParser) GetBoolean(data []byte, key string) (bool, error) {
+func (p *tidwallJSONParser) GetBoolean(data []byte, keys ...string) (bool, error) {
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+
 	// Use gjson to get the value
-	result := gjson.GetBytes(data, key)
+	result := gjson.GetBytes(data, path)
 	if !result.Exists() {
-		return false, fmt.Errorf("key not found: %s", key)
+		return false, fmt.Errorf("key not found: %s", path)
 	}
 
 	// Check if the value is a boolean
 	if result.Type != gjson.True && result.Type != gjson.False {
-		return false, fmt.Errorf("value is not a boolean: %s", key)
+		return false, fmt.Errorf("value is not a boolean: %s", path)
 	}
 
 	return result.Bool(), nil
 }
 
 // GetInt retrieves an integer value for a given key from JSON bytes using gjson
-func (p *tidwallJSONParser) GetInt(data []byte, key string) (int64, error) {
+func (p *tidwallJSONParser) GetInt(data []byte, keys ...string) (int64, error) {
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+
 	// Use gjson to get the value
-	result := gjson.GetBytes(data, key)
+	result := gjson.GetBytes(data, path)
 	if !result.Exists() {
-		return 0, fmt.Errorf("key not found: %s", key)
+		return 0, fmt.Errorf("key not found: %s", path)
 	}
 
 	// Check if the value is a number
 	if result.Type != gjson.Number {
-		return 0, fmt.Errorf("value is not a number: %s", key)
+		return 0, fmt.Errorf("value is not a number: %s", path)
 	}
 
 	return result.Int(), nil
 }
 
 // GetFloat retrieves a float value for a given key from JSON bytes using gjson
-func (p *tidwallJSONParser) GetFloat(data []byte, key string) (float64, error) {
+func (p *tidwallJSONParser) GetFloat(data []byte, keys ...string) (float64, error) {
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+
 	// Use gjson to get the value
-	result := gjson.GetBytes(data, key)
+	result := gjson.GetBytes(data, path)
 	if !result.Exists() {
-		return 0, fmt.Errorf("key not found: %s", key)
+		return 0, fmt.Errorf("key not found: %s", path)
 	}
 
 	// Check if the value is a number
 	if result.Type != gjson.Number {
-		return 0, fmt.Errorf("value is not a number: %s", key)
+		return 0, fmt.Errorf("value is not a number: %s", path)
 	}
 
 	return result.Float(), nil
 }
 
 // GetString retrieves a string value for a given key from JSON bytes using gjson
-func (p *tidwallJSONParser) GetString(data []byte, key string) (string, error) {
+func (p *tidwallJSONParser) GetString(data []byte, keys ...string) (string, error) {
 	if len(data) == 0 {
 		return "", fmt.Errorf("empty JSON data")
 	}
 
-	// Check if the JSON is valid
-	if !gjson.ValidBytes(data) {
-		return "", fmt.Errorf("invalid JSON data")
-	}
+	// Join keys with dots to create a path
+	path := getPath(keys...)
 
 	// Use gjson to get the value
-	result := gjson.GetBytes(data, key)
+	result := gjson.GetBytes(data, path)
 	if !result.Exists() {
-		return "", fmt.Errorf("key not found: %s", key)
+		return "", fmt.Errorf("key not found: %s", path)
 	}
 
 	// Check if the value is a string
 	if result.Type != gjson.String {
-		return "", fmt.Errorf("value is not a string: %s", key)
+		return "", fmt.Errorf("value is not a string: %s", path)
 	}
 
 	return result.String(), nil
 }
 
 // SetValue sets the value for a given key in JSON bytes using sjson
-func (p *tidwallJSONParser) SetValue(data []byte, key string, value interface{}) ([]byte, error) {
+func (p *tidwallJSONParser) SetValue(data []byte, value interface{}, keys ...string) ([]byte, error) {
 	if len(data) == 0 {
 		// If data is empty, create a new JSON object
 		data = []byte("{}")
 	}
 
-	if key == "" {
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("no keys provided")
+	}
+
+	if keys[0] == "" {
+		return nil, fmt.Errorf("empty key")
+	}
+
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+	if path == "" {
 		return nil, fmt.Errorf("empty key")
 	}
 
 	// Use sjson to set the value
-	result, err := sjson.SetBytes(data, key, value)
+	result, err := sjson.SetBytes(data, path, value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to set value: %w", err)
 	}
@@ -155,40 +175,64 @@ func (p *tidwallJSONParser) SetValue(data []byte, key string, value interface{})
 }
 
 // SetBoolean sets a boolean value for a given key in JSON bytes using sjson
-func (p *tidwallJSONParser) SetBoolean(data []byte, key string, value bool) ([]byte, error) {
-	return p.SetValue(data, key, value)
+func (p *tidwallJSONParser) SetBoolean(data []byte, value bool, keys ...string) ([]byte, error) {
+	return p.SetValue(data, value, keys...)
 }
 
 // SetInt sets an integer value for a given key in JSON bytes using sjson
-func (p *tidwallJSONParser) SetInt(data []byte, key string, value int64) ([]byte, error) {
-	return p.SetValue(data, key, value)
+func (p *tidwallJSONParser) SetInt(data []byte, value int64, keys ...string) ([]byte, error) {
+	return p.SetValue(data, value, keys...)
 }
 
 // SetFloat sets a float value for a given key in JSON bytes using sjson
-func (p *tidwallJSONParser) SetFloat(data []byte, key string, value float64) ([]byte, error) {
-	return p.SetValue(data, key, value)
+func (p *tidwallJSONParser) SetFloat(data []byte, value float64, keys ...string) ([]byte, error) {
+	return p.SetValue(data, value, keys...)
 }
 
 // SetString sets a string value for a given key in JSON bytes using sjson
-func (p *tidwallJSONParser) SetString(data []byte, key, value string) ([]byte, error) {
-	return p.SetValue(data, key, value)
+func (p *tidwallJSONParser) SetString(data []byte, value string, keys ...string) ([]byte, error) {
+	return p.SetValue(data, value, keys...)
 }
 
 // DeleteKey deletes a key from JSON bytes using sjson
-func (p *tidwallJSONParser) DeleteKey(data []byte, key string) ([]byte, error) {
+func (p *tidwallJSONParser) DeleteKey(data []byte, keys ...string) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, fmt.Errorf("empty JSON data")
 	}
 
-	if key == "" {
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("no keys provided")
+	}
+
+	if keys[0] == "" {
+		return nil, fmt.Errorf("empty key")
+	}
+
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+	if path == "" {
 		return nil, fmt.Errorf("empty key")
 	}
 
 	// Use sjson to delete the key
-	resultData, err := sjson.DeleteBytes(data, key)
+	resultData, err := sjson.DeleteBytes(data, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete key: %w", err)
 	}
 
 	return resultData, nil
+}
+
+func getPath(keys ...string) string {
+	if len(keys) == 0 {
+		return ""
+	}
+	// Join keys with dots to create a path
+	path := strings.Join(lo.Map(keys, func(key string, _ int) string {
+		if key[0] == '[' {
+			return key[1 : len(key)-1]
+		}
+		return key
+	}), ".")
+	return path
 }
