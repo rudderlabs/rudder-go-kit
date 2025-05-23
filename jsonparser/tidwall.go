@@ -1,7 +1,6 @@
 package jsonparser
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -18,10 +17,14 @@ type tidwallJSONParser struct{}
 
 // GetValue retrieves the value for a given key from JSON bytes using gjson
 func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) (interface{}, error) {
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty JSON data")
+	}
+
 	// Handle empty keys or no keys - return the entire JSON object
 	if len(keys) == 0 || (len(keys) == 1 && keys[0] == "") {
 		var result interface{}
-		if err := json.Unmarshal(data, &result); err != nil {
+		if err := jsonrs.Unmarshal(data, &result); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 		}
 		return result, nil
@@ -66,6 +69,10 @@ func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) (interface{}, 
 
 // GetBoolean retrieves a boolean value for a given key from JSON bytes using gjson
 func (p *tidwallJSONParser) GetBoolean(data []byte, keys ...string) (bool, error) {
+	if len(data) == 0 {
+		return false, fmt.Errorf("empty JSON data")
+	}
+
 	// Join keys with dots to create a path
 	path := getPath(keys...)
 
@@ -85,6 +92,10 @@ func (p *tidwallJSONParser) GetBoolean(data []byte, keys ...string) (bool, error
 
 // GetInt retrieves an integer value for a given key from JSON bytes using gjson
 func (p *tidwallJSONParser) GetInt(data []byte, keys ...string) (int64, error) {
+	if len(data) == 0 {
+		return 0, fmt.Errorf("empty JSON data")
+	}
+
 	// Join keys with dots to create a path
 	path := getPath(keys...)
 
@@ -104,6 +115,10 @@ func (p *tidwallJSONParser) GetInt(data []byte, keys ...string) (int64, error) {
 
 // GetFloat retrieves a float value for a given key from JSON bytes using gjson
 func (p *tidwallJSONParser) GetFloat(data []byte, keys ...string) (float64, error) {
+	if len(data) == 0 {
+		return 0, fmt.Errorf("empty JSON data")
+	}
+
 	// Join keys with dots to create a path
 	path := getPath(keys...)
 

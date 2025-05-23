@@ -1,7 +1,6 @@
 package jsonparser
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -27,7 +26,7 @@ func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (interface{}, 
 	// Handle empty key - return the entire JSON object
 	if len(keys) == 0 || (len(keys) == 1 && keys[0] == "") {
 		var result interface{}
-		if err := json.Unmarshal(data, &result); err != nil {
+		if err := jsonrs.Unmarshal(data, &result); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 		}
 		return result, nil
@@ -56,7 +55,7 @@ func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (interface{}, 
 		return nil, nil
 	case jsonparser.Array, jsonparser.Object:
 		var result interface{}
-		if err := json.Unmarshal(value, &result); err != nil {
+		if err := jsonrs.Unmarshal(value, &result); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal complex value: %w", err)
 		}
 		return result, nil
