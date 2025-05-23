@@ -22,58 +22,58 @@ type switcher struct {
 }
 
 // GetValue delegates to the configured getter implementation
-func (s *switcher) GetValue(data []byte, key string) (interface{}, error) {
-	return s.getter().GetValue(data, key)
+func (s *switcher) GetValue(data []byte, keys ...string) (interface{}, error) {
+	return s.getter().GetValue(data, keys...)
 }
 
 // GetBoolean delegates to the configured getter implementation
-func (s *switcher) GetBoolean(data []byte, key string) (bool, error) {
-	return s.getter().GetBoolean(data, key)
+func (s *switcher) GetBoolean(data []byte, keys ...string) (bool, error) {
+	return s.getter().GetBoolean(data, keys...)
 }
 
 // GetInt delegates to the configured getter implementation
-func (s *switcher) GetInt(data []byte, key string) (int64, error) {
-	return s.getter().GetInt(data, key)
+func (s *switcher) GetInt(data []byte, keys ...string) (int64, error) {
+	return s.getter().GetInt(data, keys...)
 }
 
 // GetFloat delegates to the configured getter implementation
-func (s *switcher) GetFloat(data []byte, key string) (float64, error) {
-	return s.getter().GetFloat(data, key)
+func (s *switcher) GetFloat(data []byte, keys ...string) (float64, error) {
+	return s.getter().GetFloat(data, keys...)
 }
 
 // GetString delegates to the configured getter implementation
-func (s *switcher) GetString(data []byte, key string) (string, error) {
-	return s.getter().GetString(data, key)
+func (s *switcher) GetString(data []byte, keys ...string) (string, error) {
+	return s.getter().GetString(data, keys...)
 }
 
 // SetValue delegates to the configured setter implementation
-func (s *switcher) SetValue(data []byte, key string, value interface{}) ([]byte, error) {
-	return s.setter().SetValue(data, key, value)
+func (s *switcher) SetValue(data []byte, value interface{}, keys ...string) ([]byte, error) {
+	return s.setter().SetValue(data, value, keys...)
 }
 
 // SetBoolean delegates to the configured setter implementation
-func (s *switcher) SetBoolean(data []byte, key string, value bool) ([]byte, error) {
-	return s.setter().SetBoolean(data, key, value)
+func (s *switcher) SetBoolean(data []byte, value bool, keys ...string) ([]byte, error) {
+	return s.setter().SetBoolean(data, value, keys...)
 }
 
 // SetInt delegates to the configured setter implementation
-func (s *switcher) SetInt(data []byte, key string, value int64) ([]byte, error) {
-	return s.setter().SetInt(data, key, value)
+func (s *switcher) SetInt(data []byte, value int64, keys ...string) ([]byte, error) {
+	return s.setter().SetInt(data, value, keys...)
 }
 
 // SetFloat delegates to the configured setter implementation
-func (s *switcher) SetFloat(data []byte, key string, value float64) ([]byte, error) {
-	return s.setter().SetFloat(data, key, value)
+func (s *switcher) SetFloat(data []byte, value float64, keys ...string) ([]byte, error) {
+	return s.setter().SetFloat(data, value, keys...)
 }
 
 // SetString delegates to the configured setter implementation
-func (s *switcher) SetString(data []byte, key, value string) ([]byte, error) {
-	return s.setter().SetString(data, key, value)
+func (s *switcher) SetString(data []byte, value string, keys ...string) ([]byte, error) {
+	return s.setter().SetString(data, value, keys...)
 }
 
 // DeleteKey delegates to the configured setter implementation
-func (s *switcher) DeleteKey(data []byte, key string) ([]byte, error) {
-	return s.deleter().DeleteKey(data, key)
+func (s *switcher) DeleteKey(data []byte, keys ...string) ([]byte, error) {
+	return s.deleter().DeleteKey(data, keys...)
 }
 
 // getter returns the configured getter implementation

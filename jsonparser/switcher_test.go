@@ -22,7 +22,7 @@ func TestSwitcher(t *testing.T) {
 	require.Equal(t, "John", value)
 
 	// Test SetValue with gjson implementation
-	updatedData, err := parser.SetValue(data, "age", 31)
+	updatedData, err := parser.SetValue(data, 31, "age")
 	require.NoError(t, err)
 	value, err = parser.GetValue(updatedData, "age")
 	require.NoError(t, err)
@@ -38,7 +38,7 @@ func TestSwitcher(t *testing.T) {
 	require.Equal(t, "John", value)
 
 	// Test SetValue with jsonparser implementation
-	updatedData, err = parser.SetValue(data, "age", 32)
+	updatedData, err = parser.SetValue(data, 32, "age")
 	require.NoError(t, err)
 	value, err = parser.GetValue(updatedData, "age")
 	require.NoError(t, err)
@@ -55,7 +55,7 @@ func TestSwitcher(t *testing.T) {
 	require.Equal(t, "John", value)
 
 	// Test SetValue with gjson implementation
-	updatedData, err = parser.SetValue(data, "age", 33)
+	updatedData, err = parser.SetValue(data, 33, "age")
 	require.NoError(t, err)
 	value, err = parser.GetValue(updatedData, "age")
 	require.NoError(t, err)

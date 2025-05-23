@@ -8,23 +8,23 @@ import (
 type getter interface {
 	// GetValue retrieves the value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	GetValue(data []byte, key string) (interface{}, error)
+	GetValue(data []byte, keys ...string) (interface{}, error)
 
 	// GetBoolean retrieves a boolean value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	GetBoolean(data []byte, key string) (bool, error)
+	GetBoolean(data []byte, keys ...string) (bool, error)
 
 	// GetInt retrieves an integer value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	GetInt(data []byte, key string) (int64, error)
+	GetInt(data []byte, keys ...string) (int64, error)
 
 	// GetFloat retrieves a float value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	GetFloat(data []byte, key string) (float64, error)
+	GetFloat(data []byte, keys ...string) (float64, error)
 
 	// GetString retrieves a string value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	GetString(data []byte, key string) (string, error)
+	GetString(data []byte, keys ...string) (string, error)
 }
 
 // setter is the interface that wraps the basic operations for setting values in JSON bytes.
@@ -32,27 +32,27 @@ type setter interface {
 	// SetValue sets the value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes.
-	SetValue(data []byte, key string, value interface{}) ([]byte, error)
+	SetValue(data []byte, value interface{}, keys ...string) ([]byte, error)
 
 	// SetBoolean sets a boolean value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes.
-	SetBoolean(data []byte, key string, value bool) ([]byte, error)
+	SetBoolean(data []byte, value bool, keys ...string) ([]byte, error)
 
 	// SetInt sets an integer value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes.
-	SetInt(data []byte, key string, value int64) ([]byte, error)
+	SetInt(data []byte, value int64, keys ...string) ([]byte, error)
 
 	// SetFloat sets a float value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes.
-	SetFloat(data []byte, key string, value float64) ([]byte, error)
+	SetFloat(data []byte, value float64, keys ...string) ([]byte, error)
 
 	// SetString sets a string value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes.
-	SetString(data []byte, key, value string) ([]byte, error)
+	SetString(data []byte, value string, keys ...string) ([]byte, error)
 }
 
 // deleter is the interface that wraps the basic operations for deleting keys from JSON bytes.
@@ -60,7 +60,7 @@ type deleter interface {
 	// DeleteKey deletes a key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes.
-	DeleteKey(data []byte, key string) ([]byte, error)
+	DeleteKey(data []byte, keys ...string) ([]byte, error)
 }
 
 // JSONParser is the interface that combines getter, setter, and deleter interfaces.
@@ -74,58 +74,58 @@ type JSONParser interface {
 var Default = NewWithConfig(config.Default)
 
 // GetValue is a convenience function that uses the default JSONParser.
-func GetValue(data []byte, key string) (interface{}, error) {
-	return Default.GetValue(data, key)
+func GetValue(data []byte, keys ...string) (interface{}, error) {
+	return Default.GetValue(data, keys...)
 }
 
 // GetBoolean is a convenience function that uses the default JSONParser.
-func GetBoolean(data []byte, key string) (bool, error) {
-	return Default.GetBoolean(data, key)
+func GetBoolean(data []byte, keys ...string) (bool, error) {
+	return Default.GetBoolean(data, keys...)
 }
 
 // GetInt is a convenience function that uses the default JSONParser.
-func GetInt(data []byte, key string) (int64, error) {
-	return Default.GetInt(data, key)
+func GetInt(data []byte, keys ...string) (int64, error) {
+	return Default.GetInt(data, keys...)
 }
 
 // GetFloat is a convenience function that uses the default JSONParser.
-func GetFloat(data []byte, key string) (float64, error) {
-	return Default.GetFloat(data, key)
+func GetFloat(data []byte, keys ...string) (float64, error) {
+	return Default.GetFloat(data, keys...)
 }
 
 // GetString is a convenience function that uses the default JSONParser.
-func GetString(data []byte, key string) (string, error) {
-	return Default.GetString(data, key)
+func GetString(data []byte, keys ...string) (string, error) {
+	return Default.GetString(data, keys...)
 }
 
 // SetValue is a convenience function that uses the default JSONParser.
-func SetValue(data []byte, key string, value interface{}) ([]byte, error) {
-	return Default.SetValue(data, key, value)
+func SetValue(data []byte, value interface{}, keys ...string) ([]byte, error) {
+	return Default.SetValue(data, value, keys...)
 }
 
 // SetBoolean is a convenience function that uses the default JSONParser.
-func SetBoolean(data []byte, key string, value bool) ([]byte, error) {
-	return Default.SetBoolean(data, key, value)
+func SetBoolean(data []byte, value bool, keys ...string) ([]byte, error) {
+	return Default.SetBoolean(data, value, keys...)
 }
 
 // SetInt is a convenience function that uses the default JSONParser.
-func SetInt(data []byte, key string, value int64) ([]byte, error) {
-	return Default.SetInt(data, key, value)
+func SetInt(data []byte, value int64, keys ...string) ([]byte, error) {
+	return Default.SetInt(data, value, keys...)
 }
 
 // SetFloat is a convenience function that uses the default JSONParser.
-func SetFloat(data []byte, key string, value float64) ([]byte, error) {
-	return Default.SetFloat(data, key, value)
+func SetFloat(data []byte, value float64, keys ...string) ([]byte, error) {
+	return Default.SetFloat(data, value, keys...)
 }
 
 // SetString is a convenience function that uses the default JSONParser.
-func SetString(data []byte, key, value string) ([]byte, error) {
-	return Default.SetString(data, key, value)
+func SetString(data []byte, value string, keys ...string) ([]byte, error) {
+	return Default.SetString(data, value, keys...)
 }
 
 // DeleteKey is a convenience function that uses the default JSONParser.
-func DeleteKey(data []byte, key string) ([]byte, error) {
-	return Default.DeleteKey(data, key)
+func DeleteKey(data []byte, keys ...string) ([]byte, error) {
+	return Default.DeleteKey(data, keys...)
 }
 
 // Reset resets the default JSONParser implementation based on the default configuration.
