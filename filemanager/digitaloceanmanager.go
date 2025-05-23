@@ -35,18 +35,18 @@ type DigitalOceanConfig struct {
 	DisableSSL     *bool
 }
 
-// NewDigitalOceanManager creates a new file manager for digital ocean spaces
-func NewDigitalOceanManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*DigitalOceanManager, error) {
-	return &DigitalOceanManager{
+// newDigitalOceanManagerV1 creates a new file manager for digital ocean spaces
+func newDigitalOceanManagerV1(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) *digitalOceanManagerV1 {
+	return &digitalOceanManagerV1{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
 		},
 		Config: digitalOceanConfig(config),
-	}, nil
+	}
 }
 
-func (m *DigitalOceanManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+func (m *digitalOceanManagerV1) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
 	return &digitalOceanListSession{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -61,7 +61,7 @@ func (m *DigitalOceanManager) ListFilesWithPrefix(ctx context.Context, startAfte
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *DigitalOceanManager) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *digitalOceanManagerV1) Download(ctx context.Context, output io.WriterAt, key string) error {
 	downloadSession, err := m.getSession()
 	if err != nil {
 		return fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)
@@ -80,12 +80,12 @@ func (m *DigitalOceanManager) Download(ctx context.Context, output io.WriterAt, 
 	return err
 }
 
-func (m *DigitalOceanManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+func (m *digitalOceanManagerV1) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
 	objName := path.Join(m.Config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
 	return m.UploadReader(ctx, objName, file)
 }
 
-func (m *DigitalOceanManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
+func (m *digitalOceanManagerV1) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
 	if m.Config.Bucket == "" {
 		return UploadedFile{}, errors.New("no storage bucket configured to uploader")
 	}
@@ -117,7 +117,7 @@ func (m *DigitalOceanManager) UploadReader(ctx context.Context, objName string, 
 	return UploadedFile{Location: output.Location, ObjectName: objName}, err
 }
 
-func (m *DigitalOceanManager) Delete(ctx context.Context, keys []string) error {
+func (m *digitalOceanManagerV1) Delete(ctx context.Context, keys []string) error {
 	sess, err := m.getSession()
 	if err != nil {
 		return fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)
@@ -159,11 +159,11 @@ func (m *DigitalOceanManager) Delete(ctx context.Context, keys []string) error {
 	return nil
 }
 
-func (m *DigitalOceanManager) Prefix() string {
+func (m *digitalOceanManagerV1) Prefix() string {
 	return m.Config.Prefix
 }
 
-func (m *DigitalOceanManager) GetDownloadKeyFromFileLocation(location string) string {
+func (m *digitalOceanManagerV1) GetDownloadKeyFromFileLocation(location string) string {
 	parsedUrl, err := url.Parse(location)
 	if err != nil {
 		fmt.Println("error while parsing location url: ", err)
@@ -180,7 +180,7 @@ GetObjectNameFromLocation gets the object name/key name from the object location
 
 	https://rudder.sgp1.digitaloceanspaces.com/key - >> key
 */
-func (m *DigitalOceanManager) GetObjectNameFromLocation(location string) (string, error) {
+func (m *digitalOceanManagerV1) GetObjectNameFromLocation(location string) (string, error) {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
 		return "", err
@@ -192,7 +192,7 @@ func (m *DigitalOceanManager) GetObjectNameFromLocation(location string) (string
 	return trimmedURL, nil
 }
 
-func (m *DigitalOceanManager) getSession() (*session.Session, error) {
+func (m *digitalOceanManagerV1) getSession() (*session.Session, error) {
 	var region string
 	if m.Config.Region != nil {
 		region = *m.Config.Region
@@ -218,7 +218,7 @@ func getSpacesLocation(location string) (region string) {
 	return region
 }
 
-type DigitalOceanManager struct {
+type digitalOceanManagerV1 struct {
 	*baseManager
 	Config *DigitalOceanConfig
 }
@@ -289,7 +289,7 @@ func digitalOceanConfig(config map[string]interface{}) *DigitalOceanConfig {
 
 type digitalOceanListSession struct {
 	*baseListSession
-	manager *DigitalOceanManager
+	manager *digitalOceanManagerV1
 
 	continuationToken *string
 	isTruncated       bool

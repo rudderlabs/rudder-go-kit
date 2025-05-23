@@ -1,6 +1,7 @@
 package filemanager_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"flag"
@@ -13,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -340,6 +342,7 @@ func TestFileManager(t *testing.T) {
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -392,6 +395,7 @@ func TestFileManager(t *testing.T) {
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -489,6 +493,7 @@ func TestFileManager(t *testing.T) {
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			if err != nil {
 				panic(err)
@@ -508,6 +513,7 @@ func TestFileManager(t *testing.T) {
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -578,4 +584,120 @@ func blockOnHold() {
 
 	<-c
 	close(c)
+}
+
+func TestFileManager_S3(t *testing.T) {
+	// Prepare a small file for upload
+	tempDir := t.TempDir()
+	testFilePath := filepath.Join(tempDir, "testfile.txt")
+	testFileContent := []byte("integration test content")
+	require.NoError(t, os.WriteFile(testFilePath, testFileContent, 0o644))
+
+	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
+	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
+	envBucket := os.Getenv("AWS_BUCKET_NAME")
+	isV2ManagerEnabled := []bool{false, true}
+	for _, enabled := range isV2ManagerEnabled {
+		authMethods := []struct {
+			name   string
+			config map[string]any
+		}{
+			{
+				name: "AccessKey/Secret",
+				config: map[string]any{
+					"bucketName":       envBucket,
+					"accessKeyID":      envAccessKey,
+					"secretAccessKey":  envSecretKey,
+					"region":           region,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+				},
+			},
+		}
+
+		for _, auth := range authMethods {
+			t.Run("running with: "+auth.name+" and v2 manager enabled: "+strconv.FormatBool(enabled), func(t *testing.T) {
+				conf := config.New()
+				conf.Set("FileManager.S3ManagerV2", enabled)
+				fm, err := filemanager.New(&filemanager.Settings{
+					Provider: "S3",
+					Config:   auth.config,
+					Logger:   logger.NOP,
+					Conf:     conf,
+				})
+				require.NoError(t, err)
+
+				// 1. Upload a file
+				filePtr, err := os.Open(testFilePath)
+				require.NoError(t, err)
+				uploadOutput, err := fm.Upload(context.TODO(), filePtr)
+				require.NoError(t, err)
+				require.NoError(t, filePtr.Close())
+
+				// 2. List files and check our file is present
+				session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+				files, err := session.Next()
+				require.NoError(t, err)
+				var found bool
+				for _, f := range files {
+					if f.Key == uploadOutput.ObjectName {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "uploaded file should be listed")
+
+				// 3. Download the file and verify contents
+				downloadPath := filepath.Join(tempDir, "downloaded.txt")
+				downloadPtr, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+				require.NoError(t, err)
+				err = fm.Download(context.TODO(), downloadPtr, uploadOutput.ObjectName)
+				require.NoError(t, err)
+				require.NoError(t, downloadPtr.Close())
+
+				downloadedContent, err := os.ReadFile(downloadPath)
+				require.NoError(t, err)
+				require.Equal(t, testFileContent, downloadedContent, "downloaded file content should match uploaded")
+
+				// 4. Test GetObjectNameFromLocation
+				objectName, err := fm.GetObjectNameFromLocation(uploadOutput.Location)
+				require.NoError(t, err)
+				require.Equal(t, uploadOutput.ObjectName, objectName, "object name from location should match")
+
+				// 5. Test GetDownloadKeyFromFileLocation
+				downloadKey := fm.GetDownloadKeyFromFileLocation(uploadOutput.Location)
+				require.Equal(t, uploadOutput.ObjectName, downloadKey, "download key from location should match")
+
+				// 6. Test UploadReader
+				readerContent := []byte("test content from reader")
+				readerObjName := "test-reader-upload.txt"
+				uploadReaderOutput, err := fm.UploadReader(context.TODO(), readerObjName, bytes.NewReader(readerContent))
+				require.NoError(t, err)
+
+				// 7. Download file uploaded via UploadReader and verify
+				downloadReaderPath := filepath.Join(tempDir, "downloaded-reader.txt")
+				downloadReaderPtr, err := os.OpenFile(downloadReaderPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+				require.NoError(t, err)
+				err = fm.Download(context.TODO(), downloadReaderPtr, uploadReaderOutput.ObjectName)
+				require.NoError(t, err)
+				require.NoError(t, downloadReaderPtr.Close())
+
+				downloadedReaderContent, err := os.ReadFile(downloadReaderPath)
+				require.NoError(t, err)
+				require.Equal(t, readerContent, downloadedReaderContent, "downloaded content should match uploaded reader content")
+
+				// 8. Test Delete
+				err = fm.Delete(context.TODO(), []string{uploadReaderOutput.ObjectName})
+				require.NoError(t, err)
+
+				// 9. Verify deletion
+				deletedSession := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+				deletedFiles, err := deletedSession.Next()
+				require.NoError(t, err)
+				for _, f := range deletedFiles {
+					require.NotEqual(t, uploadReaderOutput.ObjectName, f.Key, "deleted file should not be present")
+				}
+			})
+		}
+	}
 }

@@ -13,6 +13,9 @@ jobs:
   unit:
     name: unit
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # allows the JWT to be requested from GitHub's OIDC provider
+      contents: read # This is required for actions/checkout
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -20,7 +23,12 @@ jobs:
           go-version-file: 'go.mod'
       - run: go version
       - run: go mod download # Not required, used to segregate module download vs test times
-      - run: make test exclude="(kafkaclient|testhelper)"
+      - name: Configure AWS credentials
+        env:
+          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: make test exclude="(kafkaclient|testhelper)"
       - uses: codecov/codecov-action@v5
   test-package:
     name: Test package
