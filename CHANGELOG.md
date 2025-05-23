@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.51.0...v0.52.0) (2025-05-23)
+
+
+### Features
+
+* introduce aws sdk v2 ([#795](https://github.com/rudderlabs/rudder-go-kit/issues/795)) ([d4f763a](https://github.com/rudderlabs/rudder-go-kit/commit/d4f763ac78941058562baa1ba2e96f1c14cdf03e))
+
 ## [0.51.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.50.2...v0.51.0) (2025-05-19)
 
 
