@@ -259,6 +259,51 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 	return m.session, err
 }
 
+func (m *s3ManagerV1) SelectObjects(ctx context.Context, sqlExpession, key string) (<-chan []byte, error) {
+
+	sess, err := m.GetSession(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error starting S3 session: %w", err)
+	}
+	svc := s3.New(sess)
+	input := &s3.SelectObjectContentInput{
+		Bucket:         aws.String(m.Bucket()),
+		Key:            aws.String(key),
+		Expression:     aws.String(sqlExpession),
+		ExpressionType: aws.String(s3.ExpressionTypeSql),
+		InputSerialization: &s3.InputSerialization{
+			Parquet: &s3.ParquetInput{},
+		},
+		OutputSerialization: &s3.OutputSerialization{
+			CSV: &s3.CSVOutput{
+				RecordDelimiter: aws.String("\n"),
+				FieldDelimiter:  aws.String(","),
+			},
+		},
+	}
+
+	selectObject, err := svc.SelectObjectContent(input)
+	if err != nil {
+		return nil, fmt.Errorf("error selecting object: %w", err)
+	}
+	stream := selectObject.GetStream()
+
+	events := stream.Events()
+	byteChan := make(chan []byte)
+	go func() {
+		defer close(byteChan)
+		for event := range events {
+			switch e := event.(type) {
+			case *s3.RecordsEvent:
+				byteChan <- e.Payload
+			case *s3.EndEvent:
+				return
+			}
+		}
+	}()
+	return byteChan, nil
+}
+
 type s3ManagerV1 struct {
 	*baseManager
 	config *S3Config
