@@ -335,7 +335,6 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 }
 
 func (m *s3ManagerV2) SelectObjects(ctx context.Context, sqlExpession, key string) (<-chan []byte, error) {
-
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("s3 client: %w", err)

@@ -260,7 +260,6 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 }
 
 func (m *s3ManagerV1) SelectObjects(ctx context.Context, sqlExpession, key string) (<-chan []byte, error) {
-
 	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error starting S3 session: %w", err)

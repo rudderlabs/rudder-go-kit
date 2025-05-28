@@ -96,12 +96,7 @@ func (s *switchingS3Manager) Bucket() string {
 }
 
 func (s *switchingS3Manager) SelectObjects(ctx context.Context, sqlExpession, key string) (<-chan []byte, error) {
-	manager := s.getManager()
-	if manager == nil {
-		return nil, fmt.Errorf("no manager available")
-	}
-
-	return manager.SelectObjects(ctx, sqlExpession, key)
+	return s.getManager().SelectObjects(ctx, sqlExpession, key)
 }
 
 func (s *switchingS3Manager) getManager() S3Manager {
