@@ -10,12 +10,12 @@ import (
 const DefaultPrivateIPRanges = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.0/8,169.254.0.0/16,fc00::/7,fe80::/10"
 
 // PrivateCidrRanges holds the default private IP ranges
-var PrivateCidrRanges CidrRanges
+var DefaultPrivateCidrRanges CIDRs
 
 func init() {
 	// Initialize PrivateCidrRanges with default private IP ranges
 	var err error
-	PrivateCidrRanges, err = NewCidrRanges(
+	DefaultPrivateCidrRanges, err = NewCidrRanges(
 		strings.Split(DefaultPrivateIPRanges, ","),
 	)
 	if err != nil {
@@ -24,11 +24,11 @@ func init() {
 }
 
 // CidrRanges holds a list of parsed CIDR ranges
-type CidrRanges []*net.IPNet
+type CIDRs []*net.IPNet
 
 // NewCidrRanges initializes CidrRanges from a list of CIDR strings
-func NewCidrRanges(cidrs []string) (CidrRanges, error) {
-	var ranges CidrRanges
+func NewCidrRanges(cidrs []string) (CIDRs, error) {
+	var ranges CIDRs
 	for _, cidr := range cidrs {
 		_, ipnet, err := net.ParseCIDR(cidr)
 		if err != nil {
@@ -40,11 +40,20 @@ func NewCidrRanges(cidrs []string) (CidrRanges, error) {
 }
 
 // Contains returns true if the given IP is within any of the CIDR ranges
-func (c CidrRanges) Contains(ip net.IP) bool {
+func (c CIDRs) Contains(ip net.IP) bool {
 	for _, ipnet := range c {
 		if ipnet.Contains(ip) {
 			return true
 		}
 	}
 	return false
+}
+
+func (c CIDRs) String() string {
+	var sb strings.Builder
+	for _, ipnet := range c {
+		sb.WriteString(ipnet.String())
+		sb.WriteString(",")
+	}
+	return sb.String()
 }

@@ -74,9 +74,16 @@ func TestCidrRanges_Contains(t *testing.T) {
 
 func TestPrivateCidrRanges_Defaults(t *testing.T) {
 	// Test that the default PrivateCidrRanges contains a known private IP
-	require.True(t, PrivateCidrRanges.Contains(net.ParseIP("10.0.0.1")))
-	require.True(t, PrivateCidrRanges.Contains(net.ParseIP("192.168.1.1")))
-	require.True(t, PrivateCidrRanges.Contains(net.ParseIP("fc00::1")))
-	require.False(t, PrivateCidrRanges.Contains(net.ParseIP("8.8.8.8")))
-	require.False(t, PrivateCidrRanges.Contains(net.ParseIP("2001:4860:4860::8888"))) // Google DNS IPv6
+	require.True(t, DefaultPrivateCidrRanges.Contains(net.ParseIP("10.0.0.1")))
+	require.True(t, DefaultPrivateCidrRanges.Contains(net.ParseIP("192.168.1.1")))
+	require.True(t, DefaultPrivateCidrRanges.Contains(net.ParseIP("fc00::1")))
+	require.False(t, DefaultPrivateCidrRanges.Contains(net.ParseIP("8.8.8.8")))
+	require.False(t, DefaultPrivateCidrRanges.Contains(net.ParseIP("2001:4860:4860::8888"))) // Google DNS IPv6
+}
+
+func TestCidrRanges_String(t *testing.T) {
+	cidrs := []string{"10.0.0.0/8", "192.168.0.0/16", "fc00::/7"}
+	ranges, err := NewCidrRanges(cidrs)
+	require.NoError(t, err)
+	require.Equal(t, "10.0.0.0/8,192.168.0.0/16,fc00::/7", ranges.String())
 }
