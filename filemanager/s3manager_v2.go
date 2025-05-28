@@ -333,3 +333,47 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 	}
 	return fileObjects, nil
 }
+
+func (m *s3ManagerV2) SelectObjects(ctx context.Context, sqlExpession, key string) (<-chan []byte, error) {
+
+	client, err := m.getClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("s3 client: %w", err)
+	}
+
+	selectObject, err := client.SelectObjectContent(ctx, &s3.SelectObjectContentInput{
+		Bucket:         aws.String(m.config.Bucket),
+		Key:            aws.String(key),
+		Expression:     aws.String(sqlExpession),
+		ExpressionType: types.ExpressionTypeSql,
+		InputSerialization: &types.InputSerialization{
+			Parquet: &types.ParquetInput{},
+		},
+		OutputSerialization: &types.OutputSerialization{
+			CSV: &types.CSVOutput{
+				RecordDelimiter: aws.String("\n"),
+				FieldDelimiter:  aws.String(","),
+			},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error selecting object: %w", err)
+	}
+
+	stream := selectObject.GetStream()
+	events := stream.Events()
+	byteChan := make(chan []byte)
+	go func() {
+		defer close(byteChan)
+		for event := range events {
+			switch e := event.(type) {
+			case *types.SelectObjectContentEventStreamMemberRecords:
+				byteChan <- e.Value.Payload
+			case *types.SelectObjectContentEventStreamMemberEnd:
+				close(byteChan)
+				return
+			}
+		}
+	}()
+	return byteChan, nil
+}

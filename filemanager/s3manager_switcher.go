@@ -14,6 +14,7 @@ import (
 type S3Manager interface {
 	FileManager
 	Bucket() string
+	SelectObjects(ctx context.Context, sqlExpession, key string) (<-chan []byte, error)
 }
 
 func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (S3Manager, error) {
@@ -92,6 +93,15 @@ func (s *switchingS3Manager) GetDownloadKeyFromFileLocation(location string) str
 
 func (s *switchingS3Manager) Bucket() string {
 	return s.getManager().Bucket()
+}
+
+func (s *switchingS3Manager) SelectObjects(ctx context.Context, sqlExpession, key string) (<-chan []byte, error) {
+	manager := s.getManager()
+	if manager == nil {
+		return nil, fmt.Errorf("no manager available")
+	}
+
+	return manager.SelectObjects(ctx, sqlExpession, key)
 }
 
 func (s *switchingS3Manager) getManager() S3Manager {
