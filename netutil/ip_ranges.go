@@ -50,10 +50,9 @@ func (c CIDRs) Contains(ip net.IP) bool {
 }
 
 func (c CIDRs) String() string {
-	var sb strings.Builder
-	for _, ipnet := range c {
-		sb.WriteString(ipnet.String())
-		sb.WriteString(",")
+	cidrs := make([]string, len(c))
+	for i, ipnet := range c {
+		cidrs[i] = ipnet.String()
 	}
-	return sb.String()
+	return strings.Join(cidrs, ",")
 }
