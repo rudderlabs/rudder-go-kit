@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.52.0...v0.53.0) (2025-05-28)
+
+
+### Features
+
+* introduce netutil package ([#813](https://github.com/rudderlabs/rudder-go-kit/issues/813)) ([186c027](https://github.com/rudderlabs/rudder-go-kit/commit/186c02714025787ffed16e05152a5d8eafcff2a4))
+
 ## [0.52.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.51.0...v0.52.0) (2025-05-23)
 
 
