@@ -15,7 +15,8 @@ import (
 
 func (c *Config) load() {
 	c.nonReloadableKeys = make(map[string]string)
-	c.hotReloadableConfig = make(map[string][]*configValue)
+	c.hotReloadableConfig = make(map[string]map[string]*configValue)
+	c.nonReloadableConfig = make(map[string]map[string]*configValue)
 	c.envs = make(map[string]string)
 
 	c.godotEnvErr = godotenv.Load()
@@ -148,21 +149,21 @@ func (c *Config) checkAndNotifyNonReloadableConfig() {
 	}
 
 	// Notify subscribers for non-reloadable config changes
-	c.nonReloadableKeysLock.RLock()
+	c.nonReloadableConfigLock.RLock()
 	for key, op := range changedKeys {
 		if originalKey, exists := c.nonReloadableKeys[key]; exists {
 			c.notifier.notifyNonReloadableConfigChange(originalKey, op)
 		}
 	}
-	c.nonReloadableKeysLock.RUnlock()
+	c.nonReloadableConfigLock.RUnlock()
 
 	// Update current config with new values
 	c.currentSettings = newConfig
 }
 
-func (c *Config) checkAndHotReloadConfig(configMap map[string][]*configValue) {
-	for key, configValArr := range configMap {
-		for _, configVal := range configValArr {
+func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*configValue) {
+	for key, typeConfigVars := range configMap {
+		for _, configVal := range typeConfigVars {
 			value := configVal.value
 			switch value := value.(type) {
 			case *Reloadable[int]:

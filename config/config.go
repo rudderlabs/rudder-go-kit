@@ -40,6 +40,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
 
@@ -70,11 +71,13 @@ func WithEnvPrefix(prefix string) Opt {
 // New creates a new config instance
 func New(opts ...Opt) *Config {
 	c := &Config{
-		envPrefix:             DefaultEnvPrefix,
-		reloadableVars:        make(map[string]any),
-		reloadableVarsMisuses: make(map[string]string),
-		nonReloadableKeys:     make(map[string]string),
-		notifier:              &notifier{},
+		envPrefix:                 DefaultEnvPrefix,
+		hotReloadableConfig:       make(map[string]map[string]*configValue),
+		hotReloadableVars:         make(map[string]any),
+		hotReloadableVarsDefaults: make(map[string]string),
+		nonReloadableConfig:       make(map[string]map[string]*configValue),
+		nonReloadableKeys:         make(map[string]string),
+		notifier:                  &notifier{},
 	}
 	c.RegisterObserver(&printObserver{})
 	for _, opt := range opts {
@@ -89,16 +92,15 @@ type Config struct {
 	vLock sync.RWMutex // protects reading and writing to the config (viper is not thread-safe)
 	v     *viper.Viper
 
-	hotReloadableConfigLock sync.RWMutex              // protects map holding hot reloadable config keys
-	hotReloadableConfig     map[string][]*configValue // key -> comma-separated list of config keys, e.g. jobsdb.host, value -> list of configValue pointers (different types)
-	reloadableVars          map[string]any            // key -> type with comma-separated list of config keys, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
-	reloadableVarsMisuses   map[string]string         // key -> type with comma-separated list of config keys, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
+	hotReloadableConfigLock   sync.RWMutex                       // protects hot reloadable maps
+	hotReloadableConfig       map[string]map[string]*configValue // key1 -> comma-separated list of config keys, e.g. jobsdb.host, key2 -> data type, value -> configValue pointer
+	hotReloadableVars         map[string]any                     // key -> type with comma-separated list of config keys, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
+	hotReloadableVarsDefaults map[string]string                  // key -> type with comma-separated list of config keys, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
 
-	// nonHotReloadableConfigLock sync.RWMutex // protects map holding hot reloadable config keys
-	// nonHotReloadableConfig     map[string][]*configValue
-	nonReloadableKeysLock sync.RWMutex      // protects nonReloadableKeys
-	nonReloadableKeys     map[string]string // key -> non-reloadable config key in lowercase, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
-	currentSettings       map[string]any    // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
+	nonReloadableConfigLock sync.RWMutex // protects non hot reloadable maps
+	nonReloadableConfig     map[string]map[string]*configValue
+	nonReloadableKeys       map[string]string // key -> non-reloadable config key in lowercase, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
+	currentSettings         map[string]any    // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
 
 	envsLock  sync.RWMutex // protects the envs map below
 	envs      map[string]string
@@ -178,7 +180,6 @@ func MustGetInt(key string) (value int) {
 
 // MustGetInt gets int value from config or panics if the config doesn't exist
 func (c *Config) MustGetInt(key string) (value int) {
-	c.registerNonReloadableConfigKeys(key)
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	if !c.isSetInternal(key) {
@@ -254,7 +255,6 @@ func MustGetString(key string) (value string) {
 
 // MustGetString gets string value from config or panics if the config doesn't exist
 func (c *Config) MustGetString(key string) (value string) {
-	c.registerNonReloadableConfigKeys(key)
 	c.vLock.RLock()
 	defer c.vLock.RUnlock()
 	if !c.isSetInternal(key) {
@@ -349,8 +349,12 @@ func (c *Config) Set(key string, value any) {
 }
 
 func getReloadableMapKeys[T configTypes](defaultValue T, orderedKeys ...string) (string, string) {
-	k := fmt.Sprintf("%T:%s", defaultValue, strings.Join(orderedKeys, ",")) // key is a combination of type and ordered keys
-	return k, fmt.Sprintf("%v", defaultValue)                               // dvKey is the string representation of the default value
+	k := getTypeName(defaultValue) + ":" + strings.Join(orderedKeys, ",") // key is a combination of type and ordered keys
+	sv, err := cast.ToStringE(defaultValue)                               // dvKey is the string representation of the default value
+	if err != nil {
+		sv = fmt.Sprintf("%v", defaultValue) // fallback to string representation
+	}
+	return k, sv
 }
 
 func getOrCreatePointer[T configTypes](
@@ -426,11 +430,42 @@ func bindLegacyEnv(v *viper.Viper) {
 }
 
 // registerNonReloadableConfigKeys tracks all non-reloadable config keys in their lowercase form
-func (c *Config) registerNonReloadableConfigKeys(keys ...string) {
-	c.nonReloadableKeysLock.Lock()
-	defer c.nonReloadableKeysLock.Unlock()
-	for _, key := range keys {
-		c.nonReloadableKeys[strings.ToLower(key)] = key
+func registerNonReloadableConfigKeys[T configTypes](c *Config, dv T, cv *configValue) {
+	c.nonReloadableConfigLock.Lock()
+	defer c.nonReloadableConfigLock.Unlock()
+	for _, key := range cv.keys {
+		c.nonReloadableKeys[strings.ToLower(key)] = key // store the original key in lowercase
+	}
+
+	// TODO: this should be optional since it is potentially expensive
+	key, dvKey := getReloadableMapKeys(dv, cv.keys...)
+	k := key + ":" + dvKey // final key should be a combination of type, ordered keys & default value
+	if _, exists := c.nonReloadableConfig[k]; !exists {
+		c.nonReloadableConfig[k] = make(map[string]*configValue) // we are not enforcing different default values for the same key
+	}
+	c.nonReloadableConfig[k][getTypeName(dv)] = cv
+}
+
+func getTypeName[T configTypes](t T) string {
+	switch v := any(t).(type) {
+	case string:
+		return "string"
+	case int:
+		return "int"
+	case int64:
+		return "int64"
+	case float64:
+		return "float64"
+	case bool:
+		return "bool"
+	case []string:
+		return "[]string"
+	case map[string]any:
+		return "map[string]any"
+	case time.Duration:
+		return "time.Duration"
+	default:
+		panic(fmt.Errorf("unsupported type %T for config variable", v))
 	}
 }
 
