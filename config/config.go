@@ -114,6 +114,16 @@ type Config struct {
 	notifier      *notifier // for notifying subscribers of config changes
 }
 
+// GetBool gets bool value from config
+func GetBool(key string, defaultValue bool) (value bool) {
+	return Default.GetBool(key, defaultValue)
+}
+
+// GetBool gets bool value from config
+func (c *Config) GetBool(key string, defaultValue bool) (value bool) {
+	return c.GetBoolVar(defaultValue, key)
+}
+
 // GetBoolVar registers a not hot-reloadable bool config variable
 //
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
@@ -134,16 +144,6 @@ func (c *Config) GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
 	return ret
 }
 
-// GetBool gets bool value from config
-func GetBool(key string, defaultValue bool) (value bool) {
-	return Default.GetBool(key, defaultValue)
-}
-
-// GetBool gets bool value from config
-func (c *Config) GetBool(key string, defaultValue bool) (value bool) {
-	return c.GetBoolVar(defaultValue, key)
-}
-
 // getBoolInternal gets bool value from config
 func (c *Config) getBoolInternal(key string, defaultValue bool) (value bool) {
 	c.vLock.RLock()
@@ -152,6 +152,16 @@ func (c *Config) getBoolInternal(key string, defaultValue bool) (value bool) {
 		return defaultValue
 	}
 	return c.v.GetBool(key)
+}
+
+// GetInt gets int value from config
+func GetInt(key string, defaultValue int) (value int) {
+	return Default.GetInt(key, defaultValue)
+}
+
+// GetInt gets int value from config
+func (c *Config) GetInt(key string, defaultValue int) (value int) {
+	return c.GetIntVar(defaultValue, 1, key)
 }
 
 // GetIntVar registers a not hot-reloadable int config variable
@@ -172,16 +182,6 @@ func (c *Config) GetIntVar(defaultValue, valueScale int, orderedKeys ...string) 
 		ret = v
 	}, orderedKeys...)
 	return ret
-}
-
-// GetInt gets int value from config
-func GetInt(key string, defaultValue int) (value int) {
-	return Default.GetInt(key, defaultValue)
-}
-
-// GetInt gets int value from config
-func (c *Config) GetInt(key string, defaultValue int) (value int) {
-	return c.GetIntVar(defaultValue, 1, key)
 }
 
 // getIntInternal gets int value from config
@@ -209,6 +209,16 @@ func (c *Config) MustGetInt(key string) (value int) {
 	return c.v.GetInt(key)
 }
 
+// GetStringMap gets string map value from config
+func GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
+	return Default.GetStringMap(key, defaultValue)
+}
+
+// GetStringMap gets string map value from config
+func (c *Config) GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
+	return c.GetStringMapVar(defaultValue, key)
+}
+
 // GetStringMapVar registers a not hot-reloadable string map config variable
 //
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
@@ -231,16 +241,6 @@ func (c *Config) GetStringMapVar(
 	return ret
 }
 
-// GetStringMap gets string map value from config
-func GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
-	return Default.GetStringMap(key, defaultValue)
-}
-
-// GetStringMap gets string map value from config
-func (c *Config) GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
-	return c.GetStringMapVar(defaultValue, key)
-}
-
 // getStringMapInternal gets string map value from config
 func (c *Config) getStringMapInternal(key string, defaultValue map[string]any) (value map[string]any) {
 	c.vLock.RLock()
@@ -249,6 +249,16 @@ func (c *Config) getStringMapInternal(key string, defaultValue map[string]any) (
 		return defaultValue
 	}
 	return c.v.GetStringMap(key)
+}
+
+// GetInt64 gets int64 value from config
+func GetInt64(key string, defaultValue int64) (value int64) {
+	return Default.GetInt64(key, defaultValue)
+}
+
+// GetInt64 gets int64 value from config
+func (c *Config) GetInt64(key string, defaultValue int64) (value int64) {
+	return c.GetInt64Var(defaultValue, 1, key)
 }
 
 // GetInt64Var registers a not hot-reloadable int64 config variable
@@ -271,16 +281,6 @@ func (c *Config) GetInt64Var(defaultValue, valueScale int64, orderedKeys ...stri
 	return ret
 }
 
-// GetInt64 gets int64 value from config
-func GetInt64(key string, defaultValue int64) (value int64) {
-	return Default.GetInt64(key, defaultValue)
-}
-
-// GetInt64 gets int64 value from config
-func (c *Config) GetInt64(key string, defaultValue int64) (value int64) {
-	return c.GetInt64Var(defaultValue, 1, key)
-}
-
 // getInt64Internal gets int64 value from config
 func (c *Config) getInt64Internal(key string, defaultValue int64) (value int64) {
 	c.vLock.RLock()
@@ -289,6 +289,16 @@ func (c *Config) getInt64Internal(key string, defaultValue int64) (value int64) 
 		return defaultValue
 	}
 	return c.v.GetInt64(key)
+}
+
+// GetFloat64 gets float64 value from config
+func GetFloat64(key string, defaultValue float64) (value float64) {
+	return Default.GetFloat64(key, defaultValue)
+}
+
+// GetFloat64 gets float64 value from config
+func (c *Config) GetFloat64(key string, defaultValue float64) (value float64) {
+	return c.GetFloat64Var(defaultValue, key)
 }
 
 // GetFloat64Var registers a not hot-reloadable float64 config variable
@@ -311,16 +321,6 @@ func (c *Config) GetFloat64Var(defaultValue float64, orderedKeys ...string) floa
 	return ret
 }
 
-// GetFloat64 gets float64 value from config
-func GetFloat64(key string, defaultValue float64) (value float64) {
-	return Default.GetFloat64(key, defaultValue)
-}
-
-// GetFloat64 gets float64 value from config
-func (c *Config) GetFloat64(key string, defaultValue float64) (value float64) {
-	return c.GetFloat64Var(defaultValue, key)
-}
-
 // getFloat64Internal gets float64 value from config
 func (c *Config) getFloat64Internal(key string, defaultValue float64) (value float64) {
 	c.vLock.RLock()
@@ -329,6 +329,16 @@ func (c *Config) getFloat64Internal(key string, defaultValue float64) (value flo
 		return defaultValue
 	}
 	return c.v.GetFloat64(key)
+}
+
+// GetString gets string value from config
+func GetString(key, defaultValue string) (value string) {
+	return Default.GetString(key, defaultValue)
+}
+
+// GetString gets string value from config
+func (c *Config) GetString(key, defaultValue string) (value string) {
+	return c.GetStringVar(defaultValue, key)
 }
 
 // GetStringVar registers a not hot-reloadable string config variable
@@ -349,16 +359,6 @@ func (c *Config) GetStringVar(defaultValue string, orderedKeys ...string) string
 		ret = v
 	}, orderedKeys...)
 	return ret
-}
-
-// GetString gets string value from config
-func GetString(key, defaultValue string) (value string) {
-	return Default.GetString(key, defaultValue)
-}
-
-// GetString gets string value from config
-func (c *Config) GetString(key, defaultValue string) (value string) {
-	return c.GetStringVar(defaultValue, key)
 }
 
 // getStringInternal gets string value from config
@@ -386,6 +386,16 @@ func (c *Config) MustGetString(key string) (value string) {
 	return c.v.GetString(key)
 }
 
+// GetStringSlice gets string slice value from config
+func GetStringSlice(key string, defaultValue []string) (value []string) {
+	return Default.GetStringSlice(key, defaultValue)
+}
+
+// GetStringSlice gets string slice value from config
+func (c *Config) GetStringSlice(key string, defaultValue []string) (value []string) {
+	return c.GetStringSliceVar(defaultValue, key)
+}
+
 // GetStringSliceVar registers a not hot-reloadable string slice config variable
 //
 // WARNING: keys are being looked up in requested order and the value of the first found key is returned,
@@ -406,16 +416,6 @@ func (c *Config) GetStringSliceVar(defaultValue []string, orderedKeys ...string)
 	return ret
 }
 
-// GetStringSlice gets string slice value from config
-func GetStringSlice(key string, defaultValue []string) (value []string) {
-	return Default.GetStringSlice(key, defaultValue)
-}
-
-// GetStringSlice gets string slice value from config
-func (c *Config) GetStringSlice(key string, defaultValue []string) (value []string) {
-	return c.GetStringSliceVar(defaultValue, key)
-}
-
 // getStringSliceInternal gets string slice value from config
 func (c *Config) getStringSliceInternal(key string, defaultValue []string) (value []string) {
 	c.vLock.RLock()
@@ -424,6 +424,16 @@ func (c *Config) getStringSliceInternal(key string, defaultValue []string) (valu
 		return defaultValue
 	}
 	return c.v.GetStringSlice(key)
+}
+
+// GetDuration gets duration value from config
+func GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
+	return Default.GetDuration(key, defaultValueInTimescaleUnits, timeScale)
+}
+
+// GetDuration gets duration value from config
+func (c *Config) GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
+	return c.GetDurationVar(defaultValueInTimescaleUnits, timeScale, key)
 }
 
 // GetDurationVar registers a not hot-reloadable duration config variable
@@ -448,16 +458,6 @@ func (c *Config) GetDurationVar(
 		ret = v
 	}, orderedKeys...)
 	return ret
-}
-
-// GetDuration gets duration value from config
-func GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	return Default.GetDuration(key, defaultValueInTimescaleUnits, timeScale)
-}
-
-// GetDuration gets duration value from config
-func (c *Config) GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	return c.GetDurationVar(defaultValueInTimescaleUnits, timeScale, key)
 }
 
 // getDurationInternal gets duration value from config
