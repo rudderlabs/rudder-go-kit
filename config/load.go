@@ -14,11 +14,6 @@ import (
 )
 
 func (c *Config) load() {
-	c.nonReloadableKeys = make(map[string]string)
-	c.hotReloadableConfig = make(map[string]map[string]*configValue)
-	c.nonReloadableConfig = make(map[string]*configValue)
-	c.envs = make(map[string]string)
-
 	c.godotEnvErr = godotenv.Load()
 
 	configPath := getEnv("CONFIG_PATH", "./config/config.yaml")
@@ -166,131 +161,130 @@ func (c *Config) checkAndNotifyNonReloadableConfig() {
 	c.currentSettings = newConfig
 }
 
-func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*configValue) {
-	for key, typeConfigVars := range configMap {
-		for _, configVal := range typeConfigVars {
-			value := configVal.value
-			switch value := value.(type) {
-			case *Reloadable[int]:
-				var _value int
-				var isSet bool
-				for _, key := range configVal.keys {
-					if c.IsSet(key) {
-						isSet = true
-						_value = c.getIntInternal(key, configVal.defaultValue.(int))
-						break
-					}
+func (c *Config) checkAndHotReloadConfig(configMap map[string]*configValue) {
+	for _, configVal := range configMap {
+		key := strings.Join(configVal.keys, ",")
+		value := configVal.value
+		switch value := value.(type) {
+		case *Reloadable[int]:
+			var _value int
+			var isSet bool
+			for _, key := range configVal.keys {
+				if c.IsSet(key) {
+					isSet = true
+					_value = c.getIntInternal(key, configVal.defaultValue.(int))
+					break
 				}
-				if !isSet {
-					_value = configVal.defaultValue.(int)
-				}
-				_value = _value * configVal.multiplier.(int)
-				swapHotReloadableConfig(key, value, _value, compare[int](), c.notifier)
-			case *Reloadable[int64]:
-				var _value int64
-				var isSet bool
-				for _, key := range configVal.keys {
-					if c.IsSet(key) {
-						isSet = true
-						_value = c.getInt64Internal(key, configVal.defaultValue.(int64))
-						break
-					}
-				}
-				if !isSet {
-					_value = configVal.defaultValue.(int64)
-				}
-				_value = _value * configVal.multiplier.(int64)
-				swapHotReloadableConfig(key, value, _value, compare[int64](), c.notifier)
-			case *Reloadable[string]:
-				var _value string
-				var isSet bool
-				for _, key := range configVal.keys {
-					if c.IsSet(key) {
-						isSet = true
-						_value = c.getStringInternal(key, configVal.defaultValue.(string))
-						break
-					}
-				}
-				if !isSet {
-					_value = configVal.defaultValue.(string)
-				}
-				swapHotReloadableConfig(key, value, _value, compare[string](), c.notifier)
-			case *Reloadable[time.Duration]:
-				var _value time.Duration
-				var isSet bool
-				for _, key := range configVal.keys {
-					if c.IsSet(key) {
-						isSet = true
-						_value = c.getDurationInternal(key, configVal.defaultValue.(int64), configVal.multiplier.(time.Duration))
-						break
-					}
-				}
-				if !isSet {
-					_value = time.Duration(configVal.defaultValue.(int64)) * configVal.multiplier.(time.Duration)
-				}
-				swapHotReloadableConfig(key, value, _value, compare[time.Duration](), c.notifier)
-			case *Reloadable[bool]:
-				var _value bool
-				var isSet bool
-				for _, key := range configVal.keys {
-					if c.IsSet(key) {
-						isSet = true
-						_value = c.getBoolInternal(key, configVal.defaultValue.(bool))
-						break
-					}
-				}
-				if !isSet {
-					_value = configVal.defaultValue.(bool)
-				}
-				swapHotReloadableConfig(key, value, _value, compare[bool](), c.notifier)
-			case *Reloadable[float64]:
-				var _value float64
-				var isSet bool
-				for _, key := range configVal.keys {
-					if c.IsSet(key) {
-						isSet = true
-						_value = c.getFloat64Internal(key, configVal.defaultValue.(float64))
-						break
-					}
-				}
-				if !isSet {
-					_value = configVal.defaultValue.(float64)
-				}
-				_value = _value * configVal.multiplier.(float64)
-				swapHotReloadableConfig(key, value, _value, compare[float64](), c.notifier)
-			case *Reloadable[[]string]:
-				var _value []string
-				var isSet bool
-				for _, key := range configVal.keys {
-					if c.IsSet(key) {
-						isSet = true
-						_value = c.getStringSliceInternal(key, configVal.defaultValue.([]string))
-						break
-					}
-				}
-				if !isSet {
-					_value = configVal.defaultValue.([]string)
-				}
-				swapHotReloadableConfig(key, value, _value, func(a, b []string) bool {
-					return slices.Compare(a, b) == 0
-				}, c.notifier)
-			case *Reloadable[map[string]any]:
-				var _value map[string]any
-				var isSet bool
-				for _, key := range configVal.keys {
-					if c.IsSet(key) {
-						isSet = true
-						_value = c.getStringMapInternal(key, configVal.defaultValue.(map[string]any))
-						break
-					}
-				}
-				if !isSet {
-					_value = configVal.defaultValue.(map[string]any)
-				}
-				swapHotReloadableConfig(key, value, _value, func(a, b map[string]any) bool {
-					return mapDeepEqual(a, b)
-				}, c.notifier)
 			}
+			if !isSet {
+				_value = configVal.defaultValue.(int)
+			}
+			_value = _value * configVal.multiplier.(int)
+			swapHotReloadableConfig(key, value, _value, compare[int](), c.notifier)
+		case *Reloadable[int64]:
+			var _value int64
+			var isSet bool
+			for _, key := range configVal.keys {
+				if c.IsSet(key) {
+					isSet = true
+					_value = c.getInt64Internal(key, configVal.defaultValue.(int64))
+					break
+				}
+			}
+			if !isSet {
+				_value = configVal.defaultValue.(int64)
+			}
+			_value = _value * configVal.multiplier.(int64)
+			swapHotReloadableConfig(key, value, _value, compare[int64](), c.notifier)
+		case *Reloadable[string]:
+			var _value string
+			var isSet bool
+			for _, key := range configVal.keys {
+				if c.IsSet(key) {
+					isSet = true
+					_value = c.getStringInternal(key, configVal.defaultValue.(string))
+					break
+				}
+			}
+			if !isSet {
+				_value = configVal.defaultValue.(string)
+			}
+			swapHotReloadableConfig(key, value, _value, compare[string](), c.notifier)
+		case *Reloadable[time.Duration]:
+			var _value time.Duration
+			var isSet bool
+			for _, key := range configVal.keys {
+				if c.IsSet(key) {
+					isSet = true
+					_value = c.getDurationInternal(key, configVal.defaultValue.(int64), configVal.multiplier.(time.Duration))
+					break
+				}
+			}
+			if !isSet {
+				_value = time.Duration(configVal.defaultValue.(int64)) * configVal.multiplier.(time.Duration)
+			}
+			swapHotReloadableConfig(key, value, _value, compare[time.Duration](), c.notifier)
+		case *Reloadable[bool]:
+			var _value bool
+			var isSet bool
+			for _, key := range configVal.keys {
+				if c.IsSet(key) {
+					isSet = true
+					_value = c.getBoolInternal(key, configVal.defaultValue.(bool))
+					break
+				}
+			}
+			if !isSet {
+				_value = configVal.defaultValue.(bool)
+			}
+			swapHotReloadableConfig(key, value, _value, compare[bool](), c.notifier)
+		case *Reloadable[float64]:
+			var _value float64
+			var isSet bool
+			for _, key := range configVal.keys {
+				if c.IsSet(key) {
+					isSet = true
+					_value = c.getFloat64Internal(key, configVal.defaultValue.(float64))
+					break
+				}
+			}
+			if !isSet {
+				_value = configVal.defaultValue.(float64)
+			}
+			_value = _value * configVal.multiplier.(float64)
+			swapHotReloadableConfig(key, value, _value, compare[float64](), c.notifier)
+		case *Reloadable[[]string]:
+			var _value []string
+			var isSet bool
+			for _, key := range configVal.keys {
+				if c.IsSet(key) {
+					isSet = true
+					_value = c.getStringSliceInternal(key, configVal.defaultValue.([]string))
+					break
+				}
+			}
+			if !isSet {
+				_value = configVal.defaultValue.([]string)
+			}
+			swapHotReloadableConfig(key, value, _value, func(a, b []string) bool {
+				return slices.Compare(a, b) == 0
+			}, c.notifier)
+		case *Reloadable[map[string]any]:
+			var _value map[string]any
+			var isSet bool
+			for _, key := range configVal.keys {
+				if c.IsSet(key) {
+					isSet = true
+					_value = c.getStringMapInternal(key, configVal.defaultValue.(map[string]any))
+					break
+				}
+			}
+			if !isSet {
+				_value = configVal.defaultValue.(map[string]any)
+			}
+			swapHotReloadableConfig(key, value, _value, func(a, b map[string]any) bool {
+				return mapDeepEqual(a, b)
+			}, c.notifier)
 		}
 	}
 }
