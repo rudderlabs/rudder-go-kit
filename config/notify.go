@@ -5,28 +5,20 @@ import (
 	"sync"
 )
 
-type KeyOperation string
-
-const (
-	KeyOperationAdded    KeyOperation = "added"
-	KeyOperationRemoved  KeyOperation = "removed"
-	KeyOperationModified KeyOperation = "modified"
-)
-
 // Observer is the interface that wraps the OnConfigChange methods for both reloadable and non-reloadable configuration changes.
 // It is implemented by objects that want to be notified of config changes.
 type Observer interface {
 	// OnReloadableConfigChange is called when a reloadable configuration key changes.
 	OnReloadableConfigChange(key string, oldValue, newValue any)
 	// OnNonReloadableConfigChange is called when a non-reloadable configuration key operation happens in the config file.
-	OnNonReloadableConfigChange(key string, op KeyOperation)
+	OnNonReloadableConfigChange(key string)
 }
 
 // NonReloadableConfigChangesFunc is an Observer function that is invoked for non-reloadable configuration changes.
-type NonReloadableConfigChangesFunc func(key string, op KeyOperation)
+type NonReloadableConfigChangesFunc func(key string)
 
-func (f NonReloadableConfigChangesFunc) OnNonReloadableConfigChange(key string, op KeyOperation) {
-	f(key, op)
+func (f NonReloadableConfigChangesFunc) OnNonReloadableConfigChange(key string) {
+	f(key)
 }
 
 func (f NonReloadableConfigChangesFunc) OnReloadableConfigChange(key string, oldValue, newValue any) {
@@ -36,7 +28,7 @@ func (f NonReloadableConfigChangesFunc) OnReloadableConfigChange(key string, old
 // ReloadableConfigChangesFunc is an Observer function that is invoked for reloadable configuration changes.
 type ReloadableConfigChangesFunc func(key string, oldValue, newValue any)
 
-func (f ReloadableConfigChangesFunc) OnNonReloadableConfigChange(key string, op KeyOperation) {
+func (f ReloadableConfigChangesFunc) OnNonReloadableConfigChange(key string) {
 	// no-op for non-reloadable changes
 }
 
@@ -74,7 +66,7 @@ func (n *notifier) Unregister(observer Observer) {
 }
 
 // notifyNonReloadableConfigChange notifies all observers for non-reloadable configuration changes
-func (n *notifier) notifyNonReloadableConfigChange(key string, op KeyOperation) {
+func (n *notifier) notifyNonReloadableConfigChange(key string) {
 	n.mu.RLock()
 	observers := make([]Observer, len(n.observers))
 	// Copy the observers to avoid holding the lock while calling observers
@@ -82,7 +74,7 @@ func (n *notifier) notifyNonReloadableConfigChange(key string, op KeyOperation) 
 	n.mu.RUnlock()
 
 	for _, observer := range observers {
-		observer.OnNonReloadableConfigChange(key, op)
+		observer.OnNonReloadableConfigChange(key)
 	}
 }
 
@@ -107,6 +99,6 @@ func (p *printObserver) OnReloadableConfigChange(key string, oldValue, newValue 
 	fmt.Printf("The value of reloadable key %q changed from %q to %q\n", key, fmt.Sprintf("%+v", oldValue), fmt.Sprintf("%+v", newValue))
 }
 
-func (p *printObserver) OnNonReloadableConfigChange(key string, op KeyOperation) {
-	fmt.Printf("Non-reloadable key %q was %s in the config file\n", key, op)
+func (p *printObserver) OnNonReloadableConfigChange(key string) {
+	fmt.Printf("Non-reloadable key %q was changed\n", key)
 }

@@ -98,10 +98,11 @@ type Config struct {
 	hotReloadableVars         map[string]any          // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
 	hotReloadableVarsDefaults map[string]string       // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
 
-	nonReloadableConfigLock sync.RWMutex            // protects non hot reloadable maps
-	nonReloadableConfig     map[string]*configValue // key -> type with comma-separated list of config keys and default value, e.g. string:jobsdb.host:localhost, value -> configValue pointer
-	nonReloadableKeys       map[string]string       // key -> non-reloadable config key in lowercase, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
-	currentSettings         map[string]any          // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
+	enableNonReloadableAdvancedDetection bool                    // if true, non-reloadable config key changes are detected with a more advanced mechanism
+	nonReloadableConfigLock              sync.RWMutex            // protects non hot reloadable maps
+	nonReloadableConfig                  map[string]*configValue // key -> type with comma-separated list of config keys and default value, e.g. string:jobsdb.host:localhost, value -> configValue pointer
+	nonReloadableKeys                    map[string]string       // key -> non-reloadable config key in lowercase, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
+	currentSettings                      map[string]any          // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
 
 	envsLock  sync.RWMutex // protects the envs map below
 	envs      map[string]string
@@ -594,11 +595,13 @@ func bindLegacyEnv(v *viper.Viper) {
 func registerNonReloadableConfigKeys[T configTypes](c *Config, dv T, cv *configValue) {
 	c.nonReloadableConfigLock.Lock()
 	defer c.nonReloadableConfigLock.Unlock()
-	for _, key := range cv.keys {
-		c.nonReloadableKeys[strings.ToLower(key)] = key // store the original key in lowercase
-	}
 
-	// TODO: this should be optional since it is potentially expensive
+	if !c.enableNonReloadableAdvancedDetection {
+		for _, key := range cv.keys {
+			c.nonReloadableKeys[strings.ToLower(key)] = key // store the original key in lowercase
+		}
+		return
+	}
 	key, dvKey := getMapKeys(dv, cv.keys...)
 	k := key + ":" + dvKey // final key should be a combination of type, ordered keys & default value
 	if _, exists := c.nonReloadableConfig[k]; !exists {
@@ -622,6 +625,6 @@ func (c *Config) OnReloadableConfigChange(fn func(key string, oldValue, newValue
 }
 
 // OnNonReloadableConfigChanges registers a function to be called whenever a non-reloadable config change happens
-func (c *Config) OnNonReloadableConfigChange(fn func(key string, op KeyOperation)) {
+func (c *Config) OnNonReloadableConfigChange(fn func(key string)) {
 	c.notifier.Register(NonReloadableConfigChangesFunc(fn))
 }

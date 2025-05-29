@@ -95,12 +95,13 @@ func (c *Config) onConfigChange() {
 	c.checkAndHotReloadConfig(c.hotReloadableConfig)
 	c.hotReloadableConfigLock.RUnlock()
 
-	c.checkAndNotifyNonReloadableConfig()
-
-	// TODO: this should be conditional
-	c.nonReloadableConfigLock.RLock()
-	c.checkAndNotifyNonReloadConfigAdvanced(c.nonReloadableConfig)
-	c.nonReloadableConfigLock.RUnlock()
+	if c.enableNonReloadableAdvancedDetection {
+		c.nonReloadableConfigLock.RLock()
+		c.checkAndNotifyNonReloadConfigAdvanced(c.nonReloadableConfig)
+		c.nonReloadableConfigLock.RUnlock()
+	} else {
+		c.checkAndNotifyNonReloadableConfig()
+	}
 }
 
 // checkAndNotifyNonReloadableConfig checks for changes in non-reloadable config values
@@ -109,13 +110,13 @@ func (c *Config) checkAndNotifyNonReloadableConfig() {
 	newConfig := c.getCurrentSettings()
 
 	// Identify changed keys
-	changedKeys := make(map[string]KeyOperation)
+	changedKeys := make(map[string]struct{})
 
 	// Collect keys that were added or modified
 	for key, newValue := range newConfig {
 		oldValue, exists := c.currentSettings[key]
 		if !exists {
-			changedKeys[key] = KeyOperationAdded
+			changedKeys[key] = struct{}{}
 		} else {
 			// first try to convert both values to string for comparison
 			if old, new, err := func() (string, string, error) {
@@ -130,12 +131,12 @@ func (c *Config) checkAndNotifyNonReloadableConfig() {
 				return old, new, nil
 			}(); err == nil {
 				if old != new {
-					changedKeys[key] = KeyOperationModified
+					changedKeys[key] = struct{}{}
 				}
 			} else {
 				// fallback to deep comparison for complex types that cannot be casted to string
 				if !reflect.DeepEqual(oldValue, newValue) {
-					changedKeys[key] = KeyOperationModified
+					changedKeys[key] = struct{}{}
 				}
 			}
 		} // first try to cast both values to string for comparison
@@ -144,15 +145,15 @@ func (c *Config) checkAndNotifyNonReloadableConfig() {
 	// Collect keys that were removed
 	for key := range c.currentSettings {
 		if _, exists := newConfig[key]; !exists {
-			changedKeys[key] = KeyOperationRemoved
+			changedKeys[key] = struct{}{}
 		}
 	}
 
 	// Notify subscribers for non-reloadable config changes
 	c.nonReloadableConfigLock.RLock()
-	for key, op := range changedKeys {
+	for key := range changedKeys {
 		if originalKey, exists := c.nonReloadableKeys[key]; exists {
-			c.notifier.notifyNonReloadableConfigChange(originalKey, op)
+			c.notifier.notifyNonReloadableConfigChange(originalKey)
 		}
 	}
 	c.nonReloadableConfigLock.RUnlock()
@@ -291,6 +292,7 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]*configValue) {
 
 func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*configValue) {
 	for _, configVal := range configMap {
+		key := strings.Join(configVal.keys, ",")
 		switch value := configVal.value.(type) {
 		case *int:
 			var _value int
@@ -308,7 +310,7 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 			_value = _value * configVal.multiplier.(int)
 			if *value != _value {
 				*value = _value
-				// TODO: Notify about the change
+				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		case *int64:
 			var _value int64
@@ -326,7 +328,7 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 			_value = _value * configVal.multiplier.(int64)
 			if *value != _value {
 				*value = _value
-				// TODO: Notify about the change
+				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		case *string:
 			var _value string
@@ -343,7 +345,7 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 			}
 			if *value != _value {
 				*value = _value
-				// TODO: Notify about the change
+				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		case *time.Duration:
 			var _value time.Duration
@@ -361,7 +363,7 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 			}
 			if *value != _value {
 				*value = _value
-				// TODO: Notify about the change
+				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		case *bool:
 			var _value bool
@@ -378,7 +380,7 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 			}
 			if *value != _value {
 				*value = _value
-				// TODO: Notify about the change
+				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		case *float64:
 			var _value float64
@@ -397,7 +399,7 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 			_value = _value * configVal.multiplier.(float64)
 			if *value != _value {
 				*value = _value
-				// TODO: Notify about the change
+				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		case *[]string:
 			var _value []string
@@ -415,7 +417,7 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 			}
 			if slices.Compare(*value, _value) != 0 {
 				*value = _value
-				// TODO: Notify about the change
+				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		case *map[string]any:
 			var _value map[string]any
@@ -433,7 +435,7 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 			}
 			if !mapDeepEqual(*value, _value) {
 				*value = _value
-				// TODO: Notify about the change
+				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		}
 	}

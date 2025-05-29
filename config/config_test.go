@@ -734,7 +734,7 @@ stringMapKey: '{"key": "value"}'
 		// Set environment variable to point to our config file
 		t.Setenv("CONFIG_PATH", f.Name())
 
-		observer := &testObserver{nonReloadableOperations: make(map[string][]KeyOperation), reloadableChanges: make(map[string][]reloadableConfigChange)}
+		observer := &testObserver{nonReloadableChanges: make(map[string]int), reloadableChanges: make(map[string][]reloadableConfigChange)}
 		c := New()
 		c.RegisterObserver(observer)
 		return c, observer, f.Name()
@@ -925,37 +925,29 @@ stringMapKey: '{"key": "value2"}'
 
 			// Te observer should be notified of config file changes
 			// for keys that have been previously accessed
-			stringOperations := observer.getNonReloadableOperations("stringKey")
-			require.Len(t, stringOperations, 1)
-			require.Equal(t, KeyOperationModified, stringOperations[0])
+			stringOperations := observer.getNonReloadableChanges("stringKey")
+			require.Equal(t, 1, stringOperations)
 
-			intOperations := observer.getNonReloadableOperations("intKey")
-			require.Len(t, intOperations, 1)
-			require.Equal(t, KeyOperationModified, intOperations[0])
+			intOperations := observer.getNonReloadableChanges("intKey")
+			require.Equal(t, 1, intOperations)
 
-			int64Operations := observer.getNonReloadableOperations("int64Key")
-			require.Len(t, int64Operations, 1)
-			require.Equal(t, KeyOperationModified, int64Operations[0])
+			int64Operations := observer.getNonReloadableChanges("int64Key")
+			require.Equal(t, 1, int64Operations)
 
-			floatOperations := observer.getNonReloadableOperations("float64Key")
-			require.Len(t, floatOperations, 1)
-			require.Equal(t, KeyOperationModified, floatOperations[0])
+			floatOperations := observer.getNonReloadableChanges("float64Key")
+			require.Equal(t, 1, floatOperations)
 
-			boolOperations := observer.getNonReloadableOperations("boolKey")
-			require.Len(t, boolOperations, 1)
-			require.Equal(t, KeyOperationModified, boolOperations[0])
+			boolOperations := observer.getNonReloadableChanges("boolKey")
+			require.Equal(t, 1, boolOperations)
 
-			durationOperations := observer.getNonReloadableOperations("durationKey")
-			require.Len(t, durationOperations, 1)
-			require.Equal(t, KeyOperationModified, durationOperations[0])
+			durationOperations := observer.getNonReloadableChanges("durationKey")
+			require.Equal(t, 1, durationOperations)
 
-			sliceOperations := observer.getNonReloadableOperations("stringSliceKey")
-			require.Len(t, sliceOperations, 1)
-			require.Equal(t, KeyOperationModified, sliceOperations[0])
+			sliceOperations := observer.getNonReloadableChanges("stringSliceKey")
+			require.Equal(t, 1, sliceOperations)
 
-			mapOperations := observer.getNonReloadableOperations("stringMapKey")
-			require.Len(t, mapOperations, 1)
-			require.Equal(t, KeyOperationModified, mapOperations[0])
+			mapOperations := observer.getNonReloadableChanges("stringMapKey")
+			require.Equal(t, 1, mapOperations)
 		})
 
 		t.Run("configuration file gets cleared and removal events are sent for non-reloadable keys", func(t *testing.T) {
@@ -999,37 +991,29 @@ stringMapKey: '{"key": "value2"}'
 
 			// Te observer should be notified of config file changes
 			// for keys that have been previously accessed
-			stringOperations := observer.getNonReloadableOperations("stringKey")
-			require.Len(t, stringOperations, 1)
-			require.Equal(t, KeyOperationRemoved, stringOperations[0])
+			stringOperations := observer.getNonReloadableChanges("stringKey")
+			require.Equal(t, 1, stringOperations)
 
-			intOperations := observer.getNonReloadableOperations("intKey")
-			require.Len(t, intOperations, 1)
-			require.Equal(t, KeyOperationRemoved, intOperations[0])
+			intOperations := observer.getNonReloadableChanges("intKey")
+			require.Equal(t, 1, intOperations)
 
-			int64Operations := observer.getNonReloadableOperations("int64Key")
-			require.Len(t, int64Operations, 1)
-			require.Equal(t, KeyOperationRemoved, int64Operations[0])
+			int64Operations := observer.getNonReloadableChanges("int64Key")
+			require.Equal(t, 1, int64Operations)
 
-			floatOperations := observer.getNonReloadableOperations("float64Key")
-			require.Len(t, floatOperations, 1)
-			require.Equal(t, KeyOperationRemoved, floatOperations[0])
+			floatOperations := observer.getNonReloadableChanges("float64Key")
+			require.Equal(t, 1, floatOperations)
 
-			boolOperations := observer.getNonReloadableOperations("boolKey")
-			require.Len(t, boolOperations, 1)
-			require.Equal(t, KeyOperationRemoved, boolOperations[0])
+			boolOperations := observer.getNonReloadableChanges("boolKey")
+			require.Equal(t, 1, boolOperations)
 
-			durationOperations := observer.getNonReloadableOperations("durationKey")
-			require.Len(t, durationOperations, 1)
-			require.Equal(t, KeyOperationRemoved, durationOperations[0])
+			durationOperations := observer.getNonReloadableChanges("durationKey")
+			require.Equal(t, 1, durationOperations)
 
-			sliceOperations := observer.getNonReloadableOperations("stringSliceKey")
-			require.Len(t, sliceOperations, 1)
-			require.Equal(t, KeyOperationRemoved, sliceOperations[0])
+			sliceOperations := observer.getNonReloadableChanges("stringSliceKey")
+			require.Equal(t, 1, sliceOperations)
 
-			mapOperations := observer.getNonReloadableOperations("stringMapKey")
-			require.Len(t, mapOperations, 1)
-			require.Equal(t, KeyOperationRemoved, mapOperations[0])
+			mapOperations := observer.getNonReloadableChanges("stringMapKey")
+			require.Equal(t, 1, mapOperations)
 		})
 
 		t.Run("configuration file keys get introduced and addition events are sent for non-reloadable keys", func(t *testing.T) {
@@ -1081,37 +1065,29 @@ stringMapKey: '{"key": "value"}'
 
 			// Te observer should be notified of config file changes
 			// for keys that have been previously accessed
-			stringOperations := observer.getNonReloadableOperations("stringKey")
-			require.Len(t, stringOperations, 1)
-			require.Equal(t, KeyOperationAdded, stringOperations[0])
+			stringOperations := observer.getNonReloadableChanges("stringKey")
+			require.Equal(t, 1, stringOperations)
 
-			intOperations := observer.getNonReloadableOperations("intKey")
-			require.Len(t, intOperations, 1)
-			require.Equal(t, KeyOperationAdded, intOperations[0])
+			intOperations := observer.getNonReloadableChanges("intKey")
+			require.Equal(t, 1, intOperations)
 
-			int64Operations := observer.getNonReloadableOperations("int64Key")
-			require.Len(t, int64Operations, 1)
-			require.Equal(t, KeyOperationAdded, int64Operations[0])
+			int64Operations := observer.getNonReloadableChanges("int64Key")
+			require.Equal(t, 1, int64Operations)
 
-			floatOperations := observer.getNonReloadableOperations("float64Key")
-			require.Len(t, floatOperations, 1)
-			require.Equal(t, KeyOperationAdded, floatOperations[0])
+			floatOperations := observer.getNonReloadableChanges("float64Key")
+			require.Equal(t, 1, floatOperations)
 
-			boolOperations := observer.getNonReloadableOperations("boolKey")
-			require.Len(t, boolOperations, 1)
-			require.Equal(t, KeyOperationAdded, boolOperations[0])
+			boolOperations := observer.getNonReloadableChanges("boolKey")
+			require.Equal(t, 1, boolOperations)
 
-			durationOperations := observer.getNonReloadableOperations("durationKey")
-			require.Len(t, durationOperations, 1)
-			require.Equal(t, KeyOperationAdded, durationOperations[0])
+			durationOperations := observer.getNonReloadableChanges("durationKey")
+			require.Equal(t, 1, durationOperations)
 
-			sliceOperations := observer.getNonReloadableOperations("stringSliceKey")
-			require.Len(t, sliceOperations, 1)
-			require.Equal(t, KeyOperationAdded, sliceOperations[0])
+			sliceOperations := observer.getNonReloadableChanges("stringSliceKey")
+			require.Equal(t, 1, sliceOperations)
 
-			mapOperations := observer.getNonReloadableOperations("stringMapKey")
-			require.Len(t, mapOperations, 1)
-			require.Equal(t, KeyOperationAdded, mapOperations[0])
+			mapOperations := observer.getNonReloadableChanges("stringMapKey")
+			require.Equal(t, 1, mapOperations)
 		})
 
 		t.Run("setting a non-reloadable value", func(t *testing.T) {
@@ -1129,9 +1105,8 @@ stringMapKey: '{"key": "value"}'
 				require.Equal(t, "newValue", c.GetString("stringKey", "default"))
 
 				// Verify that the observer was notified of the modification
-				stringOperations := observer.getNonReloadableOperations("stringKey")
-				require.Len(t, stringOperations, 1)
-				require.Equal(t, KeyOperationModified, stringOperations[0])
+				stringOperations := observer.getNonReloadableChanges("stringKey")
+				require.Equal(t, 1, stringOperations)
 			})
 
 			t.Run("key does not exist", func(t *testing.T) {
@@ -1146,9 +1121,8 @@ stringMapKey: '{"key": "value"}'
 				require.Equal(t, "newValue", c.GetString("nonExistentKey", "default"))
 
 				// Verify that the observer was notified of the addition
-				stringOperations := observer.getNonReloadableOperations("nonExistentKey")
-				require.Len(t, stringOperations, 1)
-				require.Equal(t, KeyOperationAdded, stringOperations[0])
+				stringOperations := observer.getNonReloadableChanges("nonExistentKey")
+				require.Equal(t, 1, stringOperations)
 			})
 		})
 	})
@@ -1169,8 +1143,8 @@ stringKey: changedValue
 		// Wait for the observer to be notified
 		require.Eventually(t, func() bool {
 			time.Sleep(100 * time.Millisecond) // give some time for the observer to detect changes (viper is not thread-safe)
-			ops := observer.getNonReloadableOperations("stringKey")
-			return len(ops) == 1 && ops[0] == KeyOperationModified
+			ops := observer.getNonReloadableChanges("stringKey")
+			return ops == 1
 		}, 2*time.Second, 1*time.Millisecond)
 
 		// Unregister the observer
@@ -1178,7 +1152,7 @@ stringKey: changedValue
 
 		// Clear the observer's record
 		observer.mu.Lock()
-		observer.nonReloadableOperations = make(map[string][]KeyOperation)
+		observer.nonReloadableChanges = make(map[string]int)
 		observer.mu.Unlock()
 
 		// Modify the config file again
@@ -1193,7 +1167,7 @@ stringKey: anotherValue
 		}, 2*time.Second, 1*time.Millisecond)
 
 		// Verify the observer was not notified after unregistering
-		ops := observer.getNonReloadableOperations("stringKey")
+		ops := observer.getNonReloadableChanges("stringKey")
 		require.Empty(t, ops, "Observer should not be notified after unregistering")
 	})
 
@@ -1201,7 +1175,7 @@ stringKey: anotherValue
 		t.Run("OnNonReloadableConfigChange", func(t *testing.T) {
 			c, _, filename := setupConfig(t, false)
 			var called atomic.Bool
-			c.OnNonReloadableConfigChange(func(key string, op KeyOperation) {
+			c.OnNonReloadableConfigChange(func(key string) {
 				called.Store(true)
 			})
 			stringValue := c.GetStringVar("", "stringKey") // Ensure the key is tracked
@@ -1238,9 +1212,9 @@ stringKey: anotherValue
 
 // Helper test observer implementation for testing
 type testObserver struct {
-	mu                      sync.Mutex
-	nonReloadableOperations map[string][]KeyOperation
-	reloadableChanges       map[string][]reloadableConfigChange
+	mu                   sync.Mutex
+	nonReloadableChanges map[string]int
+	reloadableChanges    map[string][]reloadableConfigChange
 }
 
 type reloadableConfigChange struct {
@@ -1248,10 +1222,10 @@ type reloadableConfigChange struct {
 	newValue any
 }
 
-func (o *testObserver) OnNonReloadableConfigChange(key string, op KeyOperation) {
+func (o *testObserver) OnNonReloadableConfigChange(key string) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	o.nonReloadableOperations[key] = append(o.nonReloadableOperations[key], op)
+	o.nonReloadableChanges[key]++
 }
 
 func (o *testObserver) OnReloadableConfigChange(key string, oldValue, newValue any) {
@@ -1260,10 +1234,10 @@ func (o *testObserver) OnReloadableConfigChange(key string, oldValue, newValue a
 	o.reloadableChanges[key] = append(o.reloadableChanges[key], reloadableConfigChange{oldValue: oldValue, newValue: newValue})
 }
 
-func (o *testObserver) getNonReloadableOperations(key string) []KeyOperation {
+func (o *testObserver) getNonReloadableChanges(key string) int {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	return o.nonReloadableOperations[key]
+	return o.nonReloadableChanges[key]
 }
 
 func (o *testObserver) getReloadableChanges(key string) []reloadableConfigChange {
