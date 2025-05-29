@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+
 	conf "github.com/rudderlabs/rudder-go-kit/config"
 )
 
