@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -28,7 +29,7 @@ func GetReloadableIntVar(defaultValue, valueScale int, orderedKeys ...string) *R
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
 	var ret int
-	c.registerIntVar(defaultValue, nil, false, valueScale, func(v int) {
+	c.registerIntVar(defaultValue, &ret, false, valueScale, func(v int) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -40,7 +41,7 @@ func (c *Config) GetIntVar(defaultValue, valueScale int, orderedKeys ...string) 
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableIntVar(defaultValue, valueScale int, orderedKeys ...string) *Reloadable[int] {
 	ptr, exists := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue*valueScale, orderedKeys...,
+		c.hotReloadableVars, c.hotReloadableVarsDefaults, &c.reloadableVarsLock, defaultValue*valueScale, orderedKeys...,
 	)
 	if !exists {
 		c.registerIntVar(defaultValue, ptr, true, valueScale, func(v int) {
@@ -50,9 +51,7 @@ func (c *Config) GetReloadableIntVar(defaultValue, valueScale int, orderedKeys .
 	return ptr
 }
 
-func (c *Config) registerIntVar(
-	defaultValue int, ptr any, isHotReloadable bool, valueScale int, store func(int), orderedKeys ...string,
-) {
+func (c *Config) registerIntVar(defaultValue int, ptr any, isHotReloadable bool, valueScale int, store func(int), orderedKeys ...string) {
 	configVar := configValue{
 		value:        ptr,
 		multiplier:   valueScale,
@@ -65,7 +64,7 @@ func (c *Config) registerIntVar(
 		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
-		c.registerNonReloadableConfigKeys(orderedKeys...)
+		registerNonReloadableConfigKeys(c, defaultValue*valueScale, &configVar)
 	}
 
 	for _, key := range orderedKeys {
@@ -99,7 +98,7 @@ func GetReloadableBoolVar(defaultValue bool, orderedKeys ...string) *Reloadable[
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
 	var ret bool
-	c.registerBoolVar(defaultValue, nil, false, func(v bool) {
+	c.registerBoolVar(defaultValue, &ret, false, func(v bool) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -111,7 +110,7 @@ func (c *Config) GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableBoolVar(defaultValue bool, orderedKeys ...string) *Reloadable[bool] {
 	ptr, exists := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
+		c.hotReloadableVars, c.hotReloadableVarsDefaults, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
 	if !exists {
 		c.registerBoolVar(defaultValue, ptr, true, func(v bool) {
@@ -133,7 +132,7 @@ func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable boo
 		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
-		c.registerNonReloadableConfigKeys(orderedKeys...)
+		registerNonReloadableConfigKeys(c, defaultValue, &configVar)
 	}
 
 	for _, key := range orderedKeys {
@@ -168,7 +167,7 @@ func GetReloadableFloat64Var(defaultValue float64, orderedKeys ...string) *Reloa
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
 	var ret float64
-	c.registerFloat64Var(defaultValue, nil, false, func(v float64) {
+	c.registerFloat64Var(defaultValue, &ret, false, func(v float64) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -180,7 +179,7 @@ func (c *Config) GetFloat64Var(defaultValue float64, orderedKeys ...string) floa
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableFloat64Var(defaultValue float64, orderedKeys ...string) *Reloadable[float64] {
 	ptr, exists := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
+		c.hotReloadableVars, c.hotReloadableVarsDefaults, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
 	if !exists {
 		c.registerFloat64Var(defaultValue, ptr, true, func(v float64) {
@@ -190,9 +189,7 @@ func (c *Config) GetReloadableFloat64Var(defaultValue float64, orderedKeys ...st
 	return ptr
 }
 
-func (c *Config) registerFloat64Var(
-	defaultValue float64, ptr any, isHotReloadable bool, store func(float64), orderedKeys ...string,
-) {
+func (c *Config) registerFloat64Var(defaultValue float64, ptr any, isHotReloadable bool, store func(float64), orderedKeys ...string) {
 	configVar := configValue{
 		value:        ptr,
 		multiplier:   1.0,
@@ -205,7 +202,7 @@ func (c *Config) registerFloat64Var(
 		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
-		c.registerNonReloadableConfigKeys(orderedKeys...)
+		registerNonReloadableConfigKeys(c, defaultValue, &configVar)
 	}
 
 	for _, key := range orderedKeys {
@@ -240,7 +237,7 @@ func GetReloadableInt64Var(defaultValue, valueScale int64, orderedKeys ...string
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
 	var ret int64
-	c.registerInt64Var(defaultValue, nil, false, valueScale, func(v int64) {
+	c.registerInt64Var(defaultValue, &ret, false, valueScale, func(v int64) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -252,7 +249,7 @@ func (c *Config) GetInt64Var(defaultValue, valueScale int64, orderedKeys ...stri
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableInt64Var(defaultValue, valueScale int64, orderedKeys ...string) *Reloadable[int64] {
 	ptr, exists := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue*valueScale, orderedKeys...,
+		c.hotReloadableVars, c.hotReloadableVarsDefaults, &c.reloadableVarsLock, defaultValue*valueScale, orderedKeys...,
 	)
 	if !exists {
 		c.registerInt64Var(defaultValue, ptr, true, valueScale, func(v int64) {
@@ -262,9 +259,7 @@ func (c *Config) GetReloadableInt64Var(defaultValue, valueScale int64, orderedKe
 	return ptr
 }
 
-func (c *Config) registerInt64Var(
-	defaultValue int64, ptr any, isHotReloadable bool, valueScale int64, store func(int64), orderedKeys ...string,
-) {
+func (c *Config) registerInt64Var(defaultValue int64, ptr any, isHotReloadable bool, valueScale int64, store func(int64), orderedKeys ...string) {
 	configVar := configValue{
 		value:        ptr,
 		multiplier:   valueScale,
@@ -277,7 +272,7 @@ func (c *Config) registerInt64Var(
 		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
-		c.registerNonReloadableConfigKeys(orderedKeys...)
+		registerNonReloadableConfigKeys(c, defaultValue*valueScale, &configVar)
 	}
 
 	for _, key := range orderedKeys {
@@ -316,7 +311,7 @@ func (c *Config) GetDurationVar(
 	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
 ) time.Duration {
 	var ret time.Duration
-	c.registerDurationVar(defaultValueInTimescaleUnits, nil, false, timeScale, func(v time.Duration) {
+	c.registerDurationVar(defaultValueInTimescaleUnits, &ret, false, timeScale, func(v time.Duration) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -330,7 +325,7 @@ func (c *Config) GetReloadableDurationVar(
 	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
 ) *Reloadable[time.Duration] {
 	ptr, exists := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock,
+		c.hotReloadableVars, c.hotReloadableVarsDefaults, &c.reloadableVarsLock,
 		time.Duration(defaultValueInTimescaleUnits)*timeScale, orderedKeys...,
 	)
 	if !exists {
@@ -357,7 +352,7 @@ func (c *Config) registerDurationVar(
 		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
-		c.registerNonReloadableConfigKeys(orderedKeys...)
+		registerNonReloadableConfigKeys(c, time.Duration(defaultValueInTimescaleUnits)*timeScale, &configVar)
 	}
 
 	for _, key := range orderedKeys {
@@ -391,7 +386,7 @@ func GetReloadableStringVar(defaultValue string, orderedKeys ...string) *Reloada
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetStringVar(defaultValue string, orderedKeys ...string) string {
 	var ret string
-	c.registerStringVar(defaultValue, nil, false, func(v string) {
+	c.registerStringVar(defaultValue, &ret, false, func(v string) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -403,7 +398,7 @@ func (c *Config) GetStringVar(defaultValue string, orderedKeys ...string) string
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableStringVar(defaultValue string, orderedKeys ...string) *Reloadable[string] {
 	ptr, exists := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
+		c.hotReloadableVars, c.hotReloadableVarsDefaults, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
 	if !exists {
 		c.registerStringVar(defaultValue, ptr, true, func(v string) {
@@ -413,9 +408,7 @@ func (c *Config) GetReloadableStringVar(defaultValue string, orderedKeys ...stri
 	return ptr
 }
 
-func (c *Config) registerStringVar(
-	defaultValue string, ptr any, isHotReloadable bool, store func(string), orderedKeys ...string,
-) {
+func (c *Config) registerStringVar(defaultValue string, ptr any, isHotReloadable bool, store func(string), orderedKeys ...string) {
 	configVar := configValue{
 		value:        ptr,
 		defaultValue: defaultValue,
@@ -427,7 +420,7 @@ func (c *Config) registerStringVar(
 		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
-		c.registerNonReloadableConfigKeys(orderedKeys...)
+		registerNonReloadableConfigKeys(c, defaultValue, &configVar)
 	}
 
 	for _, key := range orderedKeys {
@@ -461,7 +454,7 @@ func GetReloadableStringSliceVar(defaultValue []string, orderedKeys ...string) *
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
 	var ret []string
-	c.registerStringSliceVar(defaultValue, ret, false, func(v []string) {
+	c.registerStringSliceVar(defaultValue, &ret, false, func(v []string) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -473,7 +466,7 @@ func (c *Config) GetStringSliceVar(defaultValue []string, orderedKeys ...string)
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetReloadableStringSliceVar(defaultValue []string, orderedKeys ...string) *Reloadable[[]string] {
 	ptr, exists := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
+		c.hotReloadableVars, c.hotReloadableVarsDefaults, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
 	if !exists {
 		c.registerStringSliceVar(defaultValue, ptr, true, func(v []string) {
@@ -483,9 +476,7 @@ func (c *Config) GetReloadableStringSliceVar(defaultValue []string, orderedKeys 
 	return ptr
 }
 
-func (c *Config) registerStringSliceVar(
-	defaultValue []string, ptr any, isHotReloadable bool, store func([]string), orderedKeys ...string,
-) {
+func (c *Config) registerStringSliceVar(defaultValue []string, ptr any, isHotReloadable bool, store func([]string), orderedKeys ...string) {
 	configVar := configValue{
 		value:        ptr,
 		defaultValue: defaultValue,
@@ -497,7 +488,7 @@ func (c *Config) registerStringSliceVar(
 		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
-		c.registerNonReloadableConfigKeys(orderedKeys...)
+		registerNonReloadableConfigKeys(c, defaultValue, &configVar)
 	}
 
 	for _, key := range orderedKeys {
@@ -535,7 +526,7 @@ func (c *Config) GetStringMapVar(
 	defaultValue map[string]any, orderedKeys ...string,
 ) map[string]any {
 	var ret map[string]any
-	c.registerStringMapVar(defaultValue, nil, false, func(v map[string]any) {
+	c.registerStringMapVar(defaultValue, &ret, false, func(v map[string]any) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -549,7 +540,7 @@ func (c *Config) GetReloadableStringMapVar(
 	defaultValue map[string]any, orderedKeys ...string,
 ) *Reloadable[map[string]any] {
 	ptr, exists := getOrCreatePointer(
-		c.reloadableVars, c.reloadableVarsMisuses, &c.reloadableVarsLock, defaultValue, orderedKeys...,
+		c.hotReloadableVars, c.hotReloadableVarsDefaults, &c.reloadableVarsLock, defaultValue, orderedKeys...,
 	)
 	if !exists {
 		c.registerStringMapVar(defaultValue, ptr, true, func(v map[string]any) {
@@ -559,9 +550,7 @@ func (c *Config) GetReloadableStringMapVar(
 	return ptr
 }
 
-func (c *Config) registerStringMapVar(
-	defaultValue map[string]any, ptr any, isHotReloadable bool, store func(map[string]any), orderedKeys ...string,
-) {
+func (c *Config) registerStringMapVar(defaultValue map[string]any, ptr any, isHotReloadable bool, store func(map[string]any), orderedKeys ...string) {
 	configVar := configValue{
 		value:        ptr,
 		defaultValue: defaultValue,
@@ -573,7 +562,7 @@ func (c *Config) registerStringMapVar(
 		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
-		c.registerNonReloadableConfigKeys(orderedKeys...)
+		registerNonReloadableConfigKeys(c, defaultValue, &configVar)
 	}
 
 	for _, key := range orderedKeys {
@@ -585,12 +574,12 @@ func (c *Config) registerStringMapVar(
 	store(defaultValue)
 }
 
-func (c *Config) appendVarToConfigMaps(cm map[string][]*configValue, keys []string, configVar *configValue) {
+func (c *Config) appendVarToConfigMaps(cm map[string]map[string]*configValue, keys []string, configVar *configValue) {
 	key := strings.Join(keys, ",")
 	if _, ok := cm[key]; !ok {
-		cm[key] = make([]*configValue, 0)
+		cm[key] = make(map[string]*configValue, 0)
 	}
-	cm[key] = append(cm[key], configVar)
+	cm[key][fmt.Sprintf("%T", configVar.defaultValue)] = configVar
 }
 
 type configTypes interface {

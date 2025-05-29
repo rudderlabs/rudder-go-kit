@@ -112,14 +112,14 @@ func Test_Register_Existing_and_Default(t *testing.T) {
 }
 
 func TestStatic_checkAndHotReloadConfig(t *testing.T) {
-	configMap := make(map[string][]*configValue)
+	configMap := make(map[string]map[string]*configValue)
 
 	var var1 Reloadable[string]
 	var var2 Reloadable[string]
 	configVar1 := newConfigValue(&var1, 1, "var1", []string{"keyVar"})
 	configVar2 := newConfigValue(&var2, 1, "var2", []string{"keyVar"})
 
-	configMap["keyVar"] = []*configValue{configVar1, configVar2}
+	configMap["keyVar"] = map[string]*configValue{"type1": configVar1, "type2": configVar2}
 	t.Setenv("RSERVER_KEY_VAR", "value_changed")
 
 	Default.checkAndHotReloadConfig(configMap)
@@ -160,15 +160,17 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 		t.Setenv("RSERVER_STRINGSLICE", "string string")
 		t.Setenv("RSERVER_STRINGMAP", "{\"string\":\"any\"}")
 
-		Default.checkAndHotReloadConfig(map[string][]*configValue{
-			"string":      {stringConfigValue},
-			"bool":        {boolConfigValue},
-			"int":         {intConfigValue},
-			"int64":       {int64ConfigValue},
-			"float64":     {float64ConfigValue},
-			"stringslice": {stringSliceConfigValue},
-			"duration":    {durationConfigValue},
-			"stringmap":   {stringMapConfigValue},
+		Default.checkAndHotReloadConfig(map[string]map[string]*configValue{
+			"key": {
+				"string":      stringConfigValue,
+				"bool":        boolConfigValue,
+				"int":         intConfigValue,
+				"int64":       int64ConfigValue,
+				"float64":     float64ConfigValue,
+				"stringslice": stringSliceConfigValue,
+				"duration":    durationConfigValue,
+				"stringmap":   stringMapConfigValue,
+			},
 		})
 
 		require.Equal(t, stringConfigValue.value.(*Reloadable[string]).Load(), "string")
@@ -182,15 +184,17 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 	})
 
 	t.Run("without envs", func(t *testing.T) {
-		Default.checkAndHotReloadConfig(map[string][]*configValue{
-			"string":      {stringConfigValue},
-			"bool":        {boolConfigValue},
-			"int":         {intConfigValue},
-			"int64":       {int64ConfigValue},
-			"float64":     {float64ConfigValue},
-			"stringslice": {stringSliceConfigValue},
-			"duration":    {durationConfigValue},
-			"stringmap":   {stringMapConfigValue},
+		Default.checkAndHotReloadConfig(map[string]map[string]*configValue{
+			"key": {
+				"string":      stringConfigValue,
+				"bool":        boolConfigValue,
+				"int":         intConfigValue,
+				"int64":       int64ConfigValue,
+				"float64":     float64ConfigValue,
+				"stringslice": stringSliceConfigValue,
+				"duration":    durationConfigValue,
+				"stringmap":   stringMapConfigValue,
+			},
 		})
 
 		require.Equal(t, stringConfigValue.value.(*Reloadable[string]).Load(), "default")
@@ -403,7 +407,7 @@ func TestNewReloadableAPI(t *testing.T) {
 			require.Equal(t, map[string]any{"c": 3, "d": 4}, v.Load(), "value should not change")
 
 			require.PanicsWithError(t,
-				"detected misuse of config variable registered with different default values for \"map[string]interface {}:TestNewReloadableAPI/reloadable/map[string]any\": "+
+				"detected misuse of config variable registered with different default values for \"map[string]any:TestNewReloadableAPI/reloadable/map[string]any\": "+
 					"map[a:1 b:2] - map[a:2 b:1]",
 				func() {
 					_ = c.GetReloadableStringMapVar(map[string]any{"a": 2, "b": 1}, t.Name())
