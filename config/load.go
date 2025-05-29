@@ -446,31 +446,3 @@ func swapHotReloadableConfig[T configTypes](key string, reloadableValue *Reloada
 		notifier.notifyReloadableConfigChange(key, oldValue, newValue)
 	}
 }
-
-type configValue struct {
-	value        any
-	multiplier   any
-	defaultValue any
-	keys         []string
-}
-
-func newConfigValue(value, multiplier, defaultValue any, keys []string) *configValue {
-	return &configValue{
-		value:        value,
-		multiplier:   multiplier,
-		defaultValue: defaultValue,
-		keys:         keys,
-	}
-}
-
-func mapDeepEqual[K comparable, V any](a, b map[K]V) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v := range a {
-		if w, ok := b[k]; !ok || !reflect.DeepEqual(v, w) {
-			return false
-		}
-	}
-	return true
-}
