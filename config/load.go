@@ -35,8 +35,8 @@ func (c *Config) load() {
 	c.v = v
 
 	c.currentSettings = c.getCurrentSettings()
-	c.v.OnConfigChange(func(e fsnotify.Event) {
-		c.onConfigChange(&e)
+	c.v.OnConfigChange(func(_ fsnotify.Event) {
+		c.onConfigChange()
 	})
 	c.v.WatchConfig()
 }
@@ -87,7 +87,7 @@ func (c *Config) DotEnvLoaded() error {
 	return c.godotEnvErr
 }
 
-func (c *Config) onConfigChange(e *fsnotify.Event) {
+func (c *Config) onConfigChange() {
 	defer func() {
 		if r := recover(); r != nil {
 			err := fmt.Errorf("cannot update Config Variables: %v", r)
@@ -99,9 +99,7 @@ func (c *Config) onConfigChange(e *fsnotify.Event) {
 	c.checkAndHotReloadConfig(c.hotReloadableConfig)
 	c.hotReloadableConfigLock.RUnlock()
 
-	if e != nil { // only track non-reloadable config changes in case of a file change
-		c.checkAndNotifyNonReloadableConfig()
-	}
+	c.checkAndNotifyNonReloadableConfig()
 }
 
 // checkAndNotifyNonReloadableConfig checks for changes in non-reloadable config values
