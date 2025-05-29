@@ -35,10 +35,8 @@ package config
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/spf13/viper"
 )
@@ -114,374 +112,6 @@ type Config struct {
 	notifier      *notifier // for notifying subscribers of config changes
 }
 
-// GetBool gets bool value from config
-func GetBool(key string, defaultValue bool) (value bool) {
-	return Default.GetBool(key, defaultValue)
-}
-
-// GetBool gets bool value from config
-func (c *Config) GetBool(key string, defaultValue bool) (value bool) {
-	return c.GetBoolVar(defaultValue, key)
-}
-
-// GetBoolVar registers a not hot-reloadable bool config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
-	return Default.GetBoolVar(defaultValue, orderedKeys...)
-}
-
-// GetBoolVar registers a not hot-reloadable bool config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func (c *Config) GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
-	var ret bool
-	c.storeAndRegisterBoolVar(defaultValue, &ret, func(v bool) {
-		ret = v
-	}, orderedKeys...)
-	return ret
-}
-
-// getBoolInternal gets bool value from config
-func (c *Config) getBoolInternal(key string, defaultValue bool) (value bool) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetBool(key)
-}
-
-// GetInt gets int value from config
-func GetInt(key string, defaultValue int) (value int) {
-	return Default.GetInt(key, defaultValue)
-}
-
-// GetInt gets int value from config
-func (c *Config) GetInt(key string, defaultValue int) (value int) {
-	return c.GetIntVar(defaultValue, 1, key)
-}
-
-// GetIntVar registers a not hot-reloadable int config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func GetIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
-	return Default.GetIntVar(defaultValue, valueScale, orderedKeys...)
-}
-
-// GetIntVar registers a not hot-reloadable int config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func (c *Config) GetIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
-	var ret int
-	c.storeAndRegisterIntVar(defaultValue, &ret, valueScale, func(v int) {
-		ret = v
-	}, orderedKeys...)
-	return ret
-}
-
-// getIntInternal gets int value from config
-func (c *Config) getIntInternal(key string, defaultValue int) (value int) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetInt(key)
-}
-
-// MustGetInt gets int value from config or panics if the config doesn't exist
-func MustGetInt(key string) (value int) {
-	return Default.MustGetInt(key)
-}
-
-// MustGetInt gets int value from config or panics if the config doesn't exist
-func (c *Config) MustGetInt(key string) (value int) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		panic(fmt.Errorf("config key %s not found", key))
-	}
-	return c.v.GetInt(key)
-}
-
-// GetStringMap gets string map value from config
-func GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
-	return Default.GetStringMap(key, defaultValue)
-}
-
-// GetStringMap gets string map value from config
-func (c *Config) GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
-	return c.GetStringMapVar(defaultValue, key)
-}
-
-// GetStringMapVar registers a not hot-reloadable string map config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func GetStringMapVar(defaultValue map[string]any, orderedKeys ...string) map[string]any {
-	return Default.GetStringMapVar(defaultValue, orderedKeys...)
-}
-
-// GetStringMapVar registers a not hot-reloadable string map config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func (c *Config) GetStringMapVar(
-	defaultValue map[string]any, orderedKeys ...string,
-) map[string]any {
-	var ret map[string]any
-	c.storeAndRegisterStringMapVar(defaultValue, &ret, func(v map[string]any) {
-		ret = v
-	}, orderedKeys...)
-	return ret
-}
-
-// getStringMapInternal gets string map value from config
-func (c *Config) getStringMapInternal(key string, defaultValue map[string]any) (value map[string]any) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetStringMap(key)
-}
-
-// GetInt64 gets int64 value from config
-func GetInt64(key string, defaultValue int64) (value int64) {
-	return Default.GetInt64(key, defaultValue)
-}
-
-// GetInt64 gets int64 value from config
-func (c *Config) GetInt64(key string, defaultValue int64) (value int64) {
-	return c.GetInt64Var(defaultValue, 1, key)
-}
-
-// GetInt64Var registers a not hot-reloadable int64 config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func GetInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
-	return Default.GetInt64Var(defaultValue, valueScale, orderedKeys...)
-}
-
-// GetInt64Var registers a not hot-reloadable int64 config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func (c *Config) GetInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
-	var ret int64
-	c.storeAndRegisterInt64Var(defaultValue, &ret, valueScale, func(v int64) {
-		ret = v
-	}, orderedKeys...)
-	return ret
-}
-
-// getInt64Internal gets int64 value from config
-func (c *Config) getInt64Internal(key string, defaultValue int64) (value int64) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetInt64(key)
-}
-
-// GetFloat64 gets float64 value from config
-func GetFloat64(key string, defaultValue float64) (value float64) {
-	return Default.GetFloat64(key, defaultValue)
-}
-
-// GetFloat64 gets float64 value from config
-func (c *Config) GetFloat64(key string, defaultValue float64) (value float64) {
-	return c.GetFloat64Var(defaultValue, key)
-}
-
-// GetFloat64Var registers a not hot-reloadable float64 config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func GetFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
-	return Default.GetFloat64Var(defaultValue, orderedKeys...)
-}
-
-// GetFloat64Var registers a not hot-reloadable float64 config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func (c *Config) GetFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
-	var ret float64
-	c.storeAndRegisterFloat64Var(defaultValue, &ret, func(v float64) {
-		ret = v
-	}, orderedKeys...)
-	return ret
-}
-
-// getFloat64Internal gets float64 value from config
-func (c *Config) getFloat64Internal(key string, defaultValue float64) (value float64) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetFloat64(key)
-}
-
-// GetString gets string value from config
-func GetString(key, defaultValue string) (value string) {
-	return Default.GetString(key, defaultValue)
-}
-
-// GetString gets string value from config
-func (c *Config) GetString(key, defaultValue string) (value string) {
-	return c.GetStringVar(defaultValue, key)
-}
-
-// GetStringVar registers a not hot-reloadable string config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func GetStringVar(defaultValue string, orderedKeys ...string) string {
-	return Default.GetStringVar(defaultValue, orderedKeys...)
-}
-
-// GetStringVar registers a not hot-reloadable string config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func (c *Config) GetStringVar(defaultValue string, orderedKeys ...string) string {
-	var ret string
-	c.storeAndRegisterStringVar(defaultValue, &ret, func(v string) {
-		ret = v
-	}, orderedKeys...)
-	return ret
-}
-
-// getStringInternal gets string value from config
-func (c *Config) getStringInternal(key, defaultValue string) (value string) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetString(key)
-}
-
-// MustGetString gets string value from config or panics if the config doesn't exist
-func MustGetString(key string) (value string) {
-	return Default.MustGetString(key)
-}
-
-// MustGetString gets string value from config or panics if the config doesn't exist
-func (c *Config) MustGetString(key string) (value string) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		panic(fmt.Errorf("config key %s not found", key))
-	}
-	return c.v.GetString(key)
-}
-
-// GetStringSlice gets string slice value from config
-func GetStringSlice(key string, defaultValue []string) (value []string) {
-	return Default.GetStringSlice(key, defaultValue)
-}
-
-// GetStringSlice gets string slice value from config
-func (c *Config) GetStringSlice(key string, defaultValue []string) (value []string) {
-	return c.GetStringSliceVar(defaultValue, key)
-}
-
-// GetStringSliceVar registers a not hot-reloadable string slice config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func GetStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
-	return Default.GetStringSliceVar(defaultValue, orderedKeys...)
-}
-
-// GetStringSliceVar registers a not hot-reloadable string slice config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func (c *Config) GetStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
-	var ret []string
-	c.storeAndRegisterStringSliceVar(defaultValue, &ret, func(v []string) {
-		ret = v
-	}, orderedKeys...)
-	return ret
-}
-
-// getStringSliceInternal gets string slice value from config
-func (c *Config) getStringSliceInternal(key string, defaultValue []string) (value []string) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetStringSlice(key)
-}
-
-// GetDuration gets duration value from config
-func GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	return Default.GetDuration(key, defaultValueInTimescaleUnits, timeScale)
-}
-
-// GetDuration gets duration value from config
-func (c *Config) GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	return c.GetDurationVar(defaultValueInTimescaleUnits, timeScale, key)
-}
-
-// GetDurationVar registers a not hot-reloadable duration config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func GetDurationVar(
-	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
-) time.Duration {
-	return Default.GetDurationVar(defaultValueInTimescaleUnits, timeScale, orderedKeys...)
-}
-
-// GetDurationVar registers a not hot-reloadable duration config variable
-//
-// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
-// e.g. asking for the same keys but in a different order can result in a different value to be returned
-func (c *Config) GetDurationVar(
-	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
-) time.Duration {
-	var ret time.Duration
-	c.storeAndRegisterDurationVar(defaultValueInTimescaleUnits, &ret, timeScale, func(v time.Duration) {
-		ret = v
-	}, orderedKeys...)
-	return ret
-}
-
-// getDurationInternal gets duration value from config
-func (c *Config) getDurationInternal(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return time.Duration(defaultValueInTimescaleUnits) * timeScale
-	} else {
-		v := c.v.GetString(key)
-		parseDuration, err := time.ParseDuration(v)
-		if err == nil {
-			return parseDuration
-		} else {
-			_, err = strconv.ParseFloat(v, 64)
-			if err == nil {
-				return c.v.GetDuration(key) * timeScale
-			} else {
-				return time.Duration(defaultValueInTimescaleUnits) * timeScale
-			}
-		}
-	}
-}
-
 // IsSet checks if config is set for a key
 func IsSet(key string) bool {
 	return Default.IsSet(key)
@@ -500,8 +130,6 @@ func (c *Config) isSetInternal(key string) bool {
 	return c.v.IsSet(key)
 }
 
-// Override Config by application or command line
-
 // Set override existing config
 func Set(key string, value any) {
 	Default.Set(key, value)
@@ -515,6 +143,7 @@ func (c *Config) Set(key string, value any) {
 	c.onConfigChange()
 }
 
+// getMapKeys returns the map key (<type>:<comma-separated-keys>) along with the string representation of the default value
 func getMapKeys[T configTypes](defaultValue T, orderedKeys ...string) (string, string) {
 	k := getTypeName(defaultValue) + ":" + strings.Join(orderedKeys, ",") // key is a combination of type and ordered keys
 	sv := getStringValue(defaultValue)
@@ -525,17 +154,17 @@ func getOrCreatePointer[T configTypes](
 	reloadableVars map[string]any, reloadableVarsMisuses map[string]string, reloadableConfigVals map[string]*configValue, // this function MUST receive maps that are already initialized
 	lock *sync.RWMutex, defaultValue T, cv *configValue, orderedKeys ...string,
 ) (ptr *Reloadable[T], exists bool) {
-	key, dvKey := getMapKeys(defaultValue, orderedKeys...)
+	key, dv := getMapKeys(defaultValue, orderedKeys...)
 	lock.Lock()
 	defer lock.Unlock()
 	defer func() {
 		if _, ok := reloadableVarsMisuses[key]; !ok {
-			reloadableVarsMisuses[key] = dvKey
+			reloadableVarsMisuses[key] = dv
 		}
-		if reloadableVarsMisuses[key] != dvKey {
+		if reloadableVarsMisuses[key] != dv {
 			panic(fmt.Errorf(
 				"detected misuse of config variable registered with different default values for %q: %+v - %+v",
-				key, reloadableVarsMisuses[key], dvKey,
+				key, reloadableVarsMisuses[key], dv,
 			))
 		}
 	}()
@@ -603,7 +232,8 @@ func registerNonReloadableConfigKeys[T configTypes](c *Config, dv T, cv *configV
 		return
 	}
 	key, dvKey := getMapKeys(dv, cv.keys...)
-	k := key + ":" + dvKey // final key should be a combination of type, ordered keys & default value
+	// final key should be a combination of type, ordered keys & default value
+	k := key + ":" + dvKey // TODO: consider ignoring default value for non-reloadable keys
 	if _, exists := c.nonReloadableConfig[k]; !exists {
 		c.nonReloadableConfig[k] = cv
 	}
