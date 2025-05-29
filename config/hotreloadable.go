@@ -62,7 +62,7 @@ func (c *Config) registerIntVar(
 
 	if isHotReloadable {
 		c.hotReloadableConfigLock.Lock()
-		c.appendVarToConfigMaps(orderedKeys, &configVar)
+		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
 		c.registerNonReloadableConfigKeys(orderedKeys...)
@@ -130,7 +130,7 @@ func (c *Config) registerBoolVar(defaultValue bool, ptr any, isHotReloadable boo
 
 	if isHotReloadable {
 		c.hotReloadableConfigLock.Lock()
-		c.appendVarToConfigMaps(orderedKeys, &configVar)
+		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
 		c.registerNonReloadableConfigKeys(orderedKeys...)
@@ -202,7 +202,7 @@ func (c *Config) registerFloat64Var(
 
 	if isHotReloadable {
 		c.hotReloadableConfigLock.Lock()
-		c.appendVarToConfigMaps(orderedKeys, &configVar)
+		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
 		c.registerNonReloadableConfigKeys(orderedKeys...)
@@ -274,7 +274,7 @@ func (c *Config) registerInt64Var(
 
 	if isHotReloadable {
 		c.hotReloadableConfigLock.Lock()
-		c.appendVarToConfigMaps(orderedKeys, &configVar)
+		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
 		c.registerNonReloadableConfigKeys(orderedKeys...)
@@ -354,7 +354,7 @@ func (c *Config) registerDurationVar(
 
 	if isHotReloadable {
 		c.hotReloadableConfigLock.Lock()
-		c.appendVarToConfigMaps(orderedKeys, &configVar)
+		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
 		c.registerNonReloadableConfigKeys(orderedKeys...)
@@ -424,7 +424,7 @@ func (c *Config) registerStringVar(
 
 	if isHotReloadable {
 		c.hotReloadableConfigLock.Lock()
-		c.appendVarToConfigMaps(orderedKeys, &configVar)
+		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
 		c.registerNonReloadableConfigKeys(orderedKeys...)
@@ -494,7 +494,7 @@ func (c *Config) registerStringSliceVar(
 
 	if isHotReloadable {
 		c.hotReloadableConfigLock.Lock()
-		c.appendVarToConfigMaps(orderedKeys, &configVar)
+		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
 		c.registerNonReloadableConfigKeys(orderedKeys...)
@@ -570,7 +570,7 @@ func (c *Config) registerStringMapVar(
 
 	if isHotReloadable {
 		c.hotReloadableConfigLock.Lock()
-		c.appendVarToConfigMaps(orderedKeys, &configVar)
+		c.appendVarToConfigMaps(c.hotReloadableConfig, orderedKeys, &configVar)
 		c.hotReloadableConfigLock.Unlock()
 	} else {
 		c.registerNonReloadableConfigKeys(orderedKeys...)
@@ -585,12 +585,12 @@ func (c *Config) registerStringMapVar(
 	store(defaultValue)
 }
 
-func (c *Config) appendVarToConfigMaps(keys []string, configVar *configValue) {
+func (c *Config) appendVarToConfigMaps(cm map[string][]*configValue, keys []string, configVar *configValue) {
 	key := strings.Join(keys, ",")
-	if _, ok := c.hotReloadableConfig[key]; !ok {
-		c.hotReloadableConfig[key] = make([]*configValue, 0)
+	if _, ok := cm[key]; !ok {
+		cm[key] = make([]*configValue, 0)
 	}
-	c.hotReloadableConfig[key] = append(c.hotReloadableConfig[key], configVar)
+	cm[key] = append(cm[key], configVar)
 }
 
 type configTypes interface {
