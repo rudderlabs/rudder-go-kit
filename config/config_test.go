@@ -112,14 +112,15 @@ func Test_Register_Existing_and_Default(t *testing.T) {
 }
 
 func TestStatic_checkAndHotReloadConfig(t *testing.T) {
-	configMap := make(map[string]map[string]*configValue)
+	configMap := make(map[string]*configValue)
 
 	var var1 Reloadable[string]
 	var var2 Reloadable[string]
 	configVar1 := newConfigValue(&var1, 1, "var1", []string{"keyVar"})
 	configVar2 := newConfigValue(&var2, 1, "var2", []string{"keyVar"})
 
-	configMap["keyVar"] = map[string]*configValue{"type1": configVar1, "type2": configVar2}
+	configMap["type1:keyVar"] = configVar1
+	configMap["type2:keyVar"] = configVar2
 	t.Setenv("RSERVER_KEY_VAR", "value_changed")
 
 	Default.checkAndHotReloadConfig(configMap)
@@ -160,17 +161,15 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 		t.Setenv("RSERVER_STRINGSLICE", "string string")
 		t.Setenv("RSERVER_STRINGMAP", "{\"string\":\"any\"}")
 
-		Default.checkAndHotReloadConfig(map[string]map[string]*configValue{
-			"key": {
-				"string":      stringConfigValue,
-				"bool":        boolConfigValue,
-				"int":         intConfigValue,
-				"int64":       int64ConfigValue,
-				"float64":     float64ConfigValue,
-				"stringslice": stringSliceConfigValue,
-				"duration":    durationConfigValue,
-				"stringmap":   stringMapConfigValue,
-			},
+		Default.checkAndHotReloadConfig(map[string]*configValue{
+			"string":      stringConfigValue,
+			"bool":        boolConfigValue,
+			"int":         intConfigValue,
+			"int64":       int64ConfigValue,
+			"float64":     float64ConfigValue,
+			"stringslice": stringSliceConfigValue,
+			"duration":    durationConfigValue,
+			"stringmap":   stringMapConfigValue,
 		})
 
 		require.Equal(t, stringConfigValue.value.(*Reloadable[string]).Load(), "string")
@@ -184,17 +183,15 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 	})
 
 	t.Run("without envs", func(t *testing.T) {
-		Default.checkAndHotReloadConfig(map[string]map[string]*configValue{
-			"key": {
-				"string":      stringConfigValue,
-				"bool":        boolConfigValue,
-				"int":         intConfigValue,
-				"int64":       int64ConfigValue,
-				"float64":     float64ConfigValue,
-				"stringslice": stringSliceConfigValue,
-				"duration":    durationConfigValue,
-				"stringmap":   stringMapConfigValue,
-			},
+		Default.checkAndHotReloadConfig(map[string]*configValue{
+			"string":      stringConfigValue,
+			"bool":        boolConfigValue,
+			"int":         intConfigValue,
+			"int64":       int64ConfigValue,
+			"float64":     float64ConfigValue,
+			"stringslice": stringSliceConfigValue,
+			"duration":    durationConfigValue,
+			"stringmap":   stringMapConfigValue,
 		})
 
 		require.Equal(t, stringConfigValue.value.(*Reloadable[string]).Load(), "default")
@@ -421,21 +418,22 @@ func TestGetOrCreatePointer(t *testing.T) {
 	var (
 		m   = make(map[string]any)
 		dvs = make(map[string]string)
+		cvs = make(map[string]*configValue)
 		rwm sync.RWMutex
 	)
-	p1, exists := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
+	p1, exists := getOrCreatePointer(m, dvs, cvs, &rwm, 123, &configValue{}, "foo", "bar")
 	require.NotNil(t, p1)
 	require.False(t, exists)
 
-	p2, exists := getOrCreatePointer(m, dvs, &rwm, 123, "foo", "bar")
+	p2, exists := getOrCreatePointer(m, dvs, cvs, &rwm, 123, &configValue{}, "foo", "bar")
 	require.True(t, p1 == p2)
 	require.True(t, exists)
 
-	p3, exists := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo")
+	p3, exists := getOrCreatePointer(m, dvs, cvs, &rwm, 123, &configValue{}, "bar", "foo")
 	require.True(t, p1 != p3)
 	require.False(t, exists)
 
-	p4, exists := getOrCreatePointer(m, dvs, &rwm, 123, "bar", "foo", "qux")
+	p4, exists := getOrCreatePointer(m, dvs, cvs, &rwm, 123, &configValue{}, "bar", "foo", "qux")
 	require.True(t, p1 != p4)
 	require.False(t, exists)
 
@@ -443,7 +441,7 @@ func TestGetOrCreatePointer(t *testing.T) {
 		"detected misuse of config variable registered with different default values for \"int:bar,foo,qux\": "+
 			"123 - 456",
 		func() {
-			getOrCreatePointer(m, dvs, &rwm, 456, "bar", "foo", "qux")
+			getOrCreatePointer(m, dvs, cvs, &rwm, 456, &configValue{}, "bar", "foo", "qux")
 		},
 	)
 }

@@ -71,12 +71,14 @@ func WithEnvPrefix(prefix string) Opt {
 func New(opts ...Opt) *Config {
 	c := &Config{
 		envPrefix:                 DefaultEnvPrefix,
-		hotReloadableConfig:       make(map[string]map[string]*configValue),
+		hotReloadableConfig:       make(map[string]*configValue),
 		hotReloadableVars:         make(map[string]any),
 		hotReloadableVarsDefaults: make(map[string]string),
 		nonReloadableConfig:       make(map[string]*configValue),
 		nonReloadableKeys:         make(map[string]string),
-		notifier:                  &notifier{},
+		envs:                      make(map[string]string),
+
+		notifier: &notifier{},
 	}
 	c.RegisterObserver(&printObserver{})
 	for _, opt := range opts {
@@ -91,10 +93,10 @@ type Config struct {
 	vLock sync.RWMutex // protects reading and writing to the config (viper is not thread-safe)
 	v     *viper.Viper
 
-	hotReloadableConfigLock   sync.RWMutex                       // protects hot reloadable maps
-	hotReloadableConfig       map[string]map[string]*configValue // key1 -> <comma-separated list of config keys>, e.g. jobsdb.host, key2 -> <data-type>, value -> configValue pointer
-	hotReloadableVars         map[string]any                     // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
-	hotReloadableVarsDefaults map[string]string                  // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
+	hotReloadableConfigLock   sync.RWMutex            // protects hot reloadable maps
+	hotReloadableConfig       map[string]*configValue // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> configValue pointer
+	hotReloadableVars         map[string]any          // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
+	hotReloadableVarsDefaults map[string]string       // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
 
 	nonReloadableConfigLock sync.RWMutex            // protects non hot reloadable maps
 	nonReloadableConfig     map[string]*configValue // key -> type with comma-separated list of config keys and default value, e.g. string:jobsdb.host:localhost, value -> configValue pointer
@@ -105,11 +107,10 @@ type Config struct {
 	envs      map[string]string
 	envPrefix string // prefix for environment variables
 
-	reloadableVarsLock sync.RWMutex // used to protect both the reloadableVars and reloadableVarsMisuses maps
-	configPath         string
-	configPathErr      error
-	godotEnvErr        error
-	notifier           *notifier // for notifying subscribers of config changes
+	configPath    string
+	configPathErr error
+	godotEnvErr   error
+	notifier      *notifier // for notifying subscribers of config changes
 }
 
 // GetBoolVar registers a not hot-reloadable bool config variable
@@ -520,14 +521,12 @@ func getMapKeys[T configTypes](defaultValue T, orderedKeys ...string) (string, s
 }
 
 func getOrCreatePointer[T configTypes](
-	reloadableVars map[string]any, reloadableVarsMisuses map[string]string, // this function MUST receive maps that are already initialized
-	lock *sync.RWMutex, defaultValue T, orderedKeys ...string,
+	reloadableVars map[string]any, reloadableVarsMisuses map[string]string, reloadableConfigVals map[string]*configValue, // this function MUST receive maps that are already initialized
+	lock *sync.RWMutex, defaultValue T, cv *configValue, orderedKeys ...string,
 ) (ptr *Reloadable[T], exists bool) {
 	key, dvKey := getMapKeys(defaultValue, orderedKeys...)
-
 	lock.Lock()
 	defer lock.Unlock()
-
 	defer func() {
 		if _, ok := reloadableVarsMisuses[key]; !ok {
 			reloadableVarsMisuses[key] = dvKey
@@ -539,13 +538,13 @@ func getOrCreatePointer[T configTypes](
 			))
 		}
 	}()
-
 	if p, ok := reloadableVars[key]; ok {
 		return p.(*Reloadable[T]), true
 	}
-
 	p := &Reloadable[T]{}
 	reloadableVars[key] = p
+	cv.value = p
+	reloadableConfigVals[key] = cv
 	return p, false
 }
 
