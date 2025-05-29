@@ -86,24 +86,29 @@ func New(opts ...Opt) *Config {
 
 // Config is the entry point for accessing configuration
 type Config struct {
-	vLock                   sync.RWMutex // protects reading and writing to the config (viper is not thread-safe)
-	v                       *viper.Viper
-	hotReloadableConfigLock sync.RWMutex // protects map holding hot reloadable config keys
-	hotReloadableConfig     map[string][]*configValue
-	nonReloadableKeysLock   sync.RWMutex      // protects nonReloadableKeys
-	nonReloadableKeys       map[string]string // key -> non-reloadable config key in lowercase, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
-	currentSettings         map[string]any    // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
+	vLock sync.RWMutex // protects reading and writing to the config (viper is not thread-safe)
+	v     *viper.Viper
 
-	envsLock              sync.RWMutex // protects the envs map below
-	envs                  map[string]string
-	envPrefix             string // prefix for environment variables
-	reloadableVars        map[string]any
-	reloadableVarsMisuses map[string]string
-	reloadableVarsLock    sync.RWMutex // used to protect both the reloadableVars and reloadableVarsMisuses maps
-	configPath            string
-	configPathErr         error
-	godotEnvErr           error
-	notifier              *notifier // for notifying subscribers of config changes
+	hotReloadableConfigLock sync.RWMutex              // protects map holding hot reloadable config keys
+	hotReloadableConfig     map[string][]*configValue // key -> comma-separated list of config keys, e.g. jobsdb.host, value -> list of configValue pointers (different types)
+	reloadableVars          map[string]any            // key -> type with comma-separated list of config keys, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
+	reloadableVarsMisuses   map[string]string         // key -> type with comma-separated list of config keys, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
+
+	// nonHotReloadableConfigLock sync.RWMutex // protects map holding hot reloadable config keys
+	// nonHotReloadableConfig     map[string][]*configValue
+	nonReloadableKeysLock sync.RWMutex      // protects nonReloadableKeys
+	nonReloadableKeys     map[string]string // key -> non-reloadable config key in lowercase, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
+	currentSettings       map[string]any    // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
+
+	envsLock  sync.RWMutex // protects the envs map below
+	envs      map[string]string
+	envPrefix string // prefix for environment variables
+
+	reloadableVarsLock sync.RWMutex // used to protect both the reloadableVars and reloadableVarsMisuses maps
+	configPath         string
+	configPathErr      error
+	godotEnvErr        error
+	notifier           *notifier // for notifying subscribers of config changes
 }
 
 // GetBool gets bool value from config
@@ -113,8 +118,7 @@ func GetBool(key string, defaultValue bool) (value bool) {
 
 // GetBool gets bool value from config
 func (c *Config) GetBool(key string, defaultValue bool) (value bool) {
-	c.registerNonReloadableConfigKeys(key)
-	return c.getBoolInternal(key, defaultValue)
+	return c.GetBoolVar(defaultValue, key)
 }
 
 // getBoolInternal gets bool value from config
@@ -134,8 +138,7 @@ func GetInt(key string, defaultValue int) (value int) {
 
 // GetInt gets int value from config
 func (c *Config) GetInt(key string, defaultValue int) (value int) {
-	c.registerNonReloadableConfigKeys(key)
-	return c.getIntInternal(key, defaultValue)
+	return c.GetIntVar(defaultValue, 1, key)
 }
 
 // getIntInternal gets int value from config
@@ -155,8 +158,7 @@ func GetStringMap(key string, defaultValue map[string]any) (value map[string]any
 
 // GetStringMap gets string map value from config
 func (c *Config) GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
-	c.registerNonReloadableConfigKeys(key)
-	return c.getStringMapInternal(key, defaultValue)
+	return c.GetStringMapVar(defaultValue, key)
 }
 
 // getStringMapInternal gets string map value from config
@@ -192,8 +194,7 @@ func GetInt64(key string, defaultValue int64) (value int64) {
 
 // GetInt64 gets int64 value from config
 func (c *Config) GetInt64(key string, defaultValue int64) (value int64) {
-	c.registerNonReloadableConfigKeys(key)
-	return c.getInt64Internal(key, defaultValue)
+	return c.GetInt64Var(defaultValue, 1, key)
 }
 
 // getInt64Internal gets int64 value from config
@@ -213,8 +214,7 @@ func GetFloat64(key string, defaultValue float64) (value float64) {
 
 // GetFloat64 gets float64 value from config
 func (c *Config) GetFloat64(key string, defaultValue float64) (value float64) {
-	c.registerNonReloadableConfigKeys(key)
-	return c.getFloat64Internal(key, defaultValue)
+	return c.GetFloat64Var(defaultValue, key)
 }
 
 // getFloat64Internal gets float64 value from config
@@ -234,8 +234,7 @@ func GetString(key, defaultValue string) (value string) {
 
 // GetString gets string value from config
 func (c *Config) GetString(key, defaultValue string) (value string) {
-	c.registerNonReloadableConfigKeys(key)
-	return c.getStringInternal(key, defaultValue)
+	return c.GetStringVar(defaultValue, key)
 }
 
 // getStringInternal gets string value from config
@@ -271,8 +270,7 @@ func GetStringSlice(key string, defaultValue []string) (value []string) {
 
 // GetStringSlice gets string slice value from config
 func (c *Config) GetStringSlice(key string, defaultValue []string) (value []string) {
-	c.registerNonReloadableConfigKeys(key)
-	return c.getStringSliceInternal(key, defaultValue)
+	return c.GetStringSliceVar(defaultValue, key)
 }
 
 // getStringSliceInternal gets string slice value from config
@@ -292,8 +290,7 @@ func GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.
 
 // GetDuration gets duration value from config
 func (c *Config) GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	c.registerNonReloadableConfigKeys(key)
-	return c.getDurationInternal(key, defaultValueInTimescaleUnits, timeScale)
+	return c.GetDurationVar(defaultValueInTimescaleUnits, timeScale, key)
 }
 
 // getDurationInternal gets duration value from config
@@ -351,13 +348,13 @@ func (c *Config) Set(key string, value any) {
 	c.onConfigChange()
 }
 
-func getReloadableMapKeys[T configTypes](v T, orderedKeys ...string) (string, string) {
-	k := fmt.Sprintf("%T:%s", v, strings.Join(orderedKeys, ","))
-	return k, fmt.Sprintf("%s:%v", k, v)
+func getReloadableMapKeys[T configTypes](defaultValue T, orderedKeys ...string) (string, string) {
+	k := fmt.Sprintf("%T:%s", defaultValue, strings.Join(orderedKeys, ",")) // key is a combination of type and ordered keys
+	return k, fmt.Sprintf("%v", defaultValue)                               // dvKey is the string representation of the default value
 }
 
 func getOrCreatePointer[T configTypes](
-	m map[string]any, dvs map[string]string, // this function MUST receive maps that are already initialized
+	reloadableVars map[string]any, reloadableVarsMisuses map[string]string, // this function MUST receive maps that are already initialized
 	lock *sync.RWMutex, defaultValue T, orderedKeys ...string,
 ) (ptr *Reloadable[T], exists bool) {
 	key, dvKey := getReloadableMapKeys(defaultValue, orderedKeys...)
@@ -366,23 +363,23 @@ func getOrCreatePointer[T configTypes](
 	defer lock.Unlock()
 
 	defer func() {
-		if _, ok := dvs[key]; !ok {
-			dvs[key] = dvKey
+		if _, ok := reloadableVarsMisuses[key]; !ok {
+			reloadableVarsMisuses[key] = dvKey
 		}
-		if dvs[key] != dvKey {
+		if reloadableVarsMisuses[key] != dvKey {
 			panic(fmt.Errorf(
-				"detected misuse of config variable registered with different default values %+v - %+v",
-				dvs[key], dvKey,
+				"detected misuse of config variable registered with different default values for %q: %+v - %+v",
+				key, reloadableVarsMisuses[key], dvKey,
 			))
 		}
 	}()
 
-	if p, ok := m[key]; ok {
+	if p, ok := reloadableVars[key]; ok {
 		return p.(*Reloadable[T]), true
 	}
 
 	p := &Reloadable[T]{}
-	m[key] = p
+	reloadableVars[key] = p
 	return p, false
 }
 
