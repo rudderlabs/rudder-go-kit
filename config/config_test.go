@@ -585,6 +585,17 @@ func Test_Misc(t *testing.T) {
 }
 
 func TestConfigLocking(t *testing.T) {
+	t.Run("simple detection", func(t *testing.T) {
+		t.Setenv("CONFIG_ADVANCED_DETECTION", "false")
+		testConfigLocking(t)
+	})
+	t.Run("advanced detection", func(t *testing.T) {
+		t.Setenv("CONFIG_ADVANCED_DETECTION", "true")
+		testConfigLocking(t)
+	})
+}
+
+func testConfigLocking(t *testing.T) {
 	const (
 		timeout   = 2 * time.Second
 		configKey = "test"
@@ -873,10 +884,9 @@ newKey: value
 			require.Len(t, stringMapChanges, 0)
 		})
 	})
-	t.Run("non-reloadable config changes", func(t *testing.T) {
-		// non-reloadable config change detection is coarse-grained, i.e. just detects changes in config file of keys which have been used by the application by non-reloadable configuration requests
 
-		t.Run("configuration file changes and modification events are sent for non-reloadable keys", func(t *testing.T) {
+	nonReloadableConfigChangesBasicScenarios := func(t *testing.T) {
+		t.Run("configuration file changes and events are sent for non-reloadable keys", func(t *testing.T) {
 			c, observer, filename := setupConfig(t, false)
 
 			// Get non-reloadable values from config
@@ -950,7 +960,7 @@ stringMapKey: '{"key": "value2"}'
 			require.Equal(t, 1, mapOperations)
 		})
 
-		t.Run("configuration file gets cleared and removal events are sent for non-reloadable keys", func(t *testing.T) {
+		t.Run("configuration file gets cleared and events are sent for non-reloadable keys", func(t *testing.T) {
 			c, observer, filename := setupConfig(t, false)
 
 			// Get non-reloadable values from config
@@ -1016,7 +1026,7 @@ stringMapKey: '{"key": "value2"}'
 			require.Equal(t, 1, mapOperations)
 		})
 
-		t.Run("configuration file keys get introduced and addition events are sent for non-reloadable keys", func(t *testing.T) {
+		t.Run("configuration file keys get introduced and events are sent for non-reloadable keys", func(t *testing.T) {
 			c, observer, filename := setupConfig(t, true)
 
 			// Get non-reloadable values from config
@@ -1124,6 +1134,94 @@ stringMapKey: '{"key": "value"}'
 				stringOperations := observer.getNonReloadableChanges("nonExistentKey")
 				require.Equal(t, 1, stringOperations)
 			})
+		})
+	}
+	t.Run("non-reloadable config changes (simple)", func(t *testing.T) {
+		// the simple non-reloadable config change detection is coarse-grained, i.e. just detects changes in config file of keys which have been used by the application by non-reloadable configuration requests
+		t.Setenv("CONFIG_ADVANCED_DETECTION", "false")
+		nonReloadableConfigChangesBasicScenarios(t)
+	})
+
+	t.Run("non-reloadable config changes (advanced)", func(t *testing.T) {
+		// the advanced non-reloadable config change detection is fine-grained, i.e. works mostly as reloadable detection, but does not support reloadable values
+		t.Setenv("CONFIG_ADVANCED_DETECTION", "true")
+
+		nonReloadableConfigChangesBasicScenarios(t)
+
+		t.Run("advanced detection - no changes", func(t *testing.T) {
+			c, observer, filename := setupConfig(t, true)
+
+			// Get non-reloadable values from config
+			stringValue := c.GetString("stringKey", "default")
+			require.Equal(t, "default", stringValue)
+			intValue := c.GetInt("intKey", 0)
+			require.Equal(t, 0, intValue)
+			int64Value := c.GetInt64("int64Key", 0)
+			require.EqualValues(t, 0, int64Value)
+			float64Value := c.GetFloat64("float64Key", 0.0)
+			require.Equal(t, 0.0, float64Value)
+			boolValue := c.GetBool("boolKey", false)
+			require.False(t, boolValue)
+			durationValue := c.GetDuration("durationKey", 0, time.Second)
+			require.Equal(t, 0*time.Second, durationValue)
+			stringSliceValue := c.GetStringSlice("stringSliceKey", []string{"default"})
+			require.Equal(t, []string{"default"}, stringSliceValue)
+			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
+			require.Equal(t, map[string]any{"default": "value"}, stringMapValue)
+
+			// Modify the config file
+			err := os.WriteFile(filename, []byte(`
+stringKey: default
+intKey: 0
+int64Key: 0
+float64Key: 0.0
+boolKey: false
+durationKey: 0s
+stringSliceKey: default
+stringMapKey: {"default": "value"}
+newKey: newValue
+`), 0o644)
+			require.NoError(t, err)
+
+			require.Eventually(t, func() bool {
+				time.Sleep(100 * time.Millisecond) // give some time for the observer to detect changes (viper is not thread-safe)
+				// Verify that the values have changed
+				return c.GetString("newKey", "default") == "newValue" &&
+					c.GetString("stringKey", "default") == "default" &&
+					c.GetInt("intKey", 0) == 0 &&
+					c.GetInt64("int64Key", 0) == 0 &&
+					c.GetFloat64("float64Key", 0.0) == 0.0 &&
+					c.GetBool("boolKey", false) == false &&
+					c.GetDuration("durationKey", 0, time.Second) == 0*time.Second &&
+					reflect.DeepEqual(c.GetStringSlice("stringSliceKey", []string{"default"}), []string{"default"}) &&
+					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"default": "value"})
+			}, 2*time.Second, 1*time.Millisecond)
+
+			// The observer should not be notified of config file changes
+			// since the values have not changed
+			stringOperations := observer.getNonReloadableChanges("stringKey")
+			require.Equal(t, 0, stringOperations)
+
+			intOperations := observer.getNonReloadableChanges("intKey")
+			require.Equal(t, 0, intOperations)
+
+			int64Operations := observer.getNonReloadableChanges("int64Key")
+			require.Equal(t, 0, int64Operations)
+
+			floatOperations := observer.getNonReloadableChanges("float64Key")
+			require.Equal(t, 0, floatOperations)
+
+			boolOperations := observer.getNonReloadableChanges("boolKey")
+			require.Equal(t, 0, boolOperations)
+
+			durationOperations := observer.getNonReloadableChanges("durationKey")
+			require.Equal(t, 0, durationOperations)
+
+			sliceOperations := observer.getNonReloadableChanges("stringSliceKey")
+			require.Equal(t, 0, sliceOperations)
+
+			mapOperations := observer.getNonReloadableChanges("stringMapKey")
+			require.Equal(t, 0, mapOperations)
 		})
 	})
 

@@ -15,7 +15,7 @@ import (
 
 func (c *Config) load() {
 	c.godotEnvErr = godotenv.Load()
-
+	c.enableNonReloadableAdvancedDetection = getEnv("CONFIG_ADVANCED_DETECTION", "false") == "true"
 	configPath := getEnv("CONFIG_PATH", "./config/config.yaml")
 
 	v := viper.NewWithOptions(viper.EnvKeyReplacer(&envReplacer{c: c}))
