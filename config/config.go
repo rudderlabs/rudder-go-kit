@@ -348,7 +348,7 @@ func (c *Config) Set(key string, value any) {
 	c.vLock.Lock()
 	c.v.Set(key, value)
 	c.vLock.Unlock()
-	c.onConfigChange(nil)
+	c.onConfigChange()
 }
 
 func getReloadableMapKeys[T configTypes](v T, orderedKeys ...string) (string, string) {

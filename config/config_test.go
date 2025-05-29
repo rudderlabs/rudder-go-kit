@@ -1119,6 +1119,44 @@ stringMapKey: '{"key": "value"}'
 			require.Len(t, mapOperations, 1)
 			require.Equal(t, KeyOperationAdded, mapOperations[0])
 		})
+
+		t.Run("setting a non-reloadable value", func(t *testing.T) {
+			c, observer, _ := setupConfig(t, false)
+
+			t.Run("key exists", func(t *testing.T) {
+				// Get non-reloadable values from config
+				stringValue := c.GetString("stringKey", "default")
+				require.Equal(t, "initialValue", stringValue)
+
+				// Set a new value for the key
+				c.Set("stringKey", "newValue")
+
+				// Verify that the value has changed
+				require.Equal(t, "newValue", c.GetString("stringKey", "default"))
+
+				// Verify that the observer was notified of the modification
+				stringOperations := observer.getNonReloadableOperations("stringKey")
+				require.Len(t, stringOperations, 1)
+				require.Equal(t, KeyOperationModified, stringOperations[0])
+			})
+
+			t.Run("key does not exist", func(t *testing.T) {
+				// Try to get a non-reloadable value for a key that does not exist
+				stringValue := c.GetString("nonExistentKey", "default")
+				require.Equal(t, "default", stringValue)
+
+				// Set a new value for the key
+				c.Set("nonExistentKey", "newValue")
+
+				// Verify that the value has changed
+				require.Equal(t, "newValue", c.GetString("nonExistentKey", "default"))
+
+				// Verify that the observer was notified of the addition
+				stringOperations := observer.getNonReloadableOperations("nonExistentKey")
+				require.Len(t, stringOperations, 1)
+				require.Equal(t, KeyOperationAdded, stringOperations[0])
+			})
+		})
 	})
 
 	t.Run("register and unregister observer", func(t *testing.T) {
