@@ -112,11 +112,10 @@ func (m *s3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...str
 }
 
 // UploadReader uploads data from an io.Reader to S3 with the given object name.
-func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
-	if objName == "" {
+func (m *s3ManagerV2) UploadReader(ctx context.Context, fileName string, rdr io.Reader) (UploadedFile, error) {
+	if fileName == "" {
 		return UploadedFile{}, errors.New("object name cannot be empty")
 	}
-	fileName := path.Join(m.config.Prefix, objName)
 
 	uploadInput := &s3.PutObjectInput{
 		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
