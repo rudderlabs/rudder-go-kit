@@ -30,7 +30,8 @@ func TestRetryableHTTPClient_Do_SuccessNoRetry(t *testing.T) {
 
 		// return success
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, err = w.Write([]byte(`{"status":"ok"}`))
+		require.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -67,7 +68,8 @@ func TestRetryableHTTPClient_Do_RetryOn5xx(t *testing.T) {
 		}
 		// return success on third attempt
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		_, err := w.Write([]byte(`{"status":"ok"}`))
+		require.NoError(t, err)
 	}))
 	defer ts.Close()
 
@@ -239,8 +241,7 @@ func TestRetryableHTTPClient_RequestCreationError(t *testing.T) {
 	client := NewRetryableHTTPClient(nil)
 
 	// use invalid URL to trigger request creation error
-	resp, err := client.Do(http.MethodGet, "://invalid-url", nil, nil)
-
+	resp, err := client.Do(http.MethodGet, "://invalid-url", nil, nil) // nolint: bodyclose
 	require.Error(t, err)
 	require.Nil(t, resp)
 }
