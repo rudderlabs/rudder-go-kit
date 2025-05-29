@@ -294,7 +294,10 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 	}
 	byteChan := make(chan []byte)
 	go func() {
-		defer close(byteChan)
+		defer func() {
+			close(byteChan)
+			stream.Close()
+		}()
 		select {
 		case <-ctx.Done():
 			return
