@@ -389,7 +389,7 @@ func TestNewReloadableAPI(t *testing.T) {
 
 			require.PanicsWithError(t,
 				"detected misuse of config variable registered with different default values for \"[]string:TestNewReloadableAPI/reloadable/[]string\": "+
-					"[a b] - [a b c]",
+					"a,b - a,b,c",
 				func() {
 					_ = c.GetReloadableStringSliceVar([]string{"a", "b", "c"}, t.Name())
 				},
@@ -645,7 +645,7 @@ func TestConfigLocking(t *testing.T) {
 
 	startOperation("set the config value", func() { c.Set(configKey, "value1") })
 	startOperation("try to read the config value using GetString", func() { _ = c.GetString(configKey, "") })
-	startOperation("try to read the config value using GetStringVar", func() { _ = c.GetStringVar(configKey, "") })
+	startOperation("try to read the config value using GetStringVar", func() { _ = c.GetStringVar("", configKey) })
 	startOperation("try to read the config value using GetReloadableStringVar", func() {
 		r := c.GetReloadableStringVar("", configKey)
 		_ = r.Load()

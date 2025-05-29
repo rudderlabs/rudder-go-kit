@@ -40,7 +40,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spf13/cast"
 	"github.com/spf13/viper"
 )
 
@@ -75,7 +74,7 @@ func New(opts ...Opt) *Config {
 		hotReloadableConfig:       make(map[string]map[string]*configValue),
 		hotReloadableVars:         make(map[string]any),
 		hotReloadableVarsDefaults: make(map[string]string),
-		nonReloadableConfig:       make(map[string]map[string]*configValue),
+		nonReloadableConfig:       make(map[string]*configValue),
 		nonReloadableKeys:         make(map[string]string),
 		notifier:                  &notifier{},
 	}
@@ -93,14 +92,14 @@ type Config struct {
 	v     *viper.Viper
 
 	hotReloadableConfigLock   sync.RWMutex                       // protects hot reloadable maps
-	hotReloadableConfig       map[string]map[string]*configValue // key1 -> comma-separated list of config keys, e.g. jobsdb.host, key2 -> data type, value -> configValue pointer
-	hotReloadableVars         map[string]any                     // key -> type with comma-separated list of config keys, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
-	hotReloadableVarsDefaults map[string]string                  // key -> type with comma-separated list of config keys, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
+	hotReloadableConfig       map[string]map[string]*configValue // key1 -> <comma-separated list of config keys>, e.g. jobsdb.host, key2 -> <data-type>, value -> configValue pointer
+	hotReloadableVars         map[string]any                     // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
+	hotReloadableVarsDefaults map[string]string                  // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
 
-	nonReloadableConfigLock sync.RWMutex // protects non hot reloadable maps
-	nonReloadableConfig     map[string]map[string]*configValue
-	nonReloadableKeys       map[string]string // key -> non-reloadable config key in lowercase, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
-	currentSettings         map[string]any    // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
+	nonReloadableConfigLock sync.RWMutex            // protects non hot reloadable maps
+	nonReloadableConfig     map[string]*configValue // key -> type with comma-separated list of config keys and default value, e.g. string:jobsdb.host:localhost, value -> configValue pointer
+	nonReloadableKeys       map[string]string       // key -> non-reloadable config key in lowercase, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
+	currentSettings         map[string]any          // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
 
 	envsLock  sync.RWMutex // protects the envs map below
 	envs      map[string]string
@@ -111,6 +110,26 @@ type Config struct {
 	configPathErr      error
 	godotEnvErr        error
 	notifier           *notifier // for notifying subscribers of config changes
+}
+
+// GetBoolVar registers a not hot-reloadable bool config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
+	return Default.GetBoolVar(defaultValue, orderedKeys...)
+}
+
+// GetBoolVar registers a not hot-reloadable bool config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func (c *Config) GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
+	var ret bool
+	c.registerBoolVar(defaultValue, &ret, false, func(v bool) {
+		ret = v
+	}, orderedKeys...)
+	return ret
 }
 
 // GetBool gets bool value from config
@@ -133,6 +152,26 @@ func (c *Config) getBoolInternal(key string, defaultValue bool) (value bool) {
 	return c.v.GetBool(key)
 }
 
+// GetIntVar registers a not hot-reloadable int config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func GetIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
+	return Default.GetIntVar(defaultValue, valueScale, orderedKeys...)
+}
+
+// GetIntVar registers a not hot-reloadable int config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func (c *Config) GetIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
+	var ret int
+	c.registerIntVar(defaultValue, &ret, false, valueScale, func(v int) {
+		ret = v
+	}, orderedKeys...)
+	return ret
+}
+
 // GetInt gets int value from config
 func GetInt(key string, defaultValue int) (value int) {
 	return Default.GetInt(key, defaultValue)
@@ -151,6 +190,43 @@ func (c *Config) getIntInternal(key string, defaultValue int) (value int) {
 		return defaultValue
 	}
 	return c.v.GetInt(key)
+}
+
+// MustGetInt gets int value from config or panics if the config doesn't exist
+func MustGetInt(key string) (value int) {
+	return Default.MustGetInt(key)
+}
+
+// MustGetInt gets int value from config or panics if the config doesn't exist
+func (c *Config) MustGetInt(key string) (value int) {
+	c.vLock.RLock()
+	defer c.vLock.RUnlock()
+	if !c.isSetInternal(key) {
+		panic(fmt.Errorf("config key %s not found", key))
+	}
+	return c.v.GetInt(key)
+}
+
+// GetStringMapVar registers a not hot-reloadable string map config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func GetStringMapVar(defaultValue map[string]any, orderedKeys ...string) map[string]any {
+	return Default.GetStringMapVar(defaultValue, orderedKeys...)
+}
+
+// GetStringMapVar registers a not hot-reloadable string map config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func (c *Config) GetStringMapVar(
+	defaultValue map[string]any, orderedKeys ...string,
+) map[string]any {
+	var ret map[string]any
+	c.registerStringMapVar(defaultValue, &ret, false, func(v map[string]any) {
+		ret = v
+	}, orderedKeys...)
+	return ret
 }
 
 // GetStringMap gets string map value from config
@@ -173,19 +249,24 @@ func (c *Config) getStringMapInternal(key string, defaultValue map[string]any) (
 	return c.v.GetStringMap(key)
 }
 
-// MustGetInt gets int value from config or panics if the config doesn't exist
-func MustGetInt(key string) (value int) {
-	return Default.MustGetInt(key)
+// GetInt64Var registers a not hot-reloadable int64 config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func GetInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
+	return Default.GetInt64Var(defaultValue, valueScale, orderedKeys...)
 }
 
-// MustGetInt gets int value from config or panics if the config doesn't exist
-func (c *Config) MustGetInt(key string) (value int) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		panic(fmt.Errorf("config key %s not found", key))
-	}
-	return c.v.GetInt(key)
+// GetInt64Var registers a not hot-reloadable int64 config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func (c *Config) GetInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
+	var ret int64
+	c.registerInt64Var(defaultValue, &ret, false, valueScale, func(v int64) {
+		ret = v
+	}, orderedKeys...)
+	return ret
 }
 
 // GetInt64 gets int64 value from config
@@ -208,6 +289,26 @@ func (c *Config) getInt64Internal(key string, defaultValue int64) (value int64) 
 	return c.v.GetInt64(key)
 }
 
+// GetFloat64Var registers a not hot-reloadable float64 config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func GetFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
+	return Default.GetFloat64Var(defaultValue, orderedKeys...)
+}
+
+// GetFloat64Var registers a not hot-reloadable float64 config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func (c *Config) GetFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
+	var ret float64
+	c.registerFloat64Var(defaultValue, &ret, false, func(v float64) {
+		ret = v
+	}, orderedKeys...)
+	return ret
+}
+
 // GetFloat64 gets float64 value from config
 func GetFloat64(key string, defaultValue float64) (value float64) {
 	return Default.GetFloat64(key, defaultValue)
@@ -226,6 +327,26 @@ func (c *Config) getFloat64Internal(key string, defaultValue float64) (value flo
 		return defaultValue
 	}
 	return c.v.GetFloat64(key)
+}
+
+// GetStringVar registers a not hot-reloadable string config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func GetStringVar(defaultValue string, orderedKeys ...string) string {
+	return Default.GetStringVar(defaultValue, orderedKeys...)
+}
+
+// GetStringVar registers a not hot-reloadable string config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func (c *Config) GetStringVar(defaultValue string, orderedKeys ...string) string {
+	var ret string
+	c.registerStringVar(defaultValue, &ret, false, func(v string) {
+		ret = v
+	}, orderedKeys...)
+	return ret
 }
 
 // GetString gets string value from config
@@ -263,6 +384,26 @@ func (c *Config) MustGetString(key string) (value string) {
 	return c.v.GetString(key)
 }
 
+// GetStringSliceVar registers a not hot-reloadable string slice config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func GetStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
+	return Default.GetStringSliceVar(defaultValue, orderedKeys...)
+}
+
+// GetStringSliceVar registers a not hot-reloadable string slice config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func (c *Config) GetStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
+	var ret []string
+	c.registerStringSliceVar(defaultValue, &ret, false, func(v []string) {
+		ret = v
+	}, orderedKeys...)
+	return ret
+}
+
 // GetStringSlice gets string slice value from config
 func GetStringSlice(key string, defaultValue []string) (value []string) {
 	return Default.GetStringSlice(key, defaultValue)
@@ -281,6 +422,30 @@ func (c *Config) getStringSliceInternal(key string, defaultValue []string) (valu
 		return defaultValue
 	}
 	return c.v.GetStringSlice(key)
+}
+
+// GetDurationVar registers a not hot-reloadable duration config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func GetDurationVar(
+	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
+) time.Duration {
+	return Default.GetDurationVar(defaultValueInTimescaleUnits, timeScale, orderedKeys...)
+}
+
+// GetDurationVar registers a not hot-reloadable duration config variable
+//
+// WARNING: keys are being looked up in requested order and the value of the first found key is returned,
+// e.g. asking for the same keys but in a different order can result in a different value to be returned
+func (c *Config) GetDurationVar(
+	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
+) time.Duration {
+	var ret time.Duration
+	c.registerDurationVar(defaultValueInTimescaleUnits, &ret, false, timeScale, func(v time.Duration) {
+		ret = v
+	}, orderedKeys...)
+	return ret
 }
 
 // GetDuration gets duration value from config
@@ -348,12 +513,9 @@ func (c *Config) Set(key string, value any) {
 	c.onConfigChange()
 }
 
-func getReloadableMapKeys[T configTypes](defaultValue T, orderedKeys ...string) (string, string) {
+func getMapKeys[T configTypes](defaultValue T, orderedKeys ...string) (string, string) {
 	k := getTypeName(defaultValue) + ":" + strings.Join(orderedKeys, ",") // key is a combination of type and ordered keys
-	sv, err := cast.ToStringE(defaultValue)                               // dvKey is the string representation of the default value
-	if err != nil {
-		sv = fmt.Sprintf("%v", defaultValue) // fallback to string representation
-	}
+	sv := getStringValue(defaultValue)
 	return k, sv
 }
 
@@ -361,7 +523,7 @@ func getOrCreatePointer[T configTypes](
 	reloadableVars map[string]any, reloadableVarsMisuses map[string]string, // this function MUST receive maps that are already initialized
 	lock *sync.RWMutex, defaultValue T, orderedKeys ...string,
 ) (ptr *Reloadable[T], exists bool) {
-	key, dvKey := getReloadableMapKeys(defaultValue, orderedKeys...)
+	key, dvKey := getMapKeys(defaultValue, orderedKeys...)
 
 	lock.Lock()
 	defer lock.Unlock()
@@ -438,34 +600,10 @@ func registerNonReloadableConfigKeys[T configTypes](c *Config, dv T, cv *configV
 	}
 
 	// TODO: this should be optional since it is potentially expensive
-	key, dvKey := getReloadableMapKeys(dv, cv.keys...)
+	key, dvKey := getMapKeys(dv, cv.keys...)
 	k := key + ":" + dvKey // final key should be a combination of type, ordered keys & default value
 	if _, exists := c.nonReloadableConfig[k]; !exists {
-		c.nonReloadableConfig[k] = make(map[string]*configValue) // we are not enforcing different default values for the same key
-	}
-	c.nonReloadableConfig[k][getTypeName(dv)] = cv
-}
-
-func getTypeName[T configTypes](t T) string {
-	switch v := any(t).(type) {
-	case string:
-		return "string"
-	case int:
-		return "int"
-	case int64:
-		return "int64"
-	case float64:
-		return "float64"
-	case bool:
-		return "bool"
-	case []string:
-		return "[]string"
-	case map[string]any:
-		return "map[string]any"
-	case time.Duration:
-		return "time.Duration"
-	default:
-		panic(fmt.Errorf("unsupported type %T for config variable", v))
+		c.nonReloadableConfig[k] = cv
 	}
 }
 
