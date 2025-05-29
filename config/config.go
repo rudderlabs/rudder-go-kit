@@ -128,7 +128,7 @@ func GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetBoolVar(defaultValue bool, orderedKeys ...string) bool {
 	var ret bool
-	c.registerBoolVar(defaultValue, &ret, false, func(v bool) {
+	c.storeAndRegisterBoolVar(defaultValue, &ret, func(v bool) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -168,7 +168,7 @@ func GetIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetIntVar(defaultValue, valueScale int, orderedKeys ...string) int {
 	var ret int
-	c.registerIntVar(defaultValue, &ret, false, valueScale, func(v int) {
+	c.storeAndRegisterIntVar(defaultValue, &ret, valueScale, func(v int) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -225,7 +225,7 @@ func (c *Config) GetStringMapVar(
 	defaultValue map[string]any, orderedKeys ...string,
 ) map[string]any {
 	var ret map[string]any
-	c.registerStringMapVar(defaultValue, &ret, false, func(v map[string]any) {
+	c.storeAndRegisterStringMapVar(defaultValue, &ret, func(v map[string]any) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -265,7 +265,7 @@ func GetInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetInt64Var(defaultValue, valueScale int64, orderedKeys ...string) int64 {
 	var ret int64
-	c.registerInt64Var(defaultValue, &ret, false, valueScale, func(v int64) {
+	c.storeAndRegisterInt64Var(defaultValue, &ret, valueScale, func(v int64) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -305,7 +305,7 @@ func GetFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetFloat64Var(defaultValue float64, orderedKeys ...string) float64 {
 	var ret float64
-	c.registerFloat64Var(defaultValue, &ret, false, func(v float64) {
+	c.storeAndRegisterFloat64Var(defaultValue, &ret, func(v float64) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -345,7 +345,7 @@ func GetStringVar(defaultValue string, orderedKeys ...string) string {
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetStringVar(defaultValue string, orderedKeys ...string) string {
 	var ret string
-	c.registerStringVar(defaultValue, &ret, false, func(v string) {
+	c.storeAndRegisterStringVar(defaultValue, &ret, func(v string) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -400,7 +400,7 @@ func GetStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
 // e.g. asking for the same keys but in a different order can result in a different value to be returned
 func (c *Config) GetStringSliceVar(defaultValue []string, orderedKeys ...string) []string {
 	var ret []string
-	c.registerStringSliceVar(defaultValue, &ret, false, func(v []string) {
+	c.storeAndRegisterStringSliceVar(defaultValue, &ret, func(v []string) {
 		ret = v
 	}, orderedKeys...)
 	return ret
@@ -444,7 +444,7 @@ func (c *Config) GetDurationVar(
 	defaultValueInTimescaleUnits int64, timeScale time.Duration, orderedKeys ...string,
 ) time.Duration {
 	var ret time.Duration
-	c.registerDurationVar(defaultValueInTimescaleUnits, &ret, false, timeScale, func(v time.Duration) {
+	c.storeAndRegisterDurationVar(defaultValueInTimescaleUnits, &ret, timeScale, func(v time.Duration) {
 		ret = v
 	}, orderedKeys...)
 	return ret
