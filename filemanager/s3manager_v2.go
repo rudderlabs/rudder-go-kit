@@ -334,45 +334,78 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 	return fileObjects, nil
 }
 
-func (m *s3ManagerV2) SelectObjects(ctx context.Context, sqlExpession, key string) (<-chan []byte, error) {
+func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan []byte, error) {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("s3 client: %w", err)
 	}
 
+	inputSerialization, outputSerialization, err := createS3SelectSerializationV2(selectConfig.InputFormat, selectConfig.OutputFormat)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting input/output serialization: %w", err)
+	}
+
 	selectObject, err := client.SelectObjectContent(ctx, &s3.SelectObjectContentInput{
-		Bucket:         aws.String(m.config.Bucket),
-		Key:            aws.String(key),
-		Expression:     aws.String(sqlExpession),
-		ExpressionType: types.ExpressionTypeSql,
-		InputSerialization: &types.InputSerialization{
-			Parquet: &types.ParquetInput{},
-		},
-		OutputSerialization: &types.OutputSerialization{
-			CSV: &types.CSVOutput{
-				RecordDelimiter: aws.String("\n"),
-				FieldDelimiter:  aws.String(","),
-			},
-		},
+		Bucket:              aws.String(m.config.Bucket),
+		Key:                 aws.String(selectConfig.Key),
+		Expression:          aws.String(selectConfig.SQLExpression),
+		ExpressionType:      types.ExpressionTypeSql,
+		InputSerialization:  inputSerialization,
+		OutputSerialization: outputSerialization,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error selecting object: %w", err)
 	}
 
 	stream := selectObject.GetStream()
+	if stream == nil {
+		return nil, fmt.Errorf("error getting stream")
+	}
 	events := stream.Events()
+	if events == nil {
+		return nil, fmt.Errorf("error getting events")
+	}
 	byteChan := make(chan []byte)
 	go func() {
 		defer close(byteChan)
-		for event := range events {
+		select {
+		case <-ctx.Done():
+			return
+		case event := <-events:
 			switch e := event.(type) {
 			case *types.SelectObjectContentEventStreamMemberRecords:
 				byteChan <- e.Value.Payload
 			case *types.SelectObjectContentEventStreamMemberEnd:
-				close(byteChan)
 				return
 			}
 		}
 	}()
 	return byteChan, nil
+}
+
+func createS3SelectSerializationV2(inputFormat, outputFormat string) (*types.InputSerialization, *types.OutputSerialization, error) {
+	var inputSerialization *types.InputSerialization
+	switch inputFormat {
+	case "parquet":
+		inputSerialization = &types.InputSerialization{
+			Parquet: &types.ParquetInput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid input format: %s", inputFormat)
+	}
+
+	var outputSerialization *types.OutputSerialization
+	switch outputFormat {
+	case "csv":
+		outputSerialization = &types.OutputSerialization{
+			CSV: &types.CSVOutput{
+				RecordDelimiter: aws.String("\n"),
+				FieldDelimiter:  aws.String(","),
+			},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid output format: %s", outputFormat)
+	}
+
+	return inputSerialization, outputSerialization, nil
 }
