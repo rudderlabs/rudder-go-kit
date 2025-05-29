@@ -101,6 +101,11 @@ func (c *Config) onConfigChange() {
 	c.hotReloadableConfigLock.RUnlock()
 
 	c.checkAndNotifyNonReloadableConfig()
+
+	// TODO: this should be conditional
+	c.nonReloadableConfigLock.RLock()
+	c.checkAndNotifyNonReloadConfigAdvanced(c.nonReloadableConfig)
+	c.nonReloadableConfigLock.RUnlock()
 }
 
 // checkAndNotifyNonReloadableConfig checks for changes in non-reloadable config values
@@ -172,7 +177,6 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*config
 				for _, key := range configVal.keys {
 					if c.IsSet(key) {
 						isSet = true
-						// Use internal method with isHotReloadable=true
 						_value = c.getIntInternal(key, configVal.defaultValue.(int))
 						break
 					}
@@ -188,7 +192,6 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*config
 				for _, key := range configVal.keys {
 					if c.IsSet(key) {
 						isSet = true
-						// Use internal method with isHotReloadable=true
 						_value = c.getInt64Internal(key, configVal.defaultValue.(int64))
 						break
 					}
@@ -204,7 +207,6 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*config
 				for _, key := range configVal.keys {
 					if c.IsSet(key) {
 						isSet = true
-						// Use internal method with isHotReloadable=true
 						_value = c.getStringInternal(key, configVal.defaultValue.(string))
 						break
 					}
@@ -219,7 +221,6 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*config
 				for _, key := range configVal.keys {
 					if c.IsSet(key) {
 						isSet = true
-						// Use internal method with isHotReloadable=true
 						_value = c.getDurationInternal(key, configVal.defaultValue.(int64), configVal.multiplier.(time.Duration))
 						break
 					}
@@ -248,7 +249,6 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*config
 				for _, key := range configVal.keys {
 					if c.IsSet(key) {
 						isSet = true
-						// Use internal method with isHotReloadable=true
 						_value = c.getFloat64Internal(key, configVal.defaultValue.(float64))
 						break
 					}
@@ -264,7 +264,6 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*config
 				for _, key := range configVal.keys {
 					if c.IsSet(key) {
 						isSet = true
-						// Use internal method with isHotReloadable=true
 						_value = c.getStringSliceInternal(key, configVal.defaultValue.([]string))
 						break
 					}
@@ -281,7 +280,6 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*config
 				for _, key := range configVal.keys {
 					if c.IsSet(key) {
 						isSet = true
-						// Use internal method with isHotReloadable=true
 						_value = c.getStringMapInternal(key, configVal.defaultValue.(map[string]any))
 						break
 					}
@@ -292,6 +290,159 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]map[string]*config
 				swapHotReloadableConfig(key, value, _value, func(a, b map[string]any) bool {
 					return mapDeepEqual(a, b)
 				}, c.notifier)
+			}
+		}
+	}
+}
+
+func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]map[string]*configValue) {
+	for _, typeConfigVars := range configMap {
+		for _, configVal := range typeConfigVars {
+			value := configVal.value
+			switch value := value.(type) {
+			case *int:
+				var _value int
+				var isSet bool
+				for _, key := range configVal.keys {
+					if c.IsSet(key) {
+						isSet = true
+						_value = c.getIntInternal(key, configVal.defaultValue.(int))
+						break
+					}
+				}
+				if !isSet {
+					_value = configVal.defaultValue.(int)
+				}
+				_value = _value * configVal.multiplier.(int)
+				if *value != _value {
+					*value = _value
+					// TODO: Notify about the change
+				}
+			case *int64:
+				var _value int64
+				var isSet bool
+				for _, key := range configVal.keys {
+					if c.IsSet(key) {
+						isSet = true
+						_value = c.getInt64Internal(key, configVal.defaultValue.(int64))
+						break
+					}
+				}
+				if !isSet {
+					_value = configVal.defaultValue.(int64)
+				}
+				_value = _value * configVal.multiplier.(int64)
+				if *value != _value {
+					*value = _value
+					// TODO: Notify about the change
+				}
+			case *string:
+				var _value string
+				var isSet bool
+				for _, key := range configVal.keys {
+					if c.IsSet(key) {
+						isSet = true
+						_value = c.getStringInternal(key, configVal.defaultValue.(string))
+						break
+					}
+				}
+				if !isSet {
+					_value = configVal.defaultValue.(string)
+				}
+				if *value != _value {
+					*value = _value
+					// TODO: Notify about the change
+				}
+			case *time.Duration:
+				var _value time.Duration
+				var isSet bool
+				for _, key := range configVal.keys {
+					if c.IsSet(key) {
+						isSet = true
+
+						_value = c.getDurationInternal(key, configVal.defaultValue.(int64), configVal.multiplier.(time.Duration))
+						break
+					}
+				}
+				if !isSet {
+					_value = time.Duration(configVal.defaultValue.(int64)) * configVal.multiplier.(time.Duration)
+				}
+				if *value != _value {
+					*value = _value
+					// TODO: Notify about the change
+				}
+			case *bool:
+				var _value bool
+				var isSet bool
+				for _, key := range configVal.keys {
+					if c.IsSet(key) {
+						isSet = true
+						_value = c.getBoolInternal(key, configVal.defaultValue.(bool))
+						break
+					}
+				}
+				if !isSet {
+					_value = configVal.defaultValue.(bool)
+				}
+				if *value != _value {
+					*value = _value
+					// TODO: Notify about the change
+				}
+			case *float64:
+				var _value float64
+				var isSet bool
+				for _, key := range configVal.keys {
+					if c.IsSet(key) {
+						isSet = true
+
+						_value = c.getFloat64Internal(key, configVal.defaultValue.(float64))
+						break
+					}
+				}
+				if !isSet {
+					_value = configVal.defaultValue.(float64)
+				}
+				_value = _value * configVal.multiplier.(float64)
+				if *value != _value {
+					*value = _value
+					// TODO: Notify about the change
+				}
+			case *[]string:
+				var _value []string
+				var isSet bool
+				for _, key := range configVal.keys {
+					if c.IsSet(key) {
+						isSet = true
+
+						_value = c.getStringSliceInternal(key, configVal.defaultValue.([]string))
+						break
+					}
+				}
+				if !isSet {
+					_value = configVal.defaultValue.([]string)
+				}
+				if slices.Compare(*value, _value) != 0 {
+					*value = _value
+					// TODO: Notify about the change
+				}
+			case *map[string]any:
+				var _value map[string]any
+				var isSet bool
+				for _, key := range configVal.keys {
+					if c.IsSet(key) {
+						isSet = true
+
+						_value = c.getStringMapInternal(key, configVal.defaultValue.(map[string]any))
+						break
+					}
+				}
+				if !isSet {
+					_value = configVal.defaultValue.(map[string]any)
+				}
+				if !mapDeepEqual(*value, _value) {
+					*value = _value
+					// TODO: Notify about the change
+				}
 			}
 		}
 	}
