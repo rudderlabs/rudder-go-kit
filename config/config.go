@@ -143,18 +143,18 @@ func (c *Config) Set(key string, value any) {
 	c.onConfigChange()
 }
 
-// getMapKeys returns the map key (<type>:<comma-separated-keys>) along with the string representation of the default value
-func getMapKeys[T configTypes](defaultValue T, orderedKeys ...string) (string, string) {
-	k := getTypeName(defaultValue) + ":" + strings.Join(orderedKeys, ",") // key is a combination of type and ordered keys
-	sv := getStringValue(defaultValue)
-	return k, sv
+// getMapKey returns the map key (<type>:<comma-separated-keys>) along with the string representation of the default value
+func getMapKey[T configTypes](defaultValue T, orderedKeys ...string) (string, string) {
+	mapKey := getTypeName(defaultValue) + ":" + strings.Join(orderedKeys, ",") // key is a combination of type and ordered keys
+	defaultValueStr := getStringValue(defaultValue)
+	return mapKey, defaultValueStr
 }
 
 func getOrCreatePointer[T configTypes](
 	reloadableVars map[string]any, reloadableVarsMisuses map[string]string, reloadableConfigVals map[string]*configValue, // this function MUST receive maps that are already initialized
 	lock *sync.RWMutex, defaultValue T, cv *configValue, orderedKeys ...string,
 ) (ptr *Reloadable[T], exists bool) {
-	key, dv := getMapKeys(defaultValue, orderedKeys...)
+	key, dv := getMapKey(defaultValue, orderedKeys...)
 	lock.Lock()
 	defer lock.Unlock()
 	defer func() {
@@ -231,7 +231,7 @@ func registerNonReloadableConfigKeys[T configTypes](c *Config, dv T, cv *configV
 		}
 		return
 	}
-	key, dvKey := getMapKeys(dv, cv.keys...)
+	key, dvKey := getMapKey(dv, cv.keys...)
 	// final key should be a combination of type, ordered keys & default value
 	k := key + ":" + dvKey // TODO: consider ignoring default value for non-reloadable keys
 	if _, exists := c.nonReloadableConfig[k]; !exists {

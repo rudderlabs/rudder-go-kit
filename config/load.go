@@ -86,19 +86,22 @@ func (c *Config) DotEnvLoaded() error {
 func (c *Config) onConfigChange() {
 	defer func() {
 		if r := recover(); r != nil {
-			err := fmt.Errorf("cannot update Config Variables: %v", r)
+			err := fmt.Errorf("error updating config variables: %v", r)
 			fmt.Println(err)
 		}
 	}()
-
-	c.hotReloadableConfigLock.RLock()
-	c.checkAndHotReloadConfig(c.hotReloadableConfig)
-	c.hotReloadableConfigLock.RUnlock()
+	func() { // wrap in a function to unlock the hotReloadableConfigLock in case of panic
+		c.hotReloadableConfigLock.RLock()
+		defer c.hotReloadableConfigLock.RUnlock()
+		c.checkAndHotReloadConfig(c.hotReloadableConfig)
+	}()
 
 	if c.enableNonReloadableAdvancedDetection {
-		c.nonReloadableConfigLock.RLock()
-		c.checkAndNotifyNonReloadConfigAdvanced(c.nonReloadableConfig)
-		c.nonReloadableConfigLock.RUnlock()
+		func() { // wrap in a function to unlock the nonReloadableConfigLock in case of panic
+			c.nonReloadableConfigLock.RLock()
+			c.checkAndNotifyNonReloadConfigAdvanced(c.nonReloadableConfig)
+			c.nonReloadableConfigLock.RUnlock()
+		}()
 	} else {
 		c.checkAndNotifyNonReloadableConfig()
 	}
@@ -149,14 +152,16 @@ func (c *Config) checkAndNotifyNonReloadableConfig() {
 		}
 	}
 
-	// Notify subscribers for non-reloadable config changes
-	c.nonReloadableConfigLock.RLock()
-	for key := range changedKeys {
-		if originalKey, exists := c.nonReloadableKeys[key]; exists {
-			c.notifier.notifyNonReloadableConfigChange(originalKey)
+	func() { // wrap in a function to unlock the nonReloadableConfigLock in case of panic
+		// Notify subscribers for non-reloadable config changes
+		c.nonReloadableConfigLock.RLock()
+		defer c.nonReloadableConfigLock.RUnlock()
+		for key := range changedKeys {
+			if originalKey, exists := c.nonReloadableKeys[key]; exists {
+				c.notifier.notifyNonReloadableConfigChange(originalKey)
+			}
 		}
-	}
-	c.nonReloadableConfigLock.RUnlock()
+	}()
 
 	// Update current config with new values
 	c.currentSettings = newConfig
