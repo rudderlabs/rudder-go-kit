@@ -58,7 +58,7 @@ type retryableHTTPClient struct {
 
 type Option func(*retryableHTTPClient)
 
-func WithHttpClient(client requestDoer) Option {
+func WithRequestDoer(client requestDoer) Option {
 	return func(retryableHTTPClient *retryableHTTPClient) {
 		retryableHTTPClient.requestDoer = client
 	}

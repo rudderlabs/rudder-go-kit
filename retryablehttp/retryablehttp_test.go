@@ -171,7 +171,7 @@ func TestRetryableHTTPClient_WithCustomOptions(t *testing.T) {
 	}
 
 	// create retryable client with custom HTTP client
-	client := NewRetryableHTTPClient(nil, WithHttpClient(customHTTPClient))
+	client := NewRetryableHTTPClient(nil, WithRequestDoer(customHTTPClient))
 
 	// verify the client was set correctly (using type assertion)
 	retryClient, ok := client.(*retryableHTTPClient)
