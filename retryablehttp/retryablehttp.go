@@ -12,7 +12,7 @@ import (
 	conf "github.com/rudderlabs/rudder-go-kit/config"
 )
 
-type httpClient interface {
+type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
@@ -35,7 +35,7 @@ type Config struct {
 }
 
 type retryableHTTPClient struct {
-	httpClient
+	HttpClient
 	config *Config
 	// shouldRetry is a function that determines whether to retry based on the response and error.
 	shouldRetry retryStrategy
@@ -45,9 +45,9 @@ type retryableHTTPClient struct {
 
 type Option func(*retryableHTTPClient)
 
-func WithHttpClient(client httpClient) Option {
+func WithHttpClient(client HttpClient) Option {
 	return func(retryableHTTPClient *retryableHTTPClient) {
-		retryableHTTPClient.httpClient = client
+		retryableHTTPClient.HttpClient = client
 	}
 }
 
@@ -96,12 +96,12 @@ func NewDefaultConfig() *Config {
 // - Maximum 100 connections per host
 // - Maximum 10 idle connections per host
 // - Idle connection timeout of 30 seconds
-func NewRetryableHTTPClient(config *Config, options ...Option) httpClient {
+func NewRetryableHTTPClient(config *Config, options ...Option) HttpClient {
 	if config == nil {
 		config = NewDefaultConfig()
 	}
 	client := &retryableHTTPClient{
-		httpClient: &http.Client{
+		HttpClient: &http.Client{
 			Transport: &http.Transport{
 				DisableKeepAlives:   true,
 				MaxConnsPerHost:     100,
@@ -142,7 +142,7 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 					req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 				}
 			}
-			resp, err = c.httpClient.Do(req) // nolint: bodyclose
+			resp, err = c.HttpClient.Do(req) // nolint: bodyclose
 			if retry, retryErr := c.shouldRetry(resp, err); retry {
 				return fmt.Errorf("retryable error: %v", retryErr)
 			}

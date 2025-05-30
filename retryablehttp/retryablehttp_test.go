@@ -241,7 +241,7 @@ func TestRetryableHTTPClient_WithCustomOptions(t *testing.T) {
 	// verify the client was set correctly (using type assertion)
 	retryClient, ok := client.(*retryableHTTPClient)
 	require.True(t, ok)
-	require.Equal(t, customHTTPClient, retryClient.httpClient)
+	require.Equal(t, customHTTPClient, retryClient.HttpClient)
 
 	// make request to verify it works
 	req, err := http.NewRequest(http.MethodGet, ts.URL, nil)
