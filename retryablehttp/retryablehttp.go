@@ -138,9 +138,7 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		func() error {
 			// if the body was read, we need to reset it
 			if bodyBytes != nil {
-				if req.Body != http.NoBody {
-					req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-				}
+				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
 			resp, err = c.HttpClient.Do(req) // nolint: bodyclose
 			if retry, retryErr := c.shouldRetry(resp, err); retry {
