@@ -14,7 +14,7 @@ type Observer interface {
 	OnNonReloadableConfigChange(key string)
 }
 
-// NonReloadableConfigChangesFunc is an Observer function that is invoked for non-reloadable configuration changes.
+// NonReloadableConfigChangesFunc is an Observer function invoked for non-reloadable configuration changes.
 type NonReloadableConfigChangesFunc func(key string)
 
 func (f NonReloadableConfigChangesFunc) OnNonReloadableConfigChange(key string) {
@@ -25,7 +25,7 @@ func (f NonReloadableConfigChangesFunc) OnReloadableConfigChange(key string, old
 	// no-op for reloadable changes
 }
 
-// ReloadableConfigChangesFunc is an Observer function that is invoked for reloadable configuration changes.
+// ReloadableConfigChangesFunc is an Observer function invoked for reloadable configuration changes.
 type ReloadableConfigChangesFunc func(key string, oldValue, newValue any)
 
 func (f ReloadableConfigChangesFunc) OnNonReloadableConfigChange(key string) {
