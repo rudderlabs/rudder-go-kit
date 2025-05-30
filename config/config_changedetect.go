@@ -7,81 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
-	"github.com/joho/godotenv"
 	"github.com/spf13/cast"
-	"github.com/spf13/viper"
 )
-
-func (c *Config) load() {
-	c.godotEnvErr = godotenv.Load()
-	c.enableNonReloadableAdvancedDetection = getEnv("CONFIG_ADVANCED_DETECTION", "false") == "true"
-	configPath := getEnv("CONFIG_PATH", "./config/config.yaml")
-
-	v := viper.NewWithOptions(viper.EnvKeyReplacer(&envReplacer{c: c}))
-	v.AutomaticEnv()
-	bindLegacyEnv(v)
-
-	v.SetConfigFile(configPath)
-
-	// Find and read the config file
-	// If config.yaml is not found or error with parsing. Use the default config values instead
-	c.configPathErr = v.ReadInConfig()
-	c.configPath = v.ConfigFileUsed()
-	c.v = v
-
-	c.currentSettings = c.getCurrentSettings()
-	c.v.OnConfigChange(func(_ fsnotify.Event) {
-		c.onConfigChange()
-	})
-	c.v.WatchConfig()
-}
-
-// getCurrentSettings retrieves the current configuration settings and flattens them into a map.
-func (c *Config) getCurrentSettings() map[string]any {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	currentConfig := make(map[string]any)
-	var flattenSettings func(envPrefix, prefix string, nested, flat map[string]any)
-	flattenSettings = func(envPrefix, prefix string, nested, flat map[string]any) {
-		for k, v := range nested {
-			fullKey := k
-			if prefix != "" {
-				fullKey = prefix + "." + k
-			}
-
-			// Type switch for deeper nested maps
-			switch child := v.(type) {
-			case map[string]any:
-				flattenSettings(envPrefix, fullKey, child, flat)
-			case map[any]any: // in case of YAML decoding
-				converted := make(map[string]any)
-				for key, val := range child {
-					if ks, ok := key.(string); ok {
-						converted[ks] = val
-					}
-				}
-				flattenSettings(envPrefix, fullKey, converted, flat)
-			default:
-				flat[strings.ToLower(fullKey)] = v
-			}
-		}
-	}
-	flattenSettings(c.envPrefix, "", c.v.AllSettings(), currentConfig)
-	return currentConfig
-}
-
-// ConfigFileUsed returns the file used to load the config.
-// If we failed to load the config file, it also returns an error.
-func (c *Config) ConfigFileUsed() (string, error) {
-	return c.configPath, c.configPathErr
-}
-
-// DotEnvLoaded returns an error if there was an error loading the .env file.
-// It returns nil otherwise.
-func (c *Config) DotEnvLoaded() error {
-	return c.godotEnvErr
-}
 
 func (c *Config) onConfigChange() {
 	defer func() {
@@ -105,66 +32,6 @@ func (c *Config) onConfigChange() {
 	} else {
 		c.checkAndNotifyNonReloadableConfig()
 	}
-}
-
-// checkAndNotifyNonReloadableConfig checks for changes in non-reloadable config values
-// and notifies subscribers if changes are detected
-func (c *Config) checkAndNotifyNonReloadableConfig() {
-	newConfig := c.getCurrentSettings()
-
-	// Identify changed keys
-	changedKeys := make(map[string]struct{})
-
-	// Collect keys that were added or modified
-	for key, newValue := range newConfig {
-		oldValue, exists := c.currentSettings[key]
-		if !exists {
-			changedKeys[key] = struct{}{}
-		} else {
-			// first try to convert both values to string for comparison
-			if old, new, err := func() (string, string, error) {
-				old, err := cast.ToStringE(oldValue)
-				if err != nil {
-					return "", "", fmt.Errorf("error casting old value for key %s: %w", key, err)
-				}
-				new, err := cast.ToStringE(newValue)
-				if err != nil {
-					return "", "", fmt.Errorf("error casting new value for key %s: %w", key, err)
-				}
-				return old, new, nil
-			}(); err == nil {
-				if old != new {
-					changedKeys[key] = struct{}{}
-				}
-			} else {
-				// fallback to deep comparison for complex types that cannot be casted to string
-				if !reflect.DeepEqual(oldValue, newValue) {
-					changedKeys[key] = struct{}{}
-				}
-			}
-		} // first try to cast both values to string for comparison
-
-	}
-	// Collect keys that were removed
-	for key := range c.currentSettings {
-		if _, exists := newConfig[key]; !exists {
-			changedKeys[key] = struct{}{}
-		}
-	}
-
-	func() { // wrap in a function to unlock the nonReloadableConfigLock in case of panic
-		// Notify subscribers for non-reloadable config changes
-		c.nonReloadableConfigLock.RLock()
-		defer c.nonReloadableConfigLock.RUnlock()
-		for key := range changedKeys {
-			if originalKey, exists := c.nonReloadableKeys[key]; exists {
-				c.notifier.notifyNonReloadableConfigChange(originalKey)
-			}
-		}
-	}()
-
-	// Update current config with new values
-	c.currentSettings = newConfig
 }
 
 func (c *Config) checkAndHotReloadConfig(configMap map[string]*configValue) {
@@ -293,6 +160,106 @@ func (c *Config) checkAndHotReloadConfig(configMap map[string]*configValue) {
 			}, c.notifier)
 		}
 	}
+}
+
+func swapHotReloadableConfig[T configTypes](key string, reloadableValue *Reloadable[T], newValue T, compare func(T, T) bool, notifier *notifier) {
+	if oldValue, swapped := reloadableValue.swapIfNotEqual(newValue, compare); swapped {
+		notifier.notifyReloadableConfigChange(key, oldValue, newValue)
+	}
+}
+
+// checkAndNotifyNonReloadableConfig checks for changes in non-reloadable config values
+// and notifies subscribers if changes are detected
+func (c *Config) checkAndNotifyNonReloadableConfig() {
+	newConfig := c.getCurrentSettings()
+
+	// Identify changed keys
+	changedKeys := make(map[string]struct{})
+
+	// Collect keys that were added or modified
+	for key, newValue := range newConfig {
+		oldValue, exists := c.currentSettings[key]
+		if !exists {
+			changedKeys[key] = struct{}{}
+		} else {
+			// first try to convert both values to string for comparison
+			if old, new, err := func() (string, string, error) {
+				old, err := cast.ToStringE(oldValue)
+				if err != nil {
+					return "", "", fmt.Errorf("error casting old value for key %s: %w", key, err)
+				}
+				new, err := cast.ToStringE(newValue)
+				if err != nil {
+					return "", "", fmt.Errorf("error casting new value for key %s: %w", key, err)
+				}
+				return old, new, nil
+			}(); err == nil {
+				if old != new {
+					changedKeys[key] = struct{}{}
+				}
+			} else {
+				// fallback to deep comparison for complex types that cannot be casted to string
+				if !reflect.DeepEqual(oldValue, newValue) {
+					changedKeys[key] = struct{}{}
+				}
+			}
+		} // first try to cast both values to string for comparison
+
+	}
+	// Collect keys that were removed
+	for key := range c.currentSettings {
+		if _, exists := newConfig[key]; !exists {
+			changedKeys[key] = struct{}{}
+		}
+	}
+
+	func() { // wrap in a function to unlock the nonReloadableConfigLock in case of panic
+		// Notify subscribers for non-reloadable config changes
+		c.nonReloadableConfigLock.RLock()
+		defer c.nonReloadableConfigLock.RUnlock()
+		for key := range changedKeys {
+			if originalKey, exists := c.nonReloadableKeys[key]; exists {
+				c.notifier.notifyNonReloadableConfigChange(originalKey)
+			}
+		}
+	}()
+
+	// Update current config with new values
+	c.currentSettings = newConfig
+}
+
+// getCurrentSettings retrieves the current configuration settings and flattens them into a map.
+func (c *Config) getCurrentSettings() map[string]any {
+	c.vLock.RLock()
+	defer c.vLock.RUnlock()
+	currentConfig := make(map[string]any)
+	var flattenSettings func(envPrefix, prefix string, nested, flat map[string]any)
+	flattenSettings = func(envPrefix, prefix string, nested, flat map[string]any) {
+		for k, v := range nested {
+			fullKey := k
+			if prefix != "" {
+				fullKey = prefix + "." + k
+			}
+
+			// Type switch for deeper nested maps
+			switch child := v.(type) {
+			case map[string]any:
+				flattenSettings(envPrefix, fullKey, child, flat)
+			case map[any]any: // in case of YAML decoding
+				converted := make(map[string]any)
+				for key, val := range child {
+					if ks, ok := key.(string); ok {
+						converted[ks] = val
+					}
+				}
+				flattenSettings(envPrefix, fullKey, converted, flat)
+			default:
+				flat[strings.ToLower(fullKey)] = v
+			}
+		}
+	}
+	flattenSettings(c.envPrefix, "", c.v.AllSettings(), currentConfig)
+	return currentConfig
 }
 
 func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*configValue) {
@@ -443,11 +410,5 @@ func (c *Config) checkAndNotifyNonReloadConfigAdvanced(configMap map[string]*con
 				c.notifier.notifyNonReloadableConfigChange(key)
 			}
 		}
-	}
-}
-
-func swapHotReloadableConfig[T configTypes](key string, reloadableValue *Reloadable[T], newValue T, compare func(T, T) bool, notifier *notifier) {
-	if oldValue, swapped := reloadableValue.swapIfNotEqual(newValue, compare); swapped {
-		notifier.notifyReloadableConfigChange(key, oldValue, newValue)
 	}
 }
