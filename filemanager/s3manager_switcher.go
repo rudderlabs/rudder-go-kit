@@ -14,6 +14,7 @@ import (
 type S3Manager interface {
 	FileManager
 	Bucket() string
+	SelectObjects(ctx context.Context, config SelectConfig) (<-chan []byte, error)
 }
 
 func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (S3Manager, error) {
@@ -92,6 +93,17 @@ func (s *switchingS3Manager) GetDownloadKeyFromFileLocation(location string) str
 
 func (s *switchingS3Manager) Bucket() string {
 	return s.getManager().Bucket()
+}
+
+type SelectConfig struct {
+	SQLExpression string
+	Key           string
+	OutputFormat  string
+	InputFormat   string
+}
+
+func (s *switchingS3Manager) SelectObjects(ctx context.Context, config SelectConfig) (<-chan []byte, error) {
+	return s.getManager().SelectObjects(ctx, config)
 }
 
 func (s *switchingS3Manager) getManager() S3Manager {
