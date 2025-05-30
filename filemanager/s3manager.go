@@ -279,8 +279,7 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 		InputSerialization:  inputSerialization,
 		OutputSerialization: outputSerialization,
 	}
-
-	selectObject, err := svc.SelectObjectContent(input)
+	selectObject, err := svc.SelectObjectContentWithContext(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("error selecting object: %w", err)
 	}
