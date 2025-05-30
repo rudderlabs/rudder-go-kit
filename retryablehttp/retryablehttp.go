@@ -41,11 +41,11 @@ type Config struct {
 //	Multiplier: Backoff multiplier for retry intervals (default: 1.5)
 func NewDefaultConfig() *Config {
 	return &Config{
-		MaxRetry:        conf.GetReloadableIntVar(5, 1, "retryablehttp.maxRetry").Load(),
-		InitialInterval: conf.GetReloadableDurationVar(100, time.Millisecond, "retryablehttp.initialInterval").Load(),
-		MaxInterval:     conf.GetReloadableDurationVar(1000, time.Millisecond, "retryablehttp.maxInterval").Load(),
-		MaxElapsedTime:  conf.GetReloadableDurationVar(10, time.Second, "retryablehttp.maxElapsedTime").Load(),
-		Multiplier:      conf.GetReloadableFloat64Var(1.5, "retryablehttp.multiplier").Load(),
+		MaxRetry:        conf.GetInt("retryablehttp.maxRetry", 5),
+		InitialInterval: conf.GetDuration("retryablehttp.initialInterval", 100, time.Millisecond),
+		MaxInterval:     conf.GetDuration("retryablehttp.maxInterval", 1000, time.Millisecond),
+		MaxElapsedTime:  conf.GetDuration("retryablehttp.maxElapsedTime", 10, time.Second),
+		Multiplier:      conf.GetFloat64("retryablehttp.multiplier", 1.5),
 	}
 }
 
