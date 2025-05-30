@@ -55,6 +55,54 @@ func TestRetryableHTTPClient_Do_SuccessNoRetry(t *testing.T) {
 	resp.Body.Close()
 }
 
+func TestRetryableHTTPClient_Do_PostRetryOn5xx(t *testing.T) {
+	// set up test server
+	var attempts int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// verify request details
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		// verify body
+		bodyBytes, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.Equal(t, `{"test":"data"}`, string(bodyBytes))
+		attempts++
+		if attempts < 3 {
+			// return server error for first two attempts
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		// return success on third attempt
+		w.WriteHeader(http.StatusOK)
+		_, err = w.Write([]byte(`{"status":"ok"}`))
+		require.NoError(t, err)
+	}))
+	defer ts.Close()
+
+	// create client with custom config (faster retries for testing)
+	config := &Config{
+		MaxRetry:        3,
+		InitialInterval: 10 * time.Millisecond,
+		MaxInterval:     50 * time.Millisecond,
+		MaxElapsedTime:  time.Second,
+		Multiplier:      1.5,
+	}
+	client := NewRetryableHTTPClient(config)
+
+	// make request
+	body := strings.NewReader(`{"test":"data"}`)
+	headers := map[string]string{"Content-Type": "application/json"}
+	resp, err := client.Do(http.MethodPost, ts.URL, body, headers)
+
+	// assertions
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, 3, attempts) // Should retry twice then succeed on third try
+	resp.Body.Close()
+}
+
 func TestRetryableHTTPClient_Do_RetryOn5xx(t *testing.T) {
 	// set up test server
 	var attempts int
