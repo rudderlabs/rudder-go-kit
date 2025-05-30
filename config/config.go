@@ -38,6 +38,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -112,6 +114,30 @@ type Config struct {
 	notifier      *notifier // for notifying subscribers of config changes
 }
 
+func (c *Config) load() {
+	c.godotEnvErr = godotenv.Load()
+	c.enableNonReloadableAdvancedDetection = getEnv("CONFIG_ADVANCED_DETECTION", "false") == "true"
+	configPath := getEnv("CONFIG_PATH", "./config/config.yaml")
+
+	v := viper.NewWithOptions(viper.EnvKeyReplacer(&envReplacer{c: c}))
+	v.AutomaticEnv()
+	bindLegacyEnv(v)
+
+	v.SetConfigFile(configPath)
+
+	// Find and read the config file
+	// If config.yaml is not found or error with parsing. Use the default config values instead
+	c.configPathErr = v.ReadInConfig()
+	c.configPath = v.ConfigFileUsed()
+	c.v = v
+
+	c.currentSettings = c.getCurrentSettings()
+	c.v.OnConfigChange(func(_ fsnotify.Event) {
+		c.onConfigChange()
+	})
+	c.v.WatchConfig()
+}
+
 // IsSet checks if config is set for a key
 func IsSet(key string) bool {
 	return Default.IsSet(key)
@@ -141,6 +167,18 @@ func (c *Config) Set(key string, value any) {
 	c.v.Set(key, value)
 	c.vLock.Unlock()
 	c.onConfigChange()
+}
+
+// ConfigFileUsed returns the file used to load the config.
+// If we failed to load the config file, it also returns an error.
+func (c *Config) ConfigFileUsed() (string, error) {
+	return c.configPath, c.configPathErr
+}
+
+// DotEnvLoaded returns an error if there was an error loading the .env file.
+// It returns nil otherwise.
+func (c *Config) DotEnvLoaded() error {
+	return c.godotEnvErr
 }
 
 // getMapKey returns the map key (<type>:<comma-separated-keys>) along with the string representation of the default value
