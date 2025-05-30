@@ -11,8 +11,19 @@ import (
 	conf "github.com/rudderlabs/rudder-go-kit/config"
 )
 
+type RequestOptions func(r *http.Request) *http.Request
+
+func WithHeaders(headers map[string]string) RequestOptions {
+	return func(r *http.Request) *http.Request {
+		for key, value := range headers {
+			r.Header.Set(key, value)
+		}
+		return r
+	}
+}
+
 type HttpClient interface {
-	Do(method, url string, body io.Reader, headers map[string]string) (*http.Response, error)
+	Do(method, url string, body io.Reader, reqOpts ...RequestOptions) (*http.Response, error)
 }
 
 type requestDoer interface {
@@ -35,23 +46,6 @@ type Config struct {
 	MaxElapsedTime time.Duration
 	// Multiplier is the multiplier used to increase the interval between retries.
 	Multiplier float64
-}
-
-// NewDefaultConfig creates a new Config with default retry settings.
-//
-//	MaxRetry: Maximum number of retries (default: 5)
-//	InitialInterval: Initial retry interval in milliseconds (default: 100ms)
-//	MaxInterval: Maximum retry interval in milliseconds (default: 1000ms)
-//	MaxElapsedTime: Maximum total elapsed time for retries in seconds (default: 10s)
-//	Multiplier: Backoff multiplier for retry intervals (default: 1.5)
-func NewDefaultConfig() *Config {
-	return &Config{
-		MaxRetry:        conf.GetInt("retryablehttp.maxRetry", 5),
-		InitialInterval: conf.GetDuration("retryablehttp.initialInterval", 100, time.Millisecond),
-		MaxInterval:     conf.GetDuration("retryablehttp.maxInterval", 1000, time.Millisecond),
-		MaxElapsedTime:  conf.GetDuration("retryablehttp.maxElapsedTime", 10, time.Second),
-		Multiplier:      conf.GetFloat64("retryablehttp.multiplier", 1.5),
-	}
 }
 
 type retryableHTTPClient struct {
@@ -80,6 +74,23 @@ func WithOnFailure(onFailure func(err error, duration time.Duration)) Option {
 func WithCustomRetryStrategy(retryStrategy retryStrategy) Option {
 	return func(retryableHTTPClient *retryableHTTPClient) {
 		retryableHTTPClient.shouldRetry = retryStrategy
+	}
+}
+
+// NewDefaultConfig creates a new Config with default retry settings.
+//
+//	MaxRetry: Maximum number of retries (default: 5)
+//	InitialInterval: Initial retry interval in milliseconds (default: 100ms)
+//	MaxInterval: Maximum retry interval in milliseconds (default: 1000ms)
+//	MaxElapsedTime: Maximum total elapsed time for retries in seconds (default: 10s)
+//	Multiplier: Backoff multiplier for retry intervals (default: 1.5)
+func NewDefaultConfig() *Config {
+	return &Config{
+		MaxRetry:        conf.GetInt("retryablehttp.maxRetry", 5),
+		InitialInterval: conf.GetDuration("retryablehttp.initialInterval", 100, time.Millisecond),
+		MaxInterval:     conf.GetDuration("retryablehttp.maxInterval", 1000, time.Millisecond),
+		MaxElapsedTime:  conf.GetDuration("retryablehttp.maxElapsedTime", 10, time.Second),
+		Multiplier:      conf.GetFloat64("retryablehttp.multiplier", 1.5),
 	}
 }
 
@@ -122,7 +133,7 @@ func NewRetryableHTTPClient(config *Config, options ...Option) HttpClient {
 }
 
 // Do executes an HTTP request with retry logic.
-func (c *retryableHTTPClient) Do(method, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
+func (c *retryableHTTPClient) Do(method, url string, body io.Reader, reqOpts ...RequestOptions) (*http.Response, error) {
 	var (
 		resp *http.Response
 		err  error
@@ -133,8 +144,8 @@ func (c *retryableHTTPClient) Do(method, url string, body io.Reader, headers map
 			var req *http.Request
 			req, err = http.NewRequest(method, url, body)
 			if err == nil {
-				for key, value := range headers {
-					req.Header.Set(key, value)
+				for _, opt := range reqOpts {
+					req = opt(req)
 				}
 				resp, err = c.requestDoer.Do(req) // nolint: bodyclose
 				if retry, retryErr := c.shouldRetry(resp, err); retry {
