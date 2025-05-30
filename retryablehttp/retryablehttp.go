@@ -1,6 +1,7 @@
 package retryablehttp
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,22 +12,7 @@ import (
 	conf "github.com/rudderlabs/rudder-go-kit/config"
 )
 
-type RequestOptions func(r *http.Request) *http.Request
-
-func WithHeaders(headers map[string]string) RequestOptions {
-	return func(r *http.Request) *http.Request {
-		for key, value := range headers {
-			r.Header.Set(key, value)
-		}
-		return r
-	}
-}
-
-type HttpClient interface {
-	Do(method, url string, body io.Reader, reqOpts ...RequestOptions) (*http.Response, error)
-}
-
-type requestDoer interface {
+type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
@@ -49,7 +35,7 @@ type Config struct {
 }
 
 type retryableHTTPClient struct {
-	requestDoer
+	httpClient
 	config *Config
 	// shouldRetry is a function that determines whether to retry based on the response and error.
 	shouldRetry retryStrategy
@@ -59,9 +45,9 @@ type retryableHTTPClient struct {
 
 type Option func(*retryableHTTPClient)
 
-func WithRequestDoer(client requestDoer) Option {
+func WithHttpClient(client httpClient) Option {
 	return func(retryableHTTPClient *retryableHTTPClient) {
-		retryableHTTPClient.requestDoer = client
+		retryableHTTPClient.httpClient = client
 	}
 }
 
@@ -110,12 +96,12 @@ func NewDefaultConfig() *Config {
 // - Maximum 100 connections per host
 // - Maximum 10 idle connections per host
 // - Idle connection timeout of 30 seconds
-func NewRetryableHTTPClient(config *Config, options ...Option) HttpClient {
+func NewRetryableHTTPClient(config *Config, options ...Option) httpClient {
 	if config == nil {
 		config = NewDefaultConfig()
 	}
-	httpClient := &retryableHTTPClient{
-		requestDoer: &http.Client{
+	client := &retryableHTTPClient{
+		httpClient: &http.Client{
 			Transport: &http.Transport{
 				DisableKeepAlives:   true,
 				MaxConnsPerHost:     100,
@@ -127,30 +113,38 @@ func NewRetryableHTTPClient(config *Config, options ...Option) HttpClient {
 		shouldRetry: BaseRetryStrategy,
 	}
 	for _, option := range options {
-		option(httpClient)
+		option(client)
 	}
-	return httpClient
+	return client
 }
 
 // Do executes an HTTP request with retry logic.
-func (c *retryableHTTPClient) Do(method, url string, body io.Reader, reqOpts ...RequestOptions) (*http.Response, error) {
+func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	var (
 		resp *http.Response
 		err  error
 	)
 
+	var bodyBytes []byte
+	// if the body is not nil, read it and store it in bodyBytes
+	if req.Body != nil {
+		bodyBytes, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	_ = backoff.RetryNotify(
 		func() error {
-			var req *http.Request
-			req, err = http.NewRequest(method, url, body)
-			if err == nil {
-				for _, opt := range reqOpts {
-					req = opt(req)
+			// if the body was read, we need to reset it
+			if bodyBytes != nil {
+				if req.Body != http.NoBody {
+					req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 				}
-				resp, err = c.requestDoer.Do(req) // nolint: bodyclose
-				if retry, retryErr := c.shouldRetry(resp, err); retry {
-					return fmt.Errorf("retryable error: %v", retryErr)
-				}
+			}
+			resp, err = c.httpClient.Do(req) // nolint: bodyclose
+			if retry, retryErr := c.shouldRetry(resp, err); retry {
+				return fmt.Errorf("retryable error: %v", retryErr)
 			}
 			return err
 		},
