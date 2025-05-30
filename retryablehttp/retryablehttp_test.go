@@ -1,6 +1,7 @@
 package retryablehttp
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -232,7 +233,7 @@ func TestRetryableHTTPClient_WithOnFailure(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	require.Equal(t, 1, failureCallCount)
-	require.Contains(t, lastError.Error(), "non-success status code: 500")
+	require.Contains(t, lastError.Error(), "unexpected HTTP status 500 Internal Server Error")
 }
 
 func TestRetryableHTTPClient_RequestCreationError(t *testing.T) {
@@ -242,6 +243,68 @@ func TestRetryableHTTPClient_RequestCreationError(t *testing.T) {
 	resp, err := client.Do(http.MethodGet, "://invalid-url", nil, nil) // nolint: bodyclose
 	require.Error(t, err)
 	require.Nil(t, resp)
+}
+
+func TestRetryableHTTPClient_WithCustomRetryStrategy(t *testing.T) {
+	// set up test server
+	var attempts int
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		// return 404 for all requests (normally wouldn't trigger retry)
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	// create a custom retry strategy that retries on 404s (which normally wouldn't retry)
+	customRetryCount := 0
+	customRetryStrategy := func(resp *http.Response, err error) (bool, error) {
+		if err != nil {
+			return true, err
+		}
+		// specifically retry on 404 status, which default strategy wouldn't retry
+		if resp.StatusCode == http.StatusNotFound {
+			customRetryCount++
+			// only retry twice to avoid infinite loop
+			if customRetryCount < 3 {
+				return true, fmt.Errorf("custom retry strategy: retrying on 404")
+			}
+		}
+		return false, nil
+	}
+
+	// create client with custom retry strategy and fast retry intervals
+	config := &Config{
+		MaxRetry:        3,
+		InitialInterval: 10 * time.Millisecond,
+		MaxInterval:     50 * time.Millisecond,
+		MaxElapsedTime:  time.Second,
+		Multiplier:      1.5,
+	}
+
+	// Track failures with a callback
+	failureCalls := 0
+	onFailure := func(err error, duration time.Duration) {
+		failureCalls++
+		require.Contains(t, err.Error(), "custom retry strategy")
+	}
+
+	client := NewRetryableHTTPClient(
+		config,
+		WithCustomRetryStrategy(customRetryStrategy),
+		WithOnFailure(onFailure),
+	)
+
+	// Make request
+	resp, err := client.Do(http.MethodGet, ts.URL, nil, nil) // nolint: bodyclose
+
+	// Assertions
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+	require.Equal(t, 3, attempts)         // Initial + 2 retries
+	require.Equal(t, 2, failureCalls)     // Should be called for each retry
+	require.Equal(t, 3, customRetryCount) // Our strategy should have been called and incremented
+	resp.Body.Close()
 }
 
 func TestNewDefaultConfig(t *testing.T) {

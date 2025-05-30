@@ -19,6 +19,11 @@ type requestDoer interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// retryStrategy is a function that determines whether to retry based on the response and error.
+// It should return true if the request should be retried, along with an error for the reason of retry.
+// If it returns false, it means no retry is needed and the error(if any) along with a response can be returned directly.
+type retryStrategy func(resp *http.Response, err error) (bool, error)
+
 type Config struct {
 	// MaxRetry is the maximum number of retries.
 	MaxRetry int
@@ -52,6 +57,8 @@ func NewDefaultConfig() *Config {
 type retryableHTTPClient struct {
 	requestDoer
 	config *Config
+	// shouldRetry is a function that determines whether to retry based on the response and error.
+	shouldRetry retryStrategy
 	// onFailure is called when a retryable error occurs
 	onFailure func(err error, duration time.Duration)
 }
@@ -70,9 +77,15 @@ func WithOnFailure(onFailure func(err error, duration time.Duration)) Option {
 	}
 }
 
+func WithCustomRetryStrategy(retryStrategy retryStrategy) Option {
+	return func(retryableHTTPClient *retryableHTTPClient) {
+		retryableHTTPClient.shouldRetry = retryStrategy
+	}
+}
+
 // NewRetryableHTTPClient creates a new retryable HTTP client with the specified configuration and options.
 // It uses the `backoff` package to implement retry logic for HTTP requests.
-// All the 5xx and 429 errors will be retried
+// by default all the 5xx and 429 errors will be retried
 // The default retry strategy is exponential backoff
 // Parameters:
 // - config: Configuration for the exponential backoff strategy
@@ -99,7 +112,8 @@ func NewRetryableHTTPClient(config *Config, options ...Option) HttpClient {
 				IdleConnTimeout:     30 * time.Second,
 			},
 		},
-		config: config,
+		config:      config,
+		shouldRetry: BaseRetryStrategy,
 	}
 	for _, option := range options {
 		option(httpClient)
@@ -123,9 +137,8 @@ func (c *retryableHTTPClient) Do(method, url string, body io.Reader, headers map
 					req.Header.Set(key, value)
 				}
 				resp, err = c.requestDoer.Do(req) // nolint: bodyclose
-				// retry 5xx errors
-				if err == nil && (resp.StatusCode >= http.StatusInternalServerError || resp.StatusCode == http.StatusTooManyRequests) {
-					return fmt.Errorf("non-success status code: %d", resp.StatusCode)
+				if retry, retryErr := c.shouldRetry(resp, err); retry {
+					return fmt.Errorf("retryable error: %v", retryErr)
 				}
 			}
 			return err
@@ -146,4 +159,26 @@ func (c *retryableHTTPClient) Do(method, url string, body io.Reader, headers map
 		},
 	)
 	return resp, err
+}
+
+func BaseRetryStrategy(resp *http.Response, err error) (bool, error) {
+	if err != nil {
+		return true, err
+	}
+
+	// 429 Too Many Requests is recoverable.
+	// It indicates that the client has sent too many requests in a given amount of time.
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return true, fmt.Errorf("too many requests")
+	}
+
+	//  We retry on 5xx responses to allow
+	// the server time to recover, as 500's are typically not permanent
+	// errors and may relate to outages on the server side. This will catch
+	// invalid response codes as well, like 0 and 999.
+	if resp.StatusCode == 0 || (resp.StatusCode >= 500 && resp.StatusCode != http.StatusNotImplemented) {
+		return true, fmt.Errorf("unexpected HTTP status %s", resp.Status)
+	}
+
+	return false, nil
 }
