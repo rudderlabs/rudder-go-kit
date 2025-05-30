@@ -40,7 +40,7 @@ func TestRetryableHTTPClient_Do_SuccessNoRetry(t *testing.T) {
 	// make request
 	body := strings.NewReader(`{"test":"data"}`)
 	headers := map[string]string{"Content-Type": "application/json"}
-	resp, err := client.Do(http.MethodPost, ts.URL, body, headers)
+	resp, err := client.Do(http.MethodPost, ts.URL, body, WithHeaders(headers))
 
 	// assertions
 	require.NoError(t, err)
@@ -93,7 +93,7 @@ func TestRetryableHTTPClient_Do_PostRetryOn5xx(t *testing.T) {
 	// make request
 	body := strings.NewReader(`{"test":"data"}`)
 	headers := map[string]string{"Content-Type": "application/json"}
-	resp, err := client.Do(http.MethodPost, ts.URL, body, headers)
+	resp, err := client.Do(http.MethodPost, ts.URL, body, WithHeaders(headers))
 
 	// assertions
 	require.NoError(t, err)
