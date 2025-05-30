@@ -383,6 +383,9 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 			}
 		}
 	}()
+	if err := stream.Err(); err != nil {
+		return nil, fmt.Errorf("error getting stream: %w", err)
+	}
 	return byteChan, nil
 }
 
