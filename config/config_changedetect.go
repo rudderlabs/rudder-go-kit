@@ -26,8 +26,9 @@ func (c *Config) onConfigChange() {
 	if c.enableNonReloadableAdvancedDetection {
 		func() { // wrap in a function to unlock the nonReloadableConfigLock in case of panic
 			c.nonReloadableConfigLock.RLock()
+			defer c.nonReloadableConfigLock.RUnlock()
 			c.checkAndNotifyNonReloadConfigAdvanced(c.nonReloadableConfig)
-			c.nonReloadableConfigLock.RUnlock()
+
 		}()
 	} else {
 		c.checkAndNotifyNonReloadableConfig()
