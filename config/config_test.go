@@ -111,7 +111,7 @@ func Test_Register_Existing_and_Default(t *testing.T) {
 	require.Equal(t, map[string]any{"default": "value"}, otherStringMapValue, "it should return the default value")
 }
 
-func TestStatic_checkAndHotReloadConfig(t *testing.T) {
+func TestStatic_checkConfigForChanges(t *testing.T) {
 	configMap := make(map[string]*configValue)
 
 	var var1 Reloadable[string]
@@ -123,7 +123,7 @@ func TestStatic_checkAndHotReloadConfig(t *testing.T) {
 	configMap["type2:keyVar"] = configVar2
 	t.Setenv("RSERVER_KEY_VAR", "value_changed")
 
-	Default.checkAndHotReloadConfig(configMap)
+	Default.checkConfigForChanges(configMap)
 
 	varptr1 := configVar1.value.(*Reloadable[string])
 	varptr2 := configVar2.value.(*Reloadable[string])
@@ -131,7 +131,7 @@ func TestStatic_checkAndHotReloadConfig(t *testing.T) {
 	require.Equal(t, varptr2.Load(), "value_changed")
 }
 
-func TestCheckAndHotReloadConfig(t *testing.T) {
+func TestCheckConfigForChanges(t *testing.T) {
 	var (
 		stringValue            Reloadable[string]
 		stringConfigValue      = newConfigValue(&stringValue, nil, "default", []string{"string"})
@@ -161,7 +161,7 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 		t.Setenv("RSERVER_STRINGSLICE", "string string")
 		t.Setenv("RSERVER_STRINGMAP", "{\"string\":\"any\"}")
 
-		Default.checkAndHotReloadConfig(map[string]*configValue{
+		Default.checkConfigForChanges(map[string]*configValue{
 			"string":      stringConfigValue,
 			"bool":        boolConfigValue,
 			"int":         intConfigValue,
@@ -183,7 +183,7 @@ func TestCheckAndHotReloadConfig(t *testing.T) {
 	})
 
 	t.Run("without envs", func(t *testing.T) {
-		Default.checkAndHotReloadConfig(map[string]*configValue{
+		Default.checkConfigForChanges(map[string]*configValue{
 			"string":      stringConfigValue,
 			"bool":        boolConfigValue,
 			"int":         intConfigValue,

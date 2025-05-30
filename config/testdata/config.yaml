@@ -1,0 +1,481 @@
+AdaptivePayloadLimiter:
+  statsFrequency: 3s
+BackendConfig:
+  incrementalConfigUpdates: false
+BadgerDB:
+  Dedup:
+    cleanupOnStartup: true
+  EventSampler:
+    cleanupOnStartup: true
+BatchRouter:
+  BINGADS_AUDIENCE:
+    asyncUploadTimeout: 8m
+  BINGADS_OFFLINE_CONVERSIONS:
+    MaxEventsLimit: 75320
+    asyncUploadTimeout: 12m
+    maxEventsInABatch: 82451
+    maxPayloadSizeInBytes: 89732142
+  ELOQUA:
+    asyncUploadTimeout: 7m
+    maxPayloadSizeInBytes: 52367891
+  KLAVIYO_BULK_UPLOAD:
+    asyncUploadTimeout: 9m
+    maxEventsInABatch: 175324
+    maxPayloadSizeInBytes: 118765432
+  MARKETO_BULK_UPLOAD:
+    asyncUploadTimeout: 11m
+    jobQueryBatchSize: 9876
+    maxEventsInABatch: 12345
+    maxPayloadSizeInBytes: 534212
+  SFTP:
+    asyncUploadTimeout: 4m
+    maxPayloadSizeInBytes: 873256410
+  SNOWPIPE_STREAMING:
+    asyncUploadTimeout: 15s
+    asyncUploadWorkerTimeout: 2s
+    mainLoopFreq: 8s
+    maxEventsInABatch: 98765
+    maxPayloadSizeInBytes: 143256789
+    pollStatusLoopSleep: 3s
+    uploadFreq: 12s
+  isolationMode: source
+  jobsDB:
+    dsLimit: 8
+  mainLoopFreq: 7s
+  maxEventsInABatch: 87654
+  maxPayloadSizeInBytes: 5234567
+  retryTimeWindow: 36h
+DTSampling:
+  Bucket: random-bucket-XYZ123
+Dedup:
+  Mode: Redis
+  dedupWindow: 240h
+  enableDedup: false
+  enableParallelScan: false
+Diagnostics:
+  enableDiagnostics: true
+ErrorIndex:
+  Storage:
+    Bucket: error-bucket-abc987
+EventSchemas2:
+  enabled: false
+Gateway:
+  webhook:
+    sourceListForParsingParams:
+    - Magento
+    - Braze
+GeoEnrichment:
+  enabled: false
+Geolocation:
+  db:
+    key: random-key-123456
+    storage:
+      bucket: geo-bucket-xyz789
+      region: us-west-2
+HttpClient:
+  procTransformer:
+    timeout: 480s
+  timeout: 45
+JobsDB:
+  CommandRequestTimeout: 240s
+  MaxRetries: 5
+  QueryRequestTimeout: 180s
+  addNewDSLoopSleepDuration: 3s
+  backup:
+    batch_rt:
+      enabled: true
+      failedOnly: true
+    enabled: false
+    gw:
+      enabled: true
+      pathPrefix: "/backups"
+    rt:
+      enabled: true
+      failedOnly: true
+  backupCheckSleepDurationIns: 8
+  cacheExpiration: 4h
+  dsLimit: 7
+  gw:
+    enableWriterQueue: true
+    maxOpenConnections: 48
+  jobDoneMigrateThreshold: 0.75
+  jobMinRowsMigrateThreshold: 0.65
+  maxDSRetention: 7200m
+  maxMigrateDSProbe: 75
+  migrateDSLoopSleepDuration: 15s
+  payloadColumnType: jsonb
+  refreshDSListLoopSleepDuration: 4s
+Json:
+  Library:
+    Marshaller: json-iterator
+    Unmarshaller: encoding/json
+LegacyAppHandler: true
+Logger:
+  consoleJsonFormat: false
+  enableFileNameInLog: false
+OpenTelemetry:
+  enabled: false
+  metrics:
+    exportInterval: 10s
+    prometheus:
+      enabled: false
+      port: 8765
+Operations:
+  enabled: true
+PgNotifier:
+  enableConnTuning: true
+  maxIdleConns: 15
+  maxOpenConns: 35
+Processor:
+  Transformer:
+    Embedded:
+      GOOGLEPUBSUB:
+        Enabled: false
+        Verify: true
+      KAFKA:
+        Enabled: false
+        Verify: true
+  enableConcurrentStore: false
+  enableTransformationV2: false
+  enableUpdatedEventNameReporting: false
+  errorStashEnabled: false
+  isolationMode: destination
+  jobsDB:
+    dsLimit: 5
+  maxLoopProcessEvents: 8765
+  maxLoopSleep: 8s
+  payloadLimit: 78945612
+  pipelinesPerPartition: 4
+  readLoopSleep: 2s
+  subJobSize: 3000
+  transformBatchSize: 200
+Pulsar:
+  Client:
+    url: pulsar://random-pulsar-address:6650
+RUDDER_WAREHOUSE_BUCKET: warehouse-bucket-qwerty
+RegulationWorker:
+  oauthV2Enabled: false
+Reporting:
+  enabled: false
+  errorIndexReporting:
+    enabled: false
+  errorReporting:
+    enabled: false
+    eventSampling:
+      enabled: false
+  eventSampling:
+    enabled: false
+Router:
+  ADOBE_ANALYTICS:
+    transformerProxy: false
+  AF:
+    transformerProxy: false
+  AM:
+    guaranteeUserEventOrder: true
+    noOfWorkers: 256
+  AMAZON_AUDIENCE:
+    noOfJobsToBatchInAWorker: 25
+    transformerProxy: false
+  AZURE_EVENT_HUB:
+    noOfWorkers: 512
+  BLOOMREACH:
+    guaranteeUserEventOrder: true
+    transformerProxy: false
+  BLOOMREACH_CATALOG:
+    jobsBatchTimeout: 15s
+    noOfJobsToBatchInAWorker: 8000
+    noOfWorkers: 3
+    transformerProxy: false
+  BRAZE:
+    forceHTTP1: false
+    httpMaxIdleConnsPerHost: 24
+    httpTimeoutInS: 90
+  CAMPAIGN_MANAGER:
+    noOfJobsToBatchInAWorker: 5
+    transformerProxy: false
+  CLEVERTAP:
+    transformerProxy: false
+  CONFLUENT_CLOUD:
+    noOfWorkers: 512
+  CRITEO_AUDIENCE:
+    transformerProxy: false
+  CUSTOMERIO_AUDIENCE:
+    noOfJobsToBatchInAWorker: 800
+  EMARSYS:
+    transformerProxy: false
+  FACEBOOK_CONVERSIONS:
+    transformerProxy: false
+  FACEBOOK_PIXEL:
+    noOfWorkers: 128
+    transformerProxy: false
+  FB_CUSTOM_AUDIENCE:
+    guaranteeUserEventOrder: true
+    jobQueryBatchSize: 5000
+    jobsBatchTimeout: 20s
+    maxStatusUpdateWait: 3s
+    noOfJobsPerChannel: 5000
+    noOfJobsToBatchInAWorker: 400
+    noOfWorkers: 8
+    transformerProxy: false
+    updateStatusBatchSize: 1500
+  GA4:
+    noOfWorkers: 128
+    transformerProxy: false
+  GA4_V2:
+    transformerProxy: false
+  GOOGLE_ADWORDS_ENHANCED_CONVERSIONS:
+    guaranteeUserEventOrder: true
+    transformerProxy: false
+  GOOGLE_ADWORDS_OFFLINE_CONVERSIONS:
+    guaranteeUserEventOrder: true
+    jobsBatchTimeout: 15s
+    noOfJobsToBatchInAWorker: 250
+    noOfWorkers: 3
+    transformerProxy: false
+  GOOGLE_ADWORDS_REMARKETING_LISTS:
+    guaranteeUserEventOrder: true
+    jobsBatchTimeout: 25s
+    noOfJobsToBatchInAWorker: 150
+    noOfWorkers: 2
+    transformerProxy: false
+  GOOGLESHEETS:
+    noOfWorkers: 3
+  HS:
+    noOfJobsToBatchInAWorker: 150
+    noOfWorkers: 6
+    transformerProxy: false
+  HTTP:
+    noOfJobsToBatchInAWorker: 200
+  INTERCOM:
+    noOfJobsToBatchInAWorker: 1200
+    noOfWorkers: 32
+    transformerProxy: false
+  INTERCOM_V2:
+    noOfJobsToBatchInAWorker: 800
+    noOfWorkers: 48
+    transformerProxy: false
+  ITERABLE:
+    noOfJobsToBatchInAWorker: 750
+    noOfWorkers: 8
+    transformerProxy: false
+  KAFKA:
+    noOfWorkers: 512
+  KLAVIYO:
+    guaranteeUserEventOrder: true
+  LINKEDIN_ADS:
+    transformerProxy: false
+  MAILCHIMP:
+    noOfJobsToBatchInAWorker: 400
+    noOfWorkers: 12
+  MARKETO:
+    noOfWorkers: 6
+    transformerProxy: false
+  MARKETO_STATIC_LIST:
+    noOfWorkers: 4
+    transformerProxy: false
+  MOENGAGE:
+    guaranteeUserEventOrder: true
+  MP:
+    guaranteeUserEventOrder: true
+  PARDOT:
+    transformerProxy: false
+  RAKUTEN:
+    transformerProxy: false
+  REDDIT:
+    noOfWorkers: 192
+    transformerProxy: false
+  SALESFORCE:
+    transformerProxy: false
+  SALESFORCE_OAUTH:
+    transformerProxy: false
+  SALESFORCE_OAUTH_SANDBOX:
+    transformerProxy: false
+  SNAPCHAT_CUSTOM_AUDIENCE:
+    transformerProxy: false
+  STATSIG:
+    httpTimeoutInS: 45
+  THE_TRADE_DESK:
+    transformerProxy: false
+  TIKTOK_ADS:
+    transformerProxy: false
+  WEBHOOK:
+    forceHTTP1: false
+  YAHOO_DSP:
+    noOfWorkers: 4
+  ZOHO:
+    noOfJobsToBatchInAWorker: 120
+    noOfWorkers: 8
+    transformerProxy: false
+  eventOrderKeyThreshold: 450
+  failingJobsPenaltySleep: 8s
+  isolationMode: source
+  jobIterator:
+    maxQueries: 6
+  jobQueryBatchSize: 2500
+  jobRetention: 36h
+  maxRetryBackoff: 20s
+  minRetryBackoff: 2s
+  oauthV2Enabled: false
+  throttler:
+    BLOOMREACH_CATALOG:
+      limit: 30000
+      timeWindow: 15s
+    CAMPAIGN_MANAGER:
+      limit: 600
+      timeWindow: 45s
+    CANDU:
+      limit: 2500
+      timeWindow: 15s
+    HS:
+      limit: 1200
+      timeWindow: 15s
+    KLAVIYO:
+      limit: 500
+      timeWindow: 45s
+    MARKETO:
+      limit: 60
+      timeWindow: 30s
+    MARKETO_STATIC_LIST:
+      limit: 4
+      timeWindow: 2s
+    MOENGAGE:
+      limit: 4500
+      timeWindow: 45s
+    PARDOT:
+      limit: 10
+      timeWindow: 30s
+    YAHOO_DSP:
+      limit: 15
+      timeWindow: 45s
+    ZOHO:
+      limit: 150
+      timeWindow: 15s
+    adaptive:
+      AM:
+        enabled: true
+      AZURE_EVENT_HUB:
+        enabled: true
+      BQSTREAM:
+        enabled: true
+      CONFLUENT_CLOUD:
+        enabled: true
+      EVENTBRIDGE:
+        enabled: true
+      FB_CUSTOM_AUDIENCE:
+        decreasePercentage: 15
+        decreaseWaitWindowMultiplier: 3
+        enabled: true
+        increasePercentage: 5
+        maxLimit: 12000
+        throttleTolerancePercentage: 15
+      FIREHOSE:
+        enabled: true
+      GAINSIGHT_PX:
+        enabled: false
+        maxLimit: 250
+        timeWindow: 15s
+      GOOGLE_ADWORDS_OFFLINE_CONVERSIONS:
+        enabled: true
+      GOOGLE_ADWORDS_REMARKETING_LISTS:
+        enabled: true
+      GOOGLE_CLOUD_FUNCTION:
+        enabled: true
+      GOOGLEPUBSUB:
+        enabled: true
+      GOOGLESHEETS:
+        enabled: true
+      INTERCOM:
+        enabled: false
+        maxLimit: 350
+        timeWindow: 15s
+      INTERCOM_V2:
+        enabled: false
+        maxLimit: 450
+        timeWindow: 15s
+      KAFKA:
+        enabled: true
+      KINESIS:
+        enabled: true
+      LAMBDA:
+        enabled: true
+      PERSONALIZE:
+        enabled: true
+      REDIS:
+        enabled: true
+      SALESFORCE:
+        maxLimit: 1200
+      SALESFORCE_OAUTH:
+        maxLimit: 900
+      SALESFORCE_OAUTH_SANDBOX:
+        maxLimit: 800
+      WUNDERKIND:
+        enabled: true
+      ZENDESK:
+        maxLimit:
+        minLimit: 160
+        timeWindow: 60s
+      decreasePercentage: 10
+      decreaseWaitWindowMultiplier: 1
+      defaultMaxLimit: 3000
+      enabled: true
+      increasePercentage: 2
+      increaseWindowMultiplier: 5
+      throttleTolerancePercentage: 10
+    limiter:
+      type: redis-sorted-set
+    redis:
+      addr: redis-address-obfuscated
+  transformerProxy: false
+SQLMigrator:
+  forceSetLowerVersion: true
+SchemaForwarder:
+  pulsarTopic: event-schema
+Scylla:
+  Hosts:
+  - scylla-host-obfuscated
+SnowpipeStreaming:
+  maxBufferCapacity: 10240000
+TrackedUsers:
+  enabled: true
+  precision: 16
+Transformer:
+  Client:
+    disableKeepAlives: false
+    httplb:
+      pickerType: least_loaded_round_robin
+    maxHTTPConnections: 200
+    maxHTTPIdleConnections: 1
+    maxIdleConnDuration: 4s
+    recycle: false
+    recycleTTL: 300s
+    ttl: 10
+    type: httplb
+  compactionEnabled: false
+Warehouse:
+  Transformer:
+    Sampling:
+      Bucket: bucket-name-obfuscated
+  Validations:
+    QueryTimeout: 55s
+  bigquery:
+    isDedupEnabled: false
+  canDeleteUploads: true
+  dbHandleTimeout: 10m
+  deltalake:
+    maxRetries: 25
+    retryMaxWait: 900s
+    useNative: true
+  enableNotifierHeartbeat: true
+  postgres:
+    useLegacy: false
+  redshift:
+    setVarCharMax: true
+  schemaTTLInMinutes: 0m
+  skipMetricTagForEachEventTable: true
+  stagingFilesBatchSize: 960
+  uploadStatusTrackFrequency: 10m
+enableStats: true
+gateway:
+  enableBatchEnrichment: false
+recovery:
+  enabled: true
