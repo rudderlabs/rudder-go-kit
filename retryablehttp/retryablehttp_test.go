@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
-	conf "github.com/rudderlabs/rudder-go-kit/config"
 )
 
 func TestRetryableHTTPClient_Do_SuccessNoRetry(t *testing.T) {
@@ -75,11 +73,11 @@ func TestRetryableHTTPClient_Do_RetryOn5xx(t *testing.T) {
 
 	// create client with custom config (faster retries for testing)
 	config := &Config{
-		MaxRetry:        conf.GetReloadableIntVar(3, 1, "maxRetry"),
-		InitialInterval: conf.GetReloadableDurationVar(10, time.Millisecond, "initialInterval"),
-		MaxInterval:     conf.GetReloadableDurationVar(50, time.Millisecond, "maxInterval"),
-		MaxElapsedTime:  conf.GetReloadableDurationVar(1, time.Second, "maxElapsedTime"),
-		Multiplier:      conf.GetReloadableFloat64Var(1.5, "multiplier"),
+		MaxRetry:        3,
+		InitialInterval: 10 * time.Millisecond,
+		MaxInterval:     50 * time.Millisecond,
+		MaxElapsedTime:  time.Second,
+		Multiplier:      1.5,
 	}
 	client := NewRetryableHTTPClient(config)
 
@@ -111,11 +109,11 @@ func TestRetryableHTTPClient_Do_RetryOn429(t *testing.T) {
 
 	// create client with custom config (faster retries for testing)
 	config := &Config{
-		MaxRetry:        conf.GetReloadableIntVar(3, 1, "maxRetry"),
-		InitialInterval: conf.GetReloadableDurationVar(10, time.Millisecond, "initialInterval"),
-		MaxInterval:     conf.GetReloadableDurationVar(50, time.Millisecond, "maxInterval"),
-		MaxElapsedTime:  conf.GetReloadableDurationVar(1, time.Second, "maxElapsedTime"),
-		Multiplier:      conf.GetReloadableFloat64Var(1.5, "multiplier"),
+		MaxRetry:        3,
+		InitialInterval: 10 * time.Millisecond,
+		MaxInterval:     50 * time.Millisecond,
+		MaxElapsedTime:  time.Second,
+		Multiplier:      1.5,
 	}
 	client := NewRetryableHTTPClient(config)
 
@@ -141,11 +139,11 @@ func TestRetryableHTTPClient_Do_MaxRetriesExceeded(t *testing.T) {
 
 	// create client with limited retries
 	config := &Config{
-		MaxRetry:        conf.GetReloadableIntVar(2, 1, "maxRetry2"),
-		InitialInterval: conf.GetReloadableDurationVar(10, time.Millisecond, "initialInterval"),
-		MaxInterval:     conf.GetReloadableDurationVar(50, time.Millisecond, "maxInterval"),
-		MaxElapsedTime:  conf.GetReloadableDurationVar(1, time.Second, "maxElapsedTime"),
-		Multiplier:      conf.GetReloadableFloat64Var(1.5, "multiplier"),
+		MaxRetry:        2,
+		InitialInterval: 10 * time.Millisecond,
+		MaxInterval:     50 * time.Millisecond,
+		MaxElapsedTime:  time.Second,
+		Multiplier:      1.5,
 	}
 	client := NewRetryableHTTPClient(config)
 
@@ -216,11 +214,11 @@ func TestRetryableHTTPClient_WithOnFailure(t *testing.T) {
 
 	// create client with onFailure callback
 	config := &Config{
-		MaxRetry:        conf.GetReloadableIntVar(3, 1, "maxRetry"),
-		InitialInterval: conf.GetReloadableDurationVar(10, time.Millisecond, "initialInterval"),
-		MaxInterval:     conf.GetReloadableDurationVar(50, time.Millisecond, "maxInterval"),
-		MaxElapsedTime:  conf.GetReloadableDurationVar(1, time.Second, "maxElapsedTime"),
-		Multiplier:      conf.GetReloadableFloat64Var(1.5, "multiplier"),
+		MaxRetry:        3,
+		InitialInterval: 10 * time.Millisecond,
+		MaxInterval:     50 * time.Millisecond,
+		MaxElapsedTime:  time.Second,
+		Multiplier:      1.5,
 	}
 	client := NewRetryableHTTPClient(config, WithOnFailure(onFailure))
 
@@ -249,9 +247,9 @@ func TestRetryableHTTPClient_RequestCreationError(t *testing.T) {
 func TestNewDefaultConfig(t *testing.T) {
 	config := NewDefaultConfig()
 
-	require.Equal(t, 5, config.MaxRetry.Load())
-	require.Equal(t, 100*time.Millisecond, config.InitialInterval.Load())
-	require.Equal(t, 1000*time.Millisecond, config.MaxInterval.Load())
-	require.Equal(t, 10*time.Second, config.MaxElapsedTime.Load())
-	require.Equal(t, 1.5, config.Multiplier.Load())
+	require.Equal(t, 5, config.MaxRetry)
+	require.Equal(t, 100*time.Millisecond, config.InitialInterval)
+	require.Equal(t, 1000*time.Millisecond, config.MaxInterval)
+	require.Equal(t, 10*time.Second, config.MaxElapsedTime)
+	require.Equal(t, 1.5, config.Multiplier)
 }

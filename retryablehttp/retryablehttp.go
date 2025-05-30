@@ -17,15 +17,15 @@ type HttpClient interface {
 
 type Config struct {
 	// MaxRetry is the maximum number of retries.
-	MaxRetry conf.ValueLoader[int]
+	MaxRetry int
 	//  InitialInterval is the initial interval between retries.
-	InitialInterval conf.ValueLoader[time.Duration]
+	InitialInterval time.Duration
 	// MaxInterval is the maximum interval between retries.
-	MaxInterval conf.ValueLoader[time.Duration]
+	MaxInterval time.Duration
 	// Multiplier is the multiplier used to calculate the next interval.
-	MaxElapsedTime conf.ValueLoader[time.Duration]
+	MaxElapsedTime time.Duration
 	// Multiplier is the multiplier used to increase the interval between retries.
-	Multiplier conf.ValueLoader[float64]
+	Multiplier float64
 }
 
 // NewDefaultConfig creates a new Config with default retry settings.
@@ -37,11 +37,11 @@ type Config struct {
 //	Multiplier: Backoff multiplier for retry intervals (default: 1.5)
 func NewDefaultConfig() *Config {
 	return &Config{
-		MaxRetry:        conf.GetReloadableIntVar(5, 1, "retryablehttp.maxRetry"),
-		InitialInterval: conf.GetReloadableDurationVar(100, time.Millisecond, "retryablehttp.initialInterval"),
-		MaxInterval:     conf.GetReloadableDurationVar(1000, time.Millisecond, "retryablehttp.maxInterval"),
-		MaxElapsedTime:  conf.GetReloadableDurationVar(10, time.Second, "retryablehttp.maxElapsedTime"),
-		Multiplier:      conf.GetReloadableFloat64Var(1.5, "retryablehttp.multiplier"),
+		MaxRetry:        conf.GetReloadableIntVar(5, 1, "retryablehttp.maxRetry").Load(),
+		InitialInterval: conf.GetReloadableDurationVar(100, time.Millisecond, "retryablehttp.initialInterval").Load(),
+		MaxInterval:     conf.GetReloadableDurationVar(1000, time.Millisecond, "retryablehttp.maxInterval").Load(),
+		MaxElapsedTime:  conf.GetReloadableDurationVar(10, time.Second, "retryablehttp.maxElapsedTime").Load(),
+		Multiplier:      conf.GetReloadableFloat64Var(1.5, "retryablehttp.multiplier").Load(),
 	}
 }
 
@@ -128,12 +128,12 @@ func (c *retryableHTTPClient) Do(method, url string, body io.Reader, headers map
 		},
 		backoff.WithMaxRetries(
 			backoff.NewExponentialBackOff(
-				backoff.WithInitialInterval(c.config.InitialInterval.Load()),
-				backoff.WithMaxInterval(c.config.MaxInterval.Load()),
-				backoff.WithMaxElapsedTime(c.config.MaxElapsedTime.Load()),
-				backoff.WithMultiplier(c.config.Multiplier.Load()),
+				backoff.WithInitialInterval(c.config.InitialInterval),
+				backoff.WithMaxInterval(c.config.MaxInterval),
+				backoff.WithMaxElapsedTime(c.config.MaxElapsedTime),
+				backoff.WithMultiplier(c.config.Multiplier),
 			),
-			uint64(c.config.MaxRetry.Load()),
+			uint64(c.config.MaxRetry),
 		),
 		func(err error, duration time.Duration) {
 			if c.onFailure != nil {
