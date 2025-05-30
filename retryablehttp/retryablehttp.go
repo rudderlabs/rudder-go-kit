@@ -15,6 +15,10 @@ type HttpClient interface {
 	Do(method, url string, body io.Reader, headers map[string]string) (*http.Response, error)
 }
 
+type requestDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type Config struct {
 	// MaxRetry is the maximum number of retries.
 	MaxRetry int
@@ -46,7 +50,7 @@ func NewDefaultConfig() *Config {
 }
 
 type retryableHTTPClient struct {
-	*http.Client
+	requestDoer
 	config *Config
 	// onFailure is called when a retryable error occurs
 	onFailure func(err error, duration time.Duration)
@@ -54,9 +58,9 @@ type retryableHTTPClient struct {
 
 type Option func(*retryableHTTPClient)
 
-func WithHttpClient(client *http.Client) Option {
+func WithHttpClient(client requestDoer) Option {
 	return func(retryableHTTPClient *retryableHTTPClient) {
-		retryableHTTPClient.Client = client
+		retryableHTTPClient.requestDoer = client
 	}
 }
 
@@ -87,7 +91,7 @@ func NewRetryableHTTPClient(config *Config, options ...Option) HttpClient {
 		config = NewDefaultConfig()
 	}
 	httpClient := &retryableHTTPClient{
-		Client: &http.Client{
+		requestDoer: &http.Client{
 			Transport: &http.Transport{
 				DisableKeepAlives:   true,
 				MaxConnsPerHost:     100,
@@ -118,7 +122,7 @@ func (c *retryableHTTPClient) Do(method, url string, body io.Reader, headers map
 				for key, value := range headers {
 					req.Header.Set(key, value)
 				}
-				resp, err = c.Client.Do(req) // nolint: bodyclose
+				resp, err = c.requestDoer.Do(req) // nolint: bodyclose
 				// retry 5xx errors
 				if err == nil && (resp.StatusCode >= http.StatusInternalServerError || resp.StatusCode == http.StatusTooManyRequests) {
 					return fmt.Errorf("non-success status code: %d", resp.StatusCode)
