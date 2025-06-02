@@ -77,7 +77,7 @@ func (m *s3ManagerV1) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string, opts map[string]interface{}) error {
 	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
@@ -88,11 +88,14 @@ func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	_, err = downloader.DownloadWithContext(ctx, output,
-		&s3.GetObjectInput{
-			Bucket: aws.String(m.config.Bucket),
-			Key:    aws.String(key),
-		})
+	getObjectInput := &s3.GetObjectInput{
+		Bucket: aws.String(m.config.Bucket),
+		Key:    aws.String(key),
+	}
+	if opts["range"] != nil {
+		getObjectInput.Range = aws.String(opts["range"].(string))
+	}
+	_, err = downloader.DownloadWithContext(ctx, output, getObjectInput)
 	if err != nil {
 		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "NoSuchKey" {
 			return ErrKeyNotFound
