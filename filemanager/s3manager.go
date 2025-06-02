@@ -259,16 +259,16 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 	return m.session, err
 }
 
-func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan []byte, error) {
+func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan []byte, <-chan error, error) {
 	sess, err := m.GetSession(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error starting S3 session: %w", err)
+		return nil, nil, fmt.Errorf("error starting S3 session: %w", err)
 	}
 	svc := s3.New(sess)
 
 	inputSerialization, outputSerialization, err := createS3SelectSerialization(selectConfig.InputFormat, selectConfig.OutputFormat)
 	if err != nil {
-		return nil, fmt.Errorf("error extracting input/output serialization: %w", err)
+		return nil, nil, fmt.Errorf("error extracting input/output serialization: %w", err)
 	}
 
 	input := &s3.SelectObjectContentInput{
@@ -281,20 +281,25 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 	}
 	selectObject, err := svc.SelectObjectContentWithContext(ctx, input)
 	if err != nil {
-		return nil, fmt.Errorf("error selecting object: %w", err)
+		return nil, nil, fmt.Errorf("error selecting object: %w", err)
 	}
 	stream := selectObject.GetStream()
 	if stream == nil {
-		return nil, fmt.Errorf("error getting stream")
+		return nil, nil, fmt.Errorf("error getting stream")
 	}
 	events := stream.Events()
 	if events == nil {
-		return nil, fmt.Errorf("error getting events")
+		return nil, nil, fmt.Errorf("error getting events")
 	}
 	byteChan := make(chan []byte)
+	errorChan := make(chan error)
 	go func() {
 		defer func() {
+			if err := stream.Err(); err != nil {
+				errorChan <- err
+			}
 			close(byteChan)
+			close(errorChan)
 			stream.Close()
 		}()
 		select {
@@ -309,10 +314,7 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 			}
 		}
 	}()
-	if err := stream.Err(); err != nil {
-		return nil, fmt.Errorf("error getting stream: %w", err)
-	}
-	return byteChan, nil
+	return byteChan, errorChan, nil
 }
 
 func createS3SelectSerialization(inputFormat, outputFormat string) (*s3.InputSerialization, *s3.OutputSerialization, error) {
