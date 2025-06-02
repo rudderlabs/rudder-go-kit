@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.53.0...v0.53.1) (2025-06-02)
+
+
+### Bug Fixes
+
+* duplicate prefix S3 Upload ([#816](https://github.com/rudderlabs/rudder-go-kit/issues/816)) ([8f25710](https://github.com/rudderlabs/rudder-go-kit/commit/8f257108e2a1e65ea34b51a4829baf5fe1fe809f))
+
 ## [0.53.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.52.0...v0.53.0) (2025-05-28)
 
 
