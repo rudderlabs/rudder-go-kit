@@ -335,6 +335,10 @@ func createS3SelectSerialization(inputFormat, outputFormat string) (*s3.InputSer
 				FieldDelimiter:  aws.String(","),
 			},
 		}
+	case "json":
+		outputSerialization = &s3.OutputSerialization{
+			JSON: &s3.JSONOutput{},
+		}
 	default:
 		return nil, nil, fmt.Errorf("invalid output format: %s", outputFormat)
 	}

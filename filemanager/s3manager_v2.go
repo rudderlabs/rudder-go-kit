@@ -345,6 +345,7 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 		return nil, fmt.Errorf("error extracting input/output serialization: %w", err)
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	selectObject, err := client.SelectObjectContent(ctx, &s3.SelectObjectContentInput{
 		Bucket:              aws.String(m.config.Bucket),
 		Key:                 aws.String(selectConfig.Key),
@@ -354,15 +355,18 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 		OutputSerialization: outputSerialization,
 	})
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("error selecting object: %w", err)
 	}
 
 	stream := selectObject.GetStream()
 	if stream == nil {
+		cancel()
 		return nil, fmt.Errorf("error getting stream")
 	}
 	events := stream.Events()
 	if events == nil {
+		cancel()
 		return nil, fmt.Errorf("error getting events")
 	}
 	byteChan := make(chan []byte)
@@ -370,6 +374,7 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 		defer func() {
 			close(byteChan)
 			stream.Close()
+			cancel()
 		}()
 		select {
 		case <-ctx.Done():
@@ -408,6 +413,10 @@ func createS3SelectSerializationV2(inputFormat, outputFormat string) (*types.Inp
 				RecordDelimiter: aws.String("\n"),
 				FieldDelimiter:  aws.String(","),
 			},
+		}
+	case "json":
+		outputSerialization = &types.OutputSerialization{
+			JSON: &types.JSONOutput{},
 		}
 	default:
 		return nil, nil, fmt.Errorf("invalid output format: %s", outputFormat)
