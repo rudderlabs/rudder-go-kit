@@ -43,8 +43,8 @@ func (s *switchingDigitalOceanManager) ListFilesWithPrefix(ctx context.Context, 
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // You can Pass *os.File instead of io.WriterAt to write the downloaded data on disk.
-func (s *switchingDigitalOceanManager) Download(ctx context.Context, writer io.WriterAt, key string) error {
-	return s.getManager().Download(ctx, writer, key)
+func (s *switchingDigitalOceanManager) Download(ctx context.Context, writer io.WriterAt, key string, opts map[string]interface{}) error {
+	return s.getManager().Download(ctx, writer, key, opts)
 }
 
 // Upload uploads the passed in file to the file manager
