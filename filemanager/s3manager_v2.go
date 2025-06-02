@@ -116,12 +116,11 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 	if objName == "" {
 		return UploadedFile{}, errors.New("object name cannot be empty")
 	}
-	fileName := path.Join(m.config.Prefix, objName)
 
 	uploadInput := &s3.PutObjectInput{
 		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
 		Bucket: aws.String(m.config.Bucket),
-		Key:    aws.String(fileName),
+		Key:    aws.String(objName),
 		Body:   rdr,
 	}
 
@@ -140,7 +139,7 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 
 	output, err := uploader.Upload(ctx, uploadInput)
 	if err == nil {
-		return UploadedFile{Location: output.Location, ObjectName: fileName}, nil
+		return UploadedFile{Location: output.Location, ObjectName: objName}, nil
 	}
 	var regionError *aws.MissingRegionError
 	if errors.As(err, &regionError) {
