@@ -126,7 +126,7 @@ func (m *digitalOceanManagerV2) ListFilesWithPrefix(ctx context.Context, startAf
 	}
 }
 
-func (m *digitalOceanManagerV2) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *digitalOceanManagerV2) Download(ctx context.Context, output io.WriterAt, key string, opts map[string]interface{}) error {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("digitalocean client: %w", err)
