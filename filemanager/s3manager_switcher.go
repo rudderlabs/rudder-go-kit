@@ -14,7 +14,7 @@ import (
 type S3Manager interface {
 	FileManager
 	Bucket() string
-	SelectObjects(ctx context.Context, config SelectConfig) (<-chan []byte, <-chan error, error)
+	SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error)
 }
 
 func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (S3Manager, error) {
@@ -102,7 +102,12 @@ type SelectConfig struct {
 	InputFormat   string
 }
 
-func (s *switchingS3Manager) SelectObjects(ctx context.Context, config SelectConfig) (<-chan []byte, <-chan error, error) {
+type SelectResult struct {
+	Data  <-chan []byte
+	Error <-chan error
+}
+
+func (s *switchingS3Manager) SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error) {
 	return s.getManager().SelectObjects(ctx, config)
 }
 
