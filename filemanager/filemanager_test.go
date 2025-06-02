@@ -611,6 +611,19 @@ func TestFileManager_S3(t *testing.T) {
 					"region":           region,
 					"s3ForcePathStyle": true,
 					"disableSSL":       true,
+					"prefix":           "",
+				},
+			},
+			{
+				name: "AccessKey/Secret With Prefix",
+				config: map[string]any{
+					"bucketName":       envBucket,
+					"accessKeyID":      envAccessKey,
+					"secretAccessKey":  envSecretKey,
+					"region":           region,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"prefix":           "test-prefix",
 				},
 			},
 		}
@@ -633,6 +646,8 @@ func TestFileManager_S3(t *testing.T) {
 				uploadOutput, err := fm.Upload(context.TODO(), filePtr)
 				require.NoError(t, err)
 				require.NoError(t, filePtr.Close())
+				// check if the file name is exactly the same as the one we uploaded
+				require.Equal(t, uploadOutput.ObjectName, path.Join(auth.config["prefix"].(string), "testfile.txt"), "uploaded file name should be exactly the same as the one we uploaded")
 
 				// 2. List files and check our file is present
 				session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
