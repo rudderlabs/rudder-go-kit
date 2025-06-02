@@ -112,15 +112,15 @@ func (m *s3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...str
 }
 
 // UploadReader uploads data from an io.Reader to S3 with the given object name.
-func (m *s3ManagerV2) UploadReader(ctx context.Context, fileName string, rdr io.Reader) (UploadedFile, error) {
-	if fileName == "" {
+func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
+	if objName == "" {
 		return UploadedFile{}, errors.New("object name cannot be empty")
 	}
 
 	uploadInput := &s3.PutObjectInput{
 		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
 		Bucket: aws.String(m.config.Bucket),
-		Key:    aws.String(fileName),
+		Key:    aws.String(objName),
 		Body:   rdr,
 	}
 
@@ -139,7 +139,7 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, fileName string, rdr io.
 
 	output, err := uploader.Upload(ctx, uploadInput)
 	if err == nil {
-		return UploadedFile{Location: output.Location, ObjectName: fileName}, nil
+		return UploadedFile{Location: output.Location, ObjectName: objName}, nil
 	}
 	var regionError *aws.MissingRegionError
 	if errors.As(err, &regionError) {
