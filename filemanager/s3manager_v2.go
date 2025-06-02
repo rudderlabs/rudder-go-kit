@@ -334,15 +334,15 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 	return fileObjects, nil
 }
 
-func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan []byte, <-chan error, error) {
+func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (*SelectResult, error) {
 	client, err := m.getClient(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("s3 client: %w", err)
+		return nil, fmt.Errorf("s3 client: %w", err)
 	}
 
 	inputSerialization, outputSerialization, err := createS3SelectSerializationV2(selectConfig.InputFormat, selectConfig.OutputFormat)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error extracting input/output serialization: %w", err)
+		return nil, fmt.Errorf("error extracting input/output serialization: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
@@ -356,18 +356,18 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 	})
 	if err != nil {
 		cancel()
-		return nil, nil, fmt.Errorf("error selecting object: %w", err)
+		return nil, fmt.Errorf("error selecting object: %w", err)
 	}
 
 	stream := selectObject.GetStream()
 	if stream == nil {
 		cancel()
-		return nil, nil, fmt.Errorf("error getting stream")
+		return nil, fmt.Errorf("error getting stream")
 	}
 	events := stream.Events()
 	if events == nil {
 		cancel()
-		return nil, nil, fmt.Errorf("error getting events")
+		return nil, fmt.Errorf("error getting events")
 	}
 	byteChan := make(chan []byte)
 	errorChan := make(chan error)
@@ -393,7 +393,10 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 			}
 		}
 	}()
-	return byteChan, errorChan, nil
+	return &SelectResult{
+		Data:  byteChan,
+		Error: errorChan,
+	}, nil
 }
 
 func createS3SelectSerializationV2(inputFormat, outputFormat string) (*types.InputSerialization, *types.OutputSerialization, error) {
