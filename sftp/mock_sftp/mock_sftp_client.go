@@ -20,6 +20,7 @@ import (
 type MockClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockClientMockRecorder
+	isgomock struct{}
 }
 
 // MockClientMockRecorder is the mock recorder for MockClient.
@@ -40,46 +41,46 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // MkdirAll mocks base method.
-func (m *MockClient) MkdirAll(arg0 string) error {
+func (m *MockClient) MkdirAll(path string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MkdirAll", arg0)
+	ret := m.ctrl.Call(m, "MkdirAll", path)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MkdirAll indicates an expected call of MkdirAll.
-func (mr *MockClientMockRecorder) MkdirAll(arg0 any) *gomock.Call {
+func (mr *MockClientMockRecorder) MkdirAll(path any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MkdirAll", reflect.TypeOf((*MockClient)(nil).MkdirAll), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MkdirAll", reflect.TypeOf((*MockClient)(nil).MkdirAll), path)
 }
 
 // OpenFile mocks base method.
-func (m *MockClient) OpenFile(arg0 string, arg1 int) (io.ReadWriteCloser, error) {
+func (m *MockClient) OpenFile(path string, f int) (io.ReadWriteCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenFile", arg0, arg1)
+	ret := m.ctrl.Call(m, "OpenFile", path, f)
 	ret0, _ := ret[0].(io.ReadWriteCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // OpenFile indicates an expected call of OpenFile.
-func (mr *MockClientMockRecorder) OpenFile(arg0, arg1 any) *gomock.Call {
+func (mr *MockClientMockRecorder) OpenFile(path, f any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenFile", reflect.TypeOf((*MockClient)(nil).OpenFile), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenFile", reflect.TypeOf((*MockClient)(nil).OpenFile), path, f)
 }
 
 // Remove mocks base method.
-func (m *MockClient) Remove(arg0 string) error {
+func (m *MockClient) Remove(path string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove", arg0)
+	ret := m.ctrl.Call(m, "Remove", path)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove.
-func (mr *MockClientMockRecorder) Remove(arg0 any) *gomock.Call {
+func (mr *MockClientMockRecorder) Remove(path any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockClient)(nil).Remove), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockClient)(nil).Remove), path)
 }
 
 // Reset mocks base method.

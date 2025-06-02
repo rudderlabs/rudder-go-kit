@@ -19,6 +19,7 @@ import (
 type MockFileManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockFileManagerMockRecorder
+	isgomock struct{}
 }
 
 // MockFileManagerMockRecorder is the mock recorder for MockFileManager.
@@ -39,43 +40,43 @@ func (m *MockFileManager) EXPECT() *MockFileManagerMockRecorder {
 }
 
 // Delete mocks base method.
-func (m *MockFileManager) Delete(arg0 string) error {
+func (m *MockFileManager) Delete(remoteFilePath string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0)
+	ret := m.ctrl.Call(m, "Delete", remoteFilePath)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockFileManagerMockRecorder) Delete(arg0 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) Delete(remoteFilePath any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockFileManager)(nil).Delete), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockFileManager)(nil).Delete), remoteFilePath)
 }
 
 // Download mocks base method.
-func (m *MockFileManager) Download(arg0, arg1 string) error {
+func (m *MockFileManager) Download(remoteFilePath, localDir string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Download", arg0, arg1)
+	ret := m.ctrl.Call(m, "Download", remoteFilePath, localDir)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Download indicates an expected call of Download.
-func (mr *MockFileManagerMockRecorder) Download(arg0, arg1 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) Download(remoteFilePath, localDir any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockFileManager)(nil).Download), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockFileManager)(nil).Download), remoteFilePath, localDir)
 }
 
 // Upload mocks base method.
-func (m *MockFileManager) Upload(arg0, arg1 string) error {
+func (m *MockFileManager) Upload(localFilePath, remoteDir string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Upload", arg0, arg1)
+	ret := m.ctrl.Call(m, "Upload", localFilePath, remoteDir)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Upload indicates an expected call of Upload.
-func (mr *MockFileManagerMockRecorder) Upload(arg0, arg1 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) Upload(localFilePath, remoteDir any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upload", reflect.TypeOf((*MockFileManager)(nil).Upload), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upload", reflect.TypeOf((*MockFileManager)(nil).Upload), localFilePath, remoteDir)
 }

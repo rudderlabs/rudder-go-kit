@@ -24,6 +24,7 @@ import (
 type MockFileManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockFileManagerMockRecorder
+	isgomock struct{}
 }
 
 // MockFileManagerMockRecorder is the mock recorder for MockFileManager.
@@ -44,31 +45,31 @@ func (m *MockFileManager) EXPECT() *MockFileManagerMockRecorder {
 }
 
 // Delete mocks base method.
-func (m *MockFileManager) Delete(arg0 context.Context, arg1 []string) error {
+func (m *MockFileManager) Delete(ctx context.Context, keys []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
+	ret := m.ctrl.Call(m, "Delete", ctx, keys)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockFileManagerMockRecorder) Delete(arg0, arg1 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) Delete(ctx, keys any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockFileManager)(nil).Delete), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockFileManager)(nil).Delete), ctx, keys)
 }
 
 // Download mocks base method.
-func (m *MockFileManager) Download(arg0 context.Context, arg1 io.WriterAt, arg2 string) error {
+func (m *MockFileManager) Download(arg0 context.Context, arg1 io.WriterAt, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Download indicates an expected call of Download.
-func (mr *MockFileManagerMockRecorder) Download(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) Download(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockFileManager)(nil).Download), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockFileManager)(nil).Download), arg0, arg1, arg2, arg3)
 }
 
 // GetDownloadKeyFromFileLocation mocks base method.
@@ -101,17 +102,17 @@ func (mr *MockFileManagerMockRecorder) GetObjectNameFromLocation(arg0 any) *gomo
 }
 
 // ListFilesWithPrefix mocks base method.
-func (m *MockFileManager) ListFilesWithPrefix(arg0 context.Context, arg1, arg2 string, arg3 int64) filemanager.ListSession {
+func (m *MockFileManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) filemanager.ListSession {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListFilesWithPrefix", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ListFilesWithPrefix", ctx, startAfter, prefix, maxItems)
 	ret0, _ := ret[0].(filemanager.ListSession)
 	return ret0
 }
 
 // ListFilesWithPrefix indicates an expected call of ListFilesWithPrefix.
-func (mr *MockFileManagerMockRecorder) ListFilesWithPrefix(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) ListFilesWithPrefix(ctx, startAfter, prefix, maxItems any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFilesWithPrefix", reflect.TypeOf((*MockFileManager)(nil).ListFilesWithPrefix), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListFilesWithPrefix", reflect.TypeOf((*MockFileManager)(nil).ListFilesWithPrefix), ctx, startAfter, prefix, maxItems)
 }
 
 // Prefix mocks base method.
@@ -129,15 +130,15 @@ func (mr *MockFileManagerMockRecorder) Prefix() *gomock.Call {
 }
 
 // SetTimeout mocks base method.
-func (m *MockFileManager) SetTimeout(arg0 time.Duration) {
+func (m *MockFileManager) SetTimeout(timeout time.Duration) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetTimeout", arg0)
+	m.ctrl.Call(m, "SetTimeout", timeout)
 }
 
 // SetTimeout indicates an expected call of SetTimeout.
-func (mr *MockFileManagerMockRecorder) SetTimeout(arg0 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) SetTimeout(timeout any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTimeout", reflect.TypeOf((*MockFileManager)(nil).SetTimeout), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTimeout", reflect.TypeOf((*MockFileManager)(nil).SetTimeout), timeout)
 }
 
 // Upload mocks base method.
@@ -161,16 +162,16 @@ func (mr *MockFileManagerMockRecorder) Upload(arg0, arg1 any, arg2 ...any) *gomo
 }
 
 // UploadReader mocks base method.
-func (m *MockFileManager) UploadReader(arg0 context.Context, arg1 string, arg2 io.Reader) (filemanager.UploadedFile, error) {
+func (m *MockFileManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (filemanager.UploadedFile, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadReader", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UploadReader", ctx, objName, rdr)
 	ret0, _ := ret[0].(filemanager.UploadedFile)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UploadReader indicates an expected call of UploadReader.
-func (mr *MockFileManagerMockRecorder) UploadReader(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) UploadReader(ctx, objName, rdr any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadReader", reflect.TypeOf((*MockFileManager)(nil).UploadReader), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadReader", reflect.TypeOf((*MockFileManager)(nil).UploadReader), ctx, objName, rdr)
 }
