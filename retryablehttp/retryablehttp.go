@@ -28,7 +28,7 @@ type Config struct {
 	InitialInterval time.Duration
 	// MaxInterval is the maximum interval between retries.
 	MaxInterval time.Duration
-	// Multiplier is the multiplier used to calculate the next interval.
+	// MaxElapsedTime is the maximum total elapsed time for retries.
 	MaxElapsedTime time.Duration
 	// Multiplier is the multiplier used to increase the interval between retries.
 	Multiplier float64
