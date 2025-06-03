@@ -42,7 +42,11 @@ type FileManager interface {
 	ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession
 	// Download retrieves an object with the given key and writes it to the provided writer.
 	// You can Pass *os.File instead of io.WriterAt to write the downloaded data on disk.
-	Download(context.Context, io.WriterAt, string, map[string]interface{}) error
+	Download(context.Context, io.WriterAt, string) error
+	// DownloadWithOpts retrieves an object with the given key and writes it to the provided writer.
+	// You can Pass *os.File instead of io.WriterAt to write the downloaded data on disk.
+	DownloadWithOpts(context.Context, io.WriterAt, string, map[string]interface{}) error
+
 	// Upload uploads the passed in file to the file manager
 	Upload(context.Context, *os.File, ...string) (UploadedFile, error)
 	// UploadReader uploads the passed io.Reader to the file manager
