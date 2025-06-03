@@ -52,8 +52,14 @@ func (s *switchingS3Manager) ListFilesWithPrefix(ctx context.Context, startAfter
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // You can Pass *os.File instead of io.WriterAt to write the downloaded data on disk.
-func (s *switchingS3Manager) Download(ctx context.Context, writer io.WriterAt, key string, opts map[string]interface{}) error {
-	return s.getManager().Download(ctx, writer, key, opts)
+func (s *switchingS3Manager) Download(ctx context.Context, writer io.WriterAt, key string) error {
+	return s.getManager().Download(ctx, writer, key)
+}
+
+// DownloadWithOpts retrieves an object with the given key and writes it to the provided writer.
+// You can Pass *os.File instead of io.WriterAt to write the downloaded data on disk.
+func (s *switchingS3Manager) DownloadWithOpts(ctx context.Context, writer io.WriterAt, key string, opts map[string]interface{}) error {
+	return s.getManager().DownloadWithOpts(ctx, writer, key, opts)
 }
 
 // Upload uploads the passed in file to the file manager
