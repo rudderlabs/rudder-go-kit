@@ -454,7 +454,7 @@ func TestFileManager(t *testing.T) {
 			}
 			ctx, cancel := context.WithCancel(context.TODO())
 			cancel()
-			err = fm.Download(ctx, filePtr, key, nil)
+			err = fm.Download(ctx, filePtr, key)
 			require.Error(t, err, "expected error while downloading file")
 			require.NoError(t, filePtr.Close())
 
@@ -462,7 +462,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				fmt.Println("error while Creating file to download data: ", err)
 			}
-			err = fm.Download(context.TODO(), filePtr, key, nil)
+			err = fm.Download(context.TODO(), filePtr, key)
 
 			require.NoError(t, err, "expected no error")
 			require.NoError(t, filePtr.Close())
@@ -666,7 +666,7 @@ func TestFileManager_S3(t *testing.T) {
 				downloadPath := filepath.Join(tempDir, "downloaded.txt")
 				downloadPtr, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
 				require.NoError(t, err)
-				err = fm.Download(context.TODO(), downloadPtr, uploadOutput.ObjectName, nil)
+				err = fm.Download(context.TODO(), downloadPtr, uploadOutput.ObjectName)
 				require.NoError(t, err)
 				require.NoError(t, downloadPtr.Close())
 
@@ -693,7 +693,7 @@ func TestFileManager_S3(t *testing.T) {
 				downloadReaderPath := filepath.Join(tempDir, "downloaded-reader.txt")
 				downloadReaderPtr, err := os.OpenFile(downloadReaderPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
 				require.NoError(t, err)
-				err = fm.Download(context.TODO(), downloadReaderPtr, uploadReaderOutput.ObjectName, nil)
+				err = fm.Download(context.TODO(), downloadReaderPtr, uploadReaderOutput.ObjectName)
 				require.NoError(t, err)
 				require.NoError(t, downloadReaderPtr.Close())
 
