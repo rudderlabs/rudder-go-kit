@@ -39,12 +39,7 @@ func (j *sonnetJSON) NewDecoder(r io.Reader) Decoder {
 }
 
 func (j *sonnetJSON) NewEncoder(w io.Writer) Encoder {
-	// always using jsoniter for streaming due to: https://github.com/go-json-experiment/jsonbench?tab=readme-ov-file#streaming
-	return defaultJsoniter.NewEncoder(w)
-
-	// TODO: if we were to enable sonnet streaming it would be unreliable.
-	// Issue is easy to reproduce by running warehouse api tests with sonnet streaming enabled
-	// return sonnet.NewEncoder(w)
+	return sonnet.NewEncoder(w)
 }
 
 func (j *sonnetJSON) Valid(data []byte) bool {
