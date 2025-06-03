@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.54.0...v0.54.1) (2025-06-03)
+
+
+### Miscellaneous
+
+* sonnet should use its own marshaller in jsonrs ([#821](https://github.com/rudderlabs/rudder-go-kit/issues/821)) ([6c913c5](https://github.com/rudderlabs/rudder-go-kit/commit/6c913c5c00ab0978dcdd576881fecad6e50da168))
+
 ## [0.54.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.53.1...v0.54.0) (2025-06-03)
 
 
