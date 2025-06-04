@@ -438,3 +438,11 @@ func createS3SelectSerializationV2(inputFormat, outputFormat string) (*types.Inp
 
 	return inputSerialization, outputSerialization, nil
 }
+
+func (m *s3ManagerV2) ValidateRoleAssumption(ctx context.Context) error {
+	_, err := m.getClient(ctx)
+	if err != nil {
+		return fmt.Errorf("error starting S3 client: %w", err)
+	}
+	return nil
+}
