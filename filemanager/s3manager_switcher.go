@@ -15,6 +15,8 @@ type S3Manager interface {
 	FileManager
 	Bucket() string
 	SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error)
+
+	ValidateRoleAssumption(ctx context.Context) error
 }
 
 func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (S3Manager, error) {
@@ -99,6 +101,10 @@ func (s *switchingS3Manager) GetDownloadKeyFromFileLocation(location string) str
 
 func (s *switchingS3Manager) Bucket() string {
 	return s.getManager().Bucket()
+}
+
+func (s *switchingS3Manager) ValidateRoleAssumption(ctx context.Context) error {
+	return s.getManager().ValidateRoleAssumption(ctx)
 }
 
 type SelectConfig struct {

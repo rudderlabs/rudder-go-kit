@@ -433,6 +433,14 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 	return
 }
 
+func (m *s3ManagerV1) ValidateRoleAssumption(ctx context.Context) error {
+	_, err := m.GetSession(ctx)
+	if err != nil {
+		return fmt.Errorf("error starting S3 session: %w", err)
+	}
+	return nil
+}
+
 type codeError interface {
 	Code() string
 }
