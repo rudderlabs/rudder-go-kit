@@ -44,10 +44,10 @@ type GcsManager struct {
 	concurrentDeleteObjRequests int
 }
 
-// GcsManagerOption defines a function that configures a GcsManager
+// GcsManagerOption configures a GcsManager
 type GcsManagerOption func(*GcsManager)
 
-// WithConcurrentDeleteObjRequests sets the number of concurrent delete operations
+// WithConcurrentDeleteObjRequests sets the number of concurrent delete object requests
 func WithConcurrentDeleteObjRequests(limit int) GcsManagerOption {
 	return func(m *GcsManager) {
 		m.concurrentDeleteObjRequests = limit
@@ -67,10 +67,9 @@ func NewGCSManager(
 			defaultTimeout: defaultTimeout,
 		},
 		config:                      conf,
-		concurrentDeleteObjRequests: 1, // Default value
+		concurrentDeleteObjRequests: 1,
 	}
 
-	// Apply options
 	for _, opt := range opts {
 		opt(manager)
 	}

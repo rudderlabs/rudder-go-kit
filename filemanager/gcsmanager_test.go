@@ -90,13 +90,11 @@ func TestGCSManagerConcurrentDelete(t *testing.T) {
 	port, err := testhelper.GetFreePort()
 	require.NoError(t, err)
 
-	// Create a channel to track concurrent operations
 	activeOps := make(chan int, 1000)
 	maxConcurrent := 0
 	currentConcurrent := 0
 	var mu sync.Mutex
 
-	// Create fake GCS server
 	server, err := fakestorage.NewServerWithOptions(fakestorage.Options{
 		Scheme: "http",
 		Host:   "127.0.0.1",
@@ -105,7 +103,6 @@ func TestGCSManagerConcurrentDelete(t *testing.T) {
 	require.NoError(t, err)
 	defer server.Stop()
 
-	// port for the custom server with delete handler
 	customPort, err := testhelper.GetFreePort()
 	require.NoError(t, err)
 
@@ -140,7 +137,6 @@ func TestGCSManagerConcurrentDelete(t *testing.T) {
 				return
 			}
 
-			// Copy headers
 			for k, v := range r.Header {
 				forwardReq.Header[k] = v
 			}
@@ -161,7 +157,6 @@ func TestGCSManagerConcurrentDelete(t *testing.T) {
 		}),
 	}
 
-	// Start the server in a goroutine
 	go func() {
 		if err := fakeServerWithDeleteHandler.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			t.Errorf("custom server error: %v", err)
@@ -175,7 +170,6 @@ func TestGCSManagerConcurrentDelete(t *testing.T) {
 	gcsURL := fmt.Sprintf("http://127.0.0.1:%d/storage/v1/", customPort)
 	t.Log("GCS URL:", gcsURL)
 
-	// Test different concurrency levels
 	concurrencyLevels := []int{1, 10}
 	objectCount := 100
 
@@ -206,13 +200,11 @@ func TestGCSManagerConcurrentDelete(t *testing.T) {
 			}, WithConcurrentDeleteObjRequests(concurrency))
 			require.NoError(t, err)
 
-			// Upload test objects
 			keys := make([]string, objectCount)
 			for i := 0; i < objectCount; i++ {
 				objName := fmt.Sprintf("%s/obj-%d.txt", prefix, i)
 				content := []byte(fmt.Sprintf("data-%d", i))
 
-				// Upload object to fake server
 				server.CreateObject(fakestorage.Object{
 					ObjectAttrs: fakestorage.ObjectAttrs{
 						BucketName: bucketName,
