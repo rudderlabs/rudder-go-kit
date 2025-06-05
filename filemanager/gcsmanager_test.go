@@ -13,10 +13,11 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
-	"github.com/stretchr/testify/require"
 
 	"github.com/fsouza/fake-gcs-server/fakestorage"
 )
