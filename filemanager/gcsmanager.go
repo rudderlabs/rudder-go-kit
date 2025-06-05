@@ -13,12 +13,14 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
 	"github.com/rudderlabs/rudder-go-kit/googleutil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	"github.com/samber/lo"
 )
 
 type GCSConfig struct {
@@ -30,7 +32,8 @@ type GCSConfig struct {
 	DisableSSL     *bool
 	JSONReads      bool
 
-	uploadIfNotExist bool
+	uploadIfNotExist            bool
+	concurrentDeleteObjRequests int
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
@@ -122,15 +125,25 @@ func (m *GcsManager) Delete(ctx context.Context, keys []string) (err error) {
 		return err
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(len(keys))
+
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
+	g, ctx := errgroup.WithContext(ctx)
+	concurrency := lo.Ternary(m.config.concurrentDeleteObjRequests > 0, m.config.concurrentDeleteObjRequests, 1)
+	g.SetLimit(concurrency)
+
 	for _, key := range keys {
-		if err := client.Bucket(m.config.Bucket).Object(key).Delete(ctx); err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
-			return err
-		}
+		g.Go(func() error {
+			if err := client.Bucket(m.config.Bucket).Object(key).Delete(ctx); err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
+				return err
+			}
+			return nil
+		})
 	}
-	return
+	return g.Wait()
 }
 
 func (m *GcsManager) Prefix() string {
@@ -200,6 +213,7 @@ func gcsConfig(config map[string]interface{}) *GCSConfig {
 	var endPoint *string
 	var forcePathStyle, disableSSL *bool
 	var jsonReads bool
+	var concurrentDeleteObjRequests int
 
 	if config["bucketName"] != nil {
 		tmp, ok := config["bucketName"].(string)
@@ -243,14 +257,23 @@ func gcsConfig(config map[string]interface{}) *GCSConfig {
 			jsonReads = tmp
 		}
 	}
+
+	if config["concurrentDeleteObjRequests"] != nil {
+		tmp, ok := config["concurrentDeleteObjRequests"].(int)
+		if ok {
+			concurrentDeleteObjRequests = tmp
+		}
+	}
+
 	return &GCSConfig{
-		Bucket:         bucketName,
-		Prefix:         prefix,
-		Credentials:    credentials,
-		EndPoint:       endPoint,
-		ForcePathStyle: forcePathStyle,
-		DisableSSL:     disableSSL,
-		JSONReads:      jsonReads,
+		Bucket:                      bucketName,
+		Prefix:                      prefix,
+		Credentials:                 credentials,
+		EndPoint:                    endPoint,
+		ForcePathStyle:              forcePathStyle,
+		DisableSSL:                  disableSSL,
+		JSONReads:                   jsonReads,
+		concurrentDeleteObjRequests: concurrentDeleteObjRequests,
 	}
 }
 
