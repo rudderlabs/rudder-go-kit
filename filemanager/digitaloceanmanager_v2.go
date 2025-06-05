@@ -126,7 +126,7 @@ func (m *digitalOceanManagerV2) ListFilesWithPrefix(ctx context.Context, startAf
 	}
 }
 
-func (m *digitalOceanManagerV2) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *digitalOceanManagerV2) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("digitalocean client: %w", err)
@@ -149,10 +149,6 @@ func (m *digitalOceanManagerV2) Download(ctx context.Context, output io.WriterAt
 		return fmt.Errorf("failed to download from DigitalOcean Spaces: %w", err)
 	}
 	return nil
-}
-
-func (m *digitalOceanManagerV2) DownloadWithOpts(ctx context.Context, output io.WriterAt, key string, opts map[string]interface{}) error {
-	return m.Download(ctx, output, key)
 }
 
 func (m *digitalOceanManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {

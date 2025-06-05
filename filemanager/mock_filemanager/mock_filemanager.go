@@ -59,31 +59,22 @@ func (mr *MockFileManagerMockRecorder) Delete(ctx, keys any) *gomock.Call {
 }
 
 // Download mocks base method.
-func (m *MockFileManager) Download(arg0 context.Context, arg1 io.WriterAt, arg2 string) error {
+func (m *MockFileManager) Download(arg0 context.Context, arg1 io.WriterAt, arg2 string, arg3 ...filemanager.DownloadOption) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Download", arg0, arg1, arg2)
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Download", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Download indicates an expected call of Download.
-func (mr *MockFileManagerMockRecorder) Download(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockFileManagerMockRecorder) Download(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockFileManager)(nil).Download), arg0, arg1, arg2)
-}
-
-// DownloadWithOpts mocks base method.
-func (m *MockFileManager) DownloadWithOpts(arg0 context.Context, arg1 io.WriterAt, arg2 string, arg3 map[string]any) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadWithOpts", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DownloadWithOpts indicates an expected call of DownloadWithOpts.
-func (mr *MockFileManagerMockRecorder) DownloadWithOpts(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadWithOpts", reflect.TypeOf((*MockFileManager)(nil).DownloadWithOpts), arg0, arg1, arg2, arg3)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Download", reflect.TypeOf((*MockFileManager)(nil).Download), varargs...)
 }
 
 // GetDownloadKeyFromFileLocation mocks base method.
