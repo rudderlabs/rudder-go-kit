@@ -31,22 +31,51 @@ type GCSConfig struct {
 	DisableSSL     *bool
 	JSONReads      bool
 
-	uploadIfNotExist            bool
+	uploadIfNotExist bool
+}
+
+type GcsManager struct {
+	*baseManager
+	config *GCSConfig
+
+	client   *storage.Client
+	clientMu sync.Mutex
+
 	concurrentDeleteObjRequests int
+}
+
+// GcsManagerOption defines a function that configures a GcsManager
+type GcsManagerOption func(*GcsManager)
+
+// WithConcurrentDeleteObjRequests sets the number of concurrent delete operations
+func WithConcurrentDeleteObjRequests(limit int) GcsManagerOption {
+	return func(m *GcsManager) {
+		m.concurrentDeleteObjRequests = limit
+	}
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
 func NewGCSManager(
 	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+	opts ...GcsManagerOption,
 ) (*GcsManager, error) {
 	conf := gcsConfig(config)
-	return &GcsManager{
+
+	manager := &GcsManager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
 		},
-		config: conf,
-	}, nil
+		config:                      conf,
+		concurrentDeleteObjRequests: 1, // Default value
+	}
+
+	// Apply options
+	for _, opt := range opts {
+		opt(manager)
+	}
+
+	return manager, nil
 }
 
 func (m *GcsManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
@@ -128,7 +157,7 @@ func (m *GcsManager) Delete(ctx context.Context, keys []string) (err error) {
 	defer cancel()
 
 	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(max(1, m.config.concurrentDeleteObjRequests))
+	g.SetLimit(max(1, m.concurrentDeleteObjRequests))
 
 	for _, key := range keys {
 		g.Go(func() error {
@@ -195,20 +224,11 @@ func (m *GcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 	return m.client, err
 }
 
-type GcsManager struct {
-	*baseManager
-	config *GCSConfig
-
-	client   *storage.Client
-	clientMu sync.Mutex
-}
-
 func gcsConfig(config map[string]interface{}) *GCSConfig {
 	var bucketName, prefix, credentials string
 	var endPoint *string
 	var forcePathStyle, disableSSL *bool
 	var jsonReads bool
-	concurrentDeleteObjRequests := 1
 
 	if config["bucketName"] != nil {
 		tmp, ok := config["bucketName"].(string)
@@ -253,22 +273,14 @@ func gcsConfig(config map[string]interface{}) *GCSConfig {
 		}
 	}
 
-	if config["concurrentDeleteObjRequests"] != nil {
-		tmp, ok := config["concurrentDeleteObjRequests"].(int)
-		if ok {
-			concurrentDeleteObjRequests = tmp
-		}
-	}
-
 	return &GCSConfig{
-		Bucket:                      bucketName,
-		Prefix:                      prefix,
-		Credentials:                 credentials,
-		EndPoint:                    endPoint,
-		ForcePathStyle:              forcePathStyle,
-		DisableSSL:                  disableSSL,
-		JSONReads:                   jsonReads,
-		concurrentDeleteObjRequests: concurrentDeleteObjRequests,
+		Bucket:         bucketName,
+		Prefix:         prefix,
+		Credentials:    credentials,
+		EndPoint:       endPoint,
+		ForcePathStyle: forcePathStyle,
+		DisableSSL:     disableSSL,
+		JSONReads:      jsonReads,
 	}
 }
 

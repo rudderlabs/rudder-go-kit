@@ -199,12 +199,11 @@ func TestGCSManagerConcurrentDelete(t *testing.T) {
 				"endPoint":                    gcsURL,
 				"disableSSL":                  true,
 				"jsonReads":                   true,
-				"concurrentDeleteObjRequests": concurrency,
 			}
 
 			m, err := NewGCSManager(conf, logger.NOP, func() time.Duration {
 				return 5 * time.Minute
-			})
+			}, WithConcurrentDeleteObjRequests(concurrency))
 			require.NoError(t, err)
 
 			// Upload test objects

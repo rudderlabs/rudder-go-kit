@@ -90,7 +90,7 @@ func New(settings *Settings) (FileManager, error) {
 	case "S3_DATALAKE", "S3":
 		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
-		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider), WithConcurrentDeleteObjRequests(conf.GetInt("FileManager.GCS.concurrentDeleteObjRequests", 1)))
 	case "AZURE_BLOB":
 		return NewAzureBlobManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "MINIO":
