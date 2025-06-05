@@ -194,11 +194,11 @@ func TestGCSManagerConcurrentDelete(t *testing.T) {
 			prefix := fmt.Sprintf("test-prefix-%d", concurrency)
 
 			conf := map[string]interface{}{
-				"bucketName":                  bucketName,
-				"prefix":                      prefix,
-				"endPoint":                    gcsURL,
-				"disableSSL":                  true,
-				"jsonReads":                   true,
+				"bucketName": bucketName,
+				"prefix":     prefix,
+				"endPoint":   gcsURL,
+				"disableSSL": true,
+				"jsonReads":  true,
 			}
 
 			m, err := NewGCSManager(conf, logger.NOP, func() time.Duration {
