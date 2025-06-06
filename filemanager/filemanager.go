@@ -36,10 +36,12 @@ type FileInfo struct {
 	LastModified time.Time
 }
 
-type DownloadOption func(*downloadOptions)
-type downloadOptions struct {
-	rangeOpt string
-}
+type (
+	DownloadOption  func(*downloadOptions)
+	downloadOptions struct {
+		rangeOpt string
+	}
+)
 
 func WithDownloadRange(rangeOpt string) DownloadOption {
 	return func(o *downloadOptions) {
