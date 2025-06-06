@@ -14,8 +14,10 @@ import (
 type S3Manager interface {
 	FileManager
 	Bucket() string
-	SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error)
 
+	// Part of Migration to RETL and replay to aws-sdk-go-v2
+	// Select functionality is deprecated and will removed
+	SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error)
 	ValidateRoleAssumption(ctx context.Context) error
 }
 
