@@ -14,6 +14,11 @@ import (
 type S3Manager interface {
 	FileManager
 	Bucket() string
+
+	// Part of Migration to RETL and replay to aws-sdk-go-v2
+	// Select functionality is deprecated and will removed
+	SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error)
+	ValidateRoleAssumption(ctx context.Context) error
 }
 
 func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (S3Manager, error) {
@@ -51,8 +56,8 @@ func (s *switchingS3Manager) ListFilesWithPrefix(ctx context.Context, startAfter
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // You can Pass *os.File instead of io.WriterAt to write the downloaded data on disk.
-func (s *switchingS3Manager) Download(ctx context.Context, writer io.WriterAt, key string) error {
-	return s.getManager().Download(ctx, writer, key)
+func (s *switchingS3Manager) Download(ctx context.Context, writer io.WriterAt, key string, opts ...DownloadOption) error {
+	return s.getManager().Download(ctx, writer, key, opts...)
 }
 
 // Upload uploads the passed in file to the file manager
@@ -92,6 +97,26 @@ func (s *switchingS3Manager) GetDownloadKeyFromFileLocation(location string) str
 
 func (s *switchingS3Manager) Bucket() string {
 	return s.getManager().Bucket()
+}
+
+func (s *switchingS3Manager) ValidateRoleAssumption(ctx context.Context) error {
+	return s.getManager().ValidateRoleAssumption(ctx)
+}
+
+type SelectConfig struct {
+	SQLExpression string
+	Key           string
+	OutputFormat  string
+	InputFormat   string
+}
+
+type SelectResult struct {
+	Data  <-chan []byte
+	Error <-chan error
+}
+
+func (s *switchingS3Manager) SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error) {
+	return s.getManager().SelectObjects(ctx, config)
 }
 
 func (s *switchingS3Manager) getManager() S3Manager {

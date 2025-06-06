@@ -77,7 +77,12 @@ func (m *s3ManagerV1) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := &downloadOptions{}
+	for _, opt := range opts {
+		opt(downloadOpts)
+	}
+
 	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
@@ -88,11 +93,14 @@ func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	_, err = downloader.DownloadWithContext(ctx, output,
-		&s3.GetObjectInput{
-			Bucket: aws.String(m.config.Bucket),
-			Key:    aws.String(key),
-		})
+	getObjectInput := &s3.GetObjectInput{
+		Bucket: aws.String(m.config.Bucket),
+		Key:    aws.String(key),
+	}
+	if downloadOpts.rangeOpt != "" {
+		getObjectInput.Range = aws.String(downloadOpts.rangeOpt)
+	}
+	_, err = downloader.DownloadWithContext(ctx, output, getObjectInput)
 	if err != nil {
 		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "NoSuchKey" {
 			return ErrKeyNotFound
@@ -259,6 +267,98 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 	return m.session, err
 }
 
+func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (*SelectResult, error) {
+	sess, err := m.GetSession(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error starting S3 session: %w", err)
+	}
+	svc := s3.New(sess)
+
+	inputSerialization, outputSerialization, err := createS3SelectSerialization(selectConfig.InputFormat, selectConfig.OutputFormat)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting input/output serialization: %w", err)
+	}
+
+	input := &s3.SelectObjectContentInput{
+		Bucket:              aws.String(m.Bucket()),
+		Key:                 aws.String(selectConfig.Key),
+		Expression:          aws.String(selectConfig.SQLExpression),
+		ExpressionType:      aws.String(s3.ExpressionTypeSql),
+		InputSerialization:  inputSerialization,
+		OutputSerialization: outputSerialization,
+	}
+	selectObject, err := svc.SelectObjectContentWithContext(ctx, input)
+	if err != nil {
+		return nil, fmt.Errorf("error selecting object: %w", err)
+	}
+	stream := selectObject.GetStream()
+	if stream == nil {
+		return nil, fmt.Errorf("error getting stream")
+	}
+	events := stream.Events()
+	if events == nil {
+		return nil, fmt.Errorf("error getting events")
+	}
+	byteChan := make(chan []byte)
+	errorChan := make(chan error)
+	go func() {
+		defer func() {
+			if err := stream.Err(); err != nil {
+				errorChan <- err
+			}
+			close(byteChan)
+			close(errorChan)
+			stream.Close()
+		}()
+		select {
+		case <-ctx.Done():
+			return
+		case event := <-events:
+			switch e := event.(type) {
+			case *s3.RecordsEvent:
+				byteChan <- e.Payload
+			case *s3.EndEvent:
+				return
+			}
+		}
+	}()
+	return &SelectResult{
+		Data:  byteChan,
+		Error: errorChan,
+	}, nil
+}
+
+func createS3SelectSerialization(inputFormat, outputFormat string) (*s3.InputSerialization, *s3.OutputSerialization, error) {
+	var inputSerialization *s3.InputSerialization
+	switch inputFormat {
+	case "parquet":
+		inputSerialization = &s3.InputSerialization{
+			Parquet: &s3.ParquetInput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid input format: %s", inputFormat)
+	}
+
+	var outputSerialization *s3.OutputSerialization
+	switch outputFormat {
+	case "csv":
+		outputSerialization = &s3.OutputSerialization{
+			CSV: &s3.CSVOutput{
+				RecordDelimiter: aws.String("\n"),
+				FieldDelimiter:  aws.String(","),
+			},
+		}
+	case "json":
+		outputSerialization = &s3.OutputSerialization{
+			JSON: &s3.JSONOutput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid output format: %s", outputFormat)
+	}
+
+	return inputSerialization, outputSerialization, nil
+}
+
 type s3ManagerV1 struct {
 	*baseManager
 	config *S3Config
@@ -332,6 +432,14 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
 	}
 	return
+}
+
+func (m *s3ManagerV1) ValidateRoleAssumption(ctx context.Context) error {
+	_, err := m.GetSession(ctx)
+	if err != nil {
+		return fmt.Errorf("error starting S3 session: %w", err)
+	}
+	return nil
 }
 
 type codeError interface {
