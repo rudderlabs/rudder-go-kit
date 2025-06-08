@@ -21,7 +21,7 @@
 //		hierarchical order of the keys.
 //		The first key is the most important one, and the last key is the least important one.
 //		Example:
-//		config.RegisterDurationConfigVariable(90, &cmdTimeout, true, time.Second,
+//		config.GetReloadableDurationVar(90, time.Second,
 //			"JobsDB.Router.CommandRequestTimeout",
 //			"JobsDB.CommandRequestTimeout",
 //		)
@@ -35,11 +35,11 @@ package config
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/fsnotify/fsnotify"
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -70,10 +70,17 @@ func WithEnvPrefix(prefix string) Opt {
 // New creates a new config instance
 func New(opts ...Opt) *Config {
 	c := &Config{
-		envPrefix:             DefaultEnvPrefix,
-		reloadableVars:        make(map[string]any),
-		reloadableVarsMisuses: make(map[string]string),
+		envPrefix:                 DefaultEnvPrefix,
+		hotReloadableConfig:       make(map[string]*configValue),
+		hotReloadableVars:         make(map[string]any),
+		hotReloadableVarsDefaults: make(map[string]string),
+		nonReloadableConfig:       make(map[string]*configValue),
+		nonReloadableKeys:         make(map[string]string),
+		envs:                      make(map[string]string),
+
+		notifier: &notifier{},
 	}
+	c.RegisterObserver(&printObserver{})
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -83,181 +90,52 @@ func New(opts ...Opt) *Config {
 
 // Config is the entry point for accessing configuration
 type Config struct {
-	vLock                   sync.RWMutex // protects reading and writing to the config (viper is not thread-safe)
-	v                       *viper.Viper
-	hotReloadableConfigLock sync.RWMutex // protects map holding hot reloadable config keys
-	hotReloadableConfig     map[string][]*configValue
-	envsLock                sync.RWMutex // protects the envs map below
-	envs                    map[string]string
-	envPrefix               string // prefix for environment variables
-	reloadableVars          map[string]any
-	reloadableVarsMisuses   map[string]string
-	reloadableVarsLock      sync.RWMutex // used to protect both the reloadableVars and reloadableVarsMisuses maps
-	configPath              string
-	configPathErr           error
-	godotEnvErr             error
+	vLock sync.RWMutex // protects reading and writing to the config (viper is not thread-safe)
+	v     *viper.Viper
+
+	hotReloadableConfigLock   sync.RWMutex            // protects hot reloadable maps
+	hotReloadableConfig       map[string]*configValue // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> configValue pointer
+	hotReloadableVars         map[string]any          // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> Reloadable[T] pointer
+	hotReloadableVarsDefaults map[string]string       // key -> <data-type>:<comma-separated list of config keys>, e.g. string:jobsdb.host, value -> original default value as a string, e.g. "localhost:5432"
+
+	enableNonReloadableAdvancedDetection bool                    // if true, non-reloadable config key changes are detected with a more advanced mechanism
+	nonReloadableConfigLock              sync.RWMutex            // protects non hot reloadable maps
+	nonReloadableConfig                  map[string]*configValue // key -> <data-type>:<comma-separated list of config keys><default-value>, e.g. string:jobsdb.host:localhost, value -> configValue pointer
+	nonReloadableKeys                    map[string]string       // key -> <lowercase-config-key>, e.g. jobsdb.host, value -> original key, e.g. JobsDB.Host
+	currentSettings                      map[string]any          // current config settings. Keys are always stored flattened and in lower case, e.g. jobsdb.host
+
+	envsLock  sync.RWMutex // protects the envs map below
+	envs      map[string]string
+	envPrefix string // prefix for environment variables
+
+	configPath    string
+	configPathErr error
+	godotEnvErr   error
+	notifier      *notifier // for notifying subscribers of config changes
 }
 
-// GetBool gets bool value from config
-func GetBool(key string, defaultValue bool) (value bool) {
-	return Default.GetBool(key, defaultValue)
-}
+func (c *Config) load() {
+	c.godotEnvErr = godotenv.Load()
+	c.enableNonReloadableAdvancedDetection = getEnv("CONFIG_ADVANCED_DETECTION", "false") == "true"
+	configPath := getEnv("CONFIG_PATH", "./config/config.yaml")
 
-// GetBool gets bool value from config
-func (c *Config) GetBool(key string, defaultValue bool) (value bool) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetBool(key)
-}
+	v := viper.NewWithOptions(viper.EnvKeyReplacer(&envReplacer{c: c}))
+	v.AutomaticEnv()
+	bindLegacyEnv(v)
 
-// GetInt gets int value from config
-func GetInt(key string, defaultValue int) (value int) {
-	return Default.GetInt(key, defaultValue)
-}
+	v.SetConfigFile(configPath)
 
-// GetInt gets int value from config
-func (c *Config) GetInt(key string, defaultValue int) (value int) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetInt(key)
-}
+	// Find and read the config file
+	// If config.yaml is not found or error with parsing. Use the default config values instead
+	c.configPathErr = v.ReadInConfig()
+	c.configPath = v.ConfigFileUsed()
+	c.v = v
 
-// GetStringMap gets string map value from config
-func GetStringMap(key string, defaultValue map[string]interface{}) (value map[string]interface{}) {
-	return Default.GetStringMap(key, defaultValue)
-}
-
-// GetStringMap gets string map value from config
-func (c *Config) GetStringMap(key string, defaultValue map[string]interface{}) (value map[string]interface{}) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetStringMap(key)
-}
-
-// MustGetInt gets int value from config or panics if the config doesn't exist
-func MustGetInt(key string) (value int) {
-	return Default.MustGetInt(key)
-}
-
-// MustGetInt gets int value from config or panics if the config doesn't exist
-func (c *Config) MustGetInt(key string) (value int) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		panic(fmt.Errorf("config key %s not found", key))
-	}
-	return c.v.GetInt(key)
-}
-
-// GetInt64 gets int64 value from config
-func GetInt64(key string, defaultValue int64) (value int64) {
-	return Default.GetInt64(key, defaultValue)
-}
-
-// GetInt64 gets int64 value from config
-func (c *Config) GetInt64(key string, defaultValue int64) (value int64) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetInt64(key)
-}
-
-// GetFloat64 gets float64 value from config
-func GetFloat64(key string, defaultValue float64) (value float64) {
-	return Default.GetFloat64(key, defaultValue)
-}
-
-// GetFloat64 gets float64 value from config
-func (c *Config) GetFloat64(key string, defaultValue float64) (value float64) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetFloat64(key)
-}
-
-// GetString gets string value from config
-func GetString(key, defaultValue string) (value string) {
-	return Default.GetString(key, defaultValue)
-}
-
-// GetString gets string value from config
-func (c *Config) GetString(key, defaultValue string) (value string) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetString(key)
-}
-
-// MustGetString gets string value from config or panics if the config doesn't exist
-func MustGetString(key string) (value string) {
-	return Default.MustGetString(key)
-}
-
-// MustGetString gets string value from config or panics if the config doesn't exist
-func (c *Config) MustGetString(key string) (value string) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		panic(fmt.Errorf("config key %s not found", key))
-	}
-	return c.v.GetString(key)
-}
-
-// GetStringSlice gets string slice value from config
-func GetStringSlice(key string, defaultValue []string) (value []string) {
-	return Default.GetStringSlice(key, defaultValue)
-}
-
-// GetStringSlice gets string slice value from config
-func (c *Config) GetStringSlice(key string, defaultValue []string) (value []string) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return defaultValue
-	}
-	return c.v.GetStringSlice(key)
-}
-
-// GetDuration gets duration value from config
-func GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	return Default.GetDuration(key, defaultValueInTimescaleUnits, timeScale)
-}
-
-// GetDuration gets duration value from config
-func (c *Config) GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	c.vLock.RLock()
-	defer c.vLock.RUnlock()
-	if !c.isSetInternal(key) {
-		return time.Duration(defaultValueInTimescaleUnits) * timeScale
-	} else {
-		v := c.v.GetString(key)
-		parseDuration, err := time.ParseDuration(v)
-		if err == nil {
-			return parseDuration
-		} else {
-			_, err = strconv.ParseFloat(v, 64)
-			if err == nil {
-				return c.v.GetDuration(key) * timeScale
-			} else {
-				return time.Duration(defaultValueInTimescaleUnits) * timeScale
-			}
-		}
-	}
+	c.currentSettings = c.getCurrentSettings()
+	c.v.OnConfigChange(func(_ fsnotify.Event) {
+		c.onConfigChange()
+	})
+	c.v.WatchConfig()
 }
 
 // IsSet checks if config is set for a key
@@ -278,53 +156,63 @@ func (c *Config) isSetInternal(key string) bool {
 	return c.v.IsSet(key)
 }
 
-// Override Config by application or command line
-
 // Set override existing config
-func Set(key string, value interface{}) {
+func Set(key string, value any) {
 	Default.Set(key, value)
 }
 
 // Set override existing config
-func (c *Config) Set(key string, value interface{}) {
+func (c *Config) Set(key string, value any) {
 	c.vLock.Lock()
 	c.v.Set(key, value)
 	c.vLock.Unlock()
 	c.onConfigChange()
 }
 
-func getReloadableMapKeys[T configTypes](v T, orderedKeys ...string) (string, string) {
-	k := fmt.Sprintf("%T:%s", v, strings.Join(orderedKeys, ","))
-	return k, fmt.Sprintf("%s:%v", k, v)
+// ConfigFileUsed returns the file used to load the config.
+// If we failed to load the config file, it also returns an error.
+func (c *Config) ConfigFileUsed() (string, error) {
+	return c.configPath, c.configPathErr
+}
+
+// DotEnvLoaded returns an error if there was an error loading the .env file.
+// It returns nil otherwise.
+func (c *Config) DotEnvLoaded() error {
+	return c.godotEnvErr
+}
+
+// getMapKey returns the map key (<type>:<comma-separated-keys>) along with the string representation of the default value
+func getMapKey[T configTypes](defaultValue T, orderedKeys ...string) (string, string) {
+	mapKey := getTypeName(defaultValue) + ":" + strings.Join(orderedKeys, ",") // key is a combination of type and ordered keys
+	defaultValueStr := getStringValue(defaultValue)
+	return mapKey, defaultValueStr
 }
 
 func getOrCreatePointer[T configTypes](
-	m map[string]any, dvs map[string]string, // this function MUST receive maps that are already initialized
-	lock *sync.RWMutex, defaultValue T, orderedKeys ...string,
+	reloadableVars map[string]any, reloadableVarsMisuses map[string]string, reloadableConfigVals map[string]*configValue, // this function MUST receive maps that are already initialized
+	lock *sync.RWMutex, defaultValue T, cv *configValue, orderedKeys ...string,
 ) (ptr *Reloadable[T], exists bool) {
-	key, dvKey := getReloadableMapKeys(defaultValue, orderedKeys...)
-
+	key, dv := getMapKey(defaultValue, orderedKeys...)
 	lock.Lock()
 	defer lock.Unlock()
-
 	defer func() {
-		if _, ok := dvs[key]; !ok {
-			dvs[key] = dvKey
+		if _, ok := reloadableVarsMisuses[key]; !ok {
+			reloadableVarsMisuses[key] = dv
 		}
-		if dvs[key] != dvKey {
+		if reloadableVarsMisuses[key] != dv {
 			panic(fmt.Errorf(
-				"detected misuse of config variable registered with different default values %+v - %+v",
-				dvs[key], dvKey,
+				"detected misuse of config variable registered with different default values for %q: %+v - %+v",
+				key, reloadableVarsMisuses[key], dv,
 			))
 		}
 	}()
-
-	if p, ok := m[key]; ok {
+	if p, ok := reloadableVars[key]; ok {
 		return p.(*Reloadable[T]), true
 	}
-
 	p := &Reloadable[T]{}
-	m[key] = p
+	reloadableVars[key] = p
+	cv.value = p
+	reloadableConfigVals[key] = cv
 	return p, false
 }
 
@@ -333,10 +221,7 @@ func getOrCreatePointer[T configTypes](
 // Viper uppercases keys before sending them to its EnvKeyReplacer, thus
 // the replacer cannot detect camelCase keys.
 func (c *Config) bindEnv(key string) {
-	envVar := key
-	if !isUpperCaseConfigKey(key) {
-		envVar = ConfigKeyToEnv(c.envPrefix, key)
-	}
+	envVar := ConfigKeyToEnv(c.envPrefix, key)
 	// bind once
 	c.envsLock.RLock()
 	if _, ok := c.envs[key]; !ok {
@@ -371,4 +256,43 @@ func bindLegacyEnv(v *viper.Viper) {
 	_ = v.BindEnv("DB.password", "JOBS_DB_PASSWORD")
 	_ = v.BindEnv("DB.sslMode", "JOBS_DB_SSL_MODE")
 	_ = v.BindEnv("SharedDB.dsn", "SHARED_DB_DSN")
+}
+
+// registerNonReloadableConfigKeys tracks all non-reloadable config keys in their lowercase form
+func registerNonReloadableConfigKeys[T configTypes](c *Config, dv T, cv *configValue) {
+	c.nonReloadableConfigLock.Lock()
+	defer c.nonReloadableConfigLock.Unlock()
+
+	if !c.enableNonReloadableAdvancedDetection {
+		for _, key := range cv.keys {
+			c.nonReloadableKeys[strings.ToLower(key)] = key // store the original key in lowercase
+		}
+		return
+	}
+	key, dvKey := getMapKey(dv, cv.keys...)
+	// final key should be a combination of type, ordered keys & default value
+	k := key + ":" + dvKey // TODO: consider ignoring default value for non-reloadable keys
+	if _, exists := c.nonReloadableConfig[k]; !exists {
+		c.nonReloadableConfig[k] = cv
+	}
+}
+
+// RegisterObserver registers an observer for configuration changes
+func (c *Config) RegisterObserver(observer Observer) {
+	c.notifier.Register(observer)
+}
+
+// UnregisterObserver unregisters an observer
+func (c *Config) UnregisterObserver(observer Observer) {
+	c.notifier.Unregister(observer)
+}
+
+// OnReloadableConfigChange registers a function to be called whenever a reloadable config change happens
+func (c *Config) OnReloadableConfigChange(fn func(key string, oldValue, newValue any)) {
+	c.notifier.Register(ReloadableConfigChangesFunc(fn))
+}
+
+// OnNonReloadableConfigChange registers a function to be called whenever a non-reloadable config change happens
+func (c *Config) OnNonReloadableConfigChange(fn func(key string)) {
+	c.notifier.Register(NonReloadableConfigChangesFunc(fn))
 }
