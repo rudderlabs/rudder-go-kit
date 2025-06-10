@@ -389,15 +389,23 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 			stream.Close()
 			cancel()
 		}()
-		select {
-		case <-ctx.Done():
-			return
-		case event := <-events:
-			switch e := event.(type) {
-			case *types.SelectObjectContentEventStreamMemberRecords:
-				byteChan <- e.Value.Payload
-			case *types.SelectObjectContentEventStreamMemberEnd:
+		for {
+			select {
+			case <-ctx.Done():
+				if err := ctx.Err(); err != nil {
+					errorChan <- err
+				}
 				return
+			case event, ok := <-events:
+				if !ok {
+					return
+				}
+				switch e := event.(type) {
+				case *types.SelectObjectContentEventStreamMemberRecords:
+					byteChan <- e.Value.Payload
+				case *types.SelectObjectContentEventStreamMemberEnd:
+					return
+				}
 			}
 		}
 	}()

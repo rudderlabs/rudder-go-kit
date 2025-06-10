@@ -16,7 +16,7 @@ type S3Manager interface {
 	Bucket() string
 
 	// Part of Migration to RETL and replay to aws-sdk-go-v2
-	// Select functionality is deprecated and will removed
+	// Select functionality is deprecated and will be removed in the future
 	SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error)
 }
 
