@@ -75,6 +75,7 @@ func run(m *testing.M) int {
 			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
 			fmt.Sprintf("MINIO_SECRET_KEY=%s", secretAccessKey),
 			fmt.Sprintf("MINIO_SITE_REGION=%s", region),
+			"MINIO_API_SELECT_PARQUET=on",
 		},
 	})
 	if err != nil {
@@ -715,4 +716,104 @@ func TestFileManager_S3(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestS3Manager_SelectObjects(t *testing.T) {
+	minioConfig := map[string]interface{}{
+		"bucketName":       bucket,
+		"accessKeyID":      accessKeyId,
+		"accessKey":        secretAccessKey,
+		"enableSSE":        false,
+		"prefix":           "some-prefix",
+		"endPoint":         minioEndpoint,
+		"s3ForcePathStyle": true,
+		"disableSSL":       true,
+		"region":           region,
+	}
+
+	fm, err := filemanager.New(&filemanager.Settings{
+		Provider: "S3",
+		Config:   minioConfig,
+		Logger:   logger.NOP,
+		Conf:     config.New(),
+	})
+	if err != nil {
+		t.Fatalf("failed to create S3 filemanager: %v", err)
+	}
+
+	parquetPath := "goldenDirectory/test.parquet"
+	filePtr, err := os.Open(parquetPath)
+	if err != nil {
+		t.Fatalf("failed to open parquet file: %v", err)
+	}
+	defer filePtr.Close()
+
+	uploadOutput, err := fm.Upload(context.TODO(), filePtr)
+	if err != nil {
+		t.Fatalf("failed to upload parquet file: %v", err)
+	}
+	// Always clean up the uploaded file at the end
+	defer func() {
+		if err := fm.Delete(context.TODO(), []string{uploadOutput.ObjectName}); err != nil {
+			t.Errorf("failed to delete parquet file from bucket during cleanup: %v", err)
+		}
+	}()
+
+	s3fm, ok := fm.(filemanager.S3Manager)
+	if !ok {
+		t.Fatalf("filemanager is not an S3Manager, cannot call SelectObjects")
+	}
+
+	// Helper to run select and assert output
+	runSelectAndAssert := func(t *testing.T, outputFormat string) {
+		selectConfig := filemanager.SelectConfig{
+			SQLExpression: "SELECT * FROM S3Object",
+			Key:           uploadOutput.ObjectName,
+			InputFormat:   "parquet",
+			OutputFormat:  outputFormat,
+		}
+		selectResult, err := s3fm.SelectObjects(context.TODO(), selectConfig)
+		if err != nil {
+			t.Fatalf("failed to call SelectObjects (%s): %v", outputFormat, err)
+		}
+		var receivedData bool
+		for data := range selectResult.Data {
+			receivedData = true
+			if len(data) == 0 {
+				t.Errorf("received empty data from SelectObjects (%s)", outputFormat)
+			}
+			lines := bytes.Split(data, []byte("\n"))
+			for i, line := range lines {
+				if len(bytes.TrimSpace(line)) == 0 {
+					continue
+				}
+				if outputFormat == "json" {
+					var js map[string]interface{}
+					if err := jsoniter.Unmarshal(line, &js); err != nil {
+						t.Errorf("received line is not valid JSON: %v\ndata: %s", err, string(line))
+					}
+				} else if outputFormat == "csv" && i == 0 {
+					row := string(line)
+					columns := strings.Split(row, ",")
+					if len(columns) < 4 {
+						t.Errorf("CSV row does not have expected number of columns: %s", row)
+					}
+				}
+			}
+		}
+		if !receivedData {
+			t.Errorf("did not receive any data from SelectObjects (%s)", outputFormat)
+		}
+		if err := <-selectResult.Error; err != nil {
+			t.Errorf("error received from SelectObjects (%s): %v", outputFormat, err)
+		}
+	}
+
+	t.Run("SelectObjects with JSON output", func(t *testing.T) {
+		runSelectAndAssert(t, "json")
+	})
+
+	t.Run("SelectObjects with CSV output", func(t *testing.T) {
+		runSelectAndAssert(t, "csv")
+	})
 }
