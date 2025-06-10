@@ -310,18 +310,23 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 			}
 			close(errorChan)
 		}()
-		select {
-		case <-ctx.Done():
-			if err := ctx.Err(); err != nil {
-				errorChan <- err
-			}
-			return
-		case event := <-events:
-			switch e := event.(type) {
-			case *s3.RecordsEvent:
-				byteChan <- e.Payload
-			case *s3.EndEvent:
+		for {
+			select {
+			case <-ctx.Done():
+				if err := ctx.Err(); err != nil {
+					errorChan <- err
+				}
 				return
+			case event, ok := <-events:
+				if !ok {
+					return
+				}
+				switch e := event.(type) {
+				case *s3.RecordsEvent:
+					byteChan <- e.Payload
+				case *s3.EndEvent:
+					return
+				}
 			}
 		}
 	}()
