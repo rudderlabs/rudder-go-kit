@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.54.1...v0.55.0) (2025-06-08)
+
+
+### Features
+
+* **config:** detect config changes for reloadable and non-reloadable keys ([#817](https://github.com/rudderlabs/rudder-go-kit/issues/817)) ([c00e4dd](https://github.com/rudderlabs/rudder-go-kit/commit/c00e4ddc22dbfb094edfa84b4640b03c60d231db))
+
 ## [0.54.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.54.0...v0.54.1) (2025-06-03)
 
 
