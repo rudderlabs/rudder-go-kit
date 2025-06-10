@@ -303,15 +303,18 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 	errorChan := make(chan error)
 	go func() {
 		defer func() {
+			stream.Close()
+			close(byteChan)
 			if err := stream.Err(); err != nil {
 				errorChan <- err
 			}
-			close(byteChan)
 			close(errorChan)
-			stream.Close()
 		}()
 		select {
 		case <-ctx.Done():
+			if err := ctx.Err(); err != nil {
+				errorChan <- err
+			}
 			return
 		case event := <-events:
 			switch e := event.(type) {
@@ -432,14 +435,6 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
 	}
 	return
-}
-
-func (m *s3ManagerV1) ValidateRoleAssumption(ctx context.Context) error {
-	_, err := m.GetSession(ctx)
-	if err != nil {
-		return fmt.Errorf("error starting S3 session: %w", err)
-	}
-	return nil
 }
 
 type codeError interface {
