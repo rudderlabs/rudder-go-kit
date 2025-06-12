@@ -13,15 +13,10 @@ import (
 // grafanaJSONParser is the implementation of JSONParser using jsonparser library
 type grafanaJSONParser struct{}
 
-func isNumeric(s string) bool {
-	_, err := strconv.Atoi(s)
-	return err == nil
-}
-
 // GetValue retrieves the value for a given key from JSON bytes using jsonparser
 func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (interface{}, error) {
 	if len(data) == 0 {
-		return nil, EmptyJSONError
+		return nil, ErrEmptyJSON
 	}
 
 	// Handle empty key - return the entire JSON object
@@ -36,7 +31,7 @@ func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (interface{}, 
 	value, dataType, _, err := jsonparser.Get(data, keys...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
-			return nil, KeyNotFoundError
+			return nil, ErrKeyNotFound
 		}
 		return nil, fmt.Errorf("failed to get value for keys %v: %w", keys, err)
 	}
@@ -71,13 +66,13 @@ func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (interface{}, 
 // GetBoolean retrieves a boolean value for a given key from JSON bytes
 func (p *grafanaJSONParser) GetBoolean(data []byte, keys ...string) (bool, error) {
 	if len(data) == 0 {
-		return false, EmptyJSONError
+		return false, ErrEmptyJSON
 	}
 
 	value, err := jsonparser.GetBoolean(data, keys...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
-			return false, KeyNotFoundError
+			return false, ErrKeyNotFound
 		}
 		return false, fmt.Errorf("failed to get value for keys %v: %w", keys, err)
 	}
@@ -87,13 +82,13 @@ func (p *grafanaJSONParser) GetBoolean(data []byte, keys ...string) (bool, error
 // GetInt retrieves an integer value for a given key from JSON bytes
 func (p *grafanaJSONParser) GetInt(data []byte, keys ...string) (int64, error) {
 	if len(data) == 0 {
-		return 0, EmptyJSONError
+		return 0, ErrEmptyJSON
 	}
 
 	value, err := jsonparser.GetInt(data, keys...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
-			return 0, KeyNotFoundError
+			return 0, ErrKeyNotFound
 		}
 		return 0, fmt.Errorf("failed to get value for keys %v: %w", keys, err)
 	}
@@ -104,13 +99,13 @@ func (p *grafanaJSONParser) GetInt(data []byte, keys ...string) (int64, error) {
 // GetFloat retrieves a float value for a given key from JSON bytes
 func (p *grafanaJSONParser) GetFloat(data []byte, keys ...string) (float64, error) {
 	if len(data) == 0 {
-		return 0, EmptyJSONError
+		return 0, ErrEmptyJSON
 	}
 
 	value, err := jsonparser.GetFloat(data, keys...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
-			return 0, KeyNotFoundError
+			return 0, ErrKeyNotFound
 		}
 		return 0, fmt.Errorf("failed to get value for keys %v: %w", keys, err)
 	}
@@ -121,13 +116,13 @@ func (p *grafanaJSONParser) GetFloat(data []byte, keys ...string) (float64, erro
 // GetString retrieves a string value for a given key from JSON bytes
 func (p *grafanaJSONParser) GetString(data []byte, keys ...string) (string, error) {
 	if len(data) == 0 {
-		return "", EmptyJSONError
+		return "", ErrEmptyJSON
 	}
 
 	value, err := jsonparser.GetString(data, keys...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
-			return "", KeyNotFoundError
+			return "", ErrKeyNotFound
 		}
 		return "", fmt.Errorf("failed to get value for keys %v: %w", keys, err)
 	}
@@ -137,19 +132,18 @@ func (p *grafanaJSONParser) GetString(data []byte, keys ...string) (string, erro
 
 // SetValue sets the value for a given key in JSON bytes using jsonparser
 func (p *grafanaJSONParser) SetValue(data []byte, value interface{}, keys ...string) ([]byte, error) {
-
 	if len(data) == 0 {
 		// If data is empty, create a new JSON object
 		data = []byte("{}")
 	}
 
 	if len(keys) == 0 {
-		return nil, NoKeysProvidedError
+		return nil, ErrNoKeysProvided
 	}
 
 	key := keys[0]
 	if key == "" {
-		return nil, EmptyKeyError
+		return nil, ErrEmptyKey
 	}
 
 	var valueBytes []byte
@@ -206,16 +200,16 @@ func (p *grafanaJSONParser) SetString(data []byte, value string, keys ...string)
 // DeleteKey deletes a key from JSON bytes
 func (p *grafanaJSONParser) DeleteKey(data []byte, keys ...string) ([]byte, error) {
 	if len(data) == 0 {
-		return nil, EmptyJSONError
+		return nil, ErrEmptyJSON
 	}
 
 	if len(keys) == 0 {
-		return nil, NoKeysProvidedError
+		return nil, ErrNoKeysProvided
 	}
 
 	key := keys[0]
 	if key == "" {
-		return nil, EmptyKeyError
+		return nil, ErrEmptyKey
 	}
 
 	// Use jsonparser.Delete to delete the key

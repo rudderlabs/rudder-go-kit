@@ -141,8 +141,8 @@ func Reset() {
 }
 
 var (
-	KeyNotFoundError    = errors.New("key not found in JSON data")
-	EmptyJSONError      = errors.New("empty JSON data provided")
-	NoKeysProvidedError = errors.New("no keys provided")
-	EmptyKeyError       = errors.New("empty key provided")
+	ErrKeyNotFound    = errors.New("key not found in JSON data")
+	ErrEmptyJSON      = errors.New("empty JSON data provided")
+	ErrNoKeysProvided = errors.New("no keys provided")
+	ErrEmptyKey       = errors.New("empty key provided")
 )
