@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.55.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.55.1...v0.55.2) (2025-06-12)
+
+
+### Bug Fixes
+
+* improve error handling and clarify retry strategy behavior ([#831](https://github.com/rudderlabs/rudder-go-kit/issues/831)) ([733eed0](https://github.com/rudderlabs/rudder-go-kit/commit/733eed082e7d28f7dc3deac2b1200edc80bb0f05))
+
+
+### Miscellaneous
+
+* update confluent-kafka-go to v2.10.1 and go to 1.24.4 ([#830](https://github.com/rudderlabs/rudder-go-kit/issues/830)) ([dba4e28](https://github.com/rudderlabs/rudder-go-kit/commit/dba4e2838f8353bf05f17a8f5feb7a86bd5ed93d))
+
 ## [0.55.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.55.0...v0.55.1) (2025-06-11)
 
 
