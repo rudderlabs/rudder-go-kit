@@ -220,7 +220,7 @@ func TestRetryableHTTPClient_Do_MaxRetriesExceeded(t *testing.T) {
 	require.NotNil(t, resp)
 	require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 	require.Equal(t, 3, attempts) // Initial + 2 retries
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }
 
 func TestRetryableHTTPClient_WithCustomOptions(t *testing.T) {
