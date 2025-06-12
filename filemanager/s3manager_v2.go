@@ -79,7 +79,11 @@ func (m *s3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 }
 
 // Download downloads a file from S3 to the provided io.WriterAt.
-func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := &downloadOptions{}
+	for _, opt := range opts {
+		opt(downloadOpts)
+	}
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("s3 client: %w", err)
@@ -90,11 +94,15 @@ func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	_, err = downloader.Download(ctx, output,
-		&s3.GetObjectInput{
-			Bucket: aws.String(m.config.Bucket),
-			Key:    aws.String(key),
-		})
+	getObjectInput := &s3.GetObjectInput{
+		Bucket: aws.String(m.config.Bucket),
+		Key:    aws.String(key),
+	}
+	if downloadOpts.rangeOpt != "" {
+		getObjectInput.Range = aws.String(downloadOpts.rangeOpt)
+	}
+
+	_, err = downloader.Download(ctx, output, getObjectInput)
 	if err == nil {
 		return nil
 	}
@@ -332,4 +340,103 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
 	}
 	return fileObjects, nil
+}
+
+func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, error) {
+	client, err := m.getClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("selecting objects: %w", err)
+	}
+
+	inputSerialization, outputSerialization, err := createS3SelectSerializationV2(selectConfig.InputFormat, selectConfig.OutputFormat)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting input/output serialization: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
+	selectObject, err := client.SelectObjectContent(ctx, &s3.SelectObjectContentInput{
+		Bucket:              aws.String(m.config.Bucket),
+		Key:                 aws.String(selectConfig.Key),
+		Expression:          aws.String(selectConfig.SQLExpression),
+		ExpressionType:      types.ExpressionTypeSql,
+		InputSerialization:  inputSerialization,
+		OutputSerialization: outputSerialization,
+	})
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("selecting object: %w", err)
+	}
+
+	stream := selectObject.GetStream()
+	if stream == nil {
+		cancel()
+		return nil, fmt.Errorf("error getting stream")
+	}
+	events := stream.Events()
+	if events == nil {
+		cancel()
+		return nil, fmt.Errorf("error getting events")
+	}
+	selectResultChan := make(chan SelectResult)
+	go func() {
+		defer func() {
+			if err := stream.Err(); err != nil {
+				selectResultChan <- SelectResult{Error: err}
+			}
+			close(selectResultChan)
+			stream.Close()
+			cancel()
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				if err := ctx.Err(); err != nil {
+					selectResultChan <- SelectResult{Error: err}
+				}
+				return
+			case event, ok := <-events:
+				if !ok {
+					return
+				}
+				switch e := event.(type) {
+				case *types.SelectObjectContentEventStreamMemberRecords:
+					selectResultChan <- SelectResult{Data: e.Value.Payload}
+				case *types.SelectObjectContentEventStreamMemberEnd:
+					return
+				}
+			}
+		}
+	}()
+	return selectResultChan, nil
+}
+
+func createS3SelectSerializationV2(inputFormat, outputFormat string) (*types.InputSerialization, *types.OutputSerialization, error) {
+	var inputSerialization *types.InputSerialization
+	switch inputFormat {
+	case "parquet":
+		inputSerialization = &types.InputSerialization{
+			Parquet: &types.ParquetInput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid input format: %s", inputFormat)
+	}
+
+	var outputSerialization *types.OutputSerialization
+	switch outputFormat {
+	case "csv":
+		outputSerialization = &types.OutputSerialization{
+			CSV: &types.CSVOutput{
+				RecordDelimiter: aws.String("\n"),
+				FieldDelimiter:  aws.String(","),
+			},
+		}
+	case "json":
+		outputSerialization = &types.OutputSerialization{
+			JSON: &types.JSONOutput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid output format: %s", outputFormat)
+	}
+
+	return inputSerialization, outputSerialization, nil
 }
