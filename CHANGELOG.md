@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.55.0...v0.55.1) (2025-06-11)
+
+
+### Miscellaneous
+
+* **deps:** bump the all group across 1 directory with 31 updates ([#826](https://github.com/rudderlabs/rudder-go-kit/issues/826)) ([52fb371](https://github.com/rudderlabs/rudder-go-kit/commit/52fb37101eeabca758d7d713a84bde775c753c61))
+
 ## [0.55.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.54.1...v0.55.0) (2025-06-08)
 
 
