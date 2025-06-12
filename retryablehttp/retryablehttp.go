@@ -18,7 +18,8 @@ type HttpClient interface {
 
 // retryStrategy is a function that determines whether to retry based on the response and error.
 // It should return true if the request should be retried, along with an error for the reason of retry.
-// If it returns false, it means no retry is needed and the error(if any) along with a response can be returned directly.
+// If it returns false, it means no retry is needed and the error(if any while making http req) along with a response can be returned directly.
+// if retry is true, it means the request should be retried and error(if any from retryStrategy) will be sent to onFailure.
 type retryStrategy func(resp *http.Response, err error) (bool, error)
 
 type Config struct {
@@ -121,30 +122,35 @@ func NewRetryableHTTPClient(config *Config, options ...Option) HttpClient {
 // Do executes an HTTP request with retry logic.
 func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	var (
-		resp *http.Response
-		err  error
+		resp      *http.Response
+		bodyBytes []byte
 	)
 
-	var bodyBytes []byte
 	// if the body is not nil, read it and store it in bodyBytes
 	if req.Body != nil {
+		var err error
 		bodyBytes, err = io.ReadAll(req.Body)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	_ = backoff.RetryNotify(
+	// We should return doErr instead of the error returned by backoff.RetryNotify to follow the convention
+	// of the standard HTTP client. If you can get a response, even if it's a 500 then err should be nil and the
+	// response should simply contain the correct status code (e.g. 500) and body for the caller perusal.
+	var doErr error
+	_ = backoff.RetryNotify( // ignoring error here to use doErr
 		func() error {
 			// if the body was read, we need to reset it
 			if bodyBytes != nil {
 				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
-			resp, err = c.HttpClient.Do(req) // nolint: bodyclose
-			if retry, retryErr := c.shouldRetry(resp, err); retry {
-				return fmt.Errorf("retryable error: %v", retryErr)
+			resp, doErr = c.HttpClient.Do(req) // nolint: bodyclose
+			retry, retryErr := c.shouldRetry(resp, doErr)
+			if retry {
+				return fmt.Errorf("retryable error: %w", retryErr)
 			}
-			return err
+			return nil
 		},
 		backoff.WithMaxRetries(
 			backoff.NewExponentialBackOff(
@@ -161,7 +167,7 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 			}
 		},
 	)
-	return resp, err
+	return resp, doErr
 }
 
 func BaseRetryStrategy(resp *http.Response, err error) (bool, error) {
