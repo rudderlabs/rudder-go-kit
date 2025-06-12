@@ -1,6 +1,8 @@
 package jsonparser
 
 import (
+	"errors"
+
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
@@ -8,22 +10,27 @@ import (
 type getter interface {
 	// GetValue retrieves the value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
+	// Returns the value as an interface{} and an error if the key does not exist or if there is a JSON parsing error.
 	GetValue(data []byte, keys ...string) (interface{}, error)
 
 	// GetBoolean retrieves a boolean value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
+	// Returns the boolean value and an error if the key does not exist or if there is a JSON parsing error.
 	GetBoolean(data []byte, keys ...string) (bool, error)
 
 	// GetInt retrieves an integer value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
+	// Returns the integer value and an error if the key does not exist or if there is a JSON parsing error.
 	GetInt(data []byte, keys ...string) (int64, error)
 
 	// GetFloat retrieves a float value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
+	// Returns the float value and an error if the key does not exist or if there is a JSON parsing error.
 	GetFloat(data []byte, keys ...string) (float64, error)
 
 	// GetString retrieves a string value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
+	// Returns the string value and an error if the key does not exist or if there is a JSON parsing error.
 	GetString(data []byte, keys ...string) (string, error)
 }
 
@@ -31,27 +38,27 @@ type getter interface {
 type setter interface {
 	// SetValue sets the value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	// Returns the modified JSON bytes.
+	// Returns the modified JSON bytes, and an error if no/empty key is passed, or if there is a JSON parsing error.
 	SetValue(data []byte, value interface{}, keys ...string) ([]byte, error)
 
 	// SetBoolean sets a boolean value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	// Returns the modified JSON bytes.
+	// Returns the modified JSON bytes, and an error if no/empty key is passed, or if there is a JSON parsing error.
 	SetBoolean(data []byte, value bool, keys ...string) ([]byte, error)
 
 	// SetInt sets an integer value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	// Returns the modified JSON bytes.
+	// Returns the modified JSON bytes, and an error if no/empty key is passed, or if there is a JSON parsing error.
 	SetInt(data []byte, value int64, keys ...string) ([]byte, error)
 
 	// SetFloat sets a float value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	// Returns the modified JSON bytes.
+	// Returns the modified JSON bytes, and an error if no/empty key is passed, or if there is a JSON parsing error.
 	SetFloat(data []byte, value float64, keys ...string) ([]byte, error)
 
 	// SetString sets a string value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	// Returns the modified JSON bytes.
+	// Returns the modified JSON bytes, and an error if no/empty key is passed, or if there is a JSON parsing error.
 	SetString(data []byte, value string, keys ...string) ([]byte, error)
 }
 
@@ -59,7 +66,7 @@ type setter interface {
 type deleter interface {
 	// DeleteKey deletes a key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
-	// Returns the modified JSON bytes.
+	// Returns the modified JSON bytes, and an error if no/empty key is passed, or if there is a JSON parsing error.
 	DeleteKey(data []byte, keys ...string) ([]byte, error)
 }
 
@@ -132,3 +139,10 @@ func DeleteKey(data []byte, keys ...string) ([]byte, error) {
 func Reset() {
 	Default = NewWithConfig(config.Default)
 }
+
+var (
+	KeyNotFoundError    = errors.New("key not found in JSON data")
+	EmptyJSONError      = errors.New("empty JSON data provided")
+	NoKeysProvidedError = errors.New("no keys provided")
+	EmptyKeyError       = errors.New("empty key provided")
+)
