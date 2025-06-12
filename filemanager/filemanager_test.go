@@ -777,12 +777,17 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 			t.Fatalf("failed to call SelectObjects (%s): %v", outputFormat, err)
 		}
 		var receivedData bool
-		for data := range selectResult.Data {
+		for data := range selectResult {
 			receivedData = true
-			if len(data) == 0 {
+
+			if data.Error != nil {
+				t.Errorf("error received from SelectObjects (%s): %v", outputFormat, data.Error)
+			}
+
+			if len(data.Data) == 0 {
 				t.Errorf("received empty data from SelectObjects (%s)", outputFormat)
 			}
-			lines := bytes.Split(data, []byte("\n"))
+			lines := bytes.Split(data.Data, []byte("\n"))
 			for i, line := range lines {
 				if len(bytes.TrimSpace(line)) == 0 {
 					continue
@@ -803,9 +808,6 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 		}
 		if !receivedData {
 			t.Errorf("did not receive any data from SelectObjects (%s)", outputFormat)
-		}
-		if err := <-selectResult.Error; err != nil {
-			t.Errorf("error received from SelectObjects (%s): %v", outputFormat, err)
 		}
 	}
 

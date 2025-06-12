@@ -342,10 +342,10 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 	return fileObjects, nil
 }
 
-func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (*SelectResult, error) {
+func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, error) {
 	client, err := m.getClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("s3 client: %w", err)
+		return nil, fmt.Errorf("selecting objects: %w", err)
 	}
 
 	inputSerialization, outputSerialization, err := createS3SelectSerializationV2(selectConfig.InputFormat, selectConfig.OutputFormat)
@@ -364,7 +364,7 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 	})
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("error selecting object: %w", err)
+		return nil, fmt.Errorf("selecting object: %w", err)
 	}
 
 	stream := selectObject.GetStream()
@@ -377,15 +377,13 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 		cancel()
 		return nil, fmt.Errorf("error getting events")
 	}
-	byteChan := make(chan []byte)
-	errorChan := make(chan error)
+	selectResultChan := make(chan SelectResult)
 	go func() {
 		defer func() {
 			if err := stream.Err(); err != nil {
-				errorChan <- err
+				selectResultChan <- SelectResult{Error: err}
 			}
-			close(byteChan)
-			close(errorChan)
+			close(selectResultChan)
 			stream.Close()
 			cancel()
 		}()
@@ -393,7 +391,7 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 			select {
 			case <-ctx.Done():
 				if err := ctx.Err(); err != nil {
-					errorChan <- err
+					selectResultChan <- SelectResult{Error: err}
 				}
 				return
 			case event, ok := <-events:
@@ -402,17 +400,14 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 				}
 				switch e := event.(type) {
 				case *types.SelectObjectContentEventStreamMemberRecords:
-					byteChan <- e.Value.Payload
+					selectResultChan <- SelectResult{Data: e.Value.Payload}
 				case *types.SelectObjectContentEventStreamMemberEnd:
 					return
 				}
 			}
 		}
 	}()
-	return &SelectResult{
-		Data:  byteChan,
-		Error: errorChan,
-	}, nil
+	return selectResultChan, nil
 }
 
 func createS3SelectSerializationV2(inputFormat, outputFormat string) (*types.InputSerialization, *types.OutputSerialization, error) {

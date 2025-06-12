@@ -17,7 +17,7 @@ type S3Manager interface {
 
 	// Part of Migration to RETL and replay to aws-sdk-go-v2
 	// Select functionality is deprecated and will be removed in the future
-	SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error)
+	SelectObjects(ctx context.Context, config SelectConfig) (<-chan SelectResult, error)
 }
 
 func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (S3Manager, error) {
@@ -106,11 +106,11 @@ type SelectConfig struct {
 }
 
 type SelectResult struct {
-	Data  <-chan []byte
-	Error <-chan error
+	Data  []byte
+	Error error
 }
 
-func (s *switchingS3Manager) SelectObjects(ctx context.Context, config SelectConfig) (*SelectResult, error) {
+func (s *switchingS3Manager) SelectObjects(ctx context.Context, config SelectConfig) (<-chan SelectResult, error) {
 	return s.getManager().SelectObjects(ctx, config)
 }
 
