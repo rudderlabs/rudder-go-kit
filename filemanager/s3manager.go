@@ -267,7 +267,7 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 	return m.session, err
 }
 
-func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (*SelectResult, error) {
+func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, error) {
 	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error starting S3 session: %w", err)
@@ -299,22 +299,20 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 	if events == nil {
 		return nil, fmt.Errorf("error getting events")
 	}
-	byteChan := make(chan []byte)
-	errorChan := make(chan error)
+	selectResultChan := make(chan SelectResult)
 	go func() {
 		defer func() {
 			stream.Close()
-			close(byteChan)
 			if err := stream.Err(); err != nil {
-				errorChan <- err
+				selectResultChan <- SelectResult{Error: err}
 			}
-			close(errorChan)
+			close(selectResultChan)
 		}()
 		for {
 			select {
 			case <-ctx.Done():
 				if err := ctx.Err(); err != nil {
-					errorChan <- err
+					selectResultChan <- SelectResult{Error: err}
 				}
 				return
 			case event, ok := <-events:
@@ -323,17 +321,14 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 				}
 				switch e := event.(type) {
 				case *s3.RecordsEvent:
-					byteChan <- e.Payload
+					selectResultChan <- SelectResult{Data: e.Payload}
 				case *s3.EndEvent:
 					return
 				}
 			}
 		}
 	}()
-	return &SelectResult{
-		Data:  byteChan,
-		Error: errorChan,
-	}, nil
+	return selectResultChan, nil
 }
 
 func createS3SelectSerialization(inputFormat, outputFormat string) (*s3.InputSerialization, *s3.OutputSerialization, error) {
