@@ -200,7 +200,7 @@ func TestAvroSchemaRegistry(t *testing.T) {
 	}
 
 	// Registering schemas and setting up writer
-	schemaRegistryClient, err := schemaregistry.NewClient(schemaregistry.NewConfigWithBasicAuthentication(container.SchemaRegistryURL, "", ""))
+	schemaRegistryClient, err := schemaregistry.NewClient(schemaregistry.NewConfig(container.SchemaRegistryURL))
 	require.NoError(t, err)
 
 	cwd, err := os.Getwd()
