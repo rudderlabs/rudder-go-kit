@@ -135,15 +135,19 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	_ = backoff.RetryNotify(
+	err = backoff.RetryNotify(
 		func() error {
 			// if the body was read, we need to reset it
 			if bodyBytes != nil {
 				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
 			resp, err = c.HttpClient.Do(req) // nolint: bodyclose
-			if retry, retryErr := c.shouldRetry(resp, err); retry {
+			retry, retryErr := c.shouldRetry(resp, err)
+			if retry {
 				return fmt.Errorf("retryable error: %w", retryErr)
+			}
+			if err != nil {
+				return backoff.Permanent(err)
 			}
 			return nil
 		},
