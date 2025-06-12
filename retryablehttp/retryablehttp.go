@@ -18,7 +18,8 @@ type HttpClient interface {
 
 // retryStrategy is a function that determines whether to retry based on the response and error.
 // It should return true if the request should be retried, along with an error for the reason of retry.
-// If it returns false, it means no retry is needed and the error(if any) along with a response can be returned directly.
+// If it returns false, it means no retry is needed and the error(if any while making http req) along with a response can be returned directly.
+// if retry is true, it means the request should be retried and error(if any from retryStrategy) will be sent to onFailure.
 type retryStrategy func(resp *http.Response, err error) (bool, error)
 
 type Config struct {
@@ -142,9 +143,9 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 			}
 			resp, err = c.HttpClient.Do(req) // nolint: bodyclose
 			if retry, retryErr := c.shouldRetry(resp, err); retry {
-				return fmt.Errorf("retryable error: %v", retryErr)
+				return fmt.Errorf("retryable error: %w", retryErr)
 			}
-			return err
+			return nil
 		},
 		backoff.WithMaxRetries(
 			backoff.NewExponentialBackOff(

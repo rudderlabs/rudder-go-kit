@@ -368,6 +368,55 @@ func TestRetryableHTTPClient_WithCustomRetryStrategy(t *testing.T) {
 	resp.Body.Close()
 }
 
+func TestRetryableHTTPClient_WithCustomRetryStrategyHttpClientReturnError(t *testing.T) {
+	// create a custom retry strategy that retries on 404s (which normally wouldn't retry)
+	customRetryCount := 0
+	customRetryStrategy := func(resp *http.Response, err error) (bool, error) {
+		customRetryCount++
+		if customRetryCount < 3 {
+			return true, fmt.Errorf("custom retry strategy: retrying")
+		}
+		return false, nil
+	}
+
+	// create client with custom retry strategy and fast retry intervals
+	config := &Config{
+		MaxRetry:        10,
+		InitialInterval: 10 * time.Millisecond,
+		MaxInterval:     50 * time.Millisecond,
+		MaxElapsedTime:  time.Second,
+		Multiplier:      1.5,
+	}
+
+	// Track failures with a callback
+	failureCalls := 0
+	onFailure := func(err error, duration time.Duration) {
+		failureCalls++
+		require.Contains(t, err.Error(), "custom retry strategy")
+	}
+
+	client := NewRetryableHTTPClient(
+		config,
+		WithCustomRetryStrategy(customRetryStrategy),
+		WithOnFailure(onFailure),
+	)
+
+	// Make request
+	req, err := http.NewRequest(http.MethodGet, "http://random-endpoint-akdhf", nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
+
+	// Assertions
+	require.Error(t, err)
+	require.Nil(t, resp)
+	require.Equal(t, 2, failureCalls)     // Should be called for each retry
+	require.Equal(t, 3, customRetryCount) // Our strategy should have been called and incremented
+
+	if resp != nil {
+		resp.Body.Close()
+	}
+}
+
 func TestNewDefaultConfig(t *testing.T) {
 	config := NewDefaultConfig()
 
