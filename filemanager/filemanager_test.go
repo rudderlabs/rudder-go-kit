@@ -765,11 +765,11 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 	}
 
 	// Helper to run select and assert output
-	runSelectAndAssert := func(t *testing.T, outputFormat string) {
+	runSelectAndAssert := func(t *testing.T, outputFormat filemanager.SelectObjectOutputFormat) {
 		selectConfig := filemanager.SelectConfig{
 			SQLExpression: "SELECT * FROM S3Object",
 			Key:           uploadOutput.ObjectName,
-			InputFormat:   "parquet",
+			InputFormat:   filemanager.SelectObjectInputFormatParquet,
 			OutputFormat:  outputFormat,
 		}
 		selectResult, err := s3fm.SelectObjects(context.TODO(), selectConfig)
@@ -812,10 +812,10 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 	}
 
 	t.Run("SelectObjects with JSON output", func(t *testing.T) {
-		runSelectAndAssert(t, "json")
+		runSelectAndAssert(t, filemanager.SelectObjectOutputFormatJSON)
 	})
 
 	t.Run("SelectObjects with CSV output", func(t *testing.T) {
-		runSelectAndAssert(t, "csv")
+		runSelectAndAssert(t, filemanager.SelectObjectOutputFormatCSV)
 	})
 }

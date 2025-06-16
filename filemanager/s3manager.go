@@ -331,10 +331,10 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 	return selectResultChan, nil
 }
 
-func createS3SelectSerialization(inputFormat, outputFormat string) (*s3.InputSerialization, *s3.OutputSerialization, error) {
+func createS3SelectSerialization(inputFormat SelectObjectInputFormat, outputFormat SelectObjectOutputFormat) (*s3.InputSerialization, *s3.OutputSerialization, error) {
 	var inputSerialization *s3.InputSerialization
 	switch inputFormat {
-	case "parquet":
+	case SelectObjectInputFormatParquet:
 		inputSerialization = &s3.InputSerialization{
 			Parquet: &s3.ParquetInput{},
 		}
@@ -344,14 +344,14 @@ func createS3SelectSerialization(inputFormat, outputFormat string) (*s3.InputSer
 
 	var outputSerialization *s3.OutputSerialization
 	switch outputFormat {
-	case "csv":
+	case SelectObjectOutputFormatCSV:
 		outputSerialization = &s3.OutputSerialization{
 			CSV: &s3.CSVOutput{
 				RecordDelimiter: aws.String("\n"),
 				FieldDelimiter:  aws.String(","),
 			},
 		}
-	case "json":
+	case SelectObjectOutputFormatJSON:
 		outputSerialization = &s3.OutputSerialization{
 			JSON: &s3.JSONOutput{},
 		}

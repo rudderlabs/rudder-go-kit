@@ -98,11 +98,25 @@ func (s *switchingS3Manager) Bucket() string {
 	return s.getManager().Bucket()
 }
 
+type (
+	SelectObjectInputFormat  string
+	SelectObjectOutputFormat string
+)
+
+const (
+	// input formats
+	SelectObjectInputFormatParquet SelectObjectInputFormat = "parquet"
+
+	// output formats
+	SelectObjectOutputFormatCSV  SelectObjectOutputFormat = "csv"
+	SelectObjectOutputFormatJSON SelectObjectOutputFormat = "json"
+)
+
 type SelectConfig struct {
 	SQLExpression string
 	Key           string
-	OutputFormat  string
-	InputFormat   string
+	InputFormat   SelectObjectInputFormat
+	OutputFormat  SelectObjectOutputFormat
 }
 
 type SelectResult struct {
