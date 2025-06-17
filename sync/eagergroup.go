@@ -8,7 +8,7 @@ import (
 // A EagerGroup is a collection of goroutines working on subtasks that are part of
 // the same overall task.
 //
-// Use NewEagerGroup to create a new group.
+// Use NewEagerGroup to create a new group, since a zero EagerGroup is not valid.
 type EagerGroup struct {
 	ctx     context.Context
 	cancel  context.CancelCauseFunc

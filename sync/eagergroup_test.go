@@ -89,3 +89,13 @@ func TestNoInitEagerGroup(t *testing.T) {
 		"We expect a panic when calling Go on a group that has not been initialized with NewEagerGroup",
 	)
 }
+
+func TestEagerGroupCancelReturnsError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	g, _ := NewEagerGroup(ctx, 0) // Initialize the group
+	cancel()                      // cancel the context before any goroutine is started
+	g.Go(func() error {
+		return nil // even though this function returns nil, the group will return an error, since the context is canceled
+	})
+	require.Error(t, g.Wait(), "We expect group.Wait() to return an error")
+}
