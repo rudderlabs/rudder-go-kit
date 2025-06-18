@@ -78,10 +78,7 @@ func (m *s3ManagerV1) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
 func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
-	downloadOpts := &downloadOptions{}
-	for _, opt := range opts {
-		opt(downloadOpts)
-	}
+	downloadOpts := applyDownloadOptions(opts...)
 
 	sess, err := m.GetSession(ctx)
 	if err != nil {
@@ -97,8 +94,14 @@ func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key stri
 		Bucket: aws.String(m.config.Bucket),
 		Key:    aws.String(key),
 	}
-	if downloadOpts.rangeOpt != "" {
-		getObjectInput.Range = aws.String(downloadOpts.rangeOpt)
+	if downloadOpts.isRangeRequest {
+		var rangeOpt string
+		if downloadOpts.length > 0 {
+			rangeOpt = fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1)
+		} else {
+			rangeOpt = fmt.Sprintf("bytes=%d-", downloadOpts.offset)
+		}
+		getObjectInput.Range = aws.String(rangeOpt)
 	}
 	_, err = downloader.DownloadWithContext(ctx, output, getObjectInput)
 	if err != nil {

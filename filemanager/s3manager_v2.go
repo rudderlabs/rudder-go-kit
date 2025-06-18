@@ -80,10 +80,7 @@ func (m *s3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 
 // Download downloads a file from S3 to the provided io.WriterAt.
 func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
-	downloadOpts := &downloadOptions{}
-	for _, opt := range opts {
-		opt(downloadOpts)
-	}
+	downloadOpts := applyDownloadOptions(opts...)
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("s3 client: %w", err)
@@ -98,8 +95,14 @@ func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key stri
 		Bucket: aws.String(m.config.Bucket),
 		Key:    aws.String(key),
 	}
-	if downloadOpts.rangeOpt != "" {
-		getObjectInput.Range = aws.String(downloadOpts.rangeOpt)
+	if downloadOpts.isRangeRequest {
+		var rangeOpt string
+		if downloadOpts.length > 0 {
+			rangeOpt = fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1)
+		} else {
+			rangeOpt = fmt.Sprintf("bytes=%d-", downloadOpts.offset)
+		}
+		getObjectInput.Range = aws.String(rangeOpt)
 	}
 
 	_, err = downloader.Download(ctx, output, getObjectInput)

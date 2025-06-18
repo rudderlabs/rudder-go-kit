@@ -480,6 +480,40 @@ func TestFileManager(t *testing.T) {
 			ans := strings.Compare(string(originalFile), string(downloadedFile))
 			require.Equal(t, 0, ans, "downloaded file different than actual file")
 
+			// download the file with range
+			filePtr, err = os.OpenFile(DownloadedFileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+			if err != nil {
+				fmt.Println("error while Creating file to download data: ", err)
+			}
+			err = fm.Download(context.TODO(), filePtr, key, filemanager.WithDownloadOffSetAndLength(0, 10))
+			require.NoError(t, err, "expected no error")
+			require.NoError(t, filePtr.Close())
+			filePtr, err = os.OpenFile(DownloadedFileName, os.O_RDWR, 0o644)
+			if err != nil {
+				fmt.Println("error while Creating file to download data: ", err)
+			}
+			downloadedFile, err = io.ReadAll(filePtr)
+			require.NoError(t, err)
+			require.NoError(t, filePtr.Close())
+			require.Equal(t, string(originalFile[:10]), string(downloadedFile), "downloaded file different than actual file")
+
+			// download the file with range only offset
+			filePtr, err = os.OpenFile(DownloadedFileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+			if err != nil {
+				fmt.Println("error while Creating file to download data: ", err)
+			}
+			err = fm.Download(context.TODO(), filePtr, key, filemanager.WithDownloadOffSet(5))
+			require.NoError(t, err, "expected no error")
+			require.NoError(t, filePtr.Close())
+			filePtr, err = os.OpenFile(DownloadedFileName, os.O_RDWR, 0o644)
+			if err != nil {
+				fmt.Println("error while Creating file to download data: ", err)
+			}
+			downloadedFile, err = io.ReadAll(filePtr)
+			require.NoError(t, err)
+			require.NoError(t, filePtr.Close())
+			require.Equal(t, string(originalFile[5:]), string(downloadedFile), "downloaded file different than actual file")
+
 			// fail to delete the file with cancelled context
 			ctx, cancel = context.WithCancel(context.TODO())
 			cancel()
