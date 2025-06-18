@@ -10,9 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
-	"github.com/rudderlabs/rudder-go-kit/sync"
+	kitsync "github.com/rudderlabs/rudder-go-kit/sync"
 )
 
 var (
@@ -32,11 +30,11 @@ func fakeSearch(kind string) Search {
 	}
 }
 
-// JustErrors illustrates the use of a Group in place of a sync.WaitGroup to
+// JustErrors illustrates the use of a ErrGroup in place of a sync.WaitGroup to
 // simplify goroutine counting and error handling. This example is derived from
 // the sync.WaitGroup example at https://golang.org/pkg/sync/#example_WaitGroup.
-func ExampleGroup_justErrors() {
-	g := new(sync.ErrGroup)
+func ExampleErrGroup_justErrors() {
+	g := new(kitsync.ErrGroup)
 	urls := []string{
 		"http://www.golang.org/",
 		"http://www.google.com/",
@@ -60,13 +58,13 @@ func ExampleGroup_justErrors() {
 	}
 }
 
-// Parallel illustrates the use of a Group for synchronizing a simple parallel
+// Parallel illustrates the use of a ErrGroup for synchronizing a simple parallel
 // task: the "Google Search 2.0" function from
 // https://talks.golang.org/2012/concurrency.slide#46, augmented with a Context
 // and error-handling.
-func ExampleGroup_parallel() {
+func ExampleErrGroup_parallel() {
 	Google := func(ctx context.Context, query string) ([]Result, error) {
-		g, ctx := errgroup.WithContext(ctx)
+		g, ctx := kitsync.ErrGroupWithContext(ctx)
 
 		searches := []Search{Web, Image, Video}
 		results := make([]Result, len(searches))
@@ -116,7 +114,7 @@ func TestZeroGroup(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		g := new(sync.ErrGroup)
+		g := new(kitsync.ErrGroup)
 
 		var firstErr error
 		for i, err := range tc.errs {
@@ -150,7 +148,7 @@ func TestWithContext(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		g, ctx := errgroup.WithContext(context.Background())
+		g, ctx := kitsync.ErrGroupWithContext(context.Background())
 
 		for _, err := range tc.errs {
 			err := err
@@ -178,7 +176,7 @@ func TestWithContext(t *testing.T) {
 }
 
 func TestTryGo(t *testing.T) {
-	g := &sync.ErrGroup{}
+	g := &kitsync.ErrGroup{}
 	n := 42
 	g.SetLimit(42)
 	ch := make(chan struct{})
@@ -231,7 +229,7 @@ func TestTryGo(t *testing.T) {
 func TestGoLimit(t *testing.T) {
 	const limit = 10
 
-	g := &sync.ErrGroup{}
+	g := &kitsync.ErrGroup{}
 	g.SetLimit(limit)
 	var active int32
 	for i := 0; i <= 1<<10; i++ {
@@ -264,7 +262,7 @@ func TestCancelCause(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		g, ctx := errgroup.WithContext(context.Background())
+		g, ctx := kitsync.ErrGroupWithContext(context.Background())
 
 		for _, err := range tc.errs {
 			err := err
@@ -291,7 +289,7 @@ func TestCancelCause(t *testing.T) {
 
 func BenchmarkGo(b *testing.B) {
 	fn := func() {}
-	g := &sync.ErrGroup{}
+	g := &kitsync.ErrGroup{}
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
