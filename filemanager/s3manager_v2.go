@@ -378,17 +378,8 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 		}
 
 		stream := selectObject.GetStream()
-		if stream == nil {
-			s.Send(SelectResult{Error: fmt.Errorf("error getting stream")})
-			return
-		}
-		events := stream.Events()
-		if events == nil {
-			s.Send(SelectResult{Error: fmt.Errorf("error getting events")})
-			return
-		}
 		defer func() {
-			if err := stream.Err(); err != nil {
+			if err := stream.Err(); err != nil && ctx.Err() == nil {
 				s.Send(SelectResult{Error: err})
 			}
 			stream.Close()
@@ -398,7 +389,7 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 			case <-ctx.Done():
 				s.Send(SelectResult{Error: ctx.Err()})
 				return
-			case event, ok := <-events:
+			case event, ok := <-stream.Events():
 				if !ok {
 					return
 				}

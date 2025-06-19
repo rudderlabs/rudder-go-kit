@@ -15,10 +15,6 @@ type S3Manager interface {
 	FileManager
 	Bucket() string
 
-	// Part of Migration to RETL and replay to aws-sdk-go-v2
-	// RETL in the future will move away form select functionality.
-	// S3 Select is not offered to new aws customers
-	// https://aws.amazon.com/blogs/storage/how-to-optimize-querying-your-data-in-amazon-s3/
 	SelectObjects(ctx context.Context, config SelectConfig) (<-chan SelectResult, func())
 }
 
