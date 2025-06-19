@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.56.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.55.2...v0.56.0) (2025-06-19)
+
+
+### Features
+
+* add support for S3 select objects ([#815](https://github.com/rudderlabs/rudder-go-kit/issues/815)) ([8ea56b9](https://github.com/rudderlabs/rudder-go-kit/commit/8ea56b9c6f066ecbaf5613a1bffaff8355c1b0d1))
+* introduce sync.ErrGroup ([#836](https://github.com/rudderlabs/rudder-go-kit/issues/836)) ([6684771](https://github.com/rudderlabs/rudder-go-kit/commit/66847717eb75cf400560d30cf1acdb042a91fc9a))
+
 ## [0.55.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.55.1...v0.55.2) (2025-06-12)
 
 
