@@ -61,7 +61,8 @@ func (m *digitalOceanManagerV1) ListFilesWithPrefix(ctx context.Context, startAf
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *digitalOceanManagerV1) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *digitalOceanManagerV1) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := applyDownloadOptions(opts...)
 	downloadSession, err := m.getSession()
 	if err != nil {
 		return fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)
@@ -71,12 +72,23 @@ func (m *digitalOceanManagerV1) Download(ctx context.Context, output io.WriterAt
 	defer cancel()
 
 	downloader := s3manager.NewDownloader(downloadSession)
-	_, err = downloader.DownloadWithContext(ctx, output,
-		&s3.GetObjectInput{
-			Bucket: aws.String(m.Config.Bucket),
-			Key:    aws.String(key),
-		})
 
+	getObjectInput := &s3.GetObjectInput{
+		Bucket: aws.String(m.Config.Bucket),
+		Key:    aws.String(key),
+	}
+
+	if downloadOpts.isRangeRequest {
+		var rangeOpt string
+		if downloadOpts.length > 0 {
+			rangeOpt = fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1)
+		} else {
+			rangeOpt = fmt.Sprintf("bytes=%d-", downloadOpts.offset)
+		}
+		getObjectInput.Range = aws.String(rangeOpt)
+	}
+
+	_, err = downloader.DownloadWithContext(ctx, output, getObjectInput)
 	return err
 }
 

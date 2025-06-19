@@ -21,6 +21,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
 
+	"github.com/rudderlabs/rudder-go-kit/async"
 	awsutil "github.com/rudderlabs/rudder-go-kit/awsutil_v2"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -79,7 +80,8 @@ func (m *s3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 }
 
 // Download downloads a file from S3 to the provided io.WriterAt.
-func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := applyDownloadOptions(opts...)
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("s3 client: %w", err)
@@ -90,11 +92,21 @@ func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	_, err = downloader.Download(ctx, output,
-		&s3.GetObjectInput{
-			Bucket: aws.String(m.config.Bucket),
-			Key:    aws.String(key),
-		})
+	getObjectInput := &s3.GetObjectInput{
+		Bucket: aws.String(m.config.Bucket),
+		Key:    aws.String(key),
+	}
+	if downloadOpts.isRangeRequest {
+		var rangeOpt string
+		if downloadOpts.length > 0 {
+			rangeOpt = fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1)
+		} else {
+			rangeOpt = fmt.Sprintf("bytes=%d-", downloadOpts.offset)
+		}
+		getObjectInput.Range = aws.String(rangeOpt)
+	}
+
+	_, err = downloader.Download(ctx, output, getObjectInput)
 	if err == nil {
 		return nil
 	}
@@ -332,4 +344,94 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
 	}
 	return fileObjects, nil
+}
+
+func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, func()) {
+	s := async.SingleSender[SelectResult]{}
+	ctx, selectResultChan, leave := s.Begin(ctx)
+
+	go func() {
+		defer s.Close()
+		client, err := m.getClient(ctx)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("selecting objects: %w", err)})
+			return
+		}
+
+		inputSerialization, outputSerialization, err := createS3SelectSerializationV2(selectConfig.InputFormat, selectConfig.OutputFormat)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error extracting input/output serialization: %w", err)})
+			return
+		}
+
+		selectObject, err := client.SelectObjectContent(ctx, &s3.SelectObjectContentInput{
+			Bucket:              aws.String(m.config.Bucket),
+			Key:                 aws.String(selectConfig.Key),
+			Expression:          aws.String(selectConfig.SQLExpression),
+			ExpressionType:      types.ExpressionTypeSql,
+			InputSerialization:  inputSerialization,
+			OutputSerialization: outputSerialization,
+		})
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("selecting object: %w", err)})
+			return
+		}
+
+		stream := selectObject.GetStream()
+		defer func() {
+			if err := stream.Err(); err != nil && ctx.Err() == nil {
+				s.Send(SelectResult{Error: err})
+			}
+			stream.Close()
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				s.Send(SelectResult{Error: ctx.Err()})
+				return
+			case event, ok := <-stream.Events():
+				if !ok {
+					return
+				}
+				switch e := event.(type) {
+				case *types.SelectObjectContentEventStreamMemberRecords:
+					s.Send(SelectResult{Data: e.Value.Payload})
+				case *types.SelectObjectContentEventStreamMemberEnd:
+					return
+				}
+			}
+		}
+	}()
+	return selectResultChan, leave
+}
+
+func createS3SelectSerializationV2(inputFormat SelectObjectInputFormat, outputFormat SelectObjectOutputFormat) (*types.InputSerialization, *types.OutputSerialization, error) {
+	var inputSerialization *types.InputSerialization
+	switch inputFormat {
+	case SelectObjectInputFormatParquet:
+		inputSerialization = &types.InputSerialization{
+			Parquet: &types.ParquetInput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid input format: %s", inputFormat)
+	}
+
+	var outputSerialization *types.OutputSerialization
+	switch outputFormat {
+	case SelectObjectOutputFormatCSV:
+		outputSerialization = &types.OutputSerialization{
+			CSV: &types.CSVOutput{
+				RecordDelimiter: aws.String("\n"),
+				FieldDelimiter:  aws.String(","),
+			},
+		}
+	case SelectObjectOutputFormatJSON:
+		outputSerialization = &types.OutputSerialization{
+			JSON: &types.JSONOutput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid output format: %s", outputFormat)
+	}
+
+	return inputSerialization, outputSerialization, nil
 }

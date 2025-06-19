@@ -22,6 +22,7 @@ import (
 type MockStats struct {
 	ctrl     *gomock.Controller
 	recorder *MockStatsMockRecorder
+	isgomock struct{}
 }
 
 // MockStatsMockRecorder is the mock recorder for MockStats.
@@ -42,87 +43,87 @@ func (m *MockStats) EXPECT() *MockStatsMockRecorder {
 }
 
 // NewSampledTaggedStat mocks base method.
-func (m *MockStats) NewSampledTaggedStat(arg0, arg1 string, arg2 stats.Tags) stats.Measurement {
+func (m *MockStats) NewSampledTaggedStat(name, statType string, tags stats.Tags) stats.Measurement {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewSampledTaggedStat", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewSampledTaggedStat", name, statType, tags)
 	ret0, _ := ret[0].(stats.Measurement)
 	return ret0
 }
 
 // NewSampledTaggedStat indicates an expected call of NewSampledTaggedStat.
-func (mr *MockStatsMockRecorder) NewSampledTaggedStat(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockStatsMockRecorder) NewSampledTaggedStat(name, statType, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSampledTaggedStat", reflect.TypeOf((*MockStats)(nil).NewSampledTaggedStat), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewSampledTaggedStat", reflect.TypeOf((*MockStats)(nil).NewSampledTaggedStat), name, statType, tags)
 }
 
 // NewStat mocks base method.
-func (m *MockStats) NewStat(arg0, arg1 string) stats.Measurement {
+func (m *MockStats) NewStat(name, statType string) stats.Measurement {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewStat", arg0, arg1)
+	ret := m.ctrl.Call(m, "NewStat", name, statType)
 	ret0, _ := ret[0].(stats.Measurement)
 	return ret0
 }
 
 // NewStat indicates an expected call of NewStat.
-func (mr *MockStatsMockRecorder) NewStat(arg0, arg1 any) *gomock.Call {
+func (mr *MockStatsMockRecorder) NewStat(name, statType any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStat", reflect.TypeOf((*MockStats)(nil).NewStat), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewStat", reflect.TypeOf((*MockStats)(nil).NewStat), name, statType)
 }
 
 // NewTaggedStat mocks base method.
-func (m *MockStats) NewTaggedStat(arg0, arg1 string, arg2 stats.Tags) stats.Measurement {
+func (m *MockStats) NewTaggedStat(name, statType string, tags stats.Tags) stats.Measurement {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewTaggedStat", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewTaggedStat", name, statType, tags)
 	ret0, _ := ret[0].(stats.Measurement)
 	return ret0
 }
 
 // NewTaggedStat indicates an expected call of NewTaggedStat.
-func (mr *MockStatsMockRecorder) NewTaggedStat(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockStatsMockRecorder) NewTaggedStat(name, statType, tags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTaggedStat", reflect.TypeOf((*MockStats)(nil).NewTaggedStat), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTaggedStat", reflect.TypeOf((*MockStats)(nil).NewTaggedStat), name, statType, tags)
 }
 
 // NewTracer mocks base method.
-func (m *MockStats) NewTracer(arg0 string) stats.Tracer {
+func (m *MockStats) NewTracer(name string) stats.Tracer {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewTracer", arg0)
+	ret := m.ctrl.Call(m, "NewTracer", name)
 	ret0, _ := ret[0].(stats.Tracer)
 	return ret0
 }
 
 // NewTracer indicates an expected call of NewTracer.
-func (mr *MockStatsMockRecorder) NewTracer(arg0 any) *gomock.Call {
+func (mr *MockStatsMockRecorder) NewTracer(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTracer", reflect.TypeOf((*MockStats)(nil).NewTracer), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTracer", reflect.TypeOf((*MockStats)(nil).NewTracer), name)
 }
 
 // RegisterCollector mocks base method.
-func (m *MockStats) RegisterCollector(arg0 stats.Collector) error {
+func (m *MockStats) RegisterCollector(c stats.Collector) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterCollector", arg0)
+	ret := m.ctrl.Call(m, "RegisterCollector", c)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RegisterCollector indicates an expected call of RegisterCollector.
-func (mr *MockStatsMockRecorder) RegisterCollector(arg0 any) *gomock.Call {
+func (mr *MockStatsMockRecorder) RegisterCollector(c any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCollector", reflect.TypeOf((*MockStats)(nil).RegisterCollector), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterCollector", reflect.TypeOf((*MockStats)(nil).RegisterCollector), c)
 }
 
 // Start mocks base method.
-func (m *MockStats) Start(arg0 context.Context, arg1 stats.GoRoutineFactory) error {
+func (m *MockStats) Start(ctx context.Context, goFactory stats.GoRoutineFactory) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Start", arg0, arg1)
+	ret := m.ctrl.Call(m, "Start", ctx, goFactory)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Start indicates an expected call of Start.
-func (mr *MockStatsMockRecorder) Start(arg0, arg1 any) *gomock.Call {
+func (mr *MockStatsMockRecorder) Start(ctx, goFactory any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockStats)(nil).Start), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockStats)(nil).Start), ctx, goFactory)
 }
 
 // Stop mocks base method.
@@ -141,6 +142,7 @@ func (mr *MockStatsMockRecorder) Stop() *gomock.Call {
 type MockMeasurement struct {
 	ctrl     *gomock.Controller
 	recorder *MockMeasurementMockRecorder
+	isgomock struct{}
 }
 
 // MockMeasurementMockRecorder is the mock recorder for MockMeasurement.
@@ -161,27 +163,27 @@ func (m *MockMeasurement) EXPECT() *MockMeasurementMockRecorder {
 }
 
 // Count mocks base method.
-func (m *MockMeasurement) Count(arg0 int) {
+func (m *MockMeasurement) Count(n int) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Count", arg0)
+	m.ctrl.Call(m, "Count", n)
 }
 
 // Count indicates an expected call of Count.
-func (mr *MockMeasurementMockRecorder) Count(arg0 any) *gomock.Call {
+func (mr *MockMeasurementMockRecorder) Count(n any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Count", reflect.TypeOf((*MockMeasurement)(nil).Count), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Count", reflect.TypeOf((*MockMeasurement)(nil).Count), n)
 }
 
 // Gauge mocks base method.
-func (m *MockMeasurement) Gauge(arg0 any) {
+func (m *MockMeasurement) Gauge(value any) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Gauge", arg0)
+	m.ctrl.Call(m, "Gauge", value)
 }
 
 // Gauge indicates an expected call of Gauge.
-func (mr *MockMeasurementMockRecorder) Gauge(arg0 any) *gomock.Call {
+func (mr *MockMeasurementMockRecorder) Gauge(value any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gauge", reflect.TypeOf((*MockMeasurement)(nil).Gauge), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Gauge", reflect.TypeOf((*MockMeasurement)(nil).Gauge), value)
 }
 
 // Increment mocks base method.
@@ -197,15 +199,15 @@ func (mr *MockMeasurementMockRecorder) Increment() *gomock.Call {
 }
 
 // Observe mocks base method.
-func (m *MockMeasurement) Observe(arg0 float64) {
+func (m *MockMeasurement) Observe(value float64) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Observe", arg0)
+	m.ctrl.Call(m, "Observe", value)
 }
 
 // Observe indicates an expected call of Observe.
-func (mr *MockMeasurementMockRecorder) Observe(arg0 any) *gomock.Call {
+func (mr *MockMeasurementMockRecorder) Observe(value any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Observe", reflect.TypeOf((*MockMeasurement)(nil).Observe), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Observe", reflect.TypeOf((*MockMeasurement)(nil).Observe), value)
 }
 
 // RecordDuration mocks base method.
@@ -223,25 +225,25 @@ func (mr *MockMeasurementMockRecorder) RecordDuration() *gomock.Call {
 }
 
 // SendTiming mocks base method.
-func (m *MockMeasurement) SendTiming(arg0 time.Duration) {
+func (m *MockMeasurement) SendTiming(duration time.Duration) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SendTiming", arg0)
+	m.ctrl.Call(m, "SendTiming", duration)
 }
 
 // SendTiming indicates an expected call of SendTiming.
-func (mr *MockMeasurementMockRecorder) SendTiming(arg0 any) *gomock.Call {
+func (mr *MockMeasurementMockRecorder) SendTiming(duration any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendTiming", reflect.TypeOf((*MockMeasurement)(nil).SendTiming), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendTiming", reflect.TypeOf((*MockMeasurement)(nil).SendTiming), duration)
 }
 
 // Since mocks base method.
-func (m *MockMeasurement) Since(arg0 time.Time) {
+func (m *MockMeasurement) Since(start time.Time) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Since", arg0)
+	m.ctrl.Call(m, "Since", start)
 }
 
 // Since indicates an expected call of Since.
-func (mr *MockMeasurementMockRecorder) Since(arg0 any) *gomock.Call {
+func (mr *MockMeasurementMockRecorder) Since(start any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Since", reflect.TypeOf((*MockMeasurement)(nil).Since), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Since", reflect.TypeOf((*MockMeasurement)(nil).Since), start)
 }

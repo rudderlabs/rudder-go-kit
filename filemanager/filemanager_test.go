@@ -75,6 +75,7 @@ func run(m *testing.M) int {
 			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
 			fmt.Sprintf("MINIO_SECRET_KEY=%s", secretAccessKey),
 			fmt.Sprintf("MINIO_SITE_REGION=%s", region),
+			"MINIO_API_SELECT_PARQUET=on",
 		},
 	})
 	if err != nil {
@@ -479,6 +480,40 @@ func TestFileManager(t *testing.T) {
 			ans := strings.Compare(string(originalFile), string(downloadedFile))
 			require.Equal(t, 0, ans, "downloaded file different than actual file")
 
+			// download the file with range
+			filePtr, err = os.OpenFile(DownloadedFileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+			if err != nil {
+				fmt.Println("error while Creating file to download data: ", err)
+			}
+			err = fm.Download(context.TODO(), filePtr, key, filemanager.WithDownloadOffSetAndLength(0, 10))
+			require.NoError(t, err, "expected no error")
+			require.NoError(t, filePtr.Close())
+			filePtr, err = os.OpenFile(DownloadedFileName, os.O_RDWR, 0o644)
+			if err != nil {
+				fmt.Println("error while Creating file to download data: ", err)
+			}
+			downloadedFile, err = io.ReadAll(filePtr)
+			require.NoError(t, err)
+			require.NoError(t, filePtr.Close())
+			require.Equal(t, string(originalFile[:10]), string(downloadedFile), "downloaded file different than actual file")
+
+			// download the file with range only offset
+			filePtr, err = os.OpenFile(DownloadedFileName, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+			if err != nil {
+				fmt.Println("error while Creating file to download data: ", err)
+			}
+			err = fm.Download(context.TODO(), filePtr, key, filemanager.WithDownloadOffSet(5))
+			require.NoError(t, err, "expected no error")
+			require.NoError(t, filePtr.Close())
+			filePtr, err = os.OpenFile(DownloadedFileName, os.O_RDWR, 0o644)
+			if err != nil {
+				fmt.Println("error while Creating file to download data: ", err)
+			}
+			downloadedFile, err = io.ReadAll(filePtr)
+			require.NoError(t, err)
+			require.NoError(t, filePtr.Close())
+			require.Equal(t, string(originalFile[5:]), string(downloadedFile), "downloaded file different than actual file")
+
 			// fail to delete the file with cancelled context
 			ctx, cancel = context.WithCancel(context.TODO())
 			cancel()
@@ -715,4 +750,104 @@ func TestFileManager_S3(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestS3Manager_SelectObjects(t *testing.T) {
+	minioConfig := map[string]interface{}{
+		"bucketName":       bucket,
+		"accessKeyID":      accessKeyId,
+		"accessKey":        secretAccessKey,
+		"enableSSE":        false,
+		"prefix":           "some-prefix",
+		"endPoint":         minioEndpoint,
+		"s3ForcePathStyle": true,
+		"disableSSL":       true,
+		"region":           region,
+	}
+
+	fm, err := filemanager.New(&filemanager.Settings{
+		Provider: "S3",
+		Config:   minioConfig,
+		Logger:   logger.NOP,
+		Conf:     config.New(),
+	})
+	if err != nil {
+		t.Fatalf("failed to create S3 filemanager: %v", err)
+	}
+
+	parquetPath := "goldenDirectory/test.parquet"
+	filePtr, err := os.Open(parquetPath)
+	if err != nil {
+		t.Fatalf("failed to open parquet file: %v", err)
+	}
+	defer filePtr.Close()
+
+	uploadOutput, err := fm.Upload(context.TODO(), filePtr)
+	if err != nil {
+		t.Fatalf("failed to upload parquet file: %v", err)
+	}
+	// Always clean up the uploaded file at the end
+	defer func() {
+		if err := fm.Delete(context.TODO(), []string{uploadOutput.ObjectName}); err != nil {
+			t.Errorf("failed to delete parquet file from bucket during cleanup: %v", err)
+		}
+	}()
+
+	s3fm, ok := fm.(filemanager.S3Manager)
+	if !ok {
+		t.Fatalf("filemanager is not an S3Manager, cannot call SelectObjects")
+	}
+
+	// Helper to run select and assert output
+	runSelectAndAssert := func(t *testing.T, outputFormat filemanager.SelectObjectOutputFormat) {
+		selectConfig := filemanager.SelectConfig{
+			SQLExpression: "SELECT * FROM S3Object",
+			Key:           uploadOutput.ObjectName,
+			InputFormat:   filemanager.SelectObjectInputFormatParquet,
+			OutputFormat:  outputFormat,
+		}
+		selectResult, leave := s3fm.SelectObjects(context.TODO(), selectConfig)
+		defer leave()
+		var receivedData bool
+		for data := range selectResult {
+			receivedData = true
+
+			if data.Error != nil {
+				t.Errorf("error received from SelectObjects (%s): %v", outputFormat, data.Error)
+			}
+
+			if len(data.Data) == 0 {
+				t.Errorf("received empty data from SelectObjects (%s)", outputFormat)
+			}
+			lines := bytes.Split(data.Data, []byte("\n"))
+			for i, line := range lines {
+				if len(bytes.TrimSpace(line)) == 0 {
+					continue
+				}
+				if outputFormat == "json" {
+					var js map[string]interface{}
+					if err := jsoniter.Unmarshal(line, &js); err != nil {
+						t.Errorf("received line is not valid JSON: %v\ndata: %s", err, string(line))
+					}
+				} else if outputFormat == "csv" && i == 0 {
+					row := string(line)
+					columns := strings.Split(row, ",")
+					if len(columns) < 4 {
+						t.Errorf("CSV row does not have expected number of columns: %s", row)
+					}
+				}
+			}
+		}
+		if !receivedData {
+			t.Errorf("did not receive any data from SelectObjects (%s)", outputFormat)
+		}
+	}
+
+	t.Run("SelectObjects with JSON output", func(t *testing.T) {
+		runSelectAndAssert(t, filemanager.SelectObjectOutputFormatJSON)
+	})
+
+	t.Run("SelectObjects with CSV output", func(t *testing.T) {
+		runSelectAndAssert(t, filemanager.SelectObjectOutputFormatCSV)
+	})
 }

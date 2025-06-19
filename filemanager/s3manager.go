@@ -19,6 +19,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
 
+	"github.com/rudderlabs/rudder-go-kit/async"
 	"github.com/rudderlabs/rudder-go-kit/awsutil"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -77,7 +78,9 @@ func (m *s3ManagerV1) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := applyDownloadOptions(opts...)
+
 	sess, err := m.GetSession(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting S3 session: %w", err)
@@ -88,11 +91,20 @@ func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key stri
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	_, err = downloader.DownloadWithContext(ctx, output,
-		&s3.GetObjectInput{
-			Bucket: aws.String(m.config.Bucket),
-			Key:    aws.String(key),
-		})
+	getObjectInput := &s3.GetObjectInput{
+		Bucket: aws.String(m.config.Bucket),
+		Key:    aws.String(key),
+	}
+	if downloadOpts.isRangeRequest {
+		var rangeOpt string
+		if downloadOpts.length > 0 {
+			rangeOpt = fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1)
+		} else {
+			rangeOpt = fmt.Sprintf("bytes=%d-", downloadOpts.offset)
+		}
+		getObjectInput.Range = aws.String(rangeOpt)
+	}
+	_, err = downloader.DownloadWithContext(ctx, output, getObjectInput)
 	if err != nil {
 		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "NoSuchKey" {
 			return ErrKeyNotFound
@@ -257,6 +269,97 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		return nil, err
 	}
 	return m.session, err
+}
+
+func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, func()) {
+	s := async.SingleSender[SelectResult]{}
+	ctx, selectResultChan, leave := s.Begin(ctx)
+
+	go func() {
+		defer s.Close()
+		sess, err := m.GetSession(ctx)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error starting S3 session: %w", err)})
+			return
+		}
+		svc := s3.New(sess)
+
+		inputSerialization, outputSerialization, err := createS3SelectSerialization(selectConfig.InputFormat, selectConfig.OutputFormat)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error extracting input/output serialization: %w", err)})
+			return
+		}
+
+		input := &s3.SelectObjectContentInput{
+			Bucket:              aws.String(m.Bucket()),
+			Key:                 aws.String(selectConfig.Key),
+			Expression:          aws.String(selectConfig.SQLExpression),
+			ExpressionType:      aws.String(s3.ExpressionTypeSql),
+			InputSerialization:  inputSerialization,
+			OutputSerialization: outputSerialization,
+		}
+		selectObject, err := svc.SelectObjectContentWithContext(ctx, input)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error selecting object: %w", err)})
+			return
+		}
+		stream := selectObject.GetStream()
+		defer func() {
+			if err := stream.Err(); err != nil && ctx.Err() == nil {
+				s.Send(SelectResult{Error: err})
+			}
+			stream.Close()
+		}()
+		for {
+			select {
+			case <-ctx.Done():
+				s.Send(SelectResult{Error: ctx.Err()})
+				return
+			case event, ok := <-stream.Events():
+				if !ok {
+					return
+				}
+				switch e := event.(type) {
+				case *s3.RecordsEvent:
+					s.Send(SelectResult{Data: e.Payload})
+				case *s3.EndEvent:
+					return
+				}
+			}
+		}
+	}()
+	return selectResultChan, leave
+}
+
+func createS3SelectSerialization(inputFormat SelectObjectInputFormat, outputFormat SelectObjectOutputFormat) (*s3.InputSerialization, *s3.OutputSerialization, error) {
+	var inputSerialization *s3.InputSerialization
+	switch inputFormat {
+	case SelectObjectInputFormatParquet:
+		inputSerialization = &s3.InputSerialization{
+			Parquet: &s3.ParquetInput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid input format: %s", inputFormat)
+	}
+
+	var outputSerialization *s3.OutputSerialization
+	switch outputFormat {
+	case SelectObjectOutputFormatCSV:
+		outputSerialization = &s3.OutputSerialization{
+			CSV: &s3.CSVOutput{
+				RecordDelimiter: aws.String("\n"),
+				FieldDelimiter:  aws.String(","),
+			},
+		}
+	case SelectObjectOutputFormatJSON:
+		outputSerialization = &s3.OutputSerialization{
+			JSON: &s3.JSONOutput{},
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid output format: %s", outputFormat)
+	}
+
+	return inputSerialization, outputSerialization, nil
 }
 
 type s3ManagerV1 struct {

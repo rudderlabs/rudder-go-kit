@@ -61,7 +61,8 @@ func (m *GcsManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *GcsManager) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *GcsManager) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := applyDownloadOptions(opts...)
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return err
@@ -70,7 +71,18 @@ func (m *GcsManager) Download(ctx context.Context, output io.WriterAt, key strin
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	rc, err := client.Bucket(m.config.Bucket).Object(key).NewReader(ctx)
+	obj := client.Bucket(m.config.Bucket).Object(key)
+
+	var rc *storage.Reader
+	if downloadOpts.isRangeRequest {
+		length := downloadOpts.length
+		if length <= 0 {
+			length = -1
+		}
+		rc, err = obj.NewRangeReader(ctx, downloadOpts.offset, length)
+	} else {
+		rc, err = obj.NewReader(ctx)
+	}
 	if err != nil {
 		return err
 	}

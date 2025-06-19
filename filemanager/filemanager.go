@@ -36,13 +36,52 @@ type FileInfo struct {
 	LastModified time.Time
 }
 
+type (
+	DownloadOption  func(*downloadOptions)
+	downloadOptions struct {
+		offset         int64
+		length         int64
+		isRangeRequest bool
+	}
+)
+
+// If offset is negative, it will be set to 0
+func WithDownloadOffSet(offset int64) DownloadOption {
+	return WithDownloadOffSetAndLength(offset, 0)
+}
+
+// If offset is negative, it will be set to 0
+// If length is zero it will read the entire file from the offset
+// If length is negative, it will read the entire file from the offset
+func WithDownloadOffSetAndLength(offset, length int64) DownloadOption {
+	return func(o *downloadOptions) {
+		if offset < 0 {
+			offset = 0
+		}
+		if length < 0 {
+			length = 0
+		}
+		o.offset = offset
+		o.length = length
+		o.isRangeRequest = true
+	}
+}
+
+func applyDownloadOptions(opts ...DownloadOption) downloadOptions {
+	downloadOpts := downloadOptions{}
+	for _, opt := range opts {
+		opt(&downloadOpts)
+	}
+	return downloadOpts
+}
+
 // FileManager is able to manage files in a storage provider
 type FileManager interface {
 	// ListFilesWithPrefix starts a list session for files with given prefix
 	ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession
 	// Download retrieves an object with the given key and writes it to the provided writer.
 	// You can Pass *os.File instead of io.WriterAt to write the downloaded data on disk.
-	Download(context.Context, io.WriterAt, string) error
+	Download(context.Context, io.WriterAt, string, ...DownloadOption) error
 	// Upload uploads the passed in file to the file manager
 	Upload(context.Context, *os.File, ...string) (UploadedFile, error)
 	// UploadReader uploads the passed io.Reader to the file manager

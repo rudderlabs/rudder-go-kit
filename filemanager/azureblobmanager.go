@@ -93,7 +93,8 @@ func (m *AzureBlobManager) UploadReader(ctx context.Context, objName string, rdr
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *AzureBlobManager) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *AzureBlobManager) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := applyDownloadOptions(opts...)
 	containerURL, err := m.getContainerURL()
 	if err != nil {
 		return err
@@ -104,8 +105,18 @@ func (m *AzureBlobManager) Download(ctx context.Context, output io.WriterAt, key
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
+	offset := int64(0)
+	count := int64(azblob.CountToEnd)
+
+	if downloadOpts.isRangeRequest {
+		offset = downloadOpts.offset
+		if downloadOpts.length > 0 {
+			count = downloadOpts.length
+		}
+	}
+
 	// Here's how to download the blob
-	downloadResponse, err := blobURL.Download(ctx, 0, azblob.CountToEnd, azblob.BlobAccessConditions{}, false, azblob.ClientProvidedKeyOptions{})
+	downloadResponse, err := blobURL.Download(ctx, offset, count, azblob.BlobAccessConditions{}, false, azblob.ClientProvidedKeyOptions{})
 	if err != nil {
 		return err
 	}

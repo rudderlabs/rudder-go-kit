@@ -53,7 +53,8 @@ func (m *MinioManager) ListFilesWithPrefix(ctx context.Context, startAfter, pref
 
 // Download retrieves an object with the given key and writes it to the provided writer.
 // Pass *os.File as output to write the downloaded file on disk.
-func (m *MinioManager) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *MinioManager) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := applyDownloadOptions(opts...)
 	minioClient, err := m.getClient()
 	if err != nil {
 		return err
@@ -62,13 +63,23 @@ func (m *MinioManager) Download(ctx context.Context, output io.WriterAt, key str
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	// Check if output is *os.File to use FGetObject
+	getObjectOpts := minio.GetObjectOptions{}
+	if downloadOpts.isRangeRequest {
+		end := int64(0)
+		if downloadOpts.length > 0 {
+			end = downloadOpts.offset + downloadOpts.length - 1
+		}
+		if err := getObjectOpts.SetRange(downloadOpts.offset, end); err != nil {
+			return fmt.Errorf("setting range for minio download: %w", err)
+		}
+	}
+
 	if file, ok := output.(*os.File); ok {
-		return minioClient.FGetObject(ctx, m.config.Bucket, key, file.Name(), minio.GetObjectOptions{})
+		return minioClient.FGetObject(ctx, m.config.Bucket, key, file.Name(), getObjectOpts)
 	}
 
 	// Use GetObject with WriterAt interface instead of FGetObject
-	obj, err := minioClient.GetObject(ctx, m.config.Bucket, key, minio.GetObjectOptions{})
+	obj, err := minioClient.GetObject(ctx, m.config.Bucket, key, getObjectOpts)
 	if err != nil {
 		return err
 	}

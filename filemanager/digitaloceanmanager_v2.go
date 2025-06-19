@@ -126,7 +126,8 @@ func (m *digitalOceanManagerV2) ListFilesWithPrefix(ctx context.Context, startAf
 	}
 }
 
-func (m *digitalOceanManagerV2) Download(ctx context.Context, output io.WriterAt, key string) error {
+func (m *digitalOceanManagerV2) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	downloadOpts := applyDownloadOptions(opts...)
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return fmt.Errorf("digitalocean client: %w", err)
@@ -137,10 +138,21 @@ func (m *digitalOceanManagerV2) Download(ctx context.Context, output io.WriterAt
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	_, err = downloader.Download(ctx, output, &s3.GetObjectInput{
+	getObjectInput := &s3.GetObjectInput{
 		Bucket: aws.String(m.config.Bucket),
 		Key:    aws.String(key),
-	})
+	}
+	if downloadOpts.isRangeRequest {
+		var rangeOpt string
+		if downloadOpts.length > 0 {
+			rangeOpt = fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1)
+		} else {
+			rangeOpt = fmt.Sprintf("bytes=%d-", downloadOpts.offset)
+		}
+		getObjectInput.Range = aws.String(rangeOpt)
+	}
+
+	_, err = downloader.Download(ctx, output, getObjectInput)
 	if err != nil {
 		var nsk *types.NoSuchKey
 		if errors.As(err, &nsk) {
