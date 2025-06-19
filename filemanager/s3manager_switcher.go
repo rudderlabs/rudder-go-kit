@@ -16,8 +16,10 @@ type S3Manager interface {
 	Bucket() string
 
 	// Part of Migration to RETL and replay to aws-sdk-go-v2
-	// Select functionality is deprecated and will be removed in the future
-	SelectObjects(ctx context.Context, config SelectConfig) (<-chan SelectResult, error)
+	// RETL in the future will move away form select functionality.
+	// S3 Select is not offered to new aws customers
+	// https://aws.amazon.com/blogs/storage/how-to-optimize-querying-your-data-in-amazon-s3/
+	SelectObjects(ctx context.Context, config SelectConfig) (<-chan SelectResult, func())
 }
 
 func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (S3Manager, error) {
@@ -98,33 +100,7 @@ func (s *switchingS3Manager) Bucket() string {
 	return s.getManager().Bucket()
 }
 
-type (
-	SelectObjectInputFormat  string
-	SelectObjectOutputFormat string
-)
-
-const (
-	// input formats
-	SelectObjectInputFormatParquet SelectObjectInputFormat = "parquet"
-
-	// output formats
-	SelectObjectOutputFormatCSV  SelectObjectOutputFormat = "csv"
-	SelectObjectOutputFormatJSON SelectObjectOutputFormat = "json"
-)
-
-type SelectConfig struct {
-	SQLExpression string
-	Key           string
-	InputFormat   SelectObjectInputFormat
-	OutputFormat  SelectObjectOutputFormat
-}
-
-type SelectResult struct {
-	Data  []byte
-	Error error
-}
-
-func (s *switchingS3Manager) SelectObjects(ctx context.Context, config SelectConfig) (<-chan SelectResult, error) {
+func (s *switchingS3Manager) SelectObjects(ctx context.Context, config SelectConfig) (<-chan SelectResult, func()) {
 	return s.getManager().SelectObjects(ctx, config)
 }
 

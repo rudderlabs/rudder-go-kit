@@ -806,10 +806,8 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 			InputFormat:   filemanager.SelectObjectInputFormatParquet,
 			OutputFormat:  outputFormat,
 		}
-		selectResult, err := s3fm.SelectObjects(context.TODO(), selectConfig)
-		if err != nil {
-			t.Fatalf("failed to call SelectObjects (%s): %v", outputFormat, err)
-		}
+		selectResult, leave := s3fm.SelectObjects(context.TODO(), selectConfig)
+		defer leave()
 		var receivedData bool
 		for data := range selectResult {
 			receivedData = true

@@ -19,6 +19,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
 
+	"github.com/rudderlabs/rudder-go-kit/async"
 	"github.com/rudderlabs/rudder-go-kit/awsutil"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -270,53 +271,58 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 	return m.session, err
 }
 
-func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, error) {
-	sess, err := m.GetSession(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error starting S3 session: %w", err)
-	}
-	svc := s3.New(sess)
+func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, func()) {
+	s := async.SingleSender[SelectResult]{}
+	ctx, selectResultChan, leave := s.Begin(ctx)
 
-	inputSerialization, outputSerialization, err := createS3SelectSerialization(selectConfig.InputFormat, selectConfig.OutputFormat)
-	if err != nil {
-		return nil, fmt.Errorf("error extracting input/output serialization: %w", err)
-	}
-
-	input := &s3.SelectObjectContentInput{
-		Bucket:              aws.String(m.Bucket()),
-		Key:                 aws.String(selectConfig.Key),
-		Expression:          aws.String(selectConfig.SQLExpression),
-		ExpressionType:      aws.String(s3.ExpressionTypeSql),
-		InputSerialization:  inputSerialization,
-		OutputSerialization: outputSerialization,
-	}
-	selectObject, err := svc.SelectObjectContentWithContext(ctx, input)
-	if err != nil {
-		return nil, fmt.Errorf("error selecting object: %w", err)
-	}
-	stream := selectObject.GetStream()
-	if stream == nil {
-		return nil, fmt.Errorf("error getting stream")
-	}
-	events := stream.Events()
-	if events == nil {
-		return nil, fmt.Errorf("error getting events")
-	}
-	selectResultChan := make(chan SelectResult)
 	go func() {
+		defer s.Close()
+		sess, err := m.GetSession(ctx)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error starting S3 session: %w", err)})
+			return
+		}
+		svc := s3.New(sess)
+
+		inputSerialization, outputSerialization, err := createS3SelectSerialization(selectConfig.InputFormat, selectConfig.OutputFormat)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error extracting input/output serialization: %w", err)})
+			return
+		}
+
+		input := &s3.SelectObjectContentInput{
+			Bucket:              aws.String(m.Bucket()),
+			Key:                 aws.String(selectConfig.Key),
+			Expression:          aws.String(selectConfig.SQLExpression),
+			ExpressionType:      aws.String(s3.ExpressionTypeSql),
+			InputSerialization:  inputSerialization,
+			OutputSerialization: outputSerialization,
+		}
+		selectObject, err := svc.SelectObjectContentWithContext(ctx, input)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error selecting object: %w", err)})
+			return
+		}
+		stream := selectObject.GetStream()
+		if stream == nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error getting stream")})
+			return
+		}
+		events := stream.Events()
+		if events == nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error getting events")})
+			return
+		}
 		defer func() {
-			stream.Close()
 			if err := stream.Err(); err != nil {
-				selectResultChan <- SelectResult{Error: err}
+				s.Send(SelectResult{Error: err})
 			}
-			close(selectResultChan)
+			stream.Close()
 		}()
 		for {
 			select {
 			case <-ctx.Done():
-				if err := ctx.Err(); err != nil {
-					selectResultChan <- SelectResult{Error: err}
-				}
+				s.Send(SelectResult{Error: ctx.Err()})
 				return
 			case event, ok := <-events:
 				if !ok {
@@ -324,14 +330,14 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 				}
 				switch e := event.(type) {
 				case *s3.RecordsEvent:
-					selectResultChan <- SelectResult{Data: e.Payload}
+					s.Send(SelectResult{Data: e.Payload})
 				case *s3.EndEvent:
 					return
 				}
 			}
 		}
 	}()
-	return selectResultChan, nil
+	return selectResultChan, leave
 }
 
 func createS3SelectSerialization(inputFormat SelectObjectInputFormat, outputFormat SelectObjectOutputFormat) (*s3.InputSerialization, *s3.OutputSerialization, error) {

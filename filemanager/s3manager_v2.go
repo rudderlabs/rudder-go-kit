@@ -21,6 +21,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
 
+	"github.com/rudderlabs/rudder-go-kit/async"
 	awsutil "github.com/rudderlabs/rudder-go-kit/awsutil_v2"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -345,57 +346,57 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 	return fileObjects, nil
 }
 
-func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, error) {
-	client, err := m.getClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("selecting objects: %w", err)
-	}
+func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, func()) {
+	s := async.SingleSender[SelectResult]{}
+	ctx, selectResultChan, leave := s.Begin(ctx)
 
-	inputSerialization, outputSerialization, err := createS3SelectSerializationV2(selectConfig.InputFormat, selectConfig.OutputFormat)
-	if err != nil {
-		return nil, fmt.Errorf("error extracting input/output serialization: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
-	selectObject, err := client.SelectObjectContent(ctx, &s3.SelectObjectContentInput{
-		Bucket:              aws.String(m.config.Bucket),
-		Key:                 aws.String(selectConfig.Key),
-		Expression:          aws.String(selectConfig.SQLExpression),
-		ExpressionType:      types.ExpressionTypeSql,
-		InputSerialization:  inputSerialization,
-		OutputSerialization: outputSerialization,
-	})
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("selecting object: %w", err)
-	}
-
-	stream := selectObject.GetStream()
-	if stream == nil {
-		cancel()
-		return nil, fmt.Errorf("error getting stream")
-	}
-	events := stream.Events()
-	if events == nil {
-		cancel()
-		return nil, fmt.Errorf("error getting events")
-	}
-	selectResultChan := make(chan SelectResult)
 	go func() {
+		defer s.Close()
+		client, err := m.getClient(ctx)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("selecting objects: %w", err)})
+			return
+		}
+
+		inputSerialization, outputSerialization, err := createS3SelectSerializationV2(selectConfig.InputFormat, selectConfig.OutputFormat)
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error extracting input/output serialization: %w", err)})
+			return
+		}
+
+		selectObject, err := client.SelectObjectContent(ctx, &s3.SelectObjectContentInput{
+			Bucket:              aws.String(m.config.Bucket),
+			Key:                 aws.String(selectConfig.Key),
+			Expression:          aws.String(selectConfig.SQLExpression),
+			ExpressionType:      types.ExpressionTypeSql,
+			InputSerialization:  inputSerialization,
+			OutputSerialization: outputSerialization,
+		})
+		if err != nil {
+			s.Send(SelectResult{Error: fmt.Errorf("selecting object: %w", err)})
+			return
+		}
+
+		stream := selectObject.GetStream()
+		if stream == nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error getting stream")})
+			return
+		}
+		events := stream.Events()
+		if events == nil {
+			s.Send(SelectResult{Error: fmt.Errorf("error getting events")})
+			return
+		}
 		defer func() {
 			if err := stream.Err(); err != nil {
-				selectResultChan <- SelectResult{Error: err}
+				s.Send(SelectResult{Error: err})
 			}
-			close(selectResultChan)
 			stream.Close()
-			cancel()
 		}()
 		for {
 			select {
 			case <-ctx.Done():
-				if err := ctx.Err(); err != nil {
-					selectResultChan <- SelectResult{Error: err}
-				}
+				s.Send(SelectResult{Error: ctx.Err()})
 				return
 			case event, ok := <-events:
 				if !ok {
@@ -403,14 +404,14 @@ func (m *s3ManagerV2) SelectObjects(ctx context.Context, selectConfig SelectConf
 				}
 				switch e := event.(type) {
 				case *types.SelectObjectContentEventStreamMemberRecords:
-					selectResultChan <- SelectResult{Data: e.Value.Payload}
+					s.Send(SelectResult{Data: e.Value.Payload})
 				case *types.SelectObjectContentEventStreamMemberEnd:
 					return
 				}
 			}
 		}
 	}()
-	return selectResultChan, nil
+	return selectResultChan, leave
 }
 
 func createS3SelectSerializationV2(inputFormat SelectObjectInputFormat, outputFormat SelectObjectOutputFormat) (*types.InputSerialization, *types.OutputSerialization, error) {
