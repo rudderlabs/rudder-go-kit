@@ -679,7 +679,7 @@ func TestFileManager_S3(t *testing.T) {
 		for _, auth := range authMethods {
 			t.Run("running with: "+auth.name+" and v2 manager enabled: "+strconv.FormatBool(enabled), func(t *testing.T) {
 				conf := config.New()
-				conf.Set("FileManager.S3ManagerV2", enabled)
+				conf.Set("FileManager.useAwsSdkV2", enabled)
 				fm, err := filemanager.New(&filemanager.Settings{
 					Provider: "S3",
 					Config:   auth.config,
