@@ -268,6 +268,7 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	}
 
 	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
+		m.logger.Infof("Using endpoint: %s", *m.config.Endpoint)
 		if m.config.Endpoint != nil {
 			o.BaseEndpoint = aws.String(*m.config.Endpoint)
 		}
