@@ -672,6 +672,7 @@ func TestFileManager_S3(t *testing.T) {
 					"s3ForcePathStyle": false,
 					"disableSSL":       false,
 					"enableSSE":        false,
+					"prefix":           "",
 				},
 			},
 		}
