@@ -663,15 +663,15 @@ func TestFileManager_S3(t *testing.T) {
 			},
 			{
 				name: "AccessKey/Secret With Empty Endpoint",
-				config: map[string]any{
+				config: map[string]interface{}{
 					"bucketName":       envBucket,
+					"regionHint":       "us-east-1",
+					"endpoint":         "",
 					"accessKeyID":      envAccessKey,
 					"secretAccessKey":  envSecretKey,
-					"region":           region,
-					"s3ForcePathStyle": true,
-					"disableSSL":       true,
-					"endpoint":         "",
-					"prefix":           "",
+					"s3ForcePathStyle": false,
+					"disableSSL":       false,
+					"enableSSE":        false,
 				},
 			},
 		}
