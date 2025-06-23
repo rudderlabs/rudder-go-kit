@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.0...v0.56.1) (2025-06-23)
+
+
+### Bug Fixes
+
+* an empty endpoint is causing errors in s3 filemanager while using sdk v2 ([#838](https://github.com/rudderlabs/rudder-go-kit/issues/838)) ([7c0bc18](https://github.com/rudderlabs/rudder-go-kit/commit/7c0bc18761211b7281602975bc095bbe8a06eeb1))
+
 ## [0.56.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.55.2...v0.56.0) (2025-06-19)
 
 
