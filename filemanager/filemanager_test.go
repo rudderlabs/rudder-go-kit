@@ -661,12 +661,25 @@ func TestFileManager_S3(t *testing.T) {
 					"prefix":           "test-prefix",
 				},
 			},
+			{
+				name: "AccessKey/Secret With Empty Endpoint",
+				config: map[string]any{
+					"bucketName":       envBucket,
+					"accessKeyID":      envAccessKey,
+					"secretAccessKey":  envSecretKey,
+					"region":           region,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"endpoint":         "",
+					"prefix":           "",
+				},
+			},
 		}
 
 		for _, auth := range authMethods {
 			t.Run("running with: "+auth.name+" and v2 manager enabled: "+strconv.FormatBool(enabled), func(t *testing.T) {
 				conf := config.New()
-				conf.Set("FileManager.S3ManagerV2", enabled)
+				conf.Set("FileManager.useAwsSdkV2", enabled)
 				fm, err := filemanager.New(&filemanager.Settings{
 					Provider: "S3",
 					Config:   auth.config,

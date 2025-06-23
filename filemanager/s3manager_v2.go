@@ -268,7 +268,7 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	}
 
 	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
-		if m.config.Endpoint != nil {
+		if m.config.Endpoint != nil && *m.config.Endpoint != "" {
 			o.BaseEndpoint = aws.String(*m.config.Endpoint)
 		}
 
