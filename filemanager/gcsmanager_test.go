@@ -22,15 +22,15 @@ func TestGCSManager(t *testing.T) {
 	// testcases:Add commentMore actions
 	tcs := []struct {
 		name                string
-		gcsUploadIfNotExist bool
+		uploadIfNotExist    bool
 	}{
 		{
 			name:                "without UploadIfNotExist",
-			gcsUploadIfNotExist: true,
+			uploadIfNotExist:    true,
 		},
 		{
 			name:                "with UploadIfNotExist",
-			gcsUploadIfNotExist: false,
+			uploadIfNotExist:    false,
 		},
 	}
 
@@ -65,13 +65,13 @@ func TestGCSManager(t *testing.T) {
 				"endPoint":   gcsURL,
 				"disableSSL": true,
 				"jsonReads":  true,
+				"uploadIfNotExist": tc.uploadIfNotExist,
 			}
 			m, err := New(&Settings{
 				Provider:            "GCS",
 				Config:              conf,
 				Logger:              logger.NOP,
 				Conf:                config.New(),
-				GCSUploadIfNotExist: tc.gcsUploadIfNotExist,
 			})
 			require.NoError(t, err)
 
@@ -81,7 +81,7 @@ func TestGCSManager(t *testing.T) {
 
 			t.Log("pre-existing file")
 			uploadedFile, err := m.Upload(ctx, f)
-			if tc.gcsUploadIfNotExist {
+			if tc.uploadIfNotExist {
 				require.ErrorIs(t, err, ErrPreConditionFailed)
 			} else {
 				require.Equal(t, "test-prefix/testFile", uploadedFile.ObjectName)
