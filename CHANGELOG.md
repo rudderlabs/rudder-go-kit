@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.1...v0.56.2) (2025-06-24)
+
+
+### Miscellaneous
+
+* add gcs option for uploading if object doesn't exist ([#843](https://github.com/rudderlabs/rudder-go-kit/issues/843)) ([be2aff1](https://github.com/rudderlabs/rudder-go-kit/commit/be2aff1a9c57721f0a33e60d74f7c280155f3825))
+
 ## [0.56.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.0...v0.56.1) (2025-06-23)
 
 
