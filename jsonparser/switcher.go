@@ -10,7 +10,7 @@ const (
 	// GrafanaLib is the implementation using jsonparser library
 	GrafanaLib = "grafana"
 	// DefaultLib is the default implementation
-	DefaultLib = TidwallLib
+	DefaultLib = GrafanaLib
 )
 
 // switcher is a JSONParser implementation that switches between different implementations based on configuration
@@ -22,7 +22,7 @@ type switcher struct {
 }
 
 // GetValue delegates to the configured getter implementation
-func (s *switcher) GetValue(data []byte, keys ...string) (interface{}, error) {
+func (s *switcher) GetValue(data []byte, keys ...string) (any, error) {
 	return s.getter().GetValue(data, keys...)
 }
 

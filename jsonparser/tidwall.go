@@ -6,8 +6,6 @@ import (
 
 	"github.com/samber/lo"
 
-	"github.com/rudderlabs/rudder-go-kit/jsonrs"
-
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -16,24 +14,24 @@ import (
 type tidwallJSONParser struct{}
 
 // GetValue retrieves the value for a given key from JSON bytes using gjson
-func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) (interface{}, error) {
+func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) (any, error) {
 	if len(data) == 0 {
 		return nil, ErrEmptyJSON
 	}
 
-	// Handle empty keys or no keys - return the entire JSON object
-	if len(keys) == 0 || (len(keys) == 1 && keys[0] == "") {
-		var result interface{}
-		if err := jsonrs.Unmarshal(data, &result); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
-		}
-		return result, nil
+	if len(keys) == 0 {
+		return nil, ErrNoKeysProvided
+	}
+
+	key := keys[0]
+	if key == "" {
+		return nil, ErrEmptyKey
 	}
 
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, getPath(keys...))
 	if !result.Exists() {
-		return nil, fmt.Errorf("key not found: %s", keys)
+		return nil, ErrKeyNotFound
 	}
 
 	// Convert the gjson.Result to the appropriate Go type
@@ -50,18 +48,7 @@ func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) (interface{}, 
 		// nolint: nilnil
 		return nil, nil
 	case gjson.JSON:
-		if result.IsArray() {
-			var arr []interface{}
-			if err := jsonrs.Unmarshal([]byte(result.Raw), &arr); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal array: %w", err)
-			}
-			return arr, nil
-		}
-		var obj map[string]interface{}
-		if err := jsonrs.Unmarshal([]byte(result.Raw), &obj); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal object: %w", err)
-		}
-		return obj, nil
+		return []byte(result.Raw), nil
 	default:
 		return nil, fmt.Errorf("unknown value type")
 	}
@@ -84,7 +71,7 @@ func (p *tidwallJSONParser) GetBoolean(data []byte, keys ...string) (bool, error
 
 	// Check if the value is a boolean
 	if result.Type != gjson.True && result.Type != gjson.False {
-		return false, fmt.Errorf("value is not a boolean: %s", path)
+		return false, ErrNotOfExpectedType
 	}
 
 	return result.Bool(), nil
@@ -107,7 +94,7 @@ func (p *tidwallJSONParser) GetInt(data []byte, keys ...string) (int64, error) {
 
 	// Check if the value is a number
 	if result.Type != gjson.Number {
-		return 0, fmt.Errorf("value is not a number: %s", path)
+		return 0, ErrNotOfExpectedType
 	}
 
 	return result.Int(), nil
@@ -130,7 +117,7 @@ func (p *tidwallJSONParser) GetFloat(data []byte, keys ...string) (float64, erro
 
 	// Check if the value is a number
 	if result.Type != gjson.Number {
-		return 0, fmt.Errorf("value is not a number: %s", path)
+		return 0, ErrNotOfExpectedType
 	}
 
 	return result.Float(), nil
@@ -153,7 +140,7 @@ func (p *tidwallJSONParser) GetString(data []byte, keys ...string) (string, erro
 
 	// Check if the value is a string
 	if result.Type != gjson.String {
-		return "", fmt.Errorf("value is not a string: %s", path)
+		return "", ErrNotOfExpectedType
 	}
 
 	return result.String(), nil

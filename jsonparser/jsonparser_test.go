@@ -69,8 +69,7 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			name:     "empty key",
 			jsonData: `{"name": "John"}`,
 			keys:     []string{""},
-			want:     map[string]interface{}{"name": "John"},
-			wantErr:  false,
+			wantErr:  true,
 		},
 		{
 			name:     "key not found",
