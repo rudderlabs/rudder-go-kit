@@ -21,16 +21,16 @@ func TestGCSManager(t *testing.T) {
 
 	// testcases:Add commentMore actions
 	tcs := []struct {
-		name                string
-		uploadIfNotExist    bool
+		name             string
+		uploadIfNotExist bool
 	}{
 		{
-			name:                "without UploadIfNotExist",
-			uploadIfNotExist:    true,
+			name:             "without UploadIfNotExist",
+			uploadIfNotExist: true,
 		},
 		{
-			name:                "with UploadIfNotExist",
-			uploadIfNotExist:    false,
+			name:             "with UploadIfNotExist",
+			uploadIfNotExist: false,
 		},
 	}
 
@@ -60,18 +60,18 @@ func TestGCSManager(t *testing.T) {
 			t.Log("GCS URL:", gcsURL)
 
 			conf := map[string]interface{}{
-				"bucketName": "test-bucket",
-				"prefix":     "test-prefix",
-				"endPoint":   gcsURL,
-				"disableSSL": true,
-				"jsonReads":  true,
+				"bucketName":       "test-bucket",
+				"prefix":           "test-prefix",
+				"endPoint":         gcsURL,
+				"disableSSL":       true,
+				"jsonReads":        true,
 				"uploadIfNotExist": tc.uploadIfNotExist,
 			}
 			m, err := New(&Settings{
-				Provider:            "GCS",
-				Config:              conf,
-				Logger:              logger.NOP,
-				Conf:                config.New(),
+				Provider: "GCS",
+				Config:   conf,
+				Logger:   logger.NOP,
+				Conf:     config.New(),
 			})
 			require.NoError(t, err)
 
