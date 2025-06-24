@@ -33,11 +33,22 @@ type GCSConfig struct {
 	uploadIfNotExist bool
 }
 
+type GCSOpt func(*GCSConfig)
+
+func WithGCSUploadIfObjectNotExist(uploadIfNotExist bool) GCSOpt {
+	return func(c *GCSConfig) {
+		c.uploadIfNotExist = uploadIfNotExist
+	}
+}
+
 // NewGCSManager creates a new file manager for Google Cloud Storage
 func NewGCSManager(
-	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration, opts ...GCSOpt,
 ) (*GcsManager, error) {
 	conf := gcsConfig(config)
+	for _, opt := range opts {
+		opt(conf)
+	}
 	return &GcsManager{
 		baseManager: &baseManager{
 			logger:         log,

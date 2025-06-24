@@ -112,6 +112,10 @@ type Settings struct {
 	Config   map[string]interface{}
 	Logger   logger.Logger
 	Conf     *config.Config
+
+	// when GCSUploadIfNotExist is set to true, the client uploads to GCS storage
+	// only if a file with the same name doesn't exist already
+	GCSUploadIfNotExist bool
 }
 
 // New returns file manager backed by configured provider
@@ -129,7 +133,7 @@ func New(settings *Settings) (FileManager, error) {
 	case "S3_DATALAKE", "S3":
 		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
-		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider), WithGCSUploadIfObjectNotExist(settings.GCSUploadIfNotExist))
 	case "AZURE_BLOB":
 		return NewAzureBlobManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "MINIO":
