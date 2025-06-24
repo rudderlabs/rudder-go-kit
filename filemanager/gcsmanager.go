@@ -22,15 +22,14 @@ import (
 )
 
 type GCSConfig struct {
-	Bucket         string
-	Prefix         string
-	Credentials    string
-	EndPoint       *string
-	ForcePathStyle *bool
-	DisableSSL     *bool
-	JSONReads      bool
-
-	uploadIfNotExist bool
+	Bucket           string
+	Prefix           string
+	Credentials      string
+	EndPoint         *string
+	ForcePathStyle   *bool
+	DisableSSL       *bool
+	JSONReads        bool
+	UploadIfNotExist bool
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
@@ -108,7 +107,7 @@ func (m *GcsManager) UploadReader(ctx context.Context, objName string, rdr io.Re
 	defer cancel()
 
 	object := client.Bucket(m.config.Bucket).Object(objName)
-	if m.config.uploadIfNotExist {
+	if m.config.UploadIfNotExist {
 		object = object.If(storage.Conditions{DoesNotExist: true})
 	}
 
@@ -211,7 +210,7 @@ func gcsConfig(config map[string]interface{}) *GCSConfig {
 	var bucketName, prefix, credentials string
 	var endPoint *string
 	var forcePathStyle, disableSSL *bool
-	var jsonReads bool
+	var jsonReads, uploadIfNotExist bool
 
 	if config["bucketName"] != nil {
 		tmp, ok := config["bucketName"].(string)
@@ -255,14 +254,21 @@ func gcsConfig(config map[string]interface{}) *GCSConfig {
 			jsonReads = tmp
 		}
 	}
+	if config["uploadIfNotExist"] != nil {
+		tmp, ok := config["uploadIfNotExist"].(bool)
+		if ok {
+			uploadIfNotExist = tmp
+		}
+	}
 	return &GCSConfig{
-		Bucket:         bucketName,
-		Prefix:         prefix,
-		Credentials:    credentials,
-		EndPoint:       endPoint,
-		ForcePathStyle: forcePathStyle,
-		DisableSSL:     disableSSL,
-		JSONReads:      jsonReads,
+		Bucket:           bucketName,
+		Prefix:           prefix,
+		Credentials:      credentials,
+		EndPoint:         endPoint,
+		ForcePathStyle:   forcePathStyle,
+		DisableSSL:       disableSSL,
+		JSONReads:        jsonReads,
+		UploadIfNotExist: uploadIfNotExist,
 	}
 }
 
