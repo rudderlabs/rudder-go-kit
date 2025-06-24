@@ -14,7 +14,7 @@ import (
 type grafanaJSONParser struct{}
 
 // GetValue retrieves the value for a given key from JSON bytes using jsonparser
-func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (any, error) {
+func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, ErrEmptyJSON
 	}
@@ -28,7 +28,7 @@ func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (any, error) {
 		return nil, ErrEmptyKey
 	}
 
-	value, dataType, _, err := jsonparser.Get(data, keys...)
+	value, _, _, err := jsonparser.Get(data, keys...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return nil, ErrKeyNotFound
@@ -36,27 +36,7 @@ func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (any, error) {
 		return nil, fmt.Errorf("failed to get value for keys %v: %w", keys, err)
 	}
 
-	// Convert the value to the appropriate Go type based on the data type
-	switch dataType {
-	case jsonparser.String:
-		return string(value), nil
-	case jsonparser.Number:
-		// Try to parse as float64
-		f, err := strconv.ParseFloat(string(value), 64)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse number: %w", err)
-		}
-		return f, nil
-	case jsonparser.Boolean:
-		return string(value) == "true", nil
-	case jsonparser.Null:
-		// nolint: nilnil
-		return nil, nil
-	case jsonparser.Array, jsonparser.Object:
-		return value, nil
-	default:
-		return nil, ErrNotOfExpectedType
-	}
+	return value, nil
 }
 
 // GetBoolean retrieves a boolean value for a given key from JSON bytes

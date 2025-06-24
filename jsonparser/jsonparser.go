@@ -9,27 +9,37 @@ import (
 // getter is the interface that wraps the basic operations for retrieving values from JSON bytes.
 type getter interface {
 	// GetValue retrieves the value for a given key from JSON bytes.
-	// The key can be a dot-separated path to access nested values.
-	// Returns the value as an interface{} and an error if the key does not exist or if there is a JSON parsing error.
-	GetValue(data []byte, keys ...string) (any, error)
+	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// e.g. `GetValue(data, "key1", "key2")` retrieves the value at `data["key1"]["key2"]`.
+	//      `GetValue(data, "key1", "0")` retrieves the value at `data["key1"][0]`.
+	// Returns the value bytes and an error if the key does not exist or if there is a JSON parsing error.
+	GetValue(data []byte, keys ...string) ([]byte, error)
 
 	// GetBoolean retrieves a boolean value for a given key from JSON bytes.
-	// The key can be a dot-separated path to access nested values.
+	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// e.g. `GetValue(data, "key1", "key2")` retrieves the value at `data["key1"]["key2"]`.
+	//      `GetValue(data, "key1", "0")` retrieves the value at `data["key1"][0]`.
 	// Returns the boolean value and an error if the key does not exist or if there is a JSON parsing error.
 	GetBoolean(data []byte, keys ...string) (bool, error)
 
 	// GetInt retrieves an integer value for a given key from JSON bytes.
-	// The key can be a dot-separated path to access nested values.
+	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// e.g. `GetValue(data, "key1", "key2")` retrieves the value at `data["key1"]["key2"]`.
+	//      `GetValue(data, "key1", "0")` retrieves the value at `data["key1"][0]`.
 	// Returns the integer value and an error if the key does not exist or if there is a JSON parsing error.
 	GetInt(data []byte, keys ...string) (int64, error)
 
 	// GetFloat retrieves a float value for a given key from JSON bytes.
-	// The key can be a dot-separated path to access nested values.
+	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// e.g. `GetValue(data, "key1", "key2")` retrieves the value at `data["key1"]["key2"]`.
+	//      `GetValue(data, "key1", "0")` retrieves the value at `data["key1"][0]`.
 	// Returns the float value and an error if the key does not exist or if there is a JSON parsing error.
 	GetFloat(data []byte, keys ...string) (float64, error)
 
 	// GetString retrieves a string value for a given key from JSON bytes.
-	// The key can be a dot-separated path to access nested values.
+	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// e.g. `GetValue(data, "key1", "key2")` retrieves the value at `data["key1"]["key2"]`.
+	//      `GetValue(data, "key1", "0")` retrieves the value at `data["key1"][0]`.
 	// Returns the string value and an error if the key does not exist or if there is a JSON parsing error.
 	GetString(data []byte, keys ...string) (string, error)
 }
