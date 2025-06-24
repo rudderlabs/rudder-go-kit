@@ -11,7 +11,7 @@ type getter interface {
 	// GetValue retrieves the value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the value as an interface{} and an error if the key does not exist or if there is a JSON parsing error.
-	GetValue(data []byte, keys ...string) (interface{}, error)
+	GetValue(data []byte, keys ...string) (any, error)
 
 	// GetBoolean retrieves a boolean value for a given key from JSON bytes.
 	// The key can be a dot-separated path to access nested values.
@@ -141,8 +141,9 @@ func Reset() {
 }
 
 var (
-	ErrKeyNotFound    = errors.New("key not found in JSON data")
-	ErrEmptyJSON      = errors.New("empty JSON data provided")
-	ErrNoKeysProvided = errors.New("no keys provided")
-	ErrEmptyKey       = errors.New("empty key provided")
+	ErrKeyNotFound       = errors.New("key not found in JSON data")
+	ErrEmptyJSON         = errors.New("empty JSON data provided")
+	ErrNoKeysProvided    = errors.New("no keys provided")
+	ErrEmptyKey          = errors.New("empty key provided")
+	ErrNotOfExpectedType = errors.New("value is not of expected type")
 )

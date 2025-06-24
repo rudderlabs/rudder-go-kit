@@ -14,18 +14,18 @@ import (
 type grafanaJSONParser struct{}
 
 // GetValue retrieves the value for a given key from JSON bytes using jsonparser
-func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (interface{}, error) {
+func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (any, error) {
 	if len(data) == 0 {
 		return nil, ErrEmptyJSON
 	}
 
-	// Handle empty key - return the entire JSON object
-	if len(keys) == 0 || (len(keys) == 1 && keys[0] == "") {
-		var result interface{}
-		if err := jsonrs.Unmarshal(data, &result); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
-		}
-		return result, nil
+	if len(keys) == 0 {
+		return nil, ErrNoKeysProvided
+	}
+
+	key := keys[0]
+	if key == "" {
+		return nil, ErrEmptyKey
 	}
 
 	value, dataType, _, err := jsonparser.Get(data, keys...)
@@ -53,13 +53,9 @@ func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) (interface{}, 
 		// nolint: nilnil
 		return nil, nil
 	case jsonparser.Array, jsonparser.Object:
-		var result interface{}
-		if err := jsonrs.Unmarshal(value, &result); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal complex value: %w", err)
-		}
-		return result, nil
+		return value, nil
 	default:
-		return nil, fmt.Errorf("unknown value type")
+		return nil, ErrNotOfExpectedType
 	}
 }
 
