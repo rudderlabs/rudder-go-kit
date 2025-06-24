@@ -20,49 +20,63 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			name:     "simple key",
 			jsonData: `{"name": "John", "age": 30}`,
 			keys:     []string{"name"},
-			want:     "John",
+			want:     []byte("John"),
 			wantErr:  false,
 		},
 		{
 			name:     "nested key",
 			jsonData: `{"user": {"name": "John", "age": 30}}`,
 			keys:     []string{"user", "name"},
-			want:     "John",
+			want:     []byte("John"),
+			wantErr:  false,
+		},
+		{
+			name:     "json bytes",
+			jsonData: `{"user": {"name": "John", "age": 30}}`,
+			keys:     []string{"user"},
+			want:     []byte("{\"name\": \"John\", \"age\": 30}"),
 			wantErr:  false,
 		},
 		{
 			name:     "array index",
 			jsonData: `{"users": ["John", "Jane", "Bob"]}`,
 			keys:     []string{"users", "[1]"},
-			want:     "Jane",
+			want:     []byte("Jane"),
+			wantErr:  false,
+		},
+		{
+			name:     "array bytes",
+			jsonData: `{"users": ["John", "Jane", "Bob"]}`,
+			keys:     []string{"users"},
+			want:     []byte("[\"John\", \"Jane\", \"Bob\"]"),
 			wantErr:  false,
 		},
 		{
 			name:     "nested array",
 			jsonData: `{"data": {"users": [{"name": "John"}, {"name": "Jane"}]}}`,
 			keys:     []string{"data", "users", "[1]", "name"},
-			want:     "Jane",
+			want:     []byte("Jane"),
 			wantErr:  false,
 		},
 		{
 			name:     "numeric value",
 			jsonData: `{"user": {"age": 30}}`,
 			keys:     []string{"user", "age"},
-			want:     float64(30),
+			want:     []byte("30"),
 			wantErr:  false,
 		},
 		{
 			name:     "boolean value",
 			jsonData: `{"user": {"active": true}}`,
 			keys:     []string{"user", "active"},
-			want:     true,
+			want:     []byte("true"),
 			wantErr:  false,
 		},
 		{
 			name:     "null value",
 			jsonData: `{"user": {"middleName": null}}`,
 			keys:     []string{"user", "middleName"},
-			want:     nil,
+			want:     []byte("null"),
 			wantErr:  false,
 		},
 		{
@@ -89,7 +103,7 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			name:     "invalid json",
 			jsonData: `{"name": "John"`,
 			keys:     []string{"name"},
-			want:     "John",
+			want:     []byte("John"),
 			wantErr:  false,
 		},
 		{
@@ -217,7 +231,7 @@ func suiteArrayHandling(t *testing.T, jsonParser JSONParser) {
 	// Test getting a value from an array of objects
 	value, err := jsonParser.GetValue(jsonData, "users", "[1]", "name")
 	require.NoError(t, err)
-	require.Equal(t, "Jane", value)
+	require.Equal(t, []byte("Jane"), value)
 
 	// Test setting a value in an array of objects
 	updatedJSON, err := jsonParser.SetValue(jsonData, 31, "users", "[0]", "age")
@@ -226,7 +240,7 @@ func suiteArrayHandling(t *testing.T, jsonParser JSONParser) {
 	// Verify the update
 	value, err = jsonParser.GetValue(updatedJSON, "users", "[0]", "age")
 	require.NoError(t, err)
-	require.Equal(t, float64(31), value)
+	require.Equal(t, []byte("31"), value)
 }
 
 func suiteEdgeCases(t *testing.T, jsonParser JSONParser) {
@@ -251,7 +265,7 @@ func suiteEdgeCases(t *testing.T, jsonParser JSONParser) {
 	// Test getting a deeply nested value
 	value, err := jsonParser.GetValue(jsonData, "data", "users", "0", "profile", "details", "contact", "email")
 	require.NoError(t, err)
-	require.Equal(t, "john@example.com", value)
+	require.Equal(t, []byte("john@example.com"), value)
 
 	// Test setting a deeply nested value
 	updatedJSON, err := jsonParser.SetValue(jsonData, "123-456-7890", "data", "users", "0", "profile", "details", "contact", "phone")
@@ -260,7 +274,7 @@ func suiteEdgeCases(t *testing.T, jsonParser JSONParser) {
 	// Verify the update
 	value, err = jsonParser.GetValue(updatedJSON, "data", "users", "0", "profile", "details", "contact", "phone")
 	require.NoError(t, err)
-	require.Equal(t, "123-456-7890", value)
+	require.Equal(t, []byte("123-456-7890"), value)
 }
 
 func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
