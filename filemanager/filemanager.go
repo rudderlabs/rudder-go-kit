@@ -112,10 +112,6 @@ type Settings struct {
 	Config   map[string]interface{}
 	Logger   logger.Logger
 	Conf     *config.Config
-
-	// when GCSUploadIfNotExist is set to true, the client uploads to GCS storage
-	// only if a file with the same name doesn't exist already
-	GCSUploadIfNotExist bool
 }
 
 // New returns file manager backed by configured provider
