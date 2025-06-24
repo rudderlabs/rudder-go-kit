@@ -19,14 +19,14 @@ func TestSwitcher(t *testing.T) {
 	data := []byte(`{"name": "John", "age": 30}`)
 	value, err := parser.GetValue(data, "name")
 	require.NoError(t, err)
-	require.Equal(t, "John", value)
+	require.Equal(t, []byte("John"), value)
 
 	// Test SetValue with gjson implementation
 	updatedData, err := parser.SetValue(data, 31, "age")
 	require.NoError(t, err)
 	value, err = parser.GetValue(updatedData, "age")
 	require.NoError(t, err)
-	require.Equal(t, float64(31), value)
+	require.Equal(t, []byte("31"), value)
 
 	// Test with jsonparser implementation
 	conf.Set("JSONParser.Library", GrafanaLib)
@@ -35,14 +35,14 @@ func TestSwitcher(t *testing.T) {
 	// Test GetValue with jsonparser implementation
 	value, err = parser.GetValue(data, "name")
 	require.NoError(t, err)
-	require.Equal(t, "John", value)
+	require.Equal(t, []byte("John"), value)
 
 	// Test SetValue with jsonparser implementation
 	updatedData, err = parser.SetValue(data, 32, "age")
 	require.NoError(t, err)
 	value, err = parser.GetValue(updatedData, "age")
 	require.NoError(t, err)
-	require.Equal(t, float64(32), value)
+	require.Equal(t, []byte("32"), value)
 
 	// Test with separate getter and setter implementations
 	conf.Set("JSONParser.Library.Getter", GrafanaLib)
@@ -52,20 +52,20 @@ func TestSwitcher(t *testing.T) {
 	// Test GetValue with jsonparser implementation
 	value, err = parser.GetValue(data, "name")
 	require.NoError(t, err)
-	require.Equal(t, "John", value)
+	require.Equal(t, []byte("John"), value)
 
 	// Test SetValue with gjson implementation
 	updatedData, err = parser.SetValue(data, 33, "age")
 	require.NoError(t, err)
 	value, err = parser.GetValue(updatedData, "age")
 	require.NoError(t, err)
-	require.Equal(t, float64(33), value)
+	require.Equal(t, []byte("33"), value)
 
 	// Test NewWithLibrary
 	parser = NewWithLibrary(GrafanaLib)
 	value, err = parser.GetValue(data, "name")
 	require.NoError(t, err)
-	require.Equal(t, "John", value)
+	require.Equal(t, []byte("John"), value)
 
 	// Test Reset
 	oldDefault := Default
