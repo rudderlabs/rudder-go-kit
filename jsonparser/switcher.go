@@ -22,7 +22,7 @@ type switcher struct {
 }
 
 // GetValue delegates to the configured getter implementation
-func (s *switcher) GetValue(data []byte, keys ...string) (any, error) {
+func (s *switcher) GetValue(data []byte, keys ...string) ([]byte, error) {
 	return s.getter().GetValue(data, keys...)
 }
 

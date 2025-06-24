@@ -14,7 +14,7 @@ import (
 type tidwallJSONParser struct{}
 
 // GetValue retrieves the value for a given key from JSON bytes using gjson
-func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) (any, error) {
+func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) ([]byte, error) {
 	if len(data) == 0 {
 		return nil, ErrEmptyJSON
 	}
@@ -34,24 +34,7 @@ func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) (any, error) {
 		return nil, ErrKeyNotFound
 	}
 
-	// Convert the gjson.Result to the appropriate Go type
-	switch result.Type {
-	case gjson.String:
-		return result.String(), nil
-	case gjson.Number:
-		return result.Float(), nil
-	case gjson.True:
-		return true, nil
-	case gjson.False:
-		return false, nil
-	case gjson.Null:
-		// nolint: nilnil
-		return nil, nil
-	case gjson.JSON:
-		return []byte(result.Raw), nil
-	default:
-		return nil, fmt.Errorf("unknown value type")
-	}
+	return []byte(result.Raw), nil
 }
 
 // GetBoolean retrieves a boolean value for a given key from JSON bytes using gjson
