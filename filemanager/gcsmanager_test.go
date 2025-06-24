@@ -67,10 +67,10 @@ func TestGCSManager(t *testing.T) {
 				"jsonReads":  true,
 			}
 			m, err := New(&Settings{
-				Provider: "GCS",
-				Config:   conf,
-				Logger:   logger.NOP,
-				Conf:     config.New(),
+				Provider:            "GCS",
+				Config:              conf,
+				Logger:              logger.NOP,
+				Conf:                config.New(),
 				GCSUploadIfNotExist: tc.gcsUploadIfNotExist,
 			})
 			require.NoError(t, err)
