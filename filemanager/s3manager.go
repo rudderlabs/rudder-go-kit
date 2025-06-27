@@ -34,7 +34,6 @@ type S3Config struct {
 	DisableSSL       *bool   `mapstructure:"disableSSL"`
 	EnableSSE        bool    `mapstructure:"enableSSE"`
 	RegionHint       string  `mapstructure:"regionHint"`
-	UseGlue          bool    `mapstructure:"useGlue"`
 }
 
 // newS3ManagerV1 creates a new file manager for S3
@@ -244,23 +243,8 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		return nil, errors.New("no storage bucket configured to downloader")
 	}
 
-	if !m.config.UseGlue || m.config.Region == nil {
-		getRegionSession, err := session.NewSession()
-		if err != nil {
-			return nil, err
-		}
-
-		ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
-		defer cancel()
-
-		region, err := awsS3Manager.GetBucketRegion(ctx, getRegionSession, m.config.Bucket, m.config.RegionHint)
-		if err != nil {
-			m.logger.Errorf("Failed to fetch AWS region for bucket %s. Error %v", m.config.Bucket, err)
-			// Failed to get Region probably due to VPC restrictions
-			// Will proceed to try with AccessKeyID and AccessKey
-		}
-		m.config.Region = aws.String(region)
-		m.sessionConfig.Region = region
+	if m.config.Region != nil {
+		m.sessionConfig.Region = *m.config.Region
 	}
 
 	var err error
