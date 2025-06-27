@@ -251,15 +251,8 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	if !m.config.UseGlue || m.config.Region == nil {
-		region, err := s3manager.GetBucketRegion(ctx, s3.New(s3.Options{
-			Region: aws.ToString(&m.config.RegionHint),
-		}), m.config.Bucket)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get bucket region: %w", err)
-		}
-		m.config.Region = aws.String(region)
-		m.sessionConfig.Region = region
+	if m.config.Region != nil {
+		m.sessionConfig.Region = *m.config.Region
 	}
 
 	cnf, err := awsutil.CreateAWSConfig(ctx, m.sessionConfig)
