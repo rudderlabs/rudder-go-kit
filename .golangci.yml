@@ -55,9 +55,9 @@ linters:
       analyze-types: true
   exclusions:
     rules:
-    - path: logger/
-      linters:
-        forbidigo
+      - path: logger/
+        linters:
+          - forbidigo
     generated: lax
     presets:
       - comments
