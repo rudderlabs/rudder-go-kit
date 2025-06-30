@@ -926,7 +926,7 @@ func TestInvalidInstrument(t *testing.T) {
 	newStats := func(t *testing.T, match string) *otelStats {
 		ctrl := gomock.NewController(t)
 		l := mock_logger.NewMockLogger(ctrl)
-		l.EXPECT().Warnf(containsMatcher(match), gomock.Any()).Times(1)
+		l.EXPECT().Warnn(containsMatcher(match), gomock.Any()).Times(1)
 
 		enabled := atomic.Bool{}
 		enabled.Store(true)
