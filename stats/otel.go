@@ -23,6 +23,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 const (
@@ -165,7 +166,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		goFactory.Go(func() {
 			defer close(s.httpServerShutdownComplete)
 			if err := s.httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-				s.logger.Fatalf("Prometheus exporter failed: %v", err)
+				s.logger.Fataln("Prometheus exporter failed", obskit.Error(err))
 			}
 		})
 	}
@@ -202,10 +203,11 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	}
 
 	if s.otelConfig.enablePrometheusExporter {
-		s.logger.Infof("Stats started in Prometheus mode on :%d", s.otelConfig.prometheusMetricsPort)
+		s.logger.Infon("Stats started in Prometheus mode", logger.NewIntField("port", int64(s.otelConfig.prometheusMetricsPort)))
 	} else {
-		s.logger.Infof("Stats started in OpenTelemetry mode with metrics endpoint %q and traces endpoint %q",
-			s.otelConfig.metricsEndpoint, s.otelConfig.tracesEndpoint,
+		s.logger.Infon("Stats started in OpenTelemetry mode",
+			logger.NewStringField("metricsEndpoint", s.otelConfig.metricsEndpoint),
+			logger.NewStringField("tracesEndpoint", s.otelConfig.tracesEndpoint),
 		)
 	}
 
@@ -225,7 +227,7 @@ func (s *otelStats) Stop() {
 	defer cancel()
 
 	if err := s.otelManager.Shutdown(ctx); err != nil {
-		s.logger.Errorf("failed to shutdown open telemetry: %v", err)
+		s.logger.Errorn("failed to shutdown open telemetry", obskit.Error(err))
 	}
 
 	s.stopBackgroundCollection()
@@ -238,7 +240,7 @@ func (s *otelStats) Stop() {
 
 	if s.httpServer != nil && s.httpServerShutdownComplete != nil {
 		if err := s.httpServer.Shutdown(ctx); err != nil {
-			s.logger.Errorf("failed to shutdown prometheus exporter: %v", err)
+			s.logger.Errorn("failed to shutdown prometheus exporter", obskit.Error(err))
 		}
 		<-s.httpServerShutdownComplete
 	}
@@ -319,7 +321,9 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
 		stackTrace := string(byteArr[:n])
-		s.logger.Warnf("detected missing stat measurement name, using 'novalue':\n%v", stackTrace)
+		s.logger.Warnn("detected missing stat measurement name, using 'novalue'",
+			logger.NewStringField("stacktrace", stackTrace),
+		)
 		name = "novalue"
 	}
 
@@ -327,7 +331,10 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	newTags := make(Tags)
 	for k, v := range tags {
 		if strings.Trim(k, " ") == "" {
-			s.logger.Warnf("removing empty tag key with value %q for measurement %q", v, name)
+			s.logger.Warnn("removing empty tag key for measurement",
+				logger.NewStringField("value", v),
+				logger.NewStringField("measurement", name),
+			)
 			continue
 		}
 		if _, ok := s.config.excludedTags[k]; ok {
@@ -338,7 +345,10 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 			continue
 		}
 		if _, ok := s.resourceAttrs[sanitizedKey]; ok {
-			s.logger.Warnf("removing tag %q for measurement %q since it is a resource attribute", k, name)
+			s.logger.Warnn("removing tag for measurement since it is a resource attribute",
+				logger.NewStringField("key", k),
+				logger.NewStringField("measurement", name),
+			)
 			continue
 		}
 		newTags[sanitizedKey] = v
@@ -392,7 +402,10 @@ func (s *otelStats) getGauge(
 
 		g, err := s.meter.Float64ObservableGauge(name)
 		if err != nil {
-			s.logger.Warnf("failed to create gauge %s: %v", name, err)
+			s.logger.Warnn("failed to create gauge",
+				logger.NewStringField("name", name),
+				obskit.Error(err),
+			)
 			g, _ = s.noopMeter.Float64ObservableGauge(name)
 		} else {
 			_, err = s.meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
@@ -446,7 +459,11 @@ func buildOTelInstrument[T any](
 			panic(fmt.Errorf("unknown instrument type %T", instr))
 		}
 		if err != nil {
-			l.Warnf("failed to create instrument %T(%s): %v", instr, name, err)
+			l.Warnn("failed to create instrument",
+				logger.NewStringField("type", fmt.Sprintf("%T", instr)),
+				logger.NewStringField("name", name),
+				obskit.Error(err),
+			)
 		}
 		instr = value.(T)
 		m[name] = instr
@@ -468,4 +485,6 @@ type otelStatsConfig struct {
 
 type prometheusLogger struct{ l logger.Logger }
 
-func (p *prometheusLogger) Println(v ...interface{}) { p.l.Error(v...) }
+func (p *prometheusLogger) Println(v ...any) {
+	p.l.Error(v...) //nolint:forbidigo
+}

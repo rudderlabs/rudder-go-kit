@@ -9,6 +9,7 @@ import (
 
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 type S3Manager interface {
@@ -30,7 +31,7 @@ func NewS3Manager(conf *kitconfig.Config, config map[string]interface{}, log log
 			return nil, fmt.Errorf("failed to create S3 V2 manager: %w", err)
 		} else {
 			// if v2 is not enabled, log the error
-			log.Errorn("Failed to create S3 V2 manager, falling back to V1", logger.NewErrorField(err))
+			log.Errorn("Failed to create S3 V2 manager, falling back to V1", obskit.Error(err))
 		}
 	}
 	return &switchingS3Manager{
