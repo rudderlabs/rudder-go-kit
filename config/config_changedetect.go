@@ -136,9 +136,8 @@ func (c *Config) getCurrentSettings() map[string]any {
 func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 	for _, configVal := range configMap {
 		key := strings.Join(configVal.keys, ",")
-		value := configVal.value
-		switch value := value.(type) {
-		case *int, *Reloadable[int]:
+		switch value := configVal.value.(type) {
+		case int, *Reloadable[int]:
 			var _value int
 			var isSet bool
 			for _, key := range configVal.keys {
@@ -153,15 +152,15 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 			}
 			_value = _value * configVal.multiplier.(int)
 			switch value := value.(type) {
-			case *int: // non-reloadable int
-				if *value != _value {
-					*value = _value
+			case int: // non-reloadable int
+				if value != _value {
+					configVal.value = _value
 					c.notifier.notifyNonReloadableConfigChange(key)
 				}
 			case *Reloadable[int]: // reloadable int
 				swapHotReloadableConfig(key, value, _value, compare[int](), c.notifier)
 			}
-		case *int64, *Reloadable[int64]:
+		case int64, *Reloadable[int64]:
 			var _value int64
 			var isSet bool
 			for _, key := range configVal.keys {
@@ -176,15 +175,15 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 			}
 			_value = _value * configVal.multiplier.(int64)
 			switch value := value.(type) {
-			case *int64: // non-reloadable int64
-				if *value != _value {
-					*value = _value
+			case int64: // non-reloadable int64
+				if value != _value {
+					configVal.value = _value
 					c.notifier.notifyNonReloadableConfigChange(key)
 				}
 			case *Reloadable[int64]: // reloadable int64
 				swapHotReloadableConfig(key, value, _value, compare[int64](), c.notifier)
 			}
-		case *string, *Reloadable[string]:
+		case string, *Reloadable[string]:
 			var _value string
 			var isSet bool
 			for _, key := range configVal.keys {
@@ -198,15 +197,15 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 				_value = configVal.defaultValue.(string)
 			}
 			switch value := value.(type) {
-			case *string: // non-reloadable string
-				if *value != _value {
-					*value = _value
+			case string: // non-reloadable string
+				if value != _value {
+					configVal.value = _value
 					c.notifier.notifyNonReloadableConfigChange(key)
 				}
 			case *Reloadable[string]: // reloadable string
 				swapHotReloadableConfig(key, value, _value, compare[string](), c.notifier)
 			}
-		case *time.Duration, *Reloadable[time.Duration]:
+		case time.Duration, *Reloadable[time.Duration]:
 			var _value time.Duration
 			var isSet bool
 			for _, key := range configVal.keys {
@@ -220,15 +219,15 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 				_value = time.Duration(configVal.defaultValue.(int64)) * configVal.multiplier.(time.Duration)
 			}
 			switch value := value.(type) {
-			case *time.Duration: // non-reloadable duration
-				if *value != _value {
-					*value = _value
+			case time.Duration: // non-reloadable duration
+				if value != _value {
+					configVal.value = _value
 					c.notifier.notifyNonReloadableConfigChange(key)
 				}
 			case *Reloadable[time.Duration]: // reloadable duration
 				swapHotReloadableConfig(key, value, _value, compare[time.Duration](), c.notifier)
 			}
-		case *bool, *Reloadable[bool]:
+		case bool, *Reloadable[bool]:
 			var _value bool
 			var isSet bool
 			for _, key := range configVal.keys {
@@ -242,15 +241,15 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 				_value = configVal.defaultValue.(bool)
 			}
 			switch value := value.(type) {
-			case *bool: // non-reloadable bool
-				if *value != _value {
-					*value = _value
+			case bool: // non-reloadable bool
+				if configVal.value != _value {
+					configVal.value = _value
 					c.notifier.notifyNonReloadableConfigChange(key)
 				}
 			case *Reloadable[bool]: // reloadable bool
 				swapHotReloadableConfig(key, value, _value, compare[bool](), c.notifier)
 			}
-		case *float64, *Reloadable[float64]:
+		case float64, *Reloadable[float64]:
 			var _value float64
 			var isSet bool
 			for _, key := range configVal.keys {
@@ -265,16 +264,16 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 			}
 			_value = _value * configVal.multiplier.(float64)
 			switch value := value.(type) {
-			case *float64: // non-reloadable float64
-				if *value != _value {
-					*value = _value
+			case float64: // non-reloadable float64
+				if configVal.value != _value {
+					configVal.value = _value
 					c.notifier.notifyNonReloadableConfigChange(key)
 				}
 			case *Reloadable[float64]: // reloadable float64
 				swapHotReloadableConfig(key, value, _value, compare[float64](), c.notifier)
 			}
 
-		case *[]string, *Reloadable[[]string]:
+		case []string, *Reloadable[[]string]:
 			var _value []string
 			var isSet bool
 			for _, key := range configVal.keys {
@@ -288,9 +287,9 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 				_value = configVal.defaultValue.([]string)
 			}
 			switch value := value.(type) {
-			case *[]string: // non-reloadable slice
-				if slices.Compare(*value, _value) != 0 {
-					*value = _value
+			case []string: // non-reloadable slice
+				if slices.Compare(value, _value) != 0 {
+					configVal.value = _value
 					c.notifier.notifyNonReloadableConfigChange(key)
 				}
 			case *Reloadable[[]string]: // reloadable slice
@@ -298,7 +297,7 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 					return slices.Compare(a, b) == 0
 				}, c.notifier)
 			}
-		case *map[string]any, *Reloadable[map[string]any]:
+		case map[string]any, *Reloadable[map[string]any]:
 			var _value map[string]any
 			var isSet bool
 			for _, key := range configVal.keys {
@@ -312,9 +311,9 @@ func (c *Config) checkConfigForChanges(configMap map[string]*configValue) {
 				_value = configVal.defaultValue.(map[string]any)
 			}
 			switch value := value.(type) {
-			case *map[string]any: // non-reloadable map
-				if !mapDeepEqual(*value, _value) {
-					*value = _value
+			case map[string]any: // non-reloadable map
+				if !mapDeepEqual(value, _value) {
+					configVal.value = _value
 					c.notifier.notifyNonReloadableConfigChange(key)
 				}
 			case *Reloadable[map[string]any]: // reloadable map

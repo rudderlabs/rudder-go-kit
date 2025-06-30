@@ -83,7 +83,7 @@ func (c *Config) storeStringSliceVar(defaultValue []string, store func([]string)
 func (c *Config) storeAndRegisterStringSliceVar(defaultValue []string, ptr any, store func([]string), orderedKeys ...string) {
 	c.storeStringSliceVar(defaultValue, store, orderedKeys...) // store before registering non-reloadable keys
 	registerNonReloadableConfigKeys(c, defaultValue, &configValue{
-		value:        ptr,
+		value:        *ptr.(*[]string),
 		defaultValue: defaultValue,
 		keys:         orderedKeys,
 	})

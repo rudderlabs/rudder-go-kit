@@ -83,7 +83,7 @@ func (c *Config) storeBoolVar(defaultValue bool, store func(bool), orderedKeys .
 func (c *Config) storeAndRegisterBoolVar(defaultValue bool, ptr any, store func(bool), orderedKeys ...string) {
 	c.storeBoolVar(defaultValue, store, orderedKeys...) // store before registering non-reloadable keys
 	registerNonReloadableConfigKeys(c, defaultValue, &configValue{
-		value:        ptr,
+		value:        *ptr.(*bool),
 		defaultValue: defaultValue,
 		keys:         orderedKeys,
 	})
