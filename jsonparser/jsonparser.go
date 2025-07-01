@@ -93,11 +93,34 @@ type Deleter interface {
 	DeleteKey(data []byte, path ...string) ([]byte, error)
 }
 
+type SoftGetter interface {
+	// GetValueOrEmpty retrieves the raw value for a given key from JSON bytes.
+	// If the key does not exist or json is invalid, it returns an empty byte slice.
+	GetValueOrEmpty(data []byte, path ...string) []byte
+
+	// GetBooleanOrFalse retrieves a boolean value for a given path from JSON bytes.
+	// If the key does not exist, json is invalid or value is not a boolean, it returns false.
+	GetBooleanOrFalse(data []byte, path ...string) bool
+
+	// GetIntOrZero retrieves an integer value for a given key from JSON bytes.
+	// If the key does not exist, json is invalid or value is not an integer, it returns 0.
+	GetIntOrZero(data []byte, path ...string) int64
+
+	// GetFloatOrZero retrieves a float value for a given key from JSON bytes.
+	// If the key does not exist, json is invalid or value is not a float, it returns 0.
+	GetFloatOrZero(data []byte, path ...string) float64
+
+	// GetStringOrEmpty retrieves a string value for a given key from JSON bytes.
+	// If the key does not exist, json is invalid or value is not a string, it returns an empty string.
+	GetStringOrEmpty(data []byte, path ...string) string
+}
+
 // JSONParser is the interface that combines Getter, Setter, and Deleter interfaces.
 type JSONParser interface {
 	Getter
 	Setter
 	Deleter
+	SoftGetter
 }
 
 // Default is the default JSONParser implementation.

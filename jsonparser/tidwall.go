@@ -37,6 +37,30 @@ func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) ([]byte, error
 	return []byte(result.Raw), nil
 }
 
+// GetValueOrEmpty retrieves the raw value for a given key from JSON bytes.
+// If the key does not exist or json is invalid, it returns an empty byte slice.
+func (p *tidwallJSONParser) GetValueOrEmpty(data []byte, keys ...string) []byte {
+	if len(data) == 0 || len(keys) == 0 {
+		return []byte{}
+	}
+
+	key := keys[0]
+	if key == "" {
+		return []byte{}
+	}
+
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+
+	// Use gjson to get the value
+	result := gjson.GetBytes(data, path)
+	if !result.Exists() {
+		return []byte{}
+	}
+
+	return []byte(result.Raw)
+}
+
 // GetBoolean retrieves a boolean value for a given key from JSON bytes using gjson
 func (p *tidwallJSONParser) GetBoolean(data []byte, keys ...string) (bool, error) {
 	if len(data) == 0 {
@@ -58,6 +82,30 @@ func (p *tidwallJSONParser) GetBoolean(data []byte, keys ...string) (bool, error
 	}
 
 	return result.Bool(), nil
+}
+
+// GetBooleanOrFalse retrieves a boolean value for a given path from JSON bytes.
+// If the key does not exist, json is invalid or value is not a boolean, it returns false.
+func (p *tidwallJSONParser) GetBooleanOrFalse(data []byte, keys ...string) bool {
+	if len(data) == 0 || len(keys) == 0 {
+		return false
+	}
+
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+
+	// Use gjson to get the value
+	result := gjson.GetBytes(data, path)
+	if !result.Exists() {
+		return false
+	}
+
+	// Check if the value is a boolean
+	if result.Type != gjson.True && result.Type != gjson.False {
+		return false
+	}
+
+	return result.Bool()
 }
 
 // GetInt retrieves an integer value for a given key from JSON bytes using gjson
@@ -83,6 +131,30 @@ func (p *tidwallJSONParser) GetInt(data []byte, keys ...string) (int64, error) {
 	return result.Int(), nil
 }
 
+// GetIntOrZero retrieves an integer value for a given key from JSON bytes.
+// If the key does not exist, json is invalid or value is not an integer, it returns 0.
+func (p *tidwallJSONParser) GetIntOrZero(data []byte, keys ...string) int64 {
+	if len(data) == 0 || len(keys) == 0 {
+		return 0
+	}
+
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+
+	// Use gjson to get the value
+	result := gjson.GetBytes(data, path)
+	if !result.Exists() {
+		return 0
+	}
+
+	// Check if the value is a number
+	if result.Type != gjson.Number {
+		return 0
+	}
+
+	return result.Int()
+}
+
 // GetFloat retrieves a float value for a given key from JSON bytes using gjson
 func (p *tidwallJSONParser) GetFloat(data []byte, keys ...string) (float64, error) {
 	if len(data) == 0 {
@@ -106,6 +178,30 @@ func (p *tidwallJSONParser) GetFloat(data []byte, keys ...string) (float64, erro
 	return result.Float(), nil
 }
 
+// GetFloatOrZero retrieves a float value for a given key from JSON bytes.
+// If the key does not exist, json is invalid or value is not a float, it returns 0.
+func (p *tidwallJSONParser) GetFloatOrZero(data []byte, keys ...string) float64 {
+	if len(data) == 0 || len(keys) == 0 {
+		return 0
+	}
+
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+
+	// Use gjson to get the value
+	result := gjson.GetBytes(data, path)
+	if !result.Exists() {
+		return 0
+	}
+
+	// Check if the value is a number
+	if result.Type != gjson.Number {
+		return 0
+	}
+
+	return result.Float()
+}
+
 // GetString retrieves a string value for a given key from JSON bytes using gjson
 func (p *tidwallJSONParser) GetString(data []byte, keys ...string) (string, error) {
 	if len(data) == 0 {
@@ -127,6 +223,30 @@ func (p *tidwallJSONParser) GetString(data []byte, keys ...string) (string, erro
 	}
 
 	return result.String(), nil
+}
+
+// GetStringOrEmpty retrieves a string value for a given key from JSON bytes.
+// If the key does not exist, json is invalid or value is not a string, it returns an empty string.
+func (p *tidwallJSONParser) GetStringOrEmpty(data []byte, keys ...string) string {
+	if len(data) == 0 || len(keys) == 0 {
+		return ""
+	}
+
+	// Join keys with dots to create a path
+	path := getPath(keys...)
+
+	// Use gjson to get the value
+	result := gjson.GetBytes(data, path)
+	if !result.Exists() {
+		return ""
+	}
+
+	// Check if the value is a string
+	if result.Type != gjson.String {
+		return ""
+	}
+
+	return result.String()
 }
 
 // SetValue sets the value for a given key in JSON bytes using sjson
