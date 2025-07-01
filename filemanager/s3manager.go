@@ -244,7 +244,7 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		return nil, errors.New("no storage bucket configured to downloader")
 	}
 
-	if !m.config.UseGlue || m.config.Region == nil {
+	if !m.config.UseGlue || m.config.Region == nil || *m.config.Region == "" {
 		getRegionSession, err := session.NewSession()
 		if err != nil {
 			return nil, err

@@ -32,6 +32,8 @@ func GetProviderConfigFromEnv(opts ProviderConfigOpts) map[string]interface{} {
 		providerConfig["enableSSE"] = config.GetBool("AWS_ENABLE_SSE", false)
 		providerConfig["regionHint"] = config.GetString("AWS_S3_REGION_HINT", "us-east-1")
 		providerConfig["iamRoleArn"] = config.GetString("BACKUP_IAM_ROLE_ARN", "")
+		providerConfig["region"] = config.GetString("AWS_S3_REGION", "")
+		providerConfig["useGlue"] = config.GetBool("AWS_S3_USE_GLUE", false)
 		if providerConfig["iamRoleArn"] != "" {
 			providerConfig["externalID"] = opts.ExternalIDSupplier()
 		}
