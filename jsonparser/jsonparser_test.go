@@ -940,6 +940,35 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 	}
 }
 
+func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
+	// Test GetValueOrEmpty
+	value := jsonParser.GetValueOrEmpty([]byte(`{"name": "John"}`), "name")
+	require.Equal(t, []byte("\"John\""), value)
+
+	// Test GetBooleanOrFalse
+	boolVal := jsonParser.GetBooleanOrFalse([]byte(`{"active": true}`), "active")
+	require.True(t, boolVal)
+
+	// Test GetIntOrZero
+	intVal := jsonParser.GetIntOrZero([]byte(`{"age": 30}`), "age")
+	require.Equal(t, int64(30), intVal)
+
+	// Test GetFloatOrZero
+	floatVal := jsonParser.GetFloatOrZero([]byte(`{"price": 29.99}`), "price")
+	require.Equal(t, 29.99, floatVal)
+
+	// Test GetStringOrEmpty
+	strVal := jsonParser.GetStringOrEmpty([]byte(`{"city": "New York"}`), "city")
+	require.Equal(t, "New York", strVal)
+
+	// Test that non-existent keys return zero values
+	require.Empty(t, jsonParser.GetValueOrEmpty([]byte(`{}`), "missing"))
+	require.False(t, jsonParser.GetBooleanOrFalse([]byte(`{}`), "missing"))
+	require.Zero(t, jsonParser.GetIntOrZero([]byte(`{}`), "missing"))
+	require.Zero(t, jsonParser.GetFloatOrZero([]byte(`{}`), "missing"))
+	require.Empty(t, jsonParser.GetStringOrEmpty([]byte(`{}`), "missing"))
+}
+
 func TestJsonParser(t *testing.T) {
 	libs := []string{TidwallLib, GrafanaLib}
 	for _, lib := range libs {
@@ -983,6 +1012,9 @@ func TestJsonParser(t *testing.T) {
 			})
 			t.Run("ArrayHandling", func(t *testing.T) {
 				suiteArrayHandling(t, jsonParser)
+			})
+			t.Run("SoftGetter", func(t *testing.T) {
+				suiteSoftGetter(t, jsonParser)
 			})
 		})
 	}

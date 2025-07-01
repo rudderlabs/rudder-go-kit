@@ -60,10 +60,16 @@ func (p *grafanaJSONParser) GetValueOrEmpty(data []byte, path ...string) []byte 
 		return nil
 	}
 
-	value, _, _, err := jsonparser.Get(data, path...)
+	value, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		return nil
 	}
+
+	// If the value is a string, wrap it in quotes as the library is specifically stripping quotes from string value
+	if dtype == jsonparser.String {
+		return []byte("\"" + string(value) + "\"")
+	}
+
 	return value
 }
 
