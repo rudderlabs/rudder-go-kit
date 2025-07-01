@@ -101,7 +101,7 @@ func (c *Config) storeIntVar(defaultValue, valueScale int, store func(int), orde
 func (c *Config) storeAndRegisterIntVar(defaultValue int, ptr any, valueScale int, store func(int), orderedKeys ...string) {
 	c.storeIntVar(defaultValue, valueScale, store, orderedKeys...) // store before registering non-reloadable keys
 	registerNonReloadableConfigKeys(c, defaultValue*valueScale, &configValue{
-		value:        ptr,
+		value:        *ptr.(*int),
 		multiplier:   valueScale,
 		defaultValue: defaultValue,
 		keys:         orderedKeys,

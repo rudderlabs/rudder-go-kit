@@ -84,7 +84,7 @@ func (c *Config) storeFloat64Var(defaultValue float64, store func(float64), orde
 func (c *Config) storeAndRegisterFloat64Var(defaultValue float64, ptr any, store func(float64), orderedKeys ...string) {
 	c.storeFloat64Var(defaultValue, store, orderedKeys...) // store before registering non-reloadable keys
 	registerNonReloadableConfigKeys(c, defaultValue, &configValue{
-		value:        ptr,
+		value:        *ptr.(*float64),
 		multiplier:   1.0,
 		defaultValue: defaultValue,
 		keys:         orderedKeys,

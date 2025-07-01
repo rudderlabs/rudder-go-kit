@@ -25,6 +25,7 @@ import (
 	awsutil "github.com/rudderlabs/rudder-go-kit/awsutil_v2"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 const ServiceName = "s3"
@@ -186,9 +187,11 @@ func (m *s3ManagerV2) Delete(ctx context.Context, keys []string) error {
 		if err != nil {
 			var apiErr smithy.APIError
 			if errors.As(err, &apiErr) {
-				m.logger.Errorn("Error while deleting S3 objects", logger.NewErrorField(err), logger.NewStringField("error_code", apiErr.ErrorCode()))
+				m.logger.Errorn("Error while deleting S3 objects",
+					obskit.Error(err), logger.NewStringField("error_code", apiErr.ErrorCode()),
+				)
 			} else {
-				m.logger.Errorn("Error while deleting S3 objects", logger.NewErrorField(err))
+				m.logger.Errorn("Error while deleting S3 objects", obskit.Error(err))
 			}
 			return fmt.Errorf("failed to delete S3 objects: %w", err)
 		}
@@ -224,7 +227,7 @@ func (m *s3ManagerV2) GetObjectNameFromLocation(location string) (string, error)
 func (m *s3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
-		m.logger.Errorn("error while parsing location url", logger.NewErrorField(err))
+		m.logger.Errorn("error while parsing location url", obskit.Error(err))
 		return ""
 	}
 	trimmedURL := strings.TrimLeft(parsedURL.Path, "/")
@@ -335,7 +338,7 @@ func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
 
 	resp, err := client.ListObjectsV2(ctx, &listObjectsV2Input)
 	if err != nil {
-		manager.logger.Errorn("Error while listing S3 objects", logger.NewErrorField(err))
+		manager.logger.Errorn("Error while listing S3 objects", obskit.Error(err))
 		return nil, fmt.Errorf("failed to list S3 objects: %w", err)
 	}
 	l.isTruncated = *resp.IsTruncated

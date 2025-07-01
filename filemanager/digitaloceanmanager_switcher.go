@@ -9,6 +9,7 @@ import (
 
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 func NewDigitalOceanManager(conf *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (FileManager, error) {
@@ -20,7 +21,7 @@ func NewDigitalOceanManager(conf *kitconfig.Config, config map[string]interface{
 			return nil, fmt.Errorf("failed to create DigitalOcean V2 manager: %w", err)
 		} else {
 			// if v2 is not enabled, log the error
-			log.Errorn("Failed to create DigitalOcean V2 manager, falling back to V1", logger.NewErrorField(err))
+			log.Errorn("Failed to create DigitalOcean V2 manager, falling back to V1", obskit.Error(err))
 		}
 	}
 	return &switchingDigitalOceanManager{

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.56.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.2...v0.56.3) (2025-07-01)
+
+
+### Bug Fixes
+
+* non-reloadable config values getting updated during change detection ([#848](https://github.com/rudderlabs/rudder-go-kit/issues/848)) ([e533c50](https://github.com/rudderlabs/rudder-go-kit/commit/e533c5043afdf1c10aa29ad26b1cf64516d3c920))
+
+
+### Miscellaneous
+
+* enforcing non-sugared logger ([#847](https://github.com/rudderlabs/rudder-go-kit/issues/847)) ([ab67d10](https://github.com/rudderlabs/rudder-go-kit/commit/ab67d101ed3a983d8d58dfd2881155497f7f1f2b))
+
 ## [0.56.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.1...v0.56.2) (2025-06-24)
 
 
