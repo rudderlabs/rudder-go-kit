@@ -13,6 +13,7 @@ import (
 	"gopkg.in/alexcesaro/statsd.v2"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 // statsdStats is the statsd-specific implementation of Stats
@@ -41,7 +42,7 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 	var err error
 	s.state.client.statsd, err = statsd.New(s.state.conn, s.statsdConfig.statsdTagsFormat(), s.statsdConfig.statsdDefaultTags())
 	if err == nil {
-		s.logger.Info("StatsD client setup succeeded.")
+		s.logger.Infon("StatsD client setup succeeded.")
 		s.state.clientsLock.Lock()
 		s.state.connEstablished = true
 		s.state.clientsLock.Unlock()
@@ -49,7 +50,7 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 
 	goFactory.Go(func() {
 		if err != nil {
-			s.logger.Info("retrying StatsD client creation in the background...")
+			s.logger.Infon("retrying StatsD client creation in the background...")
 			var c *statsd.Client
 			c, err = s.getNewStatsdClientWithExpoBackoff(
 				ctx,
@@ -59,7 +60,7 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 			)
 			if err != nil {
 				s.config.enabled.Store(false)
-				s.logger.Errorf("error while creating new StatsD client, giving up: %v", err)
+				s.logger.Errorn("error while creating new StatsD client, giving up", obskit.Error(err))
 			} else {
 				s.state.clientsLock.Lock()
 				s.state.client.statsd = c
@@ -75,7 +76,7 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 					client.statsdMu.Unlock()
 				}
 
-				s.logger.Info("StatsD client setup succeeded.")
+				s.logger.Infon("StatsD client setup succeeded.")
 				s.state.connEstablished = true
 				s.state.pendingClients = nil
 				s.state.clientsLock.Unlock()
@@ -86,7 +87,10 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 		}
 	})
 
-	s.logger.Infof("Stats started successfully in mode %q with address %q", "StatsD", s.statsdConfig.statsdServerURL)
+	s.logger.Infon("Stats started successfully",
+		logger.NewStringField("mode", "StatsD"),
+		logger.NewStringField("url", s.statsdConfig.statsdServerURL),
+	)
 
 	return nil
 }
@@ -104,7 +108,7 @@ func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opt
 	op := func() error {
 		c, err = statsd.New(opts...)
 		if err != nil {
-			s.logger.Errorf("error while creating new StatsD client: %v", err)
+			s.logger.Errorn("error while creating new StatsD client", obskit.Error(err))
 		}
 		return err
 	}
@@ -195,7 +199,10 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 	newTags := make(Tags)
 	for k, v := range tags {
 		if strings.Trim(k, " ") == "" {
-			s.logger.Warnf("removing empty tag key with value %q for measurement %q", v, name)
+			s.logger.Warnn("removing empty tag key",
+				logger.NewStringField("value", v),
+				logger.NewStringField("measurement", name),
+			)
 			continue
 		}
 		if _, ok := s.config.excludedTags[k]; ok {
@@ -246,7 +253,7 @@ func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsd
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
 		stackTrace := string(byteArr[:n])
-		s.logger.Warnf("detected missing stat measurement name, using 'novalue':\n%v", stackTrace)
+		s.logger.Warnn("detected missing stat measurement name, using 'novalue'", logger.NewStringField("stacktrace", stackTrace))
 		name = "novalue"
 	}
 	baseMeasurement := &statsdMeasurement{

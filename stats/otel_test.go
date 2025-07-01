@@ -800,10 +800,11 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	c.Set("RuntimeStats.enabled", false)
 	ctrl := gomock.NewController(t)
 	loggerSpy := mock_logger.NewMockLogger(ctrl)
-	loggerSpy.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
-	loggerSpy.EXPECT().Warnf(
-		"removing tag %q for measurement %q since it is a resource attribute",
-		"instanceName", "foo",
+	loggerSpy.EXPECT().Infon(gomock.Any(), gomock.Any()).AnyTimes()
+	loggerSpy.EXPECT().Warnn(
+		"removing tag for measurement since it is a resource attribute",
+		logger.NewStringField("key", "instanceName"),
+		logger.NewStringField("measurement", "foo"),
 	).Times(1)
 	loggerFactory := mock_logger.NewMockLogger(ctrl)
 	loggerFactory.EXPECT().Child(gomock.Any()).Times(1).Return(loggerSpy)
@@ -926,7 +927,7 @@ func TestInvalidInstrument(t *testing.T) {
 	newStats := func(t *testing.T, match string) *otelStats {
 		ctrl := gomock.NewController(t)
 		l := mock_logger.NewMockLogger(ctrl)
-		l.EXPECT().Warnf(containsMatcher(match), gomock.Any()).Times(1)
+		l.EXPECT().Warnn(containsMatcher(match), gomock.Any()).Times(1)
 
 		enabled := atomic.Bool{}
 		enabled.Store(true)

@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -183,9 +185,9 @@ func (m *s3ManagerV1) Delete(ctx context.Context, keys []string) (err error) {
 
 		if err != nil {
 			if codeErr, ok := err.(codeError); ok {
-				m.logger.Errorf(`Error while deleting S3 objects: %v, error code: %v`, err.Error(), codeErr.Code())
+				m.logger.Errorn("Error while deleting S3 objects", logger.NewStringField("code", codeErr.Code()), obskit.Error(err))
 			} else {
-				m.logger.Errorf(`Error while deleting S3 objects: %v`, err.Error())
+				m.logger.Errorn("Error while deleting S3 objects", obskit.Error(err))
 			}
 			return err
 		}
@@ -255,7 +257,9 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 
 		region, err := awsS3Manager.GetBucketRegion(ctx, getRegionSession, m.config.Bucket, m.config.RegionHint)
 		if err != nil {
-			m.logger.Errorf("Failed to fetch AWS region for bucket %s. Error %v", m.config.Bucket, err)
+			m.logger.Errorn("Failed to fetch AWS region for bucket",
+				logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
+			)
 			// Failed to get Region probably due to VPC restrictions
 			// Will proceed to try with AccessKeyID and AccessKey
 		}
@@ -392,7 +396,7 @@ type s3ListSession struct {
 func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 	manager := l.manager
 	if !l.isTruncated {
-		manager.logger.Debugf("Manager is truncated: %v so returning here", l.isTruncated)
+		manager.logger.Debugn("Manager is truncated, so returning here", logger.NewBoolField("isTruncated", l.isTruncated))
 		return
 	}
 	fileObjects = make([]*FileInfo, 0)
@@ -424,7 +428,7 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 	// Get the list of items
 	resp, err := svc.ListObjectsV2WithContext(ctx, &listObjectsV2Input)
 	if err != nil {
-		manager.logger.Errorf("Error while listing S3 objects: %v", err)
+		manager.logger.Errorn("Error while listing S3 objects", obskit.Error(err))
 		return
 	}
 	if resp.IsTruncated != nil {

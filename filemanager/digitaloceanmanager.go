@@ -310,7 +310,7 @@ type digitalOceanListSession struct {
 func (l *digitalOceanListSession) Next() (fileObjects []*FileInfo, err error) {
 	manager := l.manager
 	if !l.isTruncated {
-		manager.logger.Debugf("Manager is truncated: %v so returning here", l.isTruncated)
+		manager.logger.Debugn("Manager is truncated, so returning here", logger.NewBoolField("isTruncated", l.isTruncated))
 		return
 	}
 	fileObjects = make([]*FileInfo, 0)
@@ -342,7 +342,7 @@ func (l *digitalOceanListSession) Next() (fileObjects []*FileInfo, err error) {
 	// Get the list of items
 	resp, err := svc.ListObjectsV2WithContext(ctx, &listObjectsV2Input)
 	if err != nil {
-		manager.logger.Errorf("Error while listing Digital Ocean Spaces objects: %v", err)
+		manager.logger.Errorn("Error while listing Digital Ocean Spaces objects", obskit.Error(err))
 		return
 	}
 	if resp.IsTruncated != nil {

@@ -168,7 +168,7 @@ func (m *AzureBlobManager) suppressMinorErrors(err error) error {
 		if errors.As(err, &storageError) { // This error is a Service-specific
 			switch storageError.ServiceCode() { // Compare serviceCode to ServiceCodeXxx constants
 			case azblob.ServiceCodeContainerAlreadyExists:
-				m.logger.Debug("Received 409. Container already exists")
+				m.logger.Debugn("Received 409. Container already exists")
 				return nil
 			}
 		}

@@ -4,6 +4,7 @@ linters:
     - bodyclose
     - decorder
     - depguard
+    - forbidigo
     - makezero
     - misspell
     - nilerr
@@ -24,7 +25,39 @@ linters:
               desc: use github.com/google/uuid instead
             - pkg: golang.org/x/exp/slices
               desc: use "slices" instead
+    forbidigo:
+      forbid:
+        # Rules for enforcing the go-kit non-sugared logger
+        - pattern: Logger.Debug(f|w)?$
+          pkg: ^github.com/rudderlabs/rudder-go-kit/logger$
+          msg: use Logger.Debugn instead
+        - pattern: Logger\.Info(f|w)?$
+          pkg: ^github.com/rudderlabs/rudder-go-kit/logger$
+          msg: use Logger.Infon instead
+        - pattern: Logger.Warn(f|w)?$
+          pkg: ^github.com/rudderlabs/rudder-go-kit/logger$
+          msg: use Logger.Warnn instead
+        - pattern: Logger.Error(f|w)?$
+          pkg: ^github.com/rudderlabs/rudder-go-kit/logger$
+          msg: use Logger.Errorn instead
+        - pattern: Logger.Fatal(f|w)?$
+          pkg: ^github.com/rudderlabs/rudder-go-kit/logger$
+          msg: use Logger.Fataln instead
+        - pattern: Logger.With$
+          pkg: ^github.com/rudderlabs/rudder-go-kit/logger$
+          msg: use Logger.Withn instead
+        - pattern: NewField$
+          pkg: ^github.com/rudderlabs/rudder-go-kit/logger$
+          msg: use type specific counterpart e.g. NewStringField, NewIntField, etc...
+        - pattern: NewErrorField$
+          pkg: ^github.com/rudderlabs/rudder-go-kit/logger$
+          msg: use rudder-observability-kit Error function
+      analyze-types: true
   exclusions:
+    rules:
+      - path: logger/
+        linters:
+          - forbidigo
     generated: lax
     presets:
       - comments
