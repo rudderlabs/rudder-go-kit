@@ -112,7 +112,7 @@ func (c *Config) storeAndRegisterDurationVar(
 ) {
 	c.storeDurationVar(defaultValueInTimescaleUnits, timeScale, store, orderedKeys...) // store before registering non-reloadable keys
 	registerNonReloadableConfigKeys(c, time.Duration(defaultValueInTimescaleUnits)*timeScale, &configValue{
-		value:        ptr,
+		value:        *ptr.(*time.Duration),
 		multiplier:   timeScale,
 		defaultValue: defaultValueInTimescaleUnits,
 		keys:         orderedKeys,

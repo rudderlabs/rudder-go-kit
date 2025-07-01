@@ -100,7 +100,7 @@ func (c *Config) storeStringVar(defaultValue string, store func(string), ordered
 func (c *Config) storeAndRegisterStringVar(defaultValue string, ptr any, store func(string), orderedKeys ...string) {
 	c.storeStringVar(defaultValue, store, orderedKeys...) // store before registering non-reloadable keys
 	registerNonReloadableConfigKeys(c, defaultValue, &configValue{
-		value:        ptr,
+		value:        *ptr.(*string),
 		defaultValue: defaultValue,
 		keys:         orderedKeys,
 	})

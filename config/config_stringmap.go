@@ -91,7 +91,7 @@ func (c *Config) storeStringMapVar(
 func (c *Config) storeAndRegisterStringMapVar(defaultValue map[string]any, ptr any, store func(map[string]any), orderedKeys ...string) {
 	c.storeStringMapVar(defaultValue, store, orderedKeys...) // store before registering non-reloadable keys
 	registerNonReloadableConfigKeys(c, defaultValue, &configValue{
-		value:        ptr,
+		value:        *ptr.(*map[string]any),
 		defaultValue: defaultValue,
 		keys:         orderedKeys,
 	})

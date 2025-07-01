@@ -84,7 +84,7 @@ func (c *Config) storeInt64Var(defaultValue, valueScale int64, store func(int64)
 func (c *Config) storeAndRegisterInt64Var(defaultValue int64, ptr any, valueScale int64, store func(int64), orderedKeys ...string) {
 	c.storeInt64Var(defaultValue, valueScale, store, orderedKeys...) // store before registering non-reloadable keys
 	registerNonReloadableConfigKeys(c, defaultValue*valueScale, &configValue{
-		value:        ptr,
+		value:        *ptr.(*int64),
 		multiplier:   valueScale,
 		defaultValue: defaultValue,
 		keys:         orderedKeys,
