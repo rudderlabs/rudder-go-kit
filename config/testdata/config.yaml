@@ -430,9 +430,6 @@ SQLMigrator:
   forceSetLowerVersion: true
 SchemaForwarder:
   pulsarTopic: event-schema
-Scylla:
-  Hosts:
-  - scylla-host-obfuscated
 SnowpipeStreaming:
   maxBufferCapacity: 10240000
 TrackedUsers:
