@@ -34,11 +34,6 @@ func (p *tidwallJSONParser) GetValue(data []byte, keys ...string) ([]byte, error
 		return nil, ErrKeyNotFound
 	}
 
-	// Handle string values specially - remove the quotes
-	if result.Type == gjson.String {
-		return []byte(result.String()), nil
-	}
-
 	return []byte(result.Raw), nil
 }
 

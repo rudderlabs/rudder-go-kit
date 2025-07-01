@@ -19,7 +19,12 @@ func TestSwitcher(t *testing.T) {
 	data := []byte(`{"name": "John", "age": 30}`)
 	value, err := parser.GetValue(data, "name")
 	require.NoError(t, err)
-	require.Equal(t, []byte("John"), value)
+	require.Equal(t, []byte("\"John\""), value)
+
+	// Test GetString with gjson
+	str, err := parser.GetString(data, "name")
+	require.NoError(t, err)
+	require.Equal(t, "John", str)
 
 	// Test SetValue with gjson implementation
 	updatedData, err := parser.SetValue(data, 31, "age")
@@ -27,6 +32,9 @@ func TestSwitcher(t *testing.T) {
 	value, err = parser.GetValue(updatedData, "age")
 	require.NoError(t, err)
 	require.Equal(t, []byte("31"), value)
+	intVal, err := parser.GetInt(updatedData, "age")
+	require.NoError(t, err)
+	require.Equal(t, int64(31), intVal)
 
 	// Test with jsonparser implementation
 	conf.Set("JSONParser.Library", GrafanaLib)
@@ -35,7 +43,11 @@ func TestSwitcher(t *testing.T) {
 	// Test GetValue with jsonparser implementation
 	value, err = parser.GetValue(data, "name")
 	require.NoError(t, err)
-	require.Equal(t, []byte("John"), value)
+	require.Equal(t, []byte("\"John\""), value)
+	// Test GetString with gjson
+	str, err = parser.GetString(data, "name")
+	require.NoError(t, err)
+	require.Equal(t, "John", str)
 
 	// Test SetValue with jsonparser implementation
 	updatedData, err = parser.SetValue(data, 32, "age")
@@ -44,7 +56,7 @@ func TestSwitcher(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte("32"), value)
 
-	// Test with separate getter and setter implementations
+	// Test with separate Getter and Setter implementations
 	conf.Set("JSONParser.Library.Getter", GrafanaLib)
 	conf.Set("JSONParser.Library.Setter", TidwallLib)
 	parser = NewWithConfig(conf)
@@ -52,7 +64,7 @@ func TestSwitcher(t *testing.T) {
 	// Test GetValue with jsonparser implementation
 	value, err = parser.GetValue(data, "name")
 	require.NoError(t, err)
-	require.Equal(t, []byte("John"), value)
+	require.Equal(t, []byte("\"John\""), value)
 
 	// Test SetValue with gjson implementation
 	updatedData, err = parser.SetValue(data, 33, "age")
@@ -60,12 +72,15 @@ func TestSwitcher(t *testing.T) {
 	value, err = parser.GetValue(updatedData, "age")
 	require.NoError(t, err)
 	require.Equal(t, []byte("33"), value)
+	intVal, err = parser.GetInt(updatedData, "age")
+	require.NoError(t, err)
+	require.Equal(t, int64(33), intVal)
 
 	// Test NewWithLibrary
 	parser = NewWithLibrary(GrafanaLib)
 	value, err = parser.GetValue(data, "name")
 	require.NoError(t, err)
-	require.Equal(t, []byte("John"), value)
+	require.Equal(t, []byte("\"John\""), value)
 
 	// Test Reset
 	oldDefault := Default

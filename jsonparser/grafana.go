@@ -28,12 +28,17 @@ func (p *grafanaJSONParser) GetValue(data []byte, keys ...string) ([]byte, error
 		return nil, ErrEmptyKey
 	}
 
-	value, _, _, err := jsonparser.Get(data, keys...)
+	value, dtype, _, err := jsonparser.Get(data, keys...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return nil, ErrKeyNotFound
 		}
 		return nil, fmt.Errorf("failed to get value for keys %v: %w", keys, err)
+	}
+
+	// If the value is a string, wrap it in quotes as the library is specifically stripping quotes from string value
+	if dtype == jsonparser.String {
+		return []byte("\"" + string(value) + "\""), nil
 	}
 
 	return value, nil
@@ -61,13 +66,14 @@ func (p *grafanaJSONParser) GetInt(data []byte, keys ...string) (int64, error) {
 		return 0, ErrEmptyJSON
 	}
 
-	value, err := jsonparser.GetInt(data, keys...)
+	floatVal, err := jsonparser.GetFloat(data, keys...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return 0, ErrKeyNotFound
 		}
 		return 0, fmt.Errorf("failed to get value for keys %v: %w", keys, err)
 	}
+	value := int64(floatVal)
 
 	return value, nil
 }
