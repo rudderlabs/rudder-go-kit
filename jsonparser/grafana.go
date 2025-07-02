@@ -44,14 +44,10 @@ func (p *grafanaJSONParser) GetValue(data []byte, path ...string) ([]byte, error
 	return value, nil
 }
 
-// GetValueSoft retrieves the value for a given key from JSON bytes using jsonparser.
-// If the key does not exist, json is invalid or value is not a string, it returns an empty string.
+// GetValueOrEmpty retrieves the raw value for a given key from JSON bytes.
+// If the key does not exist, json is invalid or value is not a string, it returns an empty byte slice.
 func (p *grafanaJSONParser) GetValueOrEmpty(data []byte, path ...string) []byte {
-	if len(data) == 0 {
-		return nil
-	}
-
-	if len(path) == 0 {
+	if len(data) == 0 || len(path) == 0 {
 		return nil
 	}
 
@@ -96,11 +92,14 @@ func (p *grafanaJSONParser) GetBooleanOrFalse(data []byte, path ...string) bool 
 		return false
 	}
 
-	value, err := jsonparser.GetBoolean(data, path...)
+	value, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		return false
 	}
-	return value
+
+	boolVal, _ := parseBool(value, dtype)
+
+	return boolVal
 }
 
 // GetInt retrieves an integer value for a given key from JSON bytes
@@ -128,11 +127,13 @@ func (p *grafanaJSONParser) GetIntOrZero(data []byte, path ...string) int64 {
 		return 0
 	}
 
-	floatVal, err := jsonparser.GetFloat(data, path...)
+	val, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		return 0
 	}
-	return int64(floatVal)
+	intVal, _ := parseInt(val, dtype)
+
+	return intVal
 }
 
 // GetFloat retrieves a float value for a given key from JSON bytes
@@ -159,10 +160,12 @@ func (p *grafanaJSONParser) GetFloatOrZero(data []byte, path ...string) float64 
 		return 0
 	}
 
-	value, err := jsonparser.GetFloat(data, path...)
+	val, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		return 0
 	}
+	value, _ := parseFloat(val, dtype)
+
 	return value
 }
 
@@ -190,10 +193,12 @@ func (p *grafanaJSONParser) GetStringOrEmpty(data []byte, path ...string) string
 		return ""
 	}
 
-	value, err := jsonparser.GetString(data, path...)
+	val, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		return ""
 	}
+
+	value, _ := parseString(val, dtype)
 	return value
 }
 
@@ -283,4 +288,79 @@ func (p *grafanaJSONParser) DeleteKey(data []byte, path ...string) ([]byte, erro
 	resultData := jsonparser.Delete(data, path...)
 
 	return resultData, nil
+}
+
+func parseBool(value []byte, dataType jsonparser.ValueType) (bool, error) {
+	switch dataType {
+	default:
+		return false, nil
+	case jsonparser.Boolean, jsonparser.String:
+		return jsonparser.ParseBoolean(value)
+	case jsonparser.Number:
+		num, err := jsonparser.ParseFloat(value)
+		return num != 0, err
+	}
+}
+
+func parseInt(value []byte, dataType jsonparser.ValueType) (int64, error) {
+	switch dataType {
+	default:
+		return 0, nil
+	case jsonparser.Number:
+		return jsonparser.ParseInt(value)
+	case jsonparser.Boolean:
+		boolVal, err := jsonparser.ParseBoolean(value)
+		if err != nil {
+			return 0, err
+		}
+		if boolVal {
+			return 1, nil
+		}
+		return 0, nil
+	case jsonparser.String:
+		num, err := jsonparser.ParseFloat(value)
+		return int64(num), err
+	}
+}
+
+func parseFloat(val []byte, dtype jsonparser.ValueType) (float64, error) {
+	switch dtype {
+	default:
+		return 0, nil
+	case jsonparser.Number:
+		return jsonparser.ParseFloat(val)
+	case jsonparser.Boolean:
+		boolVal, err := jsonparser.ParseBoolean(val)
+		if err != nil {
+			return 0, err
+		}
+		if boolVal {
+			return 1, nil
+		}
+		return 0, nil
+	case jsonparser.String:
+		num, err := jsonparser.ParseFloat(val)
+		return num, err
+	}
+}
+
+func parseString(val []byte, dtype jsonparser.ValueType) (string, error) {
+	switch dtype {
+	default:
+		return "", nil
+	case jsonparser.String:
+		return jsonparser.ParseString(val)
+	case jsonparser.Boolean:
+		boolVal, err := jsonparser.ParseBoolean(val)
+		if err != nil {
+			return "false", nil
+		}
+		return strconv.FormatBool(boolVal), nil
+	case jsonparser.Number:
+		num, err := jsonparser.ParseFloat(val)
+		if err != nil {
+			return "0", nil
+		}
+		return strconv.FormatFloat(num, 'f', -1, 64), nil
+	}
 }

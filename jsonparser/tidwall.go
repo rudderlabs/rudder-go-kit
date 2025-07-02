@@ -100,11 +100,6 @@ func (p *tidwallJSONParser) GetBooleanOrFalse(data []byte, keys ...string) bool 
 		return false
 	}
 
-	// Check if the value is a boolean
-	if result.Type != gjson.True && result.Type != gjson.False {
-		return false
-	}
-
 	return result.Bool()
 }
 
@@ -144,11 +139,6 @@ func (p *tidwallJSONParser) GetIntOrZero(data []byte, keys ...string) int64 {
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, path)
 	if !result.Exists() {
-		return 0
-	}
-
-	// Check if the value is a number
-	if result.Type != gjson.Number {
 		return 0
 	}
 
