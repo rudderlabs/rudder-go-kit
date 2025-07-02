@@ -184,11 +184,6 @@ func (p *tidwallJSONParser) GetFloatOrZero(data []byte, keys ...string) float64 
 		return 0
 	}
 
-	// Check if the value is a number
-	if result.Type != gjson.Number {
-		return 0
-	}
-
 	return result.Float()
 }
 
@@ -228,11 +223,6 @@ func (p *tidwallJSONParser) GetStringOrEmpty(data []byte, keys ...string) string
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, path)
 	if !result.Exists() {
-		return ""
-	}
-
-	// Check if the value is a string
-	if result.Type != gjson.String {
 		return ""
 	}
 

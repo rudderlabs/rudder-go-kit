@@ -948,18 +948,42 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	// Test GetBooleanOrFalse
 	boolVal := jsonParser.GetBooleanOrFalse([]byte(`{"active": true}`), "active")
 	require.True(t, boolVal)
+	boolVal = jsonParser.GetBooleanOrFalse([]byte(`{"active": "true"}`), "active")
+	require.True(t, boolVal)
+	boolVal = jsonParser.GetBooleanOrFalse([]byte(`{"active": 30}`), "active")
+	require.True(t, boolVal)
+	boolVal = jsonParser.GetBooleanOrFalse([]byte(`{"active": "random"}`), "active")
+	require.False(t, boolVal)
 
 	// Test GetIntOrZero
 	intVal := jsonParser.GetIntOrZero([]byte(`{"age": 30}`), "age")
 	require.Equal(t, int64(30), intVal)
+	intVal = jsonParser.GetIntOrZero([]byte(`{"age": "30"}`), "age")
+	require.Equal(t, int64(30), intVal)
+	intVal = jsonParser.GetIntOrZero([]byte(`{"age": true}`), "age")
+	require.Equal(t, int64(1), intVal)
+	intVal = jsonParser.GetIntOrZero([]byte(`{"age": "random"}`), "age")
+	require.Equal(t, int64(0), intVal)
 
 	// Test GetFloatOrZero
 	floatVal := jsonParser.GetFloatOrZero([]byte(`{"price": 29.99}`), "price")
 	require.Equal(t, 29.99, floatVal)
+	floatVal = jsonParser.GetFloatOrZero([]byte(`{"price": "29.99"}`), "price")
+	require.Equal(t, 29.99, floatVal)
+	floatVal = jsonParser.GetFloatOrZero([]byte(`{"price": true}`), "price")
+	require.Equal(t, float64(1), floatVal)
+	floatVal = jsonParser.GetFloatOrZero([]byte(`{"price": "random"}`), "price")
+	require.Equal(t, float64(0), floatVal)
 
 	// Test GetStringOrEmpty
 	strVal := jsonParser.GetStringOrEmpty([]byte(`{"city": "New York"}`), "city")
 	require.Equal(t, "New York", strVal)
+	strVal = jsonParser.GetStringOrEmpty([]byte(`{"city": 30}`), "city")
+	require.Equal(t, "30", strVal)
+	strVal = jsonParser.GetStringOrEmpty([]byte(`{"city": true}`), "city")
+	require.Equal(t, "true", strVal)
+	strVal = jsonParser.GetStringOrEmpty([]byte(`{"city": {"New": "York"}}`), "city")
+	require.Equal(t, `{"New": "York"}`, strVal)
 
 	// Test that non-existent keys return zero values
 	require.Empty(t, jsonParser.GetValueOrEmpty([]byte(`{}`), "missing"))

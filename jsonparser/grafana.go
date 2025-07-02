@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 
@@ -295,7 +296,7 @@ func parseBool(value []byte, dataType jsonparser.ValueType) (bool, error) {
 	default:
 		return false, nil
 	case jsonparser.Boolean, jsonparser.String:
-		return jsonparser.ParseBoolean(value)
+		return strconv.ParseBool(strings.ToLower(string(value)))
 	case jsonparser.Number:
 		num, err := jsonparser.ParseFloat(value)
 		return num != 0, err
@@ -330,7 +331,7 @@ func parseFloat(val []byte, dtype jsonparser.ValueType) (float64, error) {
 	case jsonparser.Number:
 		return jsonparser.ParseFloat(val)
 	case jsonparser.Boolean:
-		boolVal, err := jsonparser.ParseBoolean(val)
+		boolVal, err := strconv.ParseBool(strings.ToLower(string(val)))
 		if err != nil {
 			return 0, err
 		}
@@ -347,20 +348,8 @@ func parseFloat(val []byte, dtype jsonparser.ValueType) (float64, error) {
 func parseString(val []byte, dtype jsonparser.ValueType) (string, error) {
 	switch dtype {
 	default:
-		return "", nil
-	case jsonparser.String:
+		return string(val), nil
+	case jsonparser.String, jsonparser.Boolean, jsonparser.Number:
 		return jsonparser.ParseString(val)
-	case jsonparser.Boolean:
-		boolVal, err := jsonparser.ParseBoolean(val)
-		if err != nil {
-			return "false", nil
-		}
-		return strconv.FormatBool(boolVal), nil
-	case jsonparser.Number:
-		num, err := jsonparser.ParseFloat(val)
-		if err != nil {
-			return "0", nil
-		}
-		return strconv.FormatFloat(num, 'f', -1, 64), nil
 	}
 }
