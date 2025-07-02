@@ -87,7 +87,12 @@ func (p *grafanaJSONParser) GetBoolean(data []byte, path ...string) (bool, error
 }
 
 // GetBooleanOrFalse retrieves a boolean value for a given path from JSON bytes.
-// If the key does not exist, json is invalid or value is not a boolean, it returns false.
+// If the key does not exist, json is invalid or value is not parsable to a boolean, it returns false.
+// e.g `GetBooleanOrFalse({"key": true}, "key1")` returns false.
+//
+//		   `GetBooleanOrFalse({"key": true}, "key")` returns true.
+//	    `GetBooleanOrFalse({"key": "val"}, "key")` returns false as `val` is not parsable to boolean.
+//	    `GetBooleanOrFalse({"key": 1}, "key")` returns true.
 func (p *grafanaJSONParser) GetBooleanOrFalse(data []byte, path ...string) bool {
 	if len(data) == 0 || len(path) == 0 {
 		return false
@@ -122,7 +127,13 @@ func (p *grafanaJSONParser) GetInt(data []byte, path ...string) (int64, error) {
 }
 
 // GetIntOrZero retrieves an integer value for a given key from JSON bytes.
-// If the key does not exist, json is invalid or value is not an integer, it returns 0.
+// If the key does not exist, json is invalid or value is not parsable to an integer, it returns 0.
+// e.g `GetIntOrZero({"key": 123}, "key1")` returns 0.
+//
+//	`GetIntOrZero({"key": 123}, "key")` returns 123.
+//	`GetIntOrZero({"key": "val"}, "key")` returns 0 as `val` is not parsable to integer.
+//	`GetIntOrZero({"key": true}, "key")` returns 1 as `true` is parsed to 1.
+//	`GetIntOrZero({"key": "123"}, "key")` returns 123 as `"123"` is parsed to 123.
 func (p *grafanaJSONParser) GetIntOrZero(data []byte, path ...string) int64 {
 	if len(data) == 0 || len(path) == 0 {
 		return 0
@@ -155,7 +166,13 @@ func (p *grafanaJSONParser) GetFloat(data []byte, path ...string) (float64, erro
 }
 
 // GetFloatOrZero retrieves a float value for a given key from JSON bytes.
-// If the key does not exist, json is invalid or value is not a float, it returns 0.
+// If the key does not exist, json is invalid or value is not parsable to a float, it returns 0.
+// e.g `GetFloatOrZero({"key": 123.456}, "key1") returns 0.
+//
+//	`GetFloatOrZero({"key": 123.456}, "key")` returns 123.456.
+//	`GetFloatOrZero({"key": "123.456"}, "key")` returns 123.456 as `"123.456"` is parsed to 123.456.
+//	`GetFloatOrZero({"key": "val"}, "key")` returns 0 as `val` is not parsable to float.
+//	`GetFloatOrZero({"key": true}, "key")` returns 1 as `true` is parsed to 1.
 func (p *grafanaJSONParser) GetFloatOrZero(data []byte, path ...string) float64 {
 	if len(data) == 0 || len(path) == 0 {
 		return 0
@@ -188,7 +205,12 @@ func (p *grafanaJSONParser) GetString(data []byte, path ...string) (string, erro
 }
 
 // GetStringOrEmpty retrieves a string value for a given key from JSON bytes.
-// If the key does not exist, json is invalid or value is not a string, it returns an empty string.
+// If the key does not exist, json is invalid or value is not parsable to a string, it returns an empty string.
+// e.g `GetStringOrEmpty({"key": "val"}, "key1")` returns "".
+//
+//	`GetStringOrEmpty({"key": "val"}, "key")` returns "val".
+//	`GetStringOrEmpty({"key": 123}, "key")` returns "123" as 123 is parsed to string.
+//	`GetStringOrEmpty({"key": true}, "key")` returns "true" as `true` is parsed to string.
 func (p *grafanaJSONParser) GetStringOrEmpty(data []byte, path ...string) string {
 	if len(data) == 0 || len(path) == 0 {
 		return ""
