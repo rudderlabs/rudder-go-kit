@@ -991,6 +991,20 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.Zero(t, jsonParser.GetIntOrZero([]byte(`{}`), "missing"))
 	require.Zero(t, jsonParser.GetFloatOrZero([]byte(`{}`), "missing"))
 	require.Empty(t, jsonParser.GetStringOrEmpty([]byte(`{}`), "missing"))
+
+	// Test that empty data return zero values
+	require.Empty(t, jsonParser.GetValueOrEmpty([]byte{}, "missing"))
+	require.False(t, jsonParser.GetBooleanOrFalse([]byte{}, "missing"))
+	require.Zero(t, jsonParser.GetIntOrZero([]byte{}, "missing"))
+	require.Zero(t, jsonParser.GetFloatOrZero([]byte{}, "missing"))
+	require.Empty(t, jsonParser.GetStringOrEmpty([]byte{}, "missing"))
+
+	// Test that no keys provided return zero values
+	require.Empty(t, jsonParser.GetValueOrEmpty([]byte(`{}`)))
+	require.False(t, jsonParser.GetBooleanOrFalse([]byte(`{}`)))
+	require.Zero(t, jsonParser.GetIntOrZero([]byte(`{}`)))
+	require.Zero(t, jsonParser.GetFloatOrZero([]byte(`{}`)))
+	require.Empty(t, jsonParser.GetStringOrEmpty([]byte(`{}`)))
 }
 
 func TestJsonParser(t *testing.T) {
