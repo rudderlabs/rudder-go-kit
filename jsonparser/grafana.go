@@ -76,6 +76,15 @@ func (p *grafanaJSONParser) GetBoolean(data []byte, path ...string) (bool, error
 		return false, ErrEmptyJSON
 	}
 
+	if len(path) == 0 {
+		return false, ErrNoKeysProvided
+	}
+
+	key := path[0]
+	if key == "" {
+		return false, ErrEmptyKey
+	}
+
 	value, err := jsonparser.GetBoolean(data, path...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
@@ -98,6 +107,11 @@ func (p *grafanaJSONParser) GetBooleanOrFalse(data []byte, path ...string) bool 
 		return false
 	}
 
+	key := path[0]
+	if key == "" {
+		return false
+	}
+
 	value, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		return false
@@ -112,6 +126,15 @@ func (p *grafanaJSONParser) GetBooleanOrFalse(data []byte, path ...string) bool 
 func (p *grafanaJSONParser) GetInt(data []byte, path ...string) (int64, error) {
 	if len(data) == 0 {
 		return 0, ErrEmptyJSON
+	}
+
+	if len(path) == 0 {
+		return 0, ErrNoKeysProvided
+	}
+
+	key := path[0]
+	if key == "" {
+		return 0, ErrEmptyKey
 	}
 
 	floatVal, err := jsonparser.GetFloat(data, path...)
@@ -139,6 +162,11 @@ func (p *grafanaJSONParser) GetIntOrZero(data []byte, path ...string) int64 {
 		return 0
 	}
 
+	key := path[0]
+	if key == "" {
+		return 0
+	}
+
 	val, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		return 0
@@ -152,6 +180,15 @@ func (p *grafanaJSONParser) GetIntOrZero(data []byte, path ...string) int64 {
 func (p *grafanaJSONParser) GetFloat(data []byte, path ...string) (float64, error) {
 	if len(data) == 0 {
 		return 0, ErrEmptyJSON
+	}
+
+	if len(path) == 0 {
+		return 0, ErrNoKeysProvided
+	}
+
+	key := path[0]
+	if key == "" {
+		return 0, ErrEmptyKey
 	}
 
 	value, err := jsonparser.GetFloat(data, path...)
@@ -178,6 +215,11 @@ func (p *grafanaJSONParser) GetFloatOrZero(data []byte, path ...string) float64 
 		return 0
 	}
 
+	key := path[0]
+	if key == "" {
+		return 0
+	}
+
 	val, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		return 0
@@ -191,6 +233,15 @@ func (p *grafanaJSONParser) GetFloatOrZero(data []byte, path ...string) float64 
 func (p *grafanaJSONParser) GetString(data []byte, path ...string) (string, error) {
 	if len(data) == 0 {
 		return "", ErrEmptyJSON
+	}
+
+	if len(path) == 0 {
+		return "", ErrNoKeysProvided
+	}
+
+	key := path[0]
+	if key == "" {
+		return "", ErrEmptyKey
 	}
 
 	value, err := jsonparser.GetString(data, path...)
@@ -213,6 +264,11 @@ func (p *grafanaJSONParser) GetString(data []byte, path ...string) (string, erro
 //	`GetStringOrEmpty({"key": true}, "key")` returns "true" as `true` is parsed to string.
 func (p *grafanaJSONParser) GetStringOrEmpty(data []byte, path ...string) string {
 	if len(data) == 0 || len(path) == 0 {
+		return ""
+	}
+
+	key := path[0]
+	if key == "" {
 		return ""
 	}
 

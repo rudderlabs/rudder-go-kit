@@ -95,7 +95,7 @@ type Deleter interface {
 
 type SoftGetter interface {
 	// GetValueOrEmpty retrieves the raw value for a given key from JSON bytes.
-	// If the key does not exist or json is invalid, it returns an empty byte slice.
+	// If the key does not exist or json is invalid, it returns nil.
 	GetValueOrEmpty(data []byte, path ...string) []byte
 
 	// GetBooleanOrFalse retrieves a boolean value for a given path from JSON bytes.
@@ -197,6 +197,31 @@ func SetString(data []byte, value string, path ...string) ([]byte, error) {
 // DeleteKey is a convenience function that uses the default JSONParser.
 func DeleteKey(data []byte, path ...string) ([]byte, error) {
 	return Default.DeleteKey(data, path...)
+}
+
+// GetValueOrEmpty is a convenience function that uses the default JSONParser.
+func GetValueOrEmpty(data []byte, path ...string) []byte {
+	return Default.GetValueOrEmpty(data, path...)
+}
+
+// GetBooleanOrFalse is a convenience function that uses the default JSONParser.
+func GetBooleanOrFalse(data []byte, path ...string) bool {
+	return Default.GetBooleanOrFalse(data, path...)
+}
+
+// GetIntOrZero is a convenience function that uses the default JSONParser.
+func GetIntOrZero(data []byte, path ...string) int64 {
+	return Default.GetIntOrZero(data, path...)
+}
+
+// GetFloatOrZero is a convenience function that uses the default JSON
+func GetFloatOrZero(data []byte, path ...string) float64 {
+	return Default.GetFloatOrZero(data, path...)
+}
+
+// GetStringOrEmpty is a convenience function that uses the default JSONParser.
+func GetStringOrEmpty(data []byte, path ...string) string {
+	return Default.GetStringOrEmpty(data, path...)
 }
 
 // Reset resets the default JSONParser implementation based on the default configuration.

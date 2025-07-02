@@ -93,6 +93,12 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			wantErr:  true,
 		},
 		{
+			name:     "no keys provided",
+			jsonData: `{"name": "John"}`,
+			keys:     []string{},
+			wantErr:  true,
+		},
+		{
 			name:     "invalid array index",
 			jsonData: `{"users": ["John", "Jane"]}`,
 			keys:     []string{"users", "[2]"},
@@ -111,6 +117,12 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			jsonData: ``,
 			keys:     []string{"name"},
 			want:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "invalid path empty",
+			jsonData: `{"user": {"active": true}}`,
+			keys:     []string{"user", "", "active"},
 			wantErr:  true,
 		},
 	}
@@ -197,6 +209,14 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			name:     "empty key",
 			jsonData: `{"name": "John"}`,
 			keys:     []string{""},
+			value:    "value",
+			want:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "no key",
+			jsonData: `{"name": "John"}`,
+			keys:     []string{},
 			value:    "value",
 			want:     nil,
 			wantErr:  true,
@@ -340,6 +360,20 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			want:     false,
 			wantErr:  true,
 		},
+		{
+			name:     "empty key",
+			jsonData: `{"active": true}`,
+			keys:     []string{""},
+			want:     false,
+			wantErr:  true,
+		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
+			want:     false,
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -411,6 +445,20 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"age"},
 			want:     2,
 			wantErr:  false,
+		},
+		{
+			name:     "empty key",
+			jsonData: `{"active": true}`,
+			keys:     []string{""},
+			want:     0,
+			wantErr:  true,
+		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
+			want:     0,
+			wantErr:  true,
 		},
 	}
 
@@ -484,6 +532,20 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			want:     0,
 			wantErr:  true,
 		},
+		{
+			name:     "empty key",
+			jsonData: `{"active": true}`,
+			keys:     []string{""},
+			want:     0,
+			wantErr:  true,
+		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
+			want:     0,
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -546,6 +608,20 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			name:     "empty json",
 			jsonData: ``,
 			keys:     []string{"name"},
+			want:     "",
+			wantErr:  true,
+		},
+		{
+			name:     "empty key",
+			jsonData: `{"active": true}`,
+			keys:     []string{""},
+			want:     "",
+			wantErr:  true,
+		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
 			want:     "",
 			wantErr:  true,
 		},
@@ -629,6 +705,18 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			want:     nil,
 			wantErr:  true,
 		},
+		{
+			name:     "empty key",
+			jsonData: `{"active": true}`,
+			keys:     []string{""},
+			wantErr:  true,
+		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -702,6 +790,12 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{""},
 			value:    30,
 			want:     nil,
+			wantErr:  true,
+		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
 			wantErr:  true,
 		},
 	}
@@ -779,6 +873,13 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			want:     nil,
 			wantErr:  true,
 		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
+			value:    29.99,
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -854,6 +955,12 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			want:     nil,
 			wantErr:  true,
 		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -922,6 +1029,12 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 			want:     nil,
 			wantErr:  true,
 		},
+		{
+			name:     "no key",
+			jsonData: `{"active": true}`,
+			keys:     []string{},
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -986,25 +1099,32 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.Equal(t, `{"New": "York"}`, strVal)
 
 	// Test that non-existent keys return zero values
-	require.Empty(t, jsonParser.GetValueOrEmpty([]byte(`{}`), "missing"))
+	require.Nil(t, jsonParser.GetValueOrEmpty([]byte(`{}`), "missing"))
 	require.False(t, jsonParser.GetBooleanOrFalse([]byte(`{}`), "missing"))
 	require.Zero(t, jsonParser.GetIntOrZero([]byte(`{}`), "missing"))
 	require.Zero(t, jsonParser.GetFloatOrZero([]byte(`{}`), "missing"))
 	require.Empty(t, jsonParser.GetStringOrEmpty([]byte(`{}`), "missing"))
 
 	// Test that empty data return zero values
-	require.Empty(t, jsonParser.GetValueOrEmpty([]byte{}, "missing"))
+	require.Nil(t, jsonParser.GetValueOrEmpty([]byte{}, "missing"))
 	require.False(t, jsonParser.GetBooleanOrFalse([]byte{}, "missing"))
 	require.Zero(t, jsonParser.GetIntOrZero([]byte{}, "missing"))
 	require.Zero(t, jsonParser.GetFloatOrZero([]byte{}, "missing"))
 	require.Empty(t, jsonParser.GetStringOrEmpty([]byte{}, "missing"))
 
 	// Test that no keys provided return zero values
-	require.Empty(t, jsonParser.GetValueOrEmpty([]byte(`{}`)))
+	require.Nil(t, jsonParser.GetValueOrEmpty([]byte(`{}`)))
 	require.False(t, jsonParser.GetBooleanOrFalse([]byte(`{}`)))
 	require.Zero(t, jsonParser.GetIntOrZero([]byte(`{}`)))
 	require.Zero(t, jsonParser.GetFloatOrZero([]byte(`{}`)))
 	require.Empty(t, jsonParser.GetStringOrEmpty([]byte(`{}`)))
+
+	// Test that empty keys return zero values
+	require.Nil(t, jsonParser.GetValueOrEmpty([]byte(`{"city": 30}`), ""))
+	require.False(t, jsonParser.GetBooleanOrFalse([]byte(`{"city": 30}`), ""))
+	require.Zero(t, jsonParser.GetIntOrZero([]byte(`{"city": 30}`), ""))
+	require.Zero(t, jsonParser.GetFloatOrZero([]byte(`{"city": 30}`), ""))
+	require.Empty(t, jsonParser.GetStringOrEmpty([]byte(`{"city": 30}`), ""))
 }
 
 func TestJsonParser(t *testing.T) {
