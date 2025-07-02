@@ -111,9 +111,6 @@ func (p *tidwallJSONParser) GetBooleanOrFalse(data []byte, path ...string) bool 
 
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, dotSeperatedPath)
-	if !result.Exists() {
-		return false
-	}
 
 	return result.Bool()
 }
@@ -171,9 +168,6 @@ func (p *tidwallJSONParser) GetIntOrZero(data []byte, path ...string) int64 {
 
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, dotSeperatedPath)
-	if !result.Exists() {
-		return 0
-	}
 
 	return result.Int()
 }
@@ -231,9 +225,6 @@ func (p *tidwallJSONParser) GetFloatOrZero(data []byte, path ...string) float64 
 
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, dotSeperatedPath)
-	if !result.Exists() {
-		return 0
-	}
 
 	return result.Float()
 }
@@ -291,9 +282,6 @@ func (p *tidwallJSONParser) GetStringOrEmpty(data []byte, path ...string) string
 
 	// Use gjson to get the value
 	result := gjson.GetBytes(data, dotSeperatedPath)
-	if !result.Exists() {
-		return ""
-	}
 
 	return result.String()
 }
@@ -309,7 +297,7 @@ func (p *tidwallJSONParser) SetValue(data []byte, value interface{}, path ...str
 		return nil, ErrNoKeysProvided
 	}
 
-	if path[0] == "" {
+	if lo.Contains(path, "") {
 		return nil, ErrEmptyKey
 	}
 

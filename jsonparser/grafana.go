@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/samber/lo"
+
 	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 
 	"github.com/grafana/jsonparser"
@@ -37,7 +39,7 @@ func (p *grafanaJSONParser) GetValue(data []byte, path ...string) ([]byte, error
 		return nil, fmt.Errorf("failed to get value for path %v: %w", path, err)
 	}
 
-	// If the value is a string, wrap it in quotes as the library is specifically stripping quotes from string value
+	// if the value is a string, wrap it in quotes as the library is specifically stripping quotes from string value
 	if dtype == jsonparser.String {
 		return []byte("\"" + string(value) + "\""), nil
 	}
@@ -46,7 +48,7 @@ func (p *grafanaJSONParser) GetValue(data []byte, path ...string) ([]byte, error
 }
 
 // GetValueOrEmpty retrieves the raw value for a given key from JSON bytes.
-// If the key does not exist, json is invalid or value is not a string, it returns an empty byte slice.
+// if the key does not exist, json is invalid or value is not a string, it returns an empty byte slice.
 func (p *grafanaJSONParser) GetValueOrEmpty(data []byte, path ...string) []byte {
 	if len(data) == 0 || len(path) == 0 {
 		return nil
@@ -62,7 +64,7 @@ func (p *grafanaJSONParser) GetValueOrEmpty(data []byte, path ...string) []byte 
 		return nil
 	}
 
-	// If the value is a string, wrap it in quotes as the library is specifically stripping quotes from string value
+	// if the value is a string, wrap it in quotes as the library is specifically stripping quotes from string value
 	if dtype == jsonparser.String {
 		return []byte("\"" + string(value) + "\"")
 	}
@@ -96,7 +98,7 @@ func (p *grafanaJSONParser) GetBoolean(data []byte, path ...string) (bool, error
 }
 
 // GetBooleanOrFalse retrieves a boolean value for a given path from JSON bytes.
-// If the key does not exist, json is invalid or value is not parsable to a boolean, it returns false.
+// if the key does not exist, json is invalid or value is not parsable to a boolean, it returns false.
 // e.g `GetBooleanOrFalse({"key": true}, "key1")` returns false.
 //
 //		   `GetBooleanOrFalse({"key": true}, "key")` returns true.
@@ -150,7 +152,7 @@ func (p *grafanaJSONParser) GetInt(data []byte, path ...string) (int64, error) {
 }
 
 // GetIntOrZero retrieves an integer value for a given key from JSON bytes.
-// If the key does not exist, json is invalid or value is not parsable to an integer, it returns 0.
+// if the key does not exist, json is invalid or value is not parsable to an integer, it returns 0.
 // e.g `GetIntOrZero({"key": 123}, "key1")` returns 0.
 //
 //	`GetIntOrZero({"key": 123}, "key")` returns 123.
@@ -203,7 +205,7 @@ func (p *grafanaJSONParser) GetFloat(data []byte, path ...string) (float64, erro
 }
 
 // GetFloatOrZero retrieves a float value for a given key from JSON bytes.
-// If the key does not exist, json is invalid or value is not parsable to a float, it returns 0.
+// if the key does not exist, json is invalid, or value is not parsable to a float, it returns 0.
 // e.g `GetFloatOrZero({"key": 123.456}, "key1") returns 0.
 //
 //	`GetFloatOrZero({"key": 123.456}, "key")` returns 123.456.
@@ -256,7 +258,7 @@ func (p *grafanaJSONParser) GetString(data []byte, path ...string) (string, erro
 }
 
 // GetStringOrEmpty retrieves a string value for a given key from JSON bytes.
-// If the key does not exist, json is invalid or value is not parsable to a string, it returns an empty string.
+// if the key does not exist, json is invalid or value is not parsable to a string, it returns an empty string.
 // e.g `GetStringOrEmpty({"key": "val"}, "key1")` returns "".
 //
 //	`GetStringOrEmpty({"key": "val"}, "key")` returns "val".
@@ -284,7 +286,7 @@ func (p *grafanaJSONParser) GetStringOrEmpty(data []byte, path ...string) string
 // SetValue sets the value for a given key in JSON bytes using jsonparser
 func (p *grafanaJSONParser) SetValue(data []byte, value interface{}, path ...string) ([]byte, error) {
 	if len(data) == 0 {
-		// If data is empty, create a new JSON object
+		// if data is empty, create a new JSON object
 		data = []byte("{}")
 	}
 
@@ -292,8 +294,7 @@ func (p *grafanaJSONParser) SetValue(data []byte, value interface{}, path ...str
 		return nil, ErrNoKeysProvided
 	}
 
-	key := path[0]
-	if key == "" {
+	if lo.Contains(path, "") {
 		return nil, ErrEmptyKey
 	}
 

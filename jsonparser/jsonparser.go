@@ -9,7 +9,7 @@ import (
 // Getter is the interface that wraps the basic operations for retrieving values from JSON bytes.
 type Getter interface {
 	// GetValue retrieves the raw value for a given key from JSON bytes.
-	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// Accept multiple keys to specify path to JSON value (in case of querying nested structures).
 	// e.g. `GetValue(data, "key1", "key2")` retrieves the value at `data.key1.key2`.
 	//      `GetValue(data, "key1", "[0]")` retrieves the value at `data.key1[0]`.
 	//      `GetValue({"key":"val"}, "key1")` returns `ErrKeyNotFound`.
@@ -17,7 +17,7 @@ type Getter interface {
 	GetValue(data []byte, path ...string) ([]byte, error)
 
 	// GetBoolean retrieves a boolean value for a given key from JSON bytes.
-	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// Accept multiple keys to specify path to JSON value (in case of querying nested structures).
 	// e.g. `GetBoolean(data, "key1", "key2")` retrieves the value at `data.key1.key2`.
 	//      `GetBoolean(data, "key1", "[0]")` retrieves the value at `data.key1[0]`.
 	//      `GetBoolean({"key":"val"}, "key1")` returns `ErrKeyNotFound`.
@@ -27,7 +27,7 @@ type Getter interface {
 	GetBoolean(data []byte, path ...string) (bool, error)
 
 	// GetInt retrieves an integer value for a given key from JSON bytes.
-	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// Accept multiple keys to specify path to JSON value (in case of querying nested structures).
 	// e.g. `GetInt(data, "key1", "key2")` retrieves the value at `data.key1.key2`.
 	//      `GetInt(data, "key1", "[0]")` retrieves the value at `data.key1[0]`.
 	//      `GetInt({"key":"val"}, "key1")` returns `ErrKeyNotFound`.
@@ -37,7 +37,7 @@ type Getter interface {
 	GetInt(data []byte, path ...string) (int64, error)
 
 	// GetFloat retrieves a float value for a given key from JSON bytes.
-	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// Accept multiple keys to specify path to JSON value (in case of querying nested structures).
 	// e.g. `GetFloat(data, "key1", "key2")` retrieves the value at `data.key1.key2`.
 	//      `GetFloat(data, "key1", "[0]")` retrieves the value at `data.key1[0]`.
 	//      `GetFloat({"key":"val"}, "key1")` returns `ErrKeyNotFound`.
@@ -47,7 +47,7 @@ type Getter interface {
 	GetFloat(data []byte, path ...string) (float64, error)
 
 	// GetString retrieves a string value for a given key from JSON bytes.
-	// Accept multiple keys to specify path to JSON value (in case of quering nested structures).
+	// Accept multiple keys to specify path to JSON value (in case of querying nested structures).
 	// e.g. `GetString(data, "key1", "key2")` retrieves the value at `data.key1.key2`.
 	//      `GetString(data, "key1", "[0]")` retrieves the value at `data.key1[0]`.
 	//      `GetString({"key":"val"}, "key1")` returns `ErrKeyNotFound`.
