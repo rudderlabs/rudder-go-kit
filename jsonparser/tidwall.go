@@ -297,12 +297,20 @@ func (p *tidwallJSONParser) SetValue(data []byte, value interface{}, path ...str
 		return nil, ErrNoKeysProvided
 	}
 
-	if lo.Contains(path, "") {
-		return nil, ErrEmptyKey
+	dotSeperatedPath := ""
+	for _, key := range path {
+		if key == "" {
+			return nil, ErrEmptyKey
+		}
+		if dotSeperatedPath != "" {
+			dotSeperatedPath += "."
+		}
+		// handle array index as array index will be like `[index]`
+		if key[0] == '[' {
+			key = key[1 : len(key)-1]
+		}
+		dotSeperatedPath += key
 	}
-
-	// Join keys with dots to create a path
-	dotSeperatedPath := getPath(path...)
 
 	// Use sjson to set the value
 	result, err := sjson.SetBytes(data, dotSeperatedPath, value)
@@ -365,6 +373,7 @@ func getPath(path ...string) string {
 	}
 	// Join keys with dots to create a path
 	return strings.Join(lo.Map(path, func(key string, _ int) string {
+		// handle array index as array index will be [index]
 		if len(key) > 0 && key[0] == '[' {
 			return key[1 : len(key)-1]
 		}

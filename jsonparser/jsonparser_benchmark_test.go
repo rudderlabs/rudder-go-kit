@@ -461,17 +461,17 @@ func BenchmarkGetStringOrEmpty(b *testing.B) {
 // cpu: Apple M2 Pro
 // BenchmarkSetValue
 // BenchmarkSetValue/Tidwall_Simple
-// BenchmarkSetValue/Tidwall_Simple-12         	 7641900	       153.4 ns/op	     320 B/op	       5 allocs/op
+// BenchmarkSetValue/Tidwall_Simple-12         	 8288379	       140.7 ns/op	     304 B/op	       4 allocs/op
 // BenchmarkSetValue/Grafana_Simple
-// BenchmarkSetValue/Grafana_Simple-12         	13798303	        82.53 ns/op	     224 B/op	       2 allocs/op
+// BenchmarkSetValue/Grafana_Simple-12         	14382396	        85.22 ns/op	     224 B/op	       2 allocs/op
 // BenchmarkSetValue/Tidwall_Nested
-// BenchmarkSetValue/Tidwall_Nested-12         	 1660099	       715.8 ns/op	    1592 B/op	      10 allocs/op
+// BenchmarkSetValue/Tidwall_Nested-12         	 1435743	       765.0 ns/op	    1581 B/op	      12 allocs/op
 // BenchmarkSetValue/Grafana_Nested
-// BenchmarkSetValue/Grafana_Nested-12         	 4780231	       252.8 ns/op	     640 B/op	       2 allocs/op
+// BenchmarkSetValue/Grafana_Nested-12         	 4744910	       251.8 ns/op	     640 B/op	       2 allocs/op
 // BenchmarkSetValue/Tidwall_Array
-// BenchmarkSetValue/Tidwall_Array-12          	 2147253	       577.0 ns/op	    1088 B/op	      10 allocs/op
+// BenchmarkSetValue/Tidwall_Array-12          	 2018463	       610.7 ns/op	    1064 B/op	      12 allocs/op
 // BenchmarkSetValue/Grafana_Array
-// BenchmarkSetValue/Grafana_Array-12          	 5353195	       231.3 ns/op	     320 B/op	       2 allocs/op
+// BenchmarkSetValue/Grafana_Array-12          	 5276036	       231.7 ns/op	     320 B/op	       2 allocs/op
 func BenchmarkSetValue(b *testing.B) {
 	benchmarks := []struct {
 		name     string
@@ -505,13 +505,13 @@ func BenchmarkSetValue(b *testing.B) {
 // cpu: Apple M2 Pro
 // BenchmarkSetBoolean
 // BenchmarkSetBoolean/Tidwall_Simple
-// BenchmarkSetBoolean/Tidwall_Simple-12         	 6724695	       179.8 ns/op	     352 B/op	       5 allocs/op
+// BenchmarkSetBoolean/Tidwall_Simple-12         	 6742186	       183.9 ns/op	     336 B/op	       4 allocs/op
 // BenchmarkSetBoolean/Grafana_Simple
-// BenchmarkSetBoolean/Grafana_Simple-12         	12107061	        96.64 ns/op	     224 B/op	       2 allocs/op
+// BenchmarkSetBoolean/Grafana_Simple-12         	11212110	        98.68 ns/op	     224 B/op	       2 allocs/op
 // BenchmarkSetBoolean/Tidwall_Nested
-// BenchmarkSetBoolean/Tidwall_Nested-12         	 2260214	       511.1 ns/op	    1328 B/op	       7 allocs/op
+// BenchmarkSetBoolean/Tidwall_Nested-12         	 2340595	       515.0 ns/op	    1312 B/op	       7 allocs/op
 // BenchmarkSetBoolean/Grafana_Nested
-// BenchmarkSetBoolean/Grafana_Nested-12         	 3423878	       350.5 ns/op	     640 B/op	       2 allocs/op
+// BenchmarkSetBoolean/Grafana_Nested-12         	 3204258	       351.5 ns/op	     640 B/op	       2 allocs/op
 func BenchmarkSetBoolean(b *testing.B) {
 	benchmarks := []struct {
 		name     string
@@ -543,17 +543,17 @@ func BenchmarkSetBoolean(b *testing.B) {
 // cpu: Apple M2 Pro
 // BenchmarkSetInt
 // BenchmarkSetInt/Tidwall_Simple
-// BenchmarkSetInt/Tidwall_Simple-12         	 5715664	       221.5 ns/op	     376 B/op	       6 allocs/op
+// BenchmarkSetInt/Tidwall_Simple-12         	 5026658	       201.4 ns/op	     360 B/op	       5 allocs/op
 // BenchmarkSetInt/Grafana_Simple
-// BenchmarkSetInt/Grafana_Simple-12         	12599146	        91.53 ns/op	     224 B/op	       2 allocs/op
+// BenchmarkSetInt/Grafana_Simple-12         	11506128	        88.56 ns/op	     224 B/op	       2 allocs/op
 // BenchmarkSetInt/Tidwall_Nested
-// BenchmarkSetInt/Tidwall_Nested-12         	 2319024	       508.8 ns/op	    1320 B/op	       9 allocs/op
+// BenchmarkSetInt/Tidwall_Nested-12         	 2341212	       507.6 ns/op	    1296 B/op	       9 allocs/op
 // BenchmarkSetInt/Grafana_Nested
-// BenchmarkSetInt/Grafana_Nested-12         	 8070174	       150.8 ns/op	     640 B/op	       2 allocs/op
+// BenchmarkSetInt/Grafana_Nested-12         	 8270718	       149.8 ns/op	     640 B/op	       2 allocs/op
 // BenchmarkSetInt/Tidwall_Array
-// BenchmarkSetInt/Tidwall_Array-12          	 2832908	       428.6 ns/op	     760 B/op	       7 allocs/op
+// BenchmarkSetInt/Tidwall_Array-12          	 2827857	       432.0 ns/op	     736 B/op	       7 allocs/op
 // BenchmarkSetInt/Grafana_Array
-// BenchmarkSetInt/Grafana_Array-12          	 4777756	       253.5 ns/op	     320 B/op	       2 allocs/op
+// BenchmarkSetInt/Grafana_Array-12          	 4739666	       254.7 ns/op	     320 B/op	       2 allocs/op
 func BenchmarkSetInt(b *testing.B) {
 	benchmarks := []struct {
 		name     string
@@ -587,13 +587,13 @@ func BenchmarkSetInt(b *testing.B) {
 // cpu: Apple M2 Pro
 // BenchmarkSetFloat
 // BenchmarkSetFloat/Tidwall_Simple
-// BenchmarkSetFloat/Tidwall_Simple-12         	 3532658	       331.3 ns/op	     424 B/op	       8 allocs/op
+// BenchmarkSetFloat/Tidwall_Simple-12         	 3974874	       293.1 ns/op	     408 B/op	       7 allocs/op
 // BenchmarkSetFloat/Grafana_Simple
-// BenchmarkSetFloat/Grafana_Simple-12         	 5967984	       197.3 ns/op	     256 B/op	       4 allocs/op
+// BenchmarkSetFloat/Grafana_Simple-12         	 6223574	       194.3 ns/op	     256 B/op	       4 allocs/op
 // BenchmarkSetFloat/Tidwall_Nested
-// BenchmarkSetFloat/Tidwall_Nested-12         	 1852850	       632.0 ns/op	    1416 B/op	      12 allocs/op
+// BenchmarkSetFloat/Tidwall_Nested-12         	 1809702	       632.5 ns/op	    1384 B/op	      12 allocs/op
 // BenchmarkSetFloat/Grafana_Nested
-// BenchmarkSetFloat/Grafana_Nested-12         	 4654510	       258.1 ns/op	     672 B/op	       4 allocs/op
+// BenchmarkSetFloat/Grafana_Nested-12         	 4745114	       261.7 ns/op	     672 B/op	       4 allocs/op
 func BenchmarkSetFloat(b *testing.B) {
 	benchmarks := []struct {
 		name     string
@@ -625,17 +625,17 @@ func BenchmarkSetFloat(b *testing.B) {
 // cpu: Apple M2 Pro
 // BenchmarkSetString
 // BenchmarkSetString/Tidwall_Simple
-// BenchmarkSetString/Tidwall_Simple-12         	 6697904	       169.8 ns/op	     336 B/op	       6 allocs/op
+// BenchmarkSetString/Tidwall_Simple-12         	 7145481	       175.5 ns/op	     320 B/op	       5 allocs/op
 // BenchmarkSetString/Grafana_Simple
-// BenchmarkSetString/Grafana_Simple-12         	12084946	        98.76 ns/op	     240 B/op	       3 allocs/op
+// BenchmarkSetString/Grafana_Simple-12         	11643792	       101.5 ns/op	     240 B/op	       3 allocs/op
 // BenchmarkSetString/Tidwall_Nested
-// BenchmarkSetString/Tidwall_Nested-12         	 1620744	       729.9 ns/op	    1608 B/op	      11 allocs/op
+// BenchmarkSetString/Tidwall_Nested-12         	 1524450	       810.4 ns/op	    1597 B/op	      13 allocs/op
 // BenchmarkSetString/Grafana_Nested
-// BenchmarkSetString/Grafana_Nested-12         	 4853798	       249.7 ns/op	     656 B/op	       3 allocs/op
+// BenchmarkSetString/Grafana_Nested-12         	 4738498	       249.6 ns/op	     656 B/op	       3 allocs/op
 // BenchmarkSetString/Tidwall_Array
-// BenchmarkSetString/Tidwall_Array-12          	 2076668	       554.5 ns/op	    1136 B/op	      12 allocs/op
+// BenchmarkSetString/Tidwall_Array-12          	 1993300	       586.5 ns/op	    1112 B/op	      14 allocs/op
 // BenchmarkSetString/Grafana_Array
-// BenchmarkSetString/Grafana_Array-12          	 4925148	       241.5 ns/op	     336 B/op	       3 allocs/op
+// BenchmarkSetString/Grafana_Array-12          	 4911783	       246.8 ns/op	     336 B/op	       3 allocs/op
 func BenchmarkSetString(b *testing.B) {
 	benchmarks := []struct {
 		name     string
