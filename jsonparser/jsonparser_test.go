@@ -34,7 +34,7 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			name:     "json bytes",
 			jsonData: `{"user": {"name": "John", "age": 30}}`,
 			keys:     []string{"user"},
-			want:     []byte("{\"name\": \"John\", \"age\": 30}"),
+			want:     []byte(`{"name": "John", "age": 30}`),
 			wantErr:  false,
 		},
 		{
@@ -48,7 +48,7 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			name:     "array bytes",
 			jsonData: `{"users": ["John", "Jane", "Bob"]}`,
 			keys:     []string{"users"},
-			want:     []byte("[\"John\", \"Jane\", \"Bob\"]"),
+			want:     []byte(`["John", "Jane", "Bob"]`),
 			wantErr:  false,
 		},
 		{
