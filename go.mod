@@ -2,8 +2,6 @@ module github.com/rudderlabs/rudder-go-kit
 
 go 1.24.4
 
-replace github.com/gocql/gocql => github.com/scylladb/gocql v1.14.2
-
 require (
 	cloud.google.com/go/storage v1.55.0
 	github.com/Azure/azure-storage-blob-go v0.15.0
@@ -24,7 +22,6 @@ require (
 	github.com/fsouza/fake-gcs-server v1.52.2
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-redis/redis/v8 v8.11.5
-	github.com/gocql/gocql v1.14.2
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/google/uuid v1.6.0
 	github.com/grafana/jsonparser v0.0.0-20250430123630-2a684464cca1
@@ -175,7 +172,6 @@ require (
 	github.com/gorilla/handlers v1.5.2 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 // indirect
-	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/heetch/avro v0.4.5 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
