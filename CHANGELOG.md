@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.4...v0.57.0) (2025-07-02)
+
+
+### Features
+
+* add JSON parser implementation with switchable libraries  ([#809](https://github.com/rudderlabs/rudder-go-kit/issues/809)) ([d6a8eb1](https://github.com/rudderlabs/rudder-go-kit/commit/d6a8eb1070d84bbb1ed51cdeb217f67658b1d1ba))
+
 ## [0.56.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.3...v0.56.4) (2025-07-01)
 
 
