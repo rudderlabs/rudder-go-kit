@@ -137,7 +137,7 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 		Key:    aws.String(objName),
 		Body:   rdr,
 	}
-	m.logger.Info("Uploading file to S3", logger.NewStringField("objName", objName))
+	m.logger.Infon("Uploading file to S3", logger.NewStringField("objName", objName))
 	if m.config.EnableSSE {
 		uploadInput.ServerSideEncryption = types.ServerSideEncryptionAes256
 	}
