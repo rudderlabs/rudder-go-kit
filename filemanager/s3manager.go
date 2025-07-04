@@ -135,6 +135,7 @@ func (m *s3ManagerV1) UploadReader(ctx context.Context, objName string, rdr io.R
 	if m.config.EnableSSE {
 		uploadInput.ServerSideEncryption = aws.String("AES256")
 	}
+	m.logger.Infon("Uploading file to S3", logger.NewStringField("objName", objName))
 
 	uploadSession, err := m.GetSession(ctx)
 	if err != nil {
@@ -256,6 +257,7 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		defer cancel()
 
 		region, err := awsS3Manager.GetBucketRegion(ctx, getRegionSession, m.config.Bucket, m.config.RegionHint)
+		m.logger.Infon("Got bucket region", logger.NewStringField("region", region))
 		if err != nil {
 			m.logger.Errorn("Failed to fetch AWS region for bucket",
 				logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
