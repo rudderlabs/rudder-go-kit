@@ -36,7 +36,6 @@ type S3Config struct {
 	DisableSSL       *bool   `mapstructure:"disableSSL"`
 	EnableSSE        bool    `mapstructure:"enableSSE"`
 	RegionHint       string  `mapstructure:"regionHint"`
-	UseGlue          bool    `mapstructure:"useGlue"`
 }
 
 // newS3ManagerV1 creates a new file manager for S3
@@ -246,7 +245,7 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		return nil, errors.New("no storage bucket configured to downloader")
 	}
 
-	if !m.config.UseGlue || m.config.Region == nil {
+	if m.config.Region == nil || *m.config.Region == "" {
 		getRegionSession, err := session.NewSession()
 		if err != nil {
 			return nil, err
@@ -265,6 +264,8 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		}
 		m.config.Region = aws.String(region)
 		m.sessionConfig.Region = region
+	} else {
+		m.sessionConfig.Region = *m.config.Region
 	}
 
 	var err error
