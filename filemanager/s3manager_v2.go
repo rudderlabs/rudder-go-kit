@@ -260,8 +260,9 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 		region, err := s3manager.GetBucketRegion(ctx, s3.New(s3.Options{
 			Region: aws.ToString(&m.config.RegionHint),
 		}), m.config.Bucket)
+		m.logger.Infon("Got bucket region", logger.NewStringField("region", region))
 		if err != nil {
-			return nil, fmt.Errorf("failed to get bucket region: %w", err)
+			m.logger.Errorn("Failed to get bucket region", obskit.Error(err), logger.NewStringField("bucket", m.config.Bucket))
 		}
 		m.config.Region = aws.String(region)
 		m.sessionConfig.Region = region
