@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.57.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.4...v0.57.0) (2025-07-02)
+
+
+### Features
+
+* add JSON parser implementation with switchable libraries  ([#809](https://github.com/rudderlabs/rudder-go-kit/issues/809)) ([d6a8eb1](https://github.com/rudderlabs/rudder-go-kit/commit/d6a8eb1070d84bbb1ed51cdeb217f67658b1d1ba))
+
+## [0.56.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.3...v0.56.4) (2025-07-01)
+
+
+### Miscellaneous
+
+* remove scylla ([#850](https://github.com/rudderlabs/rudder-go-kit/issues/850)) ([0c83c6b](https://github.com/rudderlabs/rudder-go-kit/commit/0c83c6bb7723ea33a71ac9d3ff60d28cc483d63b))
+
 ## [0.56.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.2...v0.56.3) (2025-07-01)
 
 
