@@ -24,6 +24,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/async"
 	awsutil "github.com/rudderlabs/rudder-go-kit/awsutil_v2"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
@@ -136,7 +137,7 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 		Key:    aws.String(objName),
 		Body:   rdr,
 	}
-
+	m.logger.Info("Uploading file to S3", logger.NewStringField("objName", objName))
 	if m.config.EnableSSE {
 		uploadInput.ServerSideEncryption = types.ServerSideEncryptionAes256
 	}
@@ -242,7 +243,8 @@ func (m *s3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	m.clientMu.Lock()
 	defer m.clientMu.Unlock()
-
+	json, _ := jsonrs.Marshal(m.config)
+	m.logger.Infon("S3 config", logger.NewStringField("config", string(json)))
 	if m.client != nil {
 		return m.client, nil
 	}
