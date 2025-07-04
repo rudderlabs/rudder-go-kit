@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.57.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.57.0...v0.57.1) (2025-07-04)
+
+
+### Miscellaneous
+
+* parse region and remove useGlue from config ([#846](https://github.com/rudderlabs/rudder-go-kit/issues/846)) ([1b18878](https://github.com/rudderlabs/rudder-go-kit/commit/1b188787763d86dccef2289f6fd9edc364b6d748))
+* update dependencies ([#853](https://github.com/rudderlabs/rudder-go-kit/issues/853)) ([671bc0f](https://github.com/rudderlabs/rudder-go-kit/commit/671bc0f7751bf9b8a73716754de90ca1ee0615ae))
+
 ## [0.57.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.4...v0.57.0) (2025-07-02)
 
 
