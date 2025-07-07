@@ -24,6 +24,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/async"
 	"github.com/rudderlabs/rudder-go-kit/awsutil"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
@@ -145,6 +146,9 @@ func (m *s3ManagerV1) UploadReader(ctx context.Context, objName string, rdr io.R
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
+
+	json, _ := jsonrs.Marshal(uploadInput)
+	m.logger.Infon("Upload input", logger.NewStringField("input", string(json)))
 
 	output, err := s3manager.UploadWithContext(ctx, uploadInput)
 	if err != nil {

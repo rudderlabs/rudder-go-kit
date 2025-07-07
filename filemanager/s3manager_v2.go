@@ -151,6 +151,9 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
+	json, _ := jsonrs.Marshal(uploadInput)
+	m.logger.Infon("Upload input", logger.NewStringField("input", string(json)))
+
 	output, err := uploader.Upload(ctx, uploadInput)
 	if err == nil {
 		return UploadedFile{Location: output.Location, ObjectName: objName}, nil
@@ -262,7 +265,7 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 		}), m.config.Bucket)
 		m.logger.Infon("Got bucket region", logger.NewStringField("region", region))
 		if err != nil {
-			m.logger.Errorn("Failed to get bucket region", obskit.Error(err), logger.NewStringField("bucket", m.config.Bucket))
+			m.logger.Errorn("Failed to get bucket region", obskit.Error(err))
 		}
 		m.config.Region = aws.String(region)
 		m.sessionConfig.Region = region
