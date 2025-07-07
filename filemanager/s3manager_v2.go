@@ -146,6 +146,7 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 	if err != nil {
 		return UploadedFile{}, fmt.Errorf("s3 client: %w", err)
 	}
+
 	uploader := s3manager.NewUploader(client)
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
@@ -275,6 +276,14 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS config: %w", err)
 	}
+
+	val, _ := cnf.Credentials.Retrieve(ctx)
+	m.logger.Infon("Upload session credentials",
+		logger.NewStringField("accessKeyID", maskExceptLastN(val.AccessKeyID, 4)),
+		logger.NewStringField("secretAccessKey", maskExceptLastN(val.SecretAccessKey, 4)),
+		logger.NewStringField("sessionToken", maskExceptLastN(val.SessionToken, 4)),
+		logger.NewStringField("bucket", m.config.Bucket),
+	)
 
 	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
 		if m.config.Endpoint != nil && *m.config.Endpoint != "" {
