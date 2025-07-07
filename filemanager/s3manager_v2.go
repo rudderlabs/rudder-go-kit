@@ -259,12 +259,14 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 			Region: aws.ToString(&m.config.RegionHint),
 		}), m.config.Bucket)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get bucket region: %w", err)
+			m.logger.Errorn("Failed to fetch AWS region for bucket",
+				logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
+			)
+			// Failed to get Region probably due to VPC restrictions
+			// Will proceed to try with AccessKeyID and AccessKey
 		}
 		m.config.Region = aws.String(region)
 		m.sessionConfig.Region = region
-	} else {
-		m.sessionConfig.Region = *m.config.Region
 	}
 
 	cnf, err := awsutil.CreateAWSConfig(ctx, m.sessionConfig)
