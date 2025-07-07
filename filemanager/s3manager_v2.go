@@ -283,6 +283,10 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 		logger.NewStringField("secretAccessKey", maskExceptLastN(val.SecretAccessKey, 4)),
 		logger.NewStringField("sessionToken", maskExceptLastN(val.SessionToken, 4)),
 		logger.NewStringField("bucket", m.config.Bucket),
+		logger.NewBoolField("canExpire", val.CanExpire),
+		logger.NewStringField("expires", val.Expires.Format(time.RFC3339)),
+		logger.NewStringField("accountID", val.AccountID),
+		logger.NewStringField("source", val.Source),
 	)
 
 	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
