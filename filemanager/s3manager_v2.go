@@ -24,6 +24,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/async"
 	awsutil "github.com/rudderlabs/rudder-go-kit/awsutil_v2"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
@@ -129,6 +130,9 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 	if objName == "" {
 		return UploadedFile{}, errors.New("object name cannot be empty")
 	}
+	if objName[0] == '/' {
+		objName = objName[1:]
+	}
 
 	uploadInput := &s3.PutObjectInput{
 		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
@@ -136,7 +140,7 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 		Key:    aws.String(objName),
 		Body:   rdr,
 	}
-
+	m.logger.Infon("Uploading file to S3", logger.NewStringField("objName", objName))
 	if m.config.EnableSSE {
 		uploadInput.ServerSideEncryption = types.ServerSideEncryptionAes256
 	}
@@ -145,10 +149,14 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 	if err != nil {
 		return UploadedFile{}, fmt.Errorf("s3 client: %w", err)
 	}
+
 	uploader := s3manager.NewUploader(client)
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
+
+	json, _ := jsonrs.Marshal(uploadInput)
+	m.logger.Infon("Upload input", logger.NewStringField("input", string(json)))
 
 	output, err := uploader.Upload(ctx, uploadInput)
 	if err == nil {
@@ -242,7 +250,8 @@ func (m *s3ManagerV2) GetDownloadKeyFromFileLocation(location string) string {
 func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	m.clientMu.Lock()
 	defer m.clientMu.Unlock()
-
+	json, _ := jsonrs.Marshal(m.config)
+	m.logger.Infon("S3 config", logger.NewStringField("config", string(json)))
 	if m.client != nil {
 		return m.client, nil
 	}
@@ -258,8 +267,9 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 		region, err := s3manager.GetBucketRegion(ctx, s3.New(s3.Options{
 			Region: aws.ToString(&m.config.RegionHint),
 		}), m.config.Bucket)
+		m.logger.Infon("Got bucket region", logger.NewStringField("region", region))
 		if err != nil {
-			return nil, fmt.Errorf("failed to get bucket region: %w", err)
+			m.logger.Errorn("Failed to get bucket region", obskit.Error(err))
 		}
 		m.config.Region = aws.String(region)
 		m.sessionConfig.Region = region
@@ -272,16 +282,31 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 		return nil, fmt.Errorf("failed to create AWS config: %w", err)
 	}
 
+	val, _ := cnf.Credentials.Retrieve(ctx)
+	m.logger.Infon("Upload session credentials",
+		logger.NewStringField("accessKeyID", maskExceptLastN(val.AccessKeyID, 4)),
+		logger.NewStringField("secretAccessKey", maskExceptLastN(val.SecretAccessKey, 4)),
+		logger.NewStringField("sessionToken", maskExceptLastN(val.SessionToken, 4)),
+		logger.NewStringField("bucket", m.config.Bucket),
+		logger.NewBoolField("canExpire", val.CanExpire),
+		logger.NewStringField("expires", val.Expires.Format(time.RFC3339)),
+		logger.NewStringField("accountID", val.AccountID),
+		logger.NewStringField("source", val.Source),
+	)
+
 	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
 		if m.config.Endpoint != nil && *m.config.Endpoint != "" {
 			o.BaseEndpoint = aws.String(*m.config.Endpoint)
 		}
 
-		o.UsePathStyle = aws.ToBool(m.config.S3ForcePathStyle)
+		o.UsePathStyle = true
 		o.EndpointOptions.DisableHTTPS = aws.ToBool(m.config.DisableSSL)
 		if m.timeout != 0 {
-			o.HTTPClient = &http.Client{
-				Timeout: m.timeout,
+			o.HTTPClient = &awsutil.HeaderLoggerDoer{
+				Logger: m.logger,
+				Client: &http.Client{
+					Timeout: m.timeout,
+				},
 			}
 		}
 	})

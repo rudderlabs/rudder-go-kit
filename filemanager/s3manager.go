@@ -121,6 +121,17 @@ func (m *s3ManagerV1) Upload(ctx context.Context, file *os.File, prefixes ...str
 	return m.UploadReader(ctx, objName, file)
 }
 
+// maskExceptLastN masks all but the last n characters of a string. If the string is shorter than n, masks all but the last character.
+func maskExceptLastN(s string, n int) string {
+	if len(s) <= 1 {
+		return s
+	}
+	if len(s) <= n {
+		return strings.Repeat("*", len(s)-1) + s[len(s)-1:]
+	}
+	return strings.Repeat("*", len(s)-n) + s[len(s)-n:]
+}
+
 // UploadReader uploads an object to S3 using the provided reader and object name.
 // It supports server-side encryption if enabled in the configuration.
 // Returns an UploadedFile containing the file's location and object name, or an error.
@@ -134,11 +145,22 @@ func (m *s3ManagerV1) UploadReader(ctx context.Context, objName string, rdr io.R
 	if m.config.EnableSSE {
 		uploadInput.ServerSideEncryption = aws.String("AES256")
 	}
+	m.logger.Infon("Uploading file to S3", logger.NewStringField("objName", objName))
 
 	uploadSession, err := m.GetSession(ctx)
 	if err != nil {
 		return UploadedFile{}, fmt.Errorf("error starting S3 session: %w", err)
 	}
+
+	val, _ := uploadSession.Config.Credentials.Get()
+	m.logger.Infon("Upload session credentials",
+		logger.NewStringField("accessKeyID", maskExceptLastN(val.AccessKeyID, 4)),
+		logger.NewStringField("secretAccessKey", maskExceptLastN(val.SecretAccessKey, 4)),
+		logger.NewStringField("sessionToken", maskExceptLastN(val.SessionToken, 4)),
+		logger.NewStringField("providerName", val.ProviderName),
+		logger.NewStringField("bucket", m.config.Bucket),
+	)
+
 	s3manager := awsS3Manager.NewUploader(uploadSession)
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
@@ -255,6 +277,7 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		defer cancel()
 
 		region, err := awsS3Manager.GetBucketRegion(ctx, getRegionSession, m.config.Bucket, m.config.RegionHint)
+		m.logger.Infon("Got bucket region", logger.NewStringField("region", region))
 		if err != nil {
 			m.logger.Errorn("Failed to fetch AWS region for bucket",
 				logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
