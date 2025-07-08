@@ -294,7 +294,7 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 			o.BaseEndpoint = aws.String(*m.config.Endpoint)
 		}
 
-		o.UsePathStyle = aws.ToBool(m.config.S3ForcePathStyle)
+		o.UsePathStyle = true
 		o.EndpointOptions.DisableHTTPS = aws.ToBool(m.config.DisableSSL)
 		if m.timeout != 0 {
 			o.HTTPClient = &http.Client{
