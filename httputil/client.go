@@ -10,9 +10,7 @@ import (
 const (
 	headerXForwardedFor = "X-Forwarded-For"
 
-	// default transport settings
 	DefaultMaxIdleConnsPerHost = 10
-	DefaultIdleConnTimeout     = 30 * time.Second
 	DefaultMaxConnsPerHost     = 100
 	DefaultDisableKeepAlives   = true
 	// DefaultRequestTimeout is the default timeout for HTTP requests for default HttpClient.
@@ -41,12 +39,11 @@ func GetRequestIP(req *http.Request) string {
 }
 
 func DefaultTransport() *http.Transport {
-	return &http.Transport{
-		DisableKeepAlives:   DefaultDisableKeepAlives,
-		MaxConnsPerHost:     DefaultMaxConnsPerHost,
-		MaxIdleConnsPerHost: DefaultMaxIdleConnsPerHost,
-		IdleConnTimeout:     DefaultIdleConnTimeout,
-	}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.DisableKeepAlives = DefaultDisableKeepAlives
+	tr.MaxConnsPerHost = DefaultMaxConnsPerHost
+	tr.MaxIdleConnsPerHost = DefaultMaxIdleConnsPerHost
+	return tr
 }
 
 type HttpClientOptions func(*http.Client)
@@ -55,6 +52,23 @@ type HttpClientOptions func(*http.Client)
 // It disables keep-alives, sets max connections per host, and configures idle connection timeout.
 // This is useful for clients that need to make many short-lived requests without reusing connections.
 // It also sets a default timeout of 30 seconds.
+// e.g.
+//
+//	func Example() {
+//		// no need to use .Clone() since a new transport is built each time
+//		transport := httputil.DefaultTransport()
+//		transport.ForceAttemptHTTP2 = false
+//		client := httputil.NewHttpClient(httputil.WithTransport(transport))
+//		req, err := http.NewRequest("GET", "https://example.com", nil)
+//		if err != nil {
+//			panic(err)
+//		}
+//		resp, err := client.Do(req)
+//		if err != nil {
+//			panic(err)
+//		}
+//		_ = resp.Body.Close()
+//	}
 func DefaultHttpClient() *http.Client {
 	return &http.Client{
 		Transport: DefaultTransport(),

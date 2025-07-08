@@ -58,8 +58,6 @@ func TestDefaultHttpClient(t *testing.T) {
 	require.True(t, transport.DisableKeepAlives)
 	require.Equal(t, httputil.DefaultMaxConnsPerHost, transport.MaxConnsPerHost)
 	require.Equal(t, httputil.DefaultMaxIdleConnsPerHost, transport.MaxIdleConnsPerHost)
-	require.Equal(t, httputil.DefaultIdleConnTimeout, transport.IdleConnTimeout)
-	require.Equal(t, httputil.DefaultTransport(), transport)
 }
 
 func TestNewHttpClientWithOptions(t *testing.T) {
