@@ -49,8 +49,15 @@ func (d *HeaderLoggerDoer) Do(req *http.Request) (*http.Response, error) {
 		}
 
 		url := req.URL.String()
+		if idx := strings.Index(url, "://"); idx != -1 {
+			protocol := url[:idx+3]
+			path := strings.ReplaceAll(url[idx+3:], "//", "/")
+			url = protocol + path
+			req.URL, _ = req.URL.Parse(url)
+		}
 		d.Logger.Infof("AWS Request URL: %s", url)
 	}
+
 	return d.Client.Do(req)
 }
 
