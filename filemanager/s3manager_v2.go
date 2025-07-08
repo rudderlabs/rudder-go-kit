@@ -130,6 +130,9 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 	if objName == "" {
 		return UploadedFile{}, errors.New("object name cannot be empty")
 	}
+	if objName[0] == '/' {
+		objName = objName[1:]
+	}
 
 	uploadInput := &s3.PutObjectInput{
 		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
