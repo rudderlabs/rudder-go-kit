@@ -297,8 +297,11 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 		o.UsePathStyle = true
 		o.EndpointOptions.DisableHTTPS = aws.ToBool(m.config.DisableSSL)
 		if m.timeout != 0 {
-			o.HTTPClient = &http.Client{
-				Timeout: m.timeout,
+			o.HTTPClient = &awsutil.HeaderLoggerDoer{
+				Logger: m.logger,
+				Client: &http.Client{
+					Timeout: m.timeout,
+				},
 			}
 		}
 	})

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rudderlabs/rudder-go-kit/logger"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -32,6 +34,24 @@ type SessionConfig struct {
 	Timeout             *time.Duration `mapstructure:"timeout"`
 	SharedConfigProfile string         `mapstructure:"sharedConfigProfile"`
 	MaxIdleConnsPerHost int            `mapstructure:"maxIdleConnsPerHost"`
+}
+
+type HeaderLoggerDoer struct {
+	*http.Client
+	Logger logger.Logger
+}
+
+func (d *HeaderLoggerDoer) Do(req *http.Request) (*http.Response, error) {
+	if d.Logger != nil {
+		d.Logger.Infon("Request Headers")
+		for name := range req.Header {
+			d.Logger.Infof("AWS REQ HEADER %s\n", name)
+		}
+
+		url := req.URL.String()
+		d.Logger.Infof("AWS Request URL: %s", url)
+	}
+	return d.Client.Do(req)
 }
 
 // CreateAWSConfig creates an AWS config using the provided SessionConfig.
@@ -61,7 +81,10 @@ func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, er
 	// Load default config with options
 	optFuncs := []func(*awsconfig.LoadOptions) error{
 		awsconfig.WithRegion(config.Region),
-		awsconfig.WithHTTPClient(httpClient),
+		awsconfig.WithHTTPClient(&HeaderLoggerDoer{
+			Client: httpClient,
+			Logger: logger.NewLogger().Child("awsutil"),
+		}),
 		awsconfig.WithCredentialsProvider(awsCredentials),
 	}
 
