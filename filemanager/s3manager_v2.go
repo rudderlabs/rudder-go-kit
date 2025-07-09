@@ -56,6 +56,10 @@ func newS3ManagerV2(
 
 	s3Config.RegionHint = kitconfig.GetString("AWS_S3_REGION_HINT", "us-east-1")
 
+	if s3Config.Prefix != "" && s3Config.Prefix[0] == '/' {
+		s3Config.Prefix = sanitizeKey(s3Config.Prefix)
+	}
+
 	return &s3ManagerV2{
 		baseManager: &baseManager{
 			logger:         log,
@@ -68,6 +72,7 @@ func newS3ManagerV2(
 
 // ListFilesWithPrefix returns a session for listing files with the given prefix.
 func (m *s3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+	prefix = sanitizeKey(prefix)
 	return &s3ListSessionV2{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -82,6 +87,7 @@ func (m *s3ManagerV2) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 
 // Download downloads a file from S3 to the provided io.WriterAt.
 func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	key = sanitizeKey(key)
 	downloadOpts := applyDownloadOptions(opts...)
 	client, err := m.getClient(ctx)
 	if err != nil {
@@ -121,6 +127,7 @@ func (m *s3ManagerV2) Download(ctx context.Context, output io.WriterAt, key stri
 // Upload uploads a file to S3 and returns the uploaded file info.
 func (m *s3ManagerV2) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
 	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	fileName = sanitizeKey(fileName)
 	return m.UploadReader(ctx, fileName, file)
 }
 
@@ -129,7 +136,7 @@ func (m *s3ManagerV2) UploadReader(ctx context.Context, objName string, rdr io.R
 	if objName == "" {
 		return UploadedFile{}, errors.New("object name cannot be empty")
 	}
-
+	objName = sanitizeKey(objName)
 	uploadInput := &s3.PutObjectInput{
 		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
 		Bucket: aws.String(m.config.Bucket),
@@ -170,6 +177,7 @@ func (m *s3ManagerV2) Delete(ctx context.Context, keys []string) error {
 
 	var objects []types.ObjectIdentifier
 	for _, key := range keys {
+		key = sanitizeKey(key)
 		objects = append(objects, types.ObjectIdentifier{Key: aws.String(key)})
 	}
 
@@ -439,4 +447,13 @@ func createS3SelectSerializationV2(inputFormat SelectObjectInputFormat, outputFo
 	}
 
 	return inputSerialization, outputSerialization, nil
+}
+
+func sanitizeKey(key string) string {
+	// remove leading and trailing spaces
+	key = strings.TrimSpace(key)
+	// remove all leading slashes
+	key = strings.TrimLeft(key, "/")
+
+	return key
 }
