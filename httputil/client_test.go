@@ -77,7 +77,7 @@ func TestNewHttpClientWithOptions(t *testing.T) {
 				require.Equal(t, httputil.DefaultRequestTimeout, client.Timeout)
 				transport, ok := client.Transport.(*http.Transport)
 				require.True(t, ok)
-				require.True(t, transport.DisableKeepAlives)
+				require.False(t, transport.DisableKeepAlives)
 			},
 		},
 		{
@@ -87,7 +87,7 @@ func TestNewHttpClientWithOptions(t *testing.T) {
 				require.Equal(t, 5*time.Second, client.Timeout)
 				transport, ok := client.Transport.(*http.Transport)
 				require.True(t, ok)
-				require.True(t, transport.DisableKeepAlives)
+				require.False(t, transport.DisableKeepAlives)
 			},
 		},
 		{

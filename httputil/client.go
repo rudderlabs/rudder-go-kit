@@ -10,9 +10,14 @@ import (
 const (
 	headerXForwardedFor = "X-Forwarded-For"
 
-	DefaultMaxIdleConnsPerHost = 10
-	DefaultMaxConnsPerHost     = 100
-	DefaultDisableKeepAlives   = true
+	DefaultMaxIdleConnsPerHost   = 10
+	DefaultMaxConnsPerHost       = 100
+	DefaultDisableKeepAlives     = false
+	DefaultForceHttp2            = true
+	DefaultMaxIdleConns          = 100
+	DefaultIdleConnTimeout       = 90 * time.Second
+	DefaultTLSHandshakeTimeout   = 10 * time.Second
+	DefaultExpectContinueTimeout = 1 * time.Second
 	// DefaultRequestTimeout is the default timeout for HTTP requests for default HttpClient.
 	DefaultRequestTimeout = 30 * time.Second
 )
@@ -39,10 +44,17 @@ func GetRequestIP(req *http.Request) string {
 }
 
 func DefaultTransport() *http.Transport {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
-	tr.DisableKeepAlives = DefaultDisableKeepAlives
-	tr.MaxConnsPerHost = DefaultMaxConnsPerHost
-	tr.MaxIdleConnsPerHost = DefaultMaxIdleConnsPerHost
+	tr := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		ForceAttemptHTTP2:     DefaultForceHttp2,
+		MaxIdleConns:          DefaultMaxIdleConns,
+		IdleConnTimeout:       DefaultIdleConnTimeout,
+		TLSHandshakeTimeout:   DefaultTLSHandshakeTimeout,
+		ExpectContinueTimeout: DefaultExpectContinueTimeout,
+		DisableKeepAlives:     DefaultDisableKeepAlives,
+		MaxConnsPerHost:       DefaultMaxConnsPerHost,
+		MaxIdleConnsPerHost:   DefaultMaxIdleConnsPerHost,
+	}
 	return tr
 }
 
