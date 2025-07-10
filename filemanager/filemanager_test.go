@@ -264,7 +264,7 @@ func TestFileManager(t *testing.T) {
 			destName:      "S3",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
 			config: map[string]interface{}{
-				"bucketName":       bucket,
+				"bucketName":       fmt.Sprintf("%s/", bucket),
 				"accessKeyID":      accessKeyId,
 				"accessKey":        secretAccessKey,
 				"enableSSE":        false,
@@ -408,11 +408,9 @@ func TestFileManager(t *testing.T) {
 				require.NoError(t, err, "expected no error while listing files")
 				require.Equal(t, 1, len(files), "number of files should be 1")
 				originalFileObject = append(originalFileObject, files[0])
-				fmt.Println(files[0].Key)
 				originalFileNames[files[0].Key]++
 				paths := append([]string{}, prefixes...)
 				paths = append(paths, path.Base(fileList[i]))
-				fmt.Println(path.Join(paths...))
 				fileListNames[path.Join(paths...)]++
 			}
 			require.Equal(t, len(originalFileObject), len(fileList), "actual number of files different than expected")
