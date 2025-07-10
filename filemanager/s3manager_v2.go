@@ -30,6 +30,16 @@ import (
 
 const ServiceName = "s3"
 
+type RegionFetcher interface {
+	GetBucketRegion(ctx context.Context, client *s3.Client, bucket string) (string, error)
+}
+
+type defaultRegionFetcher struct{}
+
+func (d *defaultRegionFetcher) GetBucketRegion(ctx context.Context, client *s3.Client, bucket string) (string, error) {
+	return s3manager.GetBucketRegion(ctx, client, bucket)
+}
+
 // s3ManagerV2 manages S3 file operations using AWS SDK v2.
 type s3ManagerV2 struct {
 	*baseManager
@@ -38,6 +48,7 @@ type s3ManagerV2 struct {
 	sessionConfig *awsutil.SessionConfig
 	client        *s3.Client
 	clientMu      sync.Mutex
+	regionFetcher RegionFetcher
 }
 
 // newS3ManagerV2 creates a new file manager for S3 using v2 AWS SDK.
@@ -63,6 +74,7 @@ func newS3ManagerV2(
 		},
 		config:        &s3Config,
 		sessionConfig: sessionConfig,
+		regionFetcher: &defaultRegionFetcher{}, // Use default implementation
 	}, nil
 }
 

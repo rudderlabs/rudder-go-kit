@@ -2,16 +2,29 @@ package filemanager
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/rudderlabs/rudder-go-kit/awsutil"
+	awsutilV2 "github.com/rudderlabs/rudder-go-kit/awsutil_v2"
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
+
+// mockRegionFetcher implements RegionFetcher for testing
+type mockRegionFetcher struct {
+	region string
+	err    error
+}
+
+func (m *mockRegionFetcher) GetBucketRegion(ctx context.Context, client *s3.Client, bucket string) (string, error) {
+	return m.region, m.err
+}
 
 func TestNewS3ManagerWithNil(t *testing.T) {
 	s3Manager, err := newS3ManagerV1(nil, nil, logger.NOP, func() time.Duration { return time.Minute })
@@ -132,4 +145,34 @@ func TestGetSessionWithIAMRole(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, awsSession)
 	assert.NotNil(t, s3Manager.session)
+}
+
+func TestS3ManagerV2GetClientWithRegionFetchFailure(t *testing.T) {
+	mockFetcher := &mockRegionFetcher{
+		region: "",
+		err:    errors.New("context deadline exceeded"),
+	}
+
+	s3Manager := &s3ManagerV2{
+		baseManager: &baseManager{
+			logger:         logger.NOP,
+			defaultTimeout: func() time.Duration { return time.Minute },
+		},
+		config: &S3Config{
+			Bucket:     "non-existent-bucket-12345",
+			Region:     nil,
+			RegionHint: "us-east-1",
+		},
+		sessionConfig: &awsutilV2.SessionConfig{
+			AccessKeyID: "test-access-key",
+			AccessKey:   "test-secret-key",
+			Region:      "",
+		},
+		regionFetcher: mockFetcher,
+	}
+
+	client, err := s3Manager.getClient(context.Background())
+
+	assert.Nil(t, err)
+	assert.NotNil(t, client)
 }
