@@ -17,7 +17,7 @@ import (
 
 // Some AWS destinations are using SecretAccessKey instead of accessKey
 type SessionConfig struct {
-	// Region              string         `mapstructure:"region"`
+	Region              string         `mapstructure:"region"`
 	AccessKeyID         string         `mapstructure:"accessKeyID"`
 	AccessKey           string         `mapstructure:"accessKey"`
 	SecretAccessKey     string         `mapstructure:"secretAccessKey"`
