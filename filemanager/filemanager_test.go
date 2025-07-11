@@ -264,7 +264,7 @@ func TestFileManager(t *testing.T) {
 			destName:      "S3",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
 			config: map[string]interface{}{
-				"bucketName":       fmt.Sprintf("%s/", bucket),
+				"bucketName":       bucket + "///",
 				"accessKeyID":      accessKeyId,
 				"accessKey":        secretAccessKey,
 				"enableSSE":        false,

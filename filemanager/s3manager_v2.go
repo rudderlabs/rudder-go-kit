@@ -60,7 +60,7 @@ func newS3ManagerV2(
 		s3Config.Prefix = sanitizeKey(s3Config.Prefix)
 	}
 
-	s3Config.Bucket = strings.TrimSuffix(s3Config.Bucket, "/")
+	s3Config.Bucket = strings.TrimRight(s3Config.Bucket, "/")
 
 	return &s3ManagerV2{
 		baseManager: &baseManager{
