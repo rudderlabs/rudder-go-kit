@@ -120,3 +120,32 @@ func TestNewHttpClientWithOptions(t *testing.T) {
 		})
 	}
 }
+
+func ExampleNewHttpClient() {
+	// no need to use .Clone() since a new transport is built each time
+	transport := httputil.DefaultTransport()
+	transport.ForceAttemptHTTP2 = false
+	client := httputil.NewHttpClient(httputil.WithTransport(transport))
+	req, err := http.NewRequest("GET", "https://example.com", nil)
+	if err != nil {
+		panic(err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	_ = resp.Body.Close()
+}
+
+func ExampleDefaultHttpClient() {
+	client := httputil.DefaultHttpClient()
+	req, err := http.NewRequest("GET", "https://example.com", nil)
+	if err != nil {
+		panic(err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	_ = resp.Body.Close()
+}

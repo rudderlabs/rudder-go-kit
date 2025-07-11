@@ -64,23 +64,6 @@ type HttpClientOptions func(*http.Client)
 // It disables keep-alives, sets max connections per host, and configures idle connection timeout.
 // This is useful for clients that need to make many short-lived requests without reusing connections.
 // It also sets a default timeout of 30 seconds.
-// e.g.
-//
-//	func Example() {
-//		// no need to use .Clone() since a new transport is built each time
-//		transport := httputil.DefaultTransport()
-//		transport.ForceAttemptHTTP2 = false
-//		client := httputil.NewHttpClient(httputil.WithTransport(transport))
-//		req, err := http.NewRequest("GET", "https://example.com", nil)
-//		if err != nil {
-//			panic(err)
-//		}
-//		resp, err := client.Do(req)
-//		if err != nil {
-//			panic(err)
-//		}
-//		_ = resp.Body.Close()
-//	}
 func DefaultHttpClient() *http.Client {
 	return &http.Client{
 		Transport: DefaultTransport(),
@@ -88,6 +71,14 @@ func DefaultHttpClient() *http.Client {
 	}
 }
 
+// NewHttpClient creates a configured HTTP client with customizable options.
+// It initializes a client with DefaultHttpClient settings and applies functional options.
+// Parameters:
+//   - options: Variadic list of HttpClientOptions functions to customize client behavior
+//
+// Retur
+// Returns:
+//   - *http.Client configured with specified options
 func NewHttpClient(options ...HttpClientOptions) *http.Client {
 	client := DefaultHttpClient()
 	for _, option := range options {
