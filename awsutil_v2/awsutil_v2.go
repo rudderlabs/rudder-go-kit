@@ -19,7 +19,7 @@ import (
 
 // Some AWS destinations are using SecretAccessKey instead of accessKey
 type SessionConfig struct {
-	Region              string         `mapstructure:"region"`
+	// Region              string         `mapstructure:"region"`
 	AccessKeyID         string         `mapstructure:"accessKeyID"`
 	AccessKey           string         `mapstructure:"accessKey"`
 	SecretAccessKey     string         `mapstructure:"secretAccessKey"`
@@ -60,7 +60,7 @@ func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, er
 
 	// Load default config with options
 	optFuncs := []func(*awsconfig.LoadOptions) error{
-		awsconfig.WithRegion(config.Region),
+		// awsconfig.WithRegion(config.Region),
 		awsconfig.WithHTTPClient(httpClient),
 		awsconfig.WithCredentialsProvider(awsCredentials),
 	}
@@ -127,7 +127,7 @@ func createV2CredentialsForRole(ctx context.Context, httpClient *http.Client, co
 
 	// Create base config for STS operations
 	optFuncs := []func(*awsconfig.LoadOptions) error{
-		awsconfig.WithRegion(config.Region),
+		// awsconfig.WithRegion(config.Region),
 		awsconfig.WithHTTPClient(httpClient),
 	}
 

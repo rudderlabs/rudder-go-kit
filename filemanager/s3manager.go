@@ -28,9 +28,9 @@ import (
 )
 
 type S3Config struct {
-	Bucket           string  `mapstructure:"bucketName"`
-	Prefix           string  `mapstructure:"Prefix"`
-	Region           *string `mapstructure:"region"`
+	Bucket string `mapstructure:"bucketName"`
+	Prefix string `mapstructure:"Prefix"`
+	// Region           *string `mapstructure:"region"`
 	Endpoint         *string `mapstructure:"endpoint"`
 	S3ForcePathStyle *bool   `mapstructure:"s3ForcePathStyle"`
 	DisableSSL       *bool   `mapstructure:"disableSSL"`
@@ -245,28 +245,28 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		return nil, errors.New("no storage bucket configured to downloader")
 	}
 
-	if m.config.Region == nil || *m.config.Region == "" {
-		getRegionSession, err := session.NewSession()
-		if err != nil {
-			return nil, err
-		}
+	// if m.config.Region == nil || *m.config.Region == "" {
+	// 	getRegionSession, err := session.NewSession()
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
 
-		ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
-		defer cancel()
+	// 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
+	// 	defer cancel()
 
-		region, err := awsS3Manager.GetBucketRegion(ctx, getRegionSession, m.config.Bucket, m.config.RegionHint)
-		if err != nil {
-			m.logger.Errorn("Failed to fetch AWS region for bucket",
-				logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
-			)
-			// Failed to get Region probably due to VPC restrictions
-			// Will proceed to try with AccessKeyID and AccessKey
-		}
-		m.config.Region = aws.String(region)
-		m.sessionConfig.Region = region
-	} else {
-		m.sessionConfig.Region = *m.config.Region
-	}
+	// 	region, err := awsS3Manager.GetBucketRegion(ctx, getRegionSession, m.config.Bucket, m.config.RegionHint)
+	// 	if err != nil {
+	// 		m.logger.Errorn("Failed to fetch AWS region for bucket",
+	// 			logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
+	// 		)
+	// 		// Failed to get Region probably due to VPC restrictions
+	// 		// Will proceed to try with AccessKeyID and AccessKey
+	// 	}
+	// 	m.config.Region = aws.String(region)
+	// 	m.sessionConfig.Region = region
+	// } else {
+	// 	m.sessionConfig.Region = *m.config.Region
+	// }
 
 	var err error
 	m.session, err = awsutil.CreateSession(m.sessionConfig)

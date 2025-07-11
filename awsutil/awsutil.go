@@ -17,7 +17,7 @@ import (
 
 // Some AWS destinations are using SecretAccessKey instead of accessKey
 type SessionConfig struct {
-	Region              string         `mapstructure:"region"`
+	// Region              string         `mapstructure:"region"`
 	AccessKeyID         string         `mapstructure:"accessKeyID"`
 	AccessKey           string         `mapstructure:"accessKey"`
 	SecretAccessKey     string         `mapstructure:"secretAccessKey"`
@@ -52,8 +52,8 @@ func CreateSession(config *SessionConfig) (*session.Session, error) {
 
 	return session.NewSessionWithOptions(session.Options{
 		Config: aws.Config{
-			HTTPClient:                    getHttpClient(config),
-			Region:                        aws.String(config.Region),
+			HTTPClient: getHttpClient(config),
+			// Region:                        aws.String(config.Region),
 			CredentialsChainVerboseErrors: aws.Bool(true),
 			Credentials:                   awsCredentials,
 			Endpoint:                      config.Endpoint,
@@ -124,7 +124,7 @@ func getHttpClient(config *SessionConfig) *http.Client {
 func createDefaultSession(config *SessionConfig) (*session.Session, error) {
 	return session.NewSession(&aws.Config{
 		HTTPClient: getHttpClient(config),
-		Region:     aws.String(config.Region),
+		// Region:     aws.String(config.Region),
 	})
 }
 
