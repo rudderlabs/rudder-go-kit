@@ -241,6 +241,7 @@ func TestFileManager(t *testing.T) {
 		destName      string
 		config        map[string]interface{}
 		otherPrefixes []string
+		appConf       *config.Config
 	}{
 		{
 			name:          "testing s3manager functionality",
@@ -257,6 +258,27 @@ func TestFileManager(t *testing.T) {
 				"disableSSL":       true,
 				"region":           region,
 			},
+		},
+		{
+			name:          "testing s3manager functionality with / in prefix",
+			destName:      "S3",
+			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
+			config: map[string]interface{}{
+				"bucketName":       bucket + "///",
+				"accessKeyID":      accessKeyId,
+				"accessKey":        secretAccessKey,
+				"enableSSE":        false,
+				"prefix":           "///some-prefix/",
+				"endPoint":         fmt.Sprintf("http://%s", minioEndpoint),
+				"s3ForcePathStyle": true,
+				"disableSSL":       true,
+				"region":           region,
+			},
+			appConf: func() *config.Config {
+				conf := config.New()
+				conf.Set("FileManager.useAwsSdkV2", "true")
+				return conf
+			}(),
 		},
 		{
 			name:          "testing minio functionality",
@@ -339,11 +361,15 @@ func TestFileManager(t *testing.T) {
 			if tt.skip != "" {
 				t.Skip(tt.skip)
 			}
+			conf := config.New()
+			if tt.appConf != nil {
+				conf = tt.appConf
+			}
 			fm, err := filemanager.New(&filemanager.Settings{
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
-				Conf:     config.New(),
+				Conf:     conf,
 			})
 			if err != nil {
 				t.Fatal(err)
@@ -352,7 +378,7 @@ func TestFileManager(t *testing.T) {
 
 			var prefixes []string
 			if prefix != "" {
-				prefixes = append(prefixes, prefix)
+				prefixes = append(prefixes, strings.TrimLeft(prefix, "/"))
 			}
 			prefixes = append(prefixes, tt.otherPrefixes...)
 
@@ -433,6 +459,9 @@ func TestFileManager(t *testing.T) {
 				expectedPrefix = splitString[0]
 			}
 			actualPrefix := fm.Prefix()
+			if actualPrefix != "" && actualPrefix[len(actualPrefix)-1] == '/' {
+				actualPrefix = actualPrefix[:len(actualPrefix)-1]
+			}
 			require.Equal(t, expectedPrefix, actualPrefix, "actual prefix different than expected")
 
 			// download one of the files & assert if it matches the original one present locally.
@@ -540,15 +569,19 @@ func TestFileManager(t *testing.T) {
 			require.Equal(t, len(originalFileObject)-1, len(newFileObject), "expected original file list length to be greater than new list by 1, but is different")
 		})
 
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run("uploadFailed-"+tt.name, func(t *testing.T) {
 			if tt.skip != "" {
 				t.Skip(tt.skip)
+			}
+			conf := config.New()
+			if tt.appConf != nil {
+				conf = tt.appConf
 			}
 			fm, err := filemanager.New(&filemanager.Settings{
 				Provider: tt.destName,
 				Config:   tt.config,
 				Logger:   logger.NOP,
-				Conf:     config.New(),
+				Conf:     conf,
 			})
 			if err != nil {
 				t.Fatal(err)
