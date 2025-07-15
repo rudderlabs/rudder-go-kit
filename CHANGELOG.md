@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.57.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.57.0...v0.57.1) (2025-07-14)
+
+
+### Bug Fixes
+
+* s3 manager v2 with prefix sanitization and update tests ([#859](https://github.com/rudderlabs/rudder-go-kit/issues/859)) ([15038b0](https://github.com/rudderlabs/rudder-go-kit/commit/15038b0974600531f975a3b5b91d56a59d103dbf))
+
+
+### Miscellaneous
+
+* parse region and remove useGlue from config ([#846](https://github.com/rudderlabs/rudder-go-kit/issues/846)) ([1b18878](https://github.com/rudderlabs/rudder-go-kit/commit/1b188787763d86dccef2289f6fd9edc364b6d748))
+* skip setting session region and ignore region fetch errors ([#858](https://github.com/rudderlabs/rudder-go-kit/issues/858)) ([c931aaa](https://github.com/rudderlabs/rudder-go-kit/commit/c931aaa1c31ff4987c3e7572eaf2ca8ecfcf0885))
+* update dependencies ([#853](https://github.com/rudderlabs/rudder-go-kit/issues/853)) ([671bc0f](https://github.com/rudderlabs/rudder-go-kit/commit/671bc0f7751bf9b8a73716754de90ca1ee0615ae))
+
 ## [0.57.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.56.4...v0.57.0) (2025-07-02)
 
 

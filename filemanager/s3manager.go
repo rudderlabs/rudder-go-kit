@@ -264,8 +264,6 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		}
 		m.config.Region = aws.String(region)
 		m.sessionConfig.Region = region
-	} else {
-		m.sessionConfig.Region = *m.config.Region
 	}
 
 	var err error
