@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rudderlabs/rudder-go-kit/config"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
@@ -55,7 +57,7 @@ func TestDefaultHttpClient(t *testing.T) {
 
 	transport, ok := client.Transport.(*http.Transport)
 	require.True(t, ok)
-	require.True(t, transport.DisableKeepAlives)
+	require.False(t, transport.DisableKeepAlives)
 	require.Equal(t, httputil.DefaultMaxConnsPerHost, transport.MaxConnsPerHost)
 	require.Equal(t, httputil.DefaultMaxIdleConnsPerHost, transport.MaxIdleConnsPerHost)
 }
@@ -109,6 +111,72 @@ func TestNewHttpClientWithOptions(t *testing.T) {
 				require.NotNil(t, client)
 				require.Equal(t, 15*time.Second, client.Timeout)
 				require.Same(t, customTransport, client.Transport)
+			},
+		},
+		{
+			name: "WithConfig",
+			options: []httputil.HttpClientOptions{
+				httputil.WithConfig(config.New()),
+			},
+			expectedCheck: func(t *testing.T, client *http.Client) {
+				require.NotNil(t, client)
+				require.Equal(t, httputil.DefaultRequestTimeout, client.Timeout)
+				transport, ok := client.Transport.(*http.Transport)
+				require.True(t, ok)
+				require.False(t, transport.DisableKeepAlives)
+				require.Equal(t, httputil.DefaultMaxConnsPerHost, transport.MaxConnsPerHost)
+				require.Equal(t, httputil.DefaultMaxIdleConnsPerHost, transport.MaxIdleConnsPerHost)
+				require.Equal(t, httputil.DefaultIdleConnTimeout, transport.IdleConnTimeout)
+				require.Equal(t, httputil.DefaultTLSHandshakeTimeout, transport.TLSHandshakeTimeout)
+				require.Equal(t, httputil.DefaultExpectContinueTimeout, transport.ExpectContinueTimeout)
+				require.Equal(t, httputil.DefaultForceHTTP2, transport.ForceAttemptHTTP2)
+			},
+		},
+		{
+			name: "WithConfig and without prefix",
+			options: []httputil.HttpClientOptions{
+				httputil.WithConfig(func() *config.Config {
+					conf := config.New()
+					conf.Set("DefaultHttpClient.ForceHTTP2", false)
+					return conf
+				}()),
+			},
+			expectedCheck: func(t *testing.T, client *http.Client) {
+				require.NotNil(t, client)
+				require.Equal(t, httputil.DefaultRequestTimeout, client.Timeout)
+				transport, ok := client.Transport.(*http.Transport)
+				require.True(t, ok)
+				require.False(t, transport.DisableKeepAlives)
+				require.Equal(t, httputil.DefaultMaxConnsPerHost, transport.MaxConnsPerHost)
+				require.Equal(t, httputil.DefaultMaxIdleConnsPerHost, transport.MaxIdleConnsPerHost)
+				require.Equal(t, httputil.DefaultIdleConnTimeout, transport.IdleConnTimeout)
+				require.Equal(t, httputil.DefaultTLSHandshakeTimeout, transport.TLSHandshakeTimeout)
+				require.Equal(t, httputil.DefaultExpectContinueTimeout, transport.ExpectContinueTimeout)
+				require.False(t, transport.ForceAttemptHTTP2)
+			},
+		},
+		{
+			name: "WithConfig and with prefix",
+			options: []httputil.HttpClientOptions{
+				httputil.WithConfig(func() *config.Config {
+					conf := config.New()
+					conf.Set("router.httpclient.ForceHTTP2", false)
+					conf.Set("DefaultHttpClient.ForceHTTP2", true)
+					return conf
+				}(), "router.httpclient"),
+			},
+			expectedCheck: func(t *testing.T, client *http.Client) {
+				require.NotNil(t, client)
+				require.Equal(t, httputil.DefaultRequestTimeout, client.Timeout)
+				transport, ok := client.Transport.(*http.Transport)
+				require.True(t, ok)
+				require.False(t, transport.DisableKeepAlives)
+				require.Equal(t, httputil.DefaultMaxConnsPerHost, transport.MaxConnsPerHost)
+				require.Equal(t, httputil.DefaultMaxIdleConnsPerHost, transport.MaxIdleConnsPerHost)
+				require.Equal(t, httputil.DefaultIdleConnTimeout, transport.IdleConnTimeout)
+				require.Equal(t, httputil.DefaultTLSHandshakeTimeout, transport.TLSHandshakeTimeout)
+				require.Equal(t, httputil.DefaultExpectContinueTimeout, transport.ExpectContinueTimeout)
+				require.False(t, transport.ForceAttemptHTTP2)
 			},
 		},
 	}

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
 const (
@@ -13,7 +15,7 @@ const (
 	DefaultMaxIdleConnsPerHost   = 10
 	DefaultMaxConnsPerHost       = 100
 	DefaultDisableKeepAlives     = false
-	DefaultForceHttp2            = true
+	DefaultForceHTTP2            = true
 	DefaultMaxIdleConns          = 100
 	DefaultIdleConnTimeout       = 90 * time.Second
 	DefaultTLSHandshakeTimeout   = 10 * time.Second
@@ -46,7 +48,7 @@ func GetRequestIP(req *http.Request) string {
 func DefaultTransport() *http.Transport {
 	tr := &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
-		ForceAttemptHTTP2:     DefaultForceHttp2,
+		ForceAttemptHTTP2:     DefaultForceHTTP2,
 		MaxIdleConns:          DefaultMaxIdleConns,
 		IdleConnTimeout:       DefaultIdleConnTimeout,
 		TLSHandshakeTimeout:   DefaultTLSHandshakeTimeout,
@@ -71,22 +73,6 @@ func DefaultHttpClient() *http.Client {
 	}
 }
 
-// NewHttpClient creates a configured HTTP client with customizable options.
-// It initializes a client with DefaultHttpClient settings and applies functional options.
-// Parameters:
-//   - options: Variadic list of HttpClientOptions functions to customize client behavior
-//
-// Retur
-// Returns:
-//   - *http.Client configured with specified options
-func NewHttpClient(options ...HttpClientOptions) *http.Client {
-	client := DefaultHttpClient()
-	for _, option := range options {
-		option(client)
-	}
-	return client
-}
-
 func WithTimeout(timeout time.Duration) HttpClientOptions {
 	return func(client *http.Client) {
 		if client == nil {
@@ -104,4 +90,50 @@ func WithTransport(transport *http.Transport) HttpClientOptions {
 		}
 		client.Transport = transport
 	}
+}
+
+// WithConfig returns a HttpClientOptions that sets a custom configuration for the HTTP client.
+func WithConfig(conf *config.Config, prefix ...string) HttpClientOptions {
+	return func(client *http.Client) {
+		if client == nil {
+			client = DefaultHttpClient()
+		}
+		tr := &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			ForceAttemptHTTP2:     conf.GetBoolVar(DefaultForceHTTP2, getConfigKeys("ForceHTTP2", prefix...)...),
+			MaxIdleConns:          conf.GetIntVar(DefaultMaxIdleConns, 1, getConfigKeys("MaxIdleConns", prefix...)...),
+			IdleConnTimeout:       conf.GetDurationVar(int64(DefaultIdleConnTimeout/time.Second), time.Second, getConfigKeys("IdleConnTimeout", prefix...)...),
+			TLSHandshakeTimeout:   conf.GetDurationVar(int64(DefaultTLSHandshakeTimeout/time.Second), time.Second, getConfigKeys("TLSHandshakeTimeout", prefix...)...),
+			ExpectContinueTimeout: conf.GetDurationVar(int64(DefaultExpectContinueTimeout/time.Second), time.Second, getConfigKeys("ExpectContinueTimeout", prefix...)...),
+			DisableKeepAlives:     conf.GetBoolVar(DefaultDisableKeepAlives, getConfigKeys("DisableKeepAlives", prefix...)...),
+			MaxConnsPerHost:       conf.GetIntVar(DefaultMaxConnsPerHost, 1, getConfigKeys("MaxConnsPerHost", prefix...)...),
+			MaxIdleConnsPerHost:   conf.GetIntVar(DefaultMaxIdleConnsPerHost, 1, getConfigKeys("MaxIdleConnsPerHost", prefix...)...),
+		}
+		client.Transport = tr
+	}
+}
+
+func getConfigKeys(key string, prefix ...string) []string {
+	res := make([]string, 0, len(prefix)+1)
+	for _, p := range prefix {
+		res = append(res, p+"."+key)
+	}
+	res = append(res, "DefaultHttpClient."+key)
+	return res
+}
+
+// NewHttpClient creates a configured HTTP client with customizable options.
+// It initializes a client with DefaultHttpClient settings and applies functional options.
+// Parameters:
+//   - options: Variadic list of HttpClientOptions functions to customize client behavior
+//
+// Retur
+// Returns:
+//   - *http.Client configured with specified options
+func NewHttpClient(options ...HttpClientOptions) *http.Client {
+	client := DefaultHttpClient()
+	for _, option := range options {
+		option(client)
+	}
+	return client
 }
