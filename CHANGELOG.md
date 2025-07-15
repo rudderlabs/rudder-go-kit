@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.57.1...v0.58.0) (2025-07-15)
+
+
+### Features
+
+* add default HTTP client and options for custom transport and timeout ([#854](https://github.com/rudderlabs/rudder-go-kit/issues/854)) ([a4a881c](https://github.com/rudderlabs/rudder-go-kit/commit/a4a881c6bbc091fa20b5ff21e4d1697922a2960b))
+
 ## [0.57.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.57.0...v0.57.1) (2025-07-14)
 
 
