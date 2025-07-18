@@ -13,6 +13,8 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
+	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/mitchellh/mapstructure"
 )
@@ -178,6 +180,16 @@ func NewSimpleSessionConfig(config map[string]interface{}, serviceName string) (
 	}
 	sessionConfig.Service = serviceName
 	return &sessionConfig, nil
+}
+
+func GetRegionFromBucket(ctx context.Context, bucket, regionHint string) (string, error) {
+	region, err := s3manager.GetBucketRegion(ctx, s3.New(s3.Options{
+		Region: regionHint,
+	}), bucket)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch AWS region for bucket: %w", err)
+	}
+	return region, nil
 }
 
 func isRoleBasedAuthFieldExist(config map[string]interface{}) bool {
