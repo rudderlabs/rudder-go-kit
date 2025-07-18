@@ -11,8 +11,6 @@ import (
 func TestGetRegionFromBucket(t *testing.T) {
 	envBucket := os.Getenv("AWS_BUCKET_NAME")
 	region, err := GetRegionFromBucket(context.Background(), envBucket, "us-east-1")
-	if err != nil {
-		t.Fatalf("failed to get region from bucket: %v", err)
-	}
+	require.NoError(t, err)
 	require.Equal(t, "us-east-1", region)
 }

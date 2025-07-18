@@ -38,6 +38,9 @@ type SessionConfig struct {
 
 // CreateAWSConfig creates an AWS config using the provided SessionConfig.
 // It supports both static credentials and role-based authentication.
+// Ensures that the region is set in the config.
+// If the region is not set, it should be fetched from the bucket and injected into the config.
+// The region can be fetched from the bucket by using the GetRegionFromBucket function.
 func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, error) {
 	var (
 		zero           aws.Config
