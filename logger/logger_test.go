@@ -417,6 +417,106 @@ func Test_LogRequest(t *testing.T) {
 	require.Equal(t, "DEBUG\tRequest Body\t{\"body\": \"{\\\"key\\\":\\\"value\\\"}\"}\n", stdout)
 }
 
+func Test_NewIntSliceField(t *testing.T) {
+	t.Run("int", func(t *testing.T) {
+		slice := []int{-1, 0, 1, 42}
+		field := logger.NewIntSliceField("test_int", slice)
+		require.Equal(t, "test_int", field.Name())
+		require.Equal(t, "-1,0,1,42", field.Value())
+	})
+
+	t.Run("int8", func(t *testing.T) {
+		slice := []int8{-128, -1, 0, 1, 127}
+		field := logger.NewIntSliceField("test_int8", slice)
+		require.Equal(t, "test_int8", field.Name())
+		require.Equal(t, "-128,-1,0,1,127", field.Value())
+	})
+
+	t.Run("int16", func(t *testing.T) {
+		slice := []int16{-32768, -1, 0, 1, 32767}
+		field := logger.NewIntSliceField("test_int16", slice)
+		require.Equal(t, "test_int16", field.Name())
+		require.Equal(t, "-32768,-1,0,1,32767", field.Value())
+	})
+
+	t.Run("int32", func(t *testing.T) {
+		slice := []int32{-2147483648, -1, 0, 1, 2147483647}
+		field := logger.NewIntSliceField("test_int32", slice)
+		require.Equal(t, "test_int32", field.Name())
+		require.Equal(t, "-2147483648,-1,0,1,2147483647", field.Value())
+	})
+
+	t.Run("int64", func(t *testing.T) {
+		slice := []int64{-9223372036854775808, -1, 0, 1, 9223372036854775807}
+		field := logger.NewIntSliceField("test_int64", slice)
+		require.Equal(t, "test_int64", field.Name())
+		require.Equal(t, "-9223372036854775808,-1,0,1,9223372036854775807", field.Value())
+	})
+
+	t.Run("uint", func(t *testing.T) {
+		slice := []uint{0, 1, 42, 4294967295}
+		field := logger.NewIntSliceField("test_uint", slice)
+		require.Equal(t, "test_uint", field.Name())
+		require.Equal(t, "0,1,42,4294967295", field.Value())
+	})
+
+	t.Run("uint8", func(t *testing.T) {
+		slice := []uint8{0, 1, 42, 255}
+		field := logger.NewIntSliceField("test_uint8", slice)
+		require.Equal(t, "test_uint8", field.Name())
+		require.Equal(t, "0,1,42,255", field.Value())
+	})
+
+	t.Run("uint16", func(t *testing.T) {
+		slice := []uint16{0, 1, 42, 65535}
+		field := logger.NewIntSliceField("test_uint16", slice)
+		require.Equal(t, "test_uint16", field.Name())
+		require.Equal(t, "0,1,42,65535", field.Value())
+	})
+
+	t.Run("uint32", func(t *testing.T) {
+		slice := []uint32{0, 1, 42, 4294967295}
+		field := logger.NewIntSliceField("test_uint32", slice)
+		require.Equal(t, "test_uint32", field.Name())
+		require.Equal(t, "0,1,42,4294967295", field.Value())
+	})
+
+	t.Run("uint64", func(t *testing.T) {
+		slice := []uint64{0, 1, 42, 18446744073709551615}
+		field := logger.NewIntSliceField("test_uint64", slice)
+		require.Equal(t, "test_uint64", field.Name())
+		require.Equal(t, "0,1,42,18446744073709551615", field.Value())
+	})
+
+	t.Run("data_truncation", func(t *testing.T) {
+		// Test with uint64 values that exceed int64 max to ensure no truncation
+		largeUint64 := uint64(9223372036854775808) // int64 max + 1
+		maxUint64 := uint64(18446744073709551615)  // uint64 max
+		slice := []uint64{largeUint64, maxUint64}
+		field := logger.NewIntSliceField("test_truncation", slice)
+		require.Equal(t, "test_truncation", field.Name())
+		require.Equal(t, "9223372036854775808,18446744073709551615", field.Value())
+
+		// Verify that the values are correctly formatted without truncation
+		// If truncated to int64, these would be negative values
+		require.NotContains(t, field.Value(), "-")
+	})
+
+	t.Run("empty_slice", func(t *testing.T) {
+		var slice []int
+		field := logger.NewIntSliceField("test_empty", slice)
+		require.Equal(t, "test_empty", field.Name())
+		require.Equal(t, "", field.Value())
+	})
+
+	t.Run("single_element", func(t *testing.T) {
+		slice := []int{42}
+		field := logger.NewIntSliceField("test_single", slice)
+		require.Equal(t, "test_single", field.Name())
+		require.Equal(t, "42", field.Value())
+	})
+}
+
 type constantClock time.Time
 
 func (c constantClock) Now() time.Time { return time.Time(c) }
