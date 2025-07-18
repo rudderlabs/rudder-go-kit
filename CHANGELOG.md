@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.59.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.58.0...v0.59.0) (2025-07-18)
+
+
+### Features
+
+* new int slice field ([#866](https://github.com/rudderlabs/rudder-go-kit/issues/866)) ([b166544](https://github.com/rudderlabs/rudder-go-kit/commit/b16654463be6a685ad5fd5e188bb8b34488fe1d9))
+
+
+### Miscellaneous
+
+* add get bucket region helper ([#867](https://github.com/rudderlabs/rudder-go-kit/issues/867)) ([c51fe1f](https://github.com/rudderlabs/rudder-go-kit/commit/c51fe1f4e2987d68cef7a1382b1df41090493da4))
+* **deps:** bump the all group across 1 directory with 8 updates ([#865](https://github.com/rudderlabs/rudder-go-kit/issues/865)) ([217700d](https://github.com/rudderlabs/rudder-go-kit/commit/217700d9e48966d198675dacdf94f904ceb6b768))
+
 ## [0.58.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.57.1...v0.58.0) (2025-07-15)
 
 
