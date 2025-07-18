@@ -265,9 +265,7 @@ func (m *s3ManagerV2) getClient(ctx context.Context) (*s3.Client, error) {
 	defer cancel()
 
 	if m.config.Region == nil || *m.config.Region == "" {
-		region, err := s3manager.GetBucketRegion(ctx, s3.New(s3.Options{
-			Region: aws.ToString(&m.config.RegionHint),
-		}), m.config.Bucket)
+		region, err := awsutil.GetRegionFromBucket(ctx, m.config.Bucket, m.config.RegionHint)
 		if err != nil {
 			m.logger.Errorn("Failed to fetch AWS region for bucket",
 				logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
