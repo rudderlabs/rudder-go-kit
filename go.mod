@@ -12,12 +12,12 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.36.5
 	github.com/aws/aws-sdk-go-v2/config v1.29.17
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.70
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.83
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.83.0
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.84
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.84.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.34.0
 	github.com/aws/smithy-go v1.22.4
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/confluentinc/confluent-kafka-go/v2 v2.10.1
+	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/fsouza/fake-gcs-server v1.52.2
 	github.com/go-chi/chi/v5 v5.2.2
@@ -51,7 +51,7 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/zenizh/go-capturer v0.0.0-20211219060012-52ea6c8fed04
-	go.etcd.io/etcd/client/v3 v3.6.1
+	go.etcd.io/etcd/client/v3 v3.6.2
 	go.opentelemetry.io/otel v1.37.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.37.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.37.0
@@ -64,11 +64,11 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.5.2
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.39.0
+	golang.org/x/crypto v0.40.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.15.0
-	golang.org/x/text v0.26.0
-	google.golang.org/api v0.240.0
+	golang.org/x/sync v0.16.0
+	golang.org/x/text v0.27.0
+	google.golang.org/api v0.241.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -117,7 +117,7 @@ require (
 	go.opentelemetry.io/contrib/detectors/gcp v1.37.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
+	golang.org/x/term v0.33.0 // indirect
 )
 
 require (
@@ -222,8 +222,8 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
-	go.etcd.io/etcd/api/v3 v3.6.1 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.1 // indirect
+	go.etcd.io/etcd/api/v3 v3.6.2 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.62.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0 // indirect
@@ -231,7 +231,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.7.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250603155806-513f23925822 // indirect
