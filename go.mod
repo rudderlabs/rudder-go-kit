@@ -9,12 +9,12 @@ require (
 	github.com/DataDog/zstd v1.5.7
 	github.com/apache/pulsar-client-go v0.15.1
 	github.com/aws/aws-sdk-go v1.55.7
-	github.com/aws/aws-sdk-go-v2 v1.36.5
-	github.com/aws/aws-sdk-go-v2/config v1.29.17
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.70
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.84
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.84.0
-	github.com/aws/aws-sdk-go-v2/service/sts v1.34.0
+	github.com/aws/aws-sdk-go-v2 v1.36.6
+	github.com/aws/aws-sdk-go-v2/config v1.29.18
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.71
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.17.85
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.84.1
+	github.com/aws/aws-sdk-go-v2/service/sts v1.34.1
 	github.com/aws/smithy-go v1.22.4
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
@@ -31,7 +31,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/linkedin/goavro/v2 v2.14.0
 	github.com/melbahja/goph v1.4.0
-	github.com/minio/minio-go/v7 v7.0.94
+	github.com/minio/minio-go/v7 v7.0.95
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -85,17 +85,17 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0 // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.11 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.32 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.36 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.36 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.33 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.37 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.37 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.36 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.37 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.12.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.25.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.7.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.12.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.18.18 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.25.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.4 // indirect
 	github.com/bits-and-blooms/bitset v1.14.3 // indirect
 	github.com/cncf/xds/go v0.0.0-20250501225837-2ac532fd4443 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
