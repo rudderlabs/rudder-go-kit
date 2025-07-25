@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.59.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.0...v0.59.1) (2025-07-25)
+
+
+### Bug Fixes
+
+* transformerarm64 docker image exits with SIGSEGV after calling a user transformation ([#875](https://github.com/rudderlabs/rudder-go-kit/issues/875)) ([b221da5](https://github.com/rudderlabs/rudder-go-kit/commit/b221da500f09a4b031831b4e18bd80b1e316ac38))
+
+
+### Miscellaneous
+
+* **deps:** bump the all group across 1 directory with 9 updates ([#873](https://github.com/rudderlabs/rudder-go-kit/issues/873)) ([a2d5085](https://github.com/rudderlabs/rudder-go-kit/commit/a2d5085aefb29cbf3e5a691d9acec7bddb3ae071))
+* remove sync.ErrGroup ([#870](https://github.com/rudderlabs/rudder-go-kit/issues/870)) ([025ce8e](https://github.com/rudderlabs/rudder-go-kit/commit/025ce8ec56ce2598dff1fd1a7c7dd1de1eaf5f3d))
+* use latest postgres ([#874](https://github.com/rudderlabs/rudder-go-kit/issues/874)) ([f802363](https://github.com/rudderlabs/rudder-go-kit/commit/f8023634c2e743e733b4d9f0313dc6487d340d1f))
+
 ## [0.59.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.58.0...v0.59.0) (2025-07-18)
 
 
