@@ -133,6 +133,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		exposedPorts: []string{"9090"},
 		envs: []string{
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
+			"NODE_OPTIONS=--no-node-snapshot",
 		},
 		authConfig: docker.AuthConfiguration{},
 	}
