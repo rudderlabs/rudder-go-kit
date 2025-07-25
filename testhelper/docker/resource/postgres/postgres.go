@@ -36,7 +36,7 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	c := &Config{
-		Tag:     "15-alpine",
+		Tag:     "17-alpine",
 		ShmSize: 128 * bytesize.MB,
 	}
 	for _, opt := range opts {
