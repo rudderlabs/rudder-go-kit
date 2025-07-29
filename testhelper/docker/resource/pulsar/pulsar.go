@@ -30,7 +30,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		networkID = c.network.ID
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   "apachepulsar/pulsar",
+		Repository:   "hub.dev-rudder.rudderlabs.com/apachepulsar/pulsar",
 		Tag:          c.tag,
 		Env:          []string{},
 		ExposedPorts: []string{"6650/tcp", "8080/tcp"},

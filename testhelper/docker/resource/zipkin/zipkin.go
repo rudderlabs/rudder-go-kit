@@ -42,7 +42,7 @@ func (z *Resource) Purge() error {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
 	zipkin, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   "openzipkin/zipkin",
+		Repository:   "hub.dev-rudder.rudderlabs.com/openzipkin/zipkin",
 		ExposedPorts: []string{zipkinPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{zipkinPort}),
 	}, internal.DefaultHostConfig)

@@ -128,7 +128,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	// pulls an image first to make sure we don't have an old cached version locally,
 	// then it creates a container based on it and runs it
 	conf := &config{
-		repository:   "rudderstack/rudder-transformer",
+		repository:   "hub.dev-rudder.rudderlabs.com/rudderstack/rudder-transformer",
 		tag:          "latest",
 		exposedPorts: []string{"9090"},
 		envs: []string{

@@ -94,7 +94,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		mounts = []string{c.publicKeyPath + ":/test_key.pub"}
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "lscr.io/linuxserver/openssh-server",
+		Repository: "hub.dev-rudder.rudderlabs.com/lscr.io/linuxserver/openssh-server",
 		Tag:        "9.3_p2-r1-ls145",
 		NetworkID:  network.ID,
 		Hostname:   "sshserver",

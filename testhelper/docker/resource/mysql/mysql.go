@@ -37,7 +37,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 
 	// pulls an image, creates a container based on it and runs it
 	mysqlContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "mysql",
+		Repository: "hub.dev-rudder.rudderlabs.com/mysql",
 		Tag:        c.Tag,
 		Env: []string{
 			"MYSQL_ROOT_PASSWORD=" + defaultPassword,
