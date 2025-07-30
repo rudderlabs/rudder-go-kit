@@ -182,7 +182,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	}
 	zookeeperPort := fmt.Sprintf("%d/tcp", zookeeperPortInt)
 	zookeeperContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: c.registryConfig.GetImagePath("bitnami/zookeeper", "3.9-debian-11"),
+		Repository: c.registryConfig.GetRegistryPath("bitnami/zookeeper"),
 		Tag:        "3.9-debian-11",
 		NetworkID:  network.ID,
 		Hostname:   "zookeeper",
@@ -216,7 +216,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			bootstrapServers += fmt.Sprintf("PLAINTEXT://kafka%d:9090,", i)
 		}
 		src, err := pool.RunWithOptions(&dockertest.RunOptions{
-			Repository:   c.registryConfig.GetImagePath("bitnami/schema-registry", "7.5-debian-11"),
+			Repository:   c.registryConfig.GetRegistryPath("bitnami/schema-registry"),
 			Tag:          "7.5-debian-11",
 			NetworkID:    network.ID,
 			Hostname:     "schemaregistry",
@@ -351,7 +351,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			))
 		}
 		containers[i], err = pool.RunWithOptions(&dockertest.RunOptions{
-			Repository:   c.registryConfig.GetImagePath("bitnami/kafka", "3.6.0"),
+			Repository:   c.registryConfig.GetRegistryPath("bitnami/kafka"),
 			Tag:          "3.6.0",
 			NetworkID:    network.ID,
 			Hostname:     hostname,

@@ -50,16 +50,16 @@ func NewCustomRegistry(url, username, password string) *RegistryConfig {
 }
 
 // GetImagePath returns the full image path based on registry type
-func (r *RegistryConfig) GetImagePath(image, tag string) string {
+func (r *RegistryConfig) GetRegistryPath(image string) string {
 	switch r.Type {
 	case RegistryHarbor:
-		return fmt.Sprintf("%s/%s:%s", r.URL, image, tag)
+		return fmt.Sprintf("%s/%s", r.URL, image)
 	case RegistryDockerHub:
-		return fmt.Sprintf("%s:%s", image, tag)
+		return image
 	case RegistryCustom:
-		return fmt.Sprintf("%s/%s:%s", r.URL, image, tag)
+		return fmt.Sprintf("%s/%s", r.URL, image)
 	default:
-		return fmt.Sprintf("%s:%s", image, tag)
+		return image
 	}
 }
 
