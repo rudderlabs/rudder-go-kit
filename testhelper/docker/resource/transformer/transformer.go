@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/ory/dockertest/v3"
@@ -15,6 +14,7 @@ import (
 	dockertesthelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const transformerPort = "9090/tcp"
@@ -26,14 +26,15 @@ type Resource struct {
 type Option func(*config)
 
 type config struct {
-	repository   string
-	tag          string
-	exposedPorts []string
-	envs         []string
-	extraHosts   []string
-	network      *docker.Network
-	authConfig   docker.AuthConfiguration
-	bindIP       string
+	repository     string
+	tag            string
+	exposedPorts   []string
+	envs           []string
+	extraHosts     []string
+	network        *docker.Network
+	authConfig     docker.AuthConfiguration
+	bindIP         string
+	registryConfig *registry.RegistryConfig
 }
 
 func (c *config) setBackendConfigURL(url string) {
@@ -124,32 +125,44 @@ func WithBindIP(bindIP string) Option {
 	}
 }
 
+// WithRegistry allows to configure a custom registry
+func WithRegistry(registryConfig *registry.RegistryConfig) Option {
+	return func(conf *config) {
+		conf.registryConfig = registryConfig
+	}
+}
+
+// WithDockerHub allows to use Docker Hub registry
+func WithDockerHub() Option {
+	return func(conf *config) {
+		conf.registryConfig = registry.NewDockerHubRegistry()
+	}
+}
+
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	// Set Rudder Transformer
 	// pulls an image first to make sure we don't have an old cached version locally,
 	// then it creates a container based on it and runs it
 	conf := &config{
-		repository:   "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/rudderstack/rudder-transformer",
+		repository:   "rudderstack/rudder-transformer",
 		tag:          "latest",
 		exposedPorts: []string{"9090"},
 		envs: []string{
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 			"NODE_OPTIONS=--no-node-snapshot",
 		},
-		authConfig: docker.AuthConfiguration{
-			Username: os.Getenv("HARBOR_USER_NAME"),
-			Password: os.Getenv("HARBOR_PASSWORD"),
-		},
+		registryConfig: registry.NewHarborRegistry(),
 	}
 
 	for _, opt := range opts {
 		opt(conf)
 	}
 
+	imageRepository := conf.registryConfig.GetRegistryPath(conf.repository)
 	if err := pool.Client.PullImage(docker.PullImageOptions{
-		Repository: conf.repository,
+		Repository: imageRepository,
 		Tag:        conf.tag,
-	}, conf.authConfig); err != nil {
+	}, conf.registryConfig.GetAuth()); err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
@@ -158,13 +171,13 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		networkID = conf.network.ID
 	}
 	transformerContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   conf.repository,
+		Repository:   imageRepository,
 		Tag:          conf.tag,
 		PortBindings: internal.IPv4PortBindings(conf.exposedPorts, internal.WithBindIP(conf.bindIP)),
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 		NetworkID:    networkID,
-		Auth:         conf.authConfig,
+		Auth:         conf.registryConfig.GetAuth(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err

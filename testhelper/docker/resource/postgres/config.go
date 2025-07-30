@@ -1,6 +1,10 @@
 package postgres
 
-import "github.com/ory/dockertest/v3/docker"
+import (
+	"github.com/ory/dockertest/v3/docker"
+
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
+)
 
 type Opt func(*Config)
 
@@ -52,6 +56,20 @@ func WithBindIP(bindIP string) Opt {
 	}
 }
 
+// WithRegistry allows to configure a custom registry
+func WithRegistry(registryConfig *registry.RegistryConfig) Opt {
+	return func(c *Config) {
+		c.RegistryConfig = registryConfig
+	}
+}
+
+// WithDockerHub allows to use Docker Hub registry
+func WithDockerHub() Opt {
+	return func(c *Config) {
+		c.RegistryConfig = registry.NewDockerHubRegistry()
+	}
+}
+
 type Config struct {
 	Tag              string
 	Options          []string
@@ -61,4 +79,5 @@ type Config struct {
 	PrintLogsOnError bool
 	NetworkID        string
 	BindIP           string
+	RegistryConfig   *registry.RegistryConfig
 }

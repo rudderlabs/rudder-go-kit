@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	_ "encoding/json"
 	"fmt"
-	"os"
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
@@ -14,6 +13,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const (
@@ -37,8 +37,9 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	c := &Config{
-		Tag:     "17-alpine",
-		ShmSize: 128 * bytesize.MB,
+		Tag:            "17-alpine",
+		ShmSize:        128 * bytesize.MB,
+		RegistryConfig: registry.NewHarborRegistry(),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -50,7 +51,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	}
 	// pulls an image, creates a container based on it and runs it
 	postgresContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/postgres",
+		Repository: c.RegistryConfig.GetRegistryPath("postgres"),
 		Tag:        c.Tag,
 		NetworkID:  c.NetworkID,
 		Env: []string{
@@ -58,11 +59,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"POSTGRES_DB=" + postgresDefaultDB,
 			"POSTGRES_USER=" + postgresDefaultUser,
 		},
-		Cmd: cmd,
-		Auth: docker.AuthConfiguration{
-			Username: os.Getenv("HARBOR_USER_NAME"),
-			Password: os.Getenv("HARBOR_PASSWORD"),
-		},
+		Cmd:          cmd,
+		Auth:         c.RegistryConfig.GetAuth(),
 		PortBindings: internal.IPv4PortBindings([]string{"5432"}, internal.WithBindIP(c.BindIP)),
 	}, func(hc *docker.HostConfig) {
 		hc.ShmSize = c.ShmSize

@@ -4,13 +4,13 @@ import (
 	"bytes"
 	_ "encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const (
@@ -30,7 +30,8 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	c := &Config{
-		Tag: "8.2",
+		Tag:            "8.2",
+		RegistryConfig: registry.NewHarborRegistry(),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -38,7 +39,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 
 	// pulls an image, creates a container based on it and runs it
 	mysqlContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/mysql",
+		Repository: c.RegistryConfig.GetRegistryPath("mysql"),
 		Tag:        c.Tag,
 		Env: []string{
 			"MYSQL_ROOT_PASSWORD=" + defaultPassword,
@@ -46,10 +47,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		},
 		ExposedPorts: []string{"3306/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"3306"}),
-		Auth: dc.AuthConfiguration{
-			Username: os.Getenv("HARBOR_USER_NAME"),
-			Password: os.Getenv("HARBOR_PASSWORD"),
-		},
+		Auth:         c.RegistryConfig.GetAuth(),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
 	}, internal.DefaultHostConfig)

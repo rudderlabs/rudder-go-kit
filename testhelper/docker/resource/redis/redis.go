@@ -4,15 +4,14 @@ import (
 	"context"
 	_ "encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/go-redis/redis/v8"
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
-	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const redisPort = "6379"
@@ -45,6 +44,20 @@ func WithRepository(repository string) Option {
 	}
 }
 
+// WithRegistry allows to configure a custom registry
+func WithRegistry(registryConfig *registry.RegistryConfig) Option {
+	return func(rc *redisConfig) {
+		rc.registryConfig = registryConfig
+	}
+}
+
+// WithDockerHub allows to use Docker Hub registry
+func WithDockerHub() Option {
+	return func(rc *redisConfig) {
+		rc.registryConfig = registry.NewDockerHubRegistry()
+	}
+}
+
 type Resource struct {
 	Addr string
 }
@@ -52,31 +65,30 @@ type Resource struct {
 type Option func(*redisConfig)
 
 type redisConfig struct {
-	repository string
-	tag        string
-	envs       []string
-	cmdArgs    []string
+	repository     string
+	tag            string
+	envs           []string
+	cmdArgs        []string
+	registryConfig *registry.RegistryConfig
 }
 
 func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	conf := redisConfig{
-		tag:        "6",
-		repository: "redis",
+		tag:            "6",
+		repository:     "redis",
+		registryConfig: registry.NewHarborRegistry(),
 	}
 	for _, opt := range opts {
 		opt(&conf)
 	}
 	runOptions := &dockertest.RunOptions{
-		Repository:   "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/" + conf.repository,
+		Repository:   conf.registryConfig.GetRegistryPath(conf.repository),
 		Tag:          conf.tag,
 		Env:          conf.envs,
 		Cmd:          []string{"redis-server"},
 		ExposedPorts: []string{redisPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{redisPort}),
-		Auth: dc.AuthConfiguration{
-			Username: os.Getenv("HARBOR_USER_NAME"),
-			Password: os.Getenv("HARBOR_PASSWORD"),
-		},
+		Auth:         conf.registryConfig.GetAuth(),
 	}
 	if len(conf.cmdArgs) > 0 {
 		runOptions.Cmd = append(runOptions.Cmd, conf.cmdArgs...)

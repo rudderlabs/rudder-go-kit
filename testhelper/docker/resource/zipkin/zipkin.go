@@ -3,18 +3,37 @@ package zipkin
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 
 	"github.com/ory/dockertest/v3"
-	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const zipkinPort = "9411"
+
+type Option func(*config)
+
+type config struct {
+	registryConfig *registry.RegistryConfig
+}
+
+// WithRegistry allows to configure a custom registry
+func WithRegistry(registryConfig *registry.RegistryConfig) Option {
+	return func(c *config) {
+		c.registryConfig = registryConfig
+	}
+}
+
+// WithDockerHub allows to use Docker Hub registry
+func WithDockerHub() Option {
+	return func(c *config) {
+		c.registryConfig = registry.NewDockerHubRegistry()
+	}
+}
 
 type Resource struct {
 	URL string
@@ -42,15 +61,19 @@ func (z *Resource) Purge() error {
 	return nil
 }
 
-func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
+func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
+	c := &config{
+		registryConfig: registry.NewHarborRegistry(),
+	}
+	for _, opt := range opts {
+		opt(c)
+	}
+
 	zipkin, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/openzipkin/zipkin",
+		Repository:   c.registryConfig.GetRegistryPath("openzipkin/zipkin"),
 		ExposedPorts: []string{zipkinPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{zipkinPort}),
-		Auth: dc.AuthConfiguration{
-			Username: os.Getenv("HARBOR_USER_NAME"),
-			Password: os.Getenv("HARBOR_PASSWORD"),
-		},
+		Auth:         c.registryConfig.GetAuth(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start zipkin: %w", err)

@@ -3,13 +3,12 @@ package pulsar
 import (
 	"bytes"
 	"fmt"
-	"os"
 
 	"github.com/ory/dockertest/v3"
-	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 type Resource struct {
@@ -21,7 +20,8 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	c := &config{
-		tag: "3.3.6",
+		tag:            "3.3.6",
+		registryConfig: registry.NewHarborRegistry(),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -32,17 +32,14 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		networkID = c.network.ID
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/apachepulsar/pulsar",
+		Repository:   c.registryConfig.GetRegistryPath("apachepulsar/pulsar"),
 		Tag:          c.tag,
 		Env:          []string{},
 		ExposedPorts: []string{"6650/tcp", "8080/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}),
 		Cmd:          []string{"bin/pulsar", "standalone"},
 		NetworkID:    networkID,
-		Auth: dc.AuthConfiguration{
-			Username: os.Getenv("HARBOR_USER_NAME"),
-			Password: os.Getenv("HARBOR_PASSWORD"),
-		},
+		Auth:         c.registryConfig.GetAuth(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot run pulsar container: %w", err)
