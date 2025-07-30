@@ -10,9 +10,9 @@ require (
 	github.com/apache/pulsar-client-go v0.15.1
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2 v1.37.0
-	github.com/aws/aws-sdk-go-v2/config v1.30.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.18.0
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.18.0
+	github.com/aws/aws-sdk-go-v2/config v1.30.1
+	github.com/aws/aws-sdk-go-v2/credentials v1.18.1
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.18.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.85.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.35.0
 	github.com/aws/smithy-go v1.22.5
@@ -85,7 +85,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0 // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.0 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.17.0 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.3 // indirect
