@@ -3,7 +3,6 @@ package sshserver
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -95,7 +94,8 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		mounts = []string{c.publicKeyPath + ":/test_key.pub"}
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/lscr.io/linuxserver/openssh-server",
+		// not proxying lscr.io
+		Repository: "lscr.io/linuxserver/openssh-server",
 		Tag:        "9.3_p2-r1-ls145",
 		NetworkID:  network.ID,
 		Hostname:   "sshserver",
@@ -109,10 +109,6 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		},
 		Env:    envVars,
 		Mounts: mounts,
-		Auth: dc.AuthConfiguration{
-			Username: os.Getenv("HARBOR_USER_NAME"),
-			Password: os.Getenv("HARBOR_PASSWORD"),
-		},
 	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {
