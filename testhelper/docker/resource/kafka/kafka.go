@@ -4,7 +4,6 @@ import (
 	_ "encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 type scramHashGenerator uint8
@@ -57,11 +57,15 @@ type config struct {
 	dontUseDockerHostListeners bool
 	customAdvertisedListener   string
 	useSchemaRegistry          bool
+	registryConfig             *registry.RegistryConfig
 }
 
 func (c *config) defaults() {
 	if c.brokers < 1 {
 		c.brokers = 1
+	}
+	if c.registryConfig == nil {
+		c.registryConfig = registry.NewHarborRegistry()
 	}
 }
 
@@ -122,6 +126,20 @@ func WithSchemaRegistry() Option {
 	}}
 }
 
+// WithRegistry allows to configure a custom registry
+func WithRegistry(registryConfig *registry.RegistryConfig) Option {
+	return withOption{setup: func(c *config) {
+		c.registryConfig = registryConfig
+	}}
+}
+
+// WithDockerHub allows to use Docker Hub registry
+func WithDockerHub() Option {
+	return withOption{setup: func(c *config) {
+		c.registryConfig = registry.NewDockerHubRegistry()
+	}}
+}
+
 type Resource struct {
 	Brokers           []string
 	SchemaRegistryURL string
@@ -164,18 +182,15 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	}
 	zookeeperPort := fmt.Sprintf("%d/tcp", zookeeperPortInt)
 	zookeeperContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/bitnami/zookeeper",
+		Repository: c.registryConfig.GetImagePath("bitnami/zookeeper", "3.9-debian-11"),
 		Tag:        "3.9-debian-11",
 		NetworkID:  network.ID,
 		Hostname:   "zookeeper",
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			"2181/tcp": {{HostIP: "zookeeper", HostPort: zookeeperPort}},
 		},
-		Auth: dc.AuthConfiguration{
-			Username: os.Getenv("HARBOR_USER_NAME"),
-			Password: os.Getenv("HARBOR_PASSWORD"),
-		},
-		Env: []string{"ALLOW_ANONYMOUS_LOGIN=yes"},
+		Auth: c.registryConfig.GetAuth(),
+		Env:  []string{"ALLOW_ANONYMOUS_LOGIN=yes"},
 	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
 		if err := pool.Purge(zookeeperContainer); err != nil {
@@ -201,12 +216,13 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			bootstrapServers += fmt.Sprintf("PLAINTEXT://kafka%d:9090,", i)
 		}
 		src, err := pool.RunWithOptions(&dockertest.RunOptions{
-			Repository:   "bitnami/schema-registry",
+			Repository:   c.registryConfig.GetImagePath("bitnami/schema-registry", "7.5-debian-11"),
 			Tag:          "7.5-debian-11",
 			NetworkID:    network.ID,
 			Hostname:     "schemaregistry",
 			ExposedPorts: []string{"8081/tcp"},
 			PortBindings: internal.IPv4PortBindings([]string{"8081"}),
+			Auth:         c.registryConfig.GetAuth(),
 			Env: []string{
 				"SCHEMA_REGISTRY_DEBUG=true",
 				"SCHEMA_REGISTRY_KAFKA_BROKERS=" + bootstrapServers[:len(bootstrapServers)-1],
@@ -335,7 +351,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			))
 		}
 		containers[i], err = pool.RunWithOptions(&dockertest.RunOptions{
-			Repository:   "bitnami/kafka",
+			Repository:   c.registryConfig.GetImagePath("bitnami/kafka", "3.6.0"),
 			Tag:          "3.6.0",
 			NetworkID:    network.ID,
 			Hostname:     hostname,
@@ -346,6 +362,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 					HostPort: strconv.Itoa(localhostPortInt),
 				}},
 			},
+			Auth:   c.registryConfig.GetAuth(),
 			Mounts: mounts,
 			Env:    nodeEnvVars,
 		}, internal.DefaultHostConfig)
