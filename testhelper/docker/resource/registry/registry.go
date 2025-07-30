@@ -26,7 +26,7 @@ type RegistryConfig struct {
 func NewHarborRegistry() *RegistryConfig {
 	return &RegistryConfig{
 		Type:     RegistryHarbor,
-		URL:      "hub.dev-rudder.rudderlabs.com/dockerhub-proxy",
+		URL:      os.Getenv("HARBOR_URL"),
 		Username: os.Getenv("HARBOR_USER_NAME"),
 		Password: os.Getenv("HARBOR_PASSWORD"),
 	}

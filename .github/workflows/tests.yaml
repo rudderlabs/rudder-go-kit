@@ -30,6 +30,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           HARBOR_USER_NAME: ${{ secrets.HARBOR_USER_NAME }}
           HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+          HARBOR_URL: ${{ secrets.HARBOR_URL }}
         run: make test exclude="(kafkaclient|testhelper)"
       - uses: codecov/codecov-action@v5
   test-package:
@@ -62,6 +63,7 @@ jobs:
           TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_CONNECTION_STRING: ${{ secrets.TEST_KAFKA_AZURE_EVENT_HUBS_CLOUD_CONNECTION_STRING }}
           HARBOR_USER_NAME: ${{ secrets.HARBOR_USER_NAME }}
           HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+          HARBOR_URL: ${{ secrets.HARBOR_URL }}
         run: make test exclude="${{ matrix.exclude }}" package=${{ matrix.package }}
       - name: Sanitize name for Artifact
         run: |
