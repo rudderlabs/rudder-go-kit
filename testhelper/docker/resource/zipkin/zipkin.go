@@ -3,9 +3,11 @@ package zipkin
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
@@ -45,6 +47,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
 		Repository:   "hub.dev-rudder.rudderlabs.com/openzipkin/zipkin",
 		ExposedPorts: []string{zipkinPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{zipkinPort}),
+		Auth: dc.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
+		},
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start zipkin: %w", err)

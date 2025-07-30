@@ -17,6 +17,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
@@ -65,6 +66,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		Tag:        c.Tag,
 		NetworkID:  networkID,
 		Cmd:        []string{"server", "/data"},
+		Auth: dc.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
+		},
 		Env: append([]string{
 			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
 			fmt.Sprintf("MINIO_SECRET_KEY=%s", secretAccessKey),

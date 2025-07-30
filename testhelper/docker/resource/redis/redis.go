@@ -4,10 +4,12 @@ import (
 	"context"
 	_ "encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/go-redis/redis/v8"
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
@@ -71,6 +73,10 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		Cmd:          []string{"redis-server"},
 		ExposedPorts: []string{redisPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{redisPort}),
+		Auth: dc.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
+		},
 	}
 	if len(conf.cmdArgs) > 0 {
 		runOptions.Cmd = append(runOptions.Cmd, conf.cmdArgs...)

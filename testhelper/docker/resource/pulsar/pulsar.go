@@ -3,8 +3,10 @@ package pulsar
 import (
 	"bytes"
 	"fmt"
+	"os"
 
 	"github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
@@ -37,6 +39,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}),
 		Cmd:          []string{"bin/pulsar", "standalone"},
 		NetworkID:    networkID,
+		Auth: dc.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
+		},
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot run pulsar container: %w", err)

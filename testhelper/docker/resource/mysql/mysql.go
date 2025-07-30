@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
@@ -45,6 +46,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		},
 		ExposedPorts: []string{"3306/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"3306"}),
+		Auth: dc.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
+		},
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
 	}, internal.DefaultHostConfig)

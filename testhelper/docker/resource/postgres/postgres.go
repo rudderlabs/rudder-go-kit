@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	_ "encoding/json"
 	"fmt"
+	"os"
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
@@ -57,7 +58,11 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"POSTGRES_DB=" + postgresDefaultDB,
 			"POSTGRES_USER=" + postgresDefaultUser,
 		},
-		Cmd:          cmd,
+		Cmd: cmd,
+		Auth: docker.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
+		},
 		PortBindings: internal.IPv4PortBindings([]string{"5432"}, internal.WithBindIP(c.BindIP)),
 	}, func(hc *docker.HostConfig) {
 		hc.ShmSize = c.ShmSize

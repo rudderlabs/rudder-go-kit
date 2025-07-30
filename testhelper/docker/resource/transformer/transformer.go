@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/ory/dockertest/v3"
@@ -135,7 +136,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 			"NODE_OPTIONS=--no-node-snapshot",
 		},
-		authConfig: docker.AuthConfiguration{},
+		authConfig: docker.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
+		},
 	}
 
 	for _, opt := range opts {

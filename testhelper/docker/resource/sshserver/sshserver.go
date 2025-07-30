@@ -3,6 +3,7 @@ package sshserver
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -108,6 +109,10 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		},
 		Env:    envVars,
 		Mounts: mounts,
+		Auth: dc.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
+		},
 	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {

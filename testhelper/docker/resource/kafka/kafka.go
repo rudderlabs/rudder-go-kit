@@ -4,6 +4,7 @@ import (
 	_ "encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -169,6 +170,10 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Hostname:   "zookeeper",
 		PortBindings: map[dc.Port][]dc.PortBinding{
 			"2181/tcp": {{HostIP: "zookeeper", HostPort: zookeeperPort}},
+		},
+		Auth: dc.AuthConfiguration{
+			Username: os.Getenv("HARBOR_USER_NAME"),
+			Password: os.Getenv("HARBOR_PASSWORD"),
 		},
 		Env: []string{"ALLOW_ANONYMOUS_LOGIN=yes"},
 	}, internal.DefaultHostConfig)
