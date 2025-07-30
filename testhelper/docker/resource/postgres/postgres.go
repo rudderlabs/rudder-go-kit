@@ -50,7 +50,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	}
 	// pulls an image, creates a container based on it and runs it
 	postgresContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "hub.dev-rudder.rudderlabs.com/postgres",
+		Repository: "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/postgres",
 		Tag:        c.Tag,
 		NetworkID:  c.NetworkID,
 		Env: []string{

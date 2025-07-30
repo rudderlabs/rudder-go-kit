@@ -164,7 +164,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	}
 	zookeeperPort := fmt.Sprintf("%d/tcp", zookeeperPortInt)
 	zookeeperContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "hub.dev-rudder.rudderlabs.com/bitnami/zookeeper",
+		Repository: "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/bitnami/zookeeper",
 		Tag:        "3.9-debian-11",
 		NetworkID:  network.ID,
 		Hostname:   "zookeeper",

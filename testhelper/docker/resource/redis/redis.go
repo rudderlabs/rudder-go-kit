@@ -67,7 +67,7 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		opt(&conf)
 	}
 	runOptions := &dockertest.RunOptions{
-		Repository:   "hub.dev-rudder.rudderlabs.com/" + conf.repository,
+		Repository:   "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/" + conf.repository,
 		Tag:          conf.tag,
 		Env:          conf.envs,
 		Cmd:          []string{"redis-server"},
