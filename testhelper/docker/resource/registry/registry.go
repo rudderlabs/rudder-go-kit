@@ -25,7 +25,9 @@ func NewRegistry() *RegistryConfig {
 // GetRegistryPath returns the full image path based on whether a registry mirror is configured
 func (r *RegistryConfig) GetRegistryPath(image string) string {
 	if r.URL != "" {
-		return fmt.Sprintf("%s/%s", r.URL, image)
+		res := fmt.Sprintf("%s/%s", r.URL, image)
+		fmt.Println(res)
+		return res
 	}
 	return image
 }
