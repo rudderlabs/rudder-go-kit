@@ -26,7 +26,6 @@ func NewRegistry() *RegistryConfig {
 func (r *RegistryConfig) GetRegistryPath(image string) string {
 	if r.URL != "" {
 		res := fmt.Sprintf("%s/%s", r.URL, image)
-		fmt.Println(res)
 		return res
 	}
 	return image

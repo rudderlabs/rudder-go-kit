@@ -150,7 +150,6 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	c.defaults()
 
 	reg := registry.NewRegistry()
-	fmt.Println("reg", reg)
 	network := c.network
 	if c.network == nil {
 		var err error
