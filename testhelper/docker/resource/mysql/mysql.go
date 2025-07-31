@@ -31,7 +31,7 @@ type Resource struct {
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	c := &Config{
 		Tag:            "8.2",
-		RegistryConfig: registry.NewHarborRegistry(),
+		RegistryConfig: registry.NewRegistry(),
 	}
 	for _, opt := range opts {
 		opt(c)

@@ -26,15 +26,14 @@ type Resource struct {
 type Option func(*config)
 
 type config struct {
-	repository     string
-	tag            string
-	exposedPorts   []string
-	envs           []string
-	extraHosts     []string
-	network        *docker.Network
-	authConfig     docker.AuthConfiguration
-	bindIP         string
-	registryConfig *registry.RegistryConfig
+	repository   string
+	tag          string
+	exposedPorts []string
+	envs         []string
+	extraHosts   []string
+	network      *docker.Network
+	authConfig   docker.AuthConfiguration
+	bindIP       string
 }
 
 func (c *config) setBackendConfigURL(url string) {
@@ -125,20 +124,6 @@ func WithBindIP(bindIP string) Option {
 	}
 }
 
-// WithRegistry allows to configure a custom registry
-func WithRegistry(registryConfig *registry.RegistryConfig) Option {
-	return func(conf *config) {
-		conf.registryConfig = registryConfig
-	}
-}
-
-// WithDockerHub allows to use Docker Hub registry
-func WithDockerHub() Option {
-	return func(conf *config) {
-		conf.registryConfig = registry.NewDockerHubRegistry()
-	}
-}
-
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	// Set Rudder Transformer
 	// pulls an image first to make sure we don't have an old cached version locally,
@@ -151,18 +136,18 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 			"NODE_OPTIONS=--no-node-snapshot",
 		},
-		registryConfig: registry.NewHarborRegistry(),
 	}
 
 	for _, opt := range opts {
 		opt(conf)
 	}
 
-	imageRepository := conf.registryConfig.GetRegistryPath(conf.repository)
+	reg := registry.NewRegistry()
+	imageRepository := reg.GetRegistryPath(conf.repository)
 	if err := pool.Client.PullImage(docker.PullImageOptions{
 		Repository: imageRepository,
 		Tag:        conf.tag,
-	}, conf.registryConfig.GetAuth()); err != nil {
+	}, reg.GetAuth()); err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
@@ -177,7 +162,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 		NetworkID:    networkID,
-		Auth:         conf.registryConfig.GetAuth(),
+		Auth:         reg.GetAuth(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err

@@ -8,96 +8,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewHarborRegistry(t *testing.T) {
-	t.Run("with environment variables", func(t *testing.T) {
+func TestNewRegistry(t *testing.T) {
+	t.Run("with docker registry mirror environment variables", func(t *testing.T) {
 		// Set test environment variables
-		originalUser := os.Getenv("HARBOR_USER_NAME")
-		originalPassword := os.Getenv("HARBOR_PASSWORD")
+		originalMirror := os.Getenv("DOCKER_REGISTRY_MIRROR")
+		originalUser := os.Getenv("DOCKER_REGISTRY_MIRROR_USERNAME")
+		originalPassword := os.Getenv("DOCKER_REGISTRY_MIRROR_PASSWORD")
 		t.Cleanup(func() {
-			os.Setenv("HARBOR_USER_NAME", originalUser)
-			os.Setenv("HARBOR_PASSWORD", originalPassword)
+			os.Setenv("DOCKER_REGISTRY_MIRROR", originalMirror)
+			os.Setenv("DOCKER_REGISTRY_MIRROR_USERNAME", originalUser)
+			os.Setenv("DOCKER_REGISTRY_MIRROR_PASSWORD", originalPassword)
 		})
 
+		testMirror := "registry.example.com"
 		testUser := "test-user"
 		testPassword := "test-password"
-		os.Setenv("HARBOR_USER_NAME", testUser)
-		os.Setenv("HARBOR_PASSWORD", testPassword)
+		os.Setenv("DOCKER_REGISTRY_MIRROR", testMirror)
+		os.Setenv("DOCKER_REGISTRY_MIRROR_USERNAME", testUser)
+		os.Setenv("DOCKER_REGISTRY_MIRROR_PASSWORD", testPassword)
 
-		config := NewHarborRegistry()
+		config := NewRegistry()
 
-		require.Equal(t, RegistryHarbor, config.Type)
-		require.Equal(t, "hub.dev-rudder.rudderlabs.com/dockerhub-proxy", config.URL)
+		require.Equal(t, testMirror, config.URL)
 		require.Equal(t, testUser, config.Username)
 		require.Equal(t, testPassword, config.Password)
 	})
 
-	t.Run("without environment variables", func(t *testing.T) {
+	t.Run("without mirror environment variables uses Docker Hub", func(t *testing.T) {
 		// Unset environment variables
-		originalUser := os.Getenv("HARBOR_USER_NAME")
-		originalPassword := os.Getenv("HARBOR_PASSWORD")
+		originalMirror := os.Getenv("DOCKER_REGISTRY_MIRROR")
+		originalUser := os.Getenv("DOCKER_REGISTRY_MIRROR_USERNAME")
+		originalPassword := os.Getenv("DOCKER_REGISTRY_MIRROR_PASSWORD")
 		t.Cleanup(func() {
-			os.Setenv("HARBOR_USER_NAME", originalUser)
-			os.Setenv("HARBOR_PASSWORD", originalPassword)
+			os.Setenv("DOCKER_REGISTRY_MIRROR", originalMirror)
+			os.Setenv("DOCKER_REGISTRY_MIRROR_USERNAME", originalUser)
+			os.Setenv("DOCKER_REGISTRY_MIRROR_PASSWORD", originalPassword)
 		})
 
-		os.Unsetenv("HARBOR_USER_NAME")
-		os.Unsetenv("HARBOR_PASSWORD")
+		os.Unsetenv("DOCKER_REGISTRY_MIRROR")
+		os.Unsetenv("DOCKER_REGISTRY_MIRROR_USERNAME")
+		os.Unsetenv("DOCKER_REGISTRY_MIRROR_PASSWORD")
 
-		config := NewHarborRegistry()
+		config := NewRegistry()
 
-		require.Equal(t, RegistryHarbor, config.Type)
-		require.Equal(t, "hub.dev-rudder.rudderlabs.com/dockerhub-proxy", config.URL)
+		require.Empty(t, config.URL)
 		require.Empty(t, config.Username)
 		require.Empty(t, config.Password)
 	})
-}
-
-func TestNewDockerHubRegistry(t *testing.T) {
-	config := NewDockerHubRegistry()
-
-	require.Equal(t, RegistryDockerHub, config.Type)
-	require.Empty(t, config.URL)
-	require.Empty(t, config.Username)
-	require.Empty(t, config.Password)
-}
-
-func TestNewCustomRegistry(t *testing.T) {
-	testCases := []struct {
-		name     string
-		url      string
-		username string
-		password string
-	}{
-		{
-			name:     "with all parameters",
-			url:      "custom.registry.com",
-			username: "custom-user",
-			password: "custom-password",
-		},
-		{
-			name:     "with empty credentials",
-			url:      "registry.example.com",
-			username: "",
-			password: "",
-		},
-		{
-			name:     "with empty URL",
-			url:      "",
-			username: "user",
-			password: "pass",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			config := NewCustomRegistry(tc.url, tc.username, tc.password)
-
-			require.Equal(t, RegistryCustom, config.Type)
-			require.Equal(t, tc.url, config.URL)
-			require.Equal(t, tc.username, config.Username)
-			require.Equal(t, tc.password, config.Password)
-		})
-	}
 }
 
 func TestRegistryConfig_GetRegistryPath(t *testing.T) {
@@ -108,54 +65,41 @@ func TestRegistryConfig_GetRegistryPath(t *testing.T) {
 		expectedPath   string
 	}{
 		{
-			name: "Harbor registry",
+			name: "Registry mirror with URL",
 			registryConfig: &RegistryConfig{
-				Type: RegistryHarbor,
-				URL:  "hub.dev-rudder.rudderlabs.com/dockerhub-proxy",
+				URL: "registry.example.com",
 			},
 			image:        "mysql",
-			expectedPath: "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/mysql",
+			expectedPath: "registry.example.com/mysql",
 		},
 		{
-			name: "Docker Hub registry",
+			name: "Docker Hub registry (no URL)",
 			registryConfig: &RegistryConfig{
-				Type: RegistryDockerHub,
+				URL: "",
 			},
 			image:        "postgres",
 			expectedPath: "postgres",
 		},
 		{
-			name: "Custom registry",
+			name: "Custom registry with URL",
 			registryConfig: &RegistryConfig{
-				Type: RegistryCustom,
-				URL:  "custom.registry.com",
+				URL: "custom.registry.com",
 			},
 			image:        "redis",
 			expectedPath: "custom.registry.com/redis",
 		},
 		{
-			name: "Invalid/default registry type",
+			name: "Empty image name with mirror URL",
 			registryConfig: &RegistryConfig{
-				Type: RegistryType(99), // Invalid type
-				URL:  "invalid.registry.com",
-			},
-			image:        "nginx",
-			expectedPath: "nginx",
-		},
-		{
-			name: "Empty image name with Harbor",
-			registryConfig: &RegistryConfig{
-				Type: RegistryHarbor,
-				URL:  "hub.dev-rudder.rudderlabs.com/dockerhub-proxy",
+				URL: "registry.example.com",
 			},
 			image:        "",
-			expectedPath: "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/",
+			expectedPath: "registry.example.com/",
 		},
 		{
 			name: "Image with special characters",
 			registryConfig: &RegistryConfig{
-				Type: RegistryCustom,
-				URL:  "registry.example.com",
+				URL: "registry.example.com",
 			},
 			image:        "organization/image-name",
 			expectedPath: "registry.example.com/organization/image-name",
@@ -238,41 +182,51 @@ func TestRegistryConfig_GetAuth(t *testing.T) {
 	}
 }
 
-func TestRegistryTypes(t *testing.T) {
-	// Test that registry type constants have expected values
-	require.Equal(t, RegistryType(0), RegistryHarbor)
-	require.Equal(t, RegistryType(1), RegistryDockerHub)
-	require.Equal(t, RegistryType(2), RegistryCustom)
-}
-
 // TestRegistryConfig_Integration tests the integration between different methods
 func TestRegistryConfig_Integration(t *testing.T) {
-	t.Run("Harbor registry with authentication", func(t *testing.T) {
+	t.Run("Registry mirror with authentication", func(t *testing.T) {
 		// Set up environment variables
-		originalUser := os.Getenv("HARBOR_USER_NAME")
-		originalPassword := os.Getenv("HARBOR_PASSWORD")
+		originalMirror := os.Getenv("DOCKER_REGISTRY_MIRROR")
+		originalUser := os.Getenv("DOCKER_REGISTRY_MIRROR_USERNAME")
+		originalPassword := os.Getenv("DOCKER_REGISTRY_MIRROR_PASSWORD")
 		t.Cleanup(func() {
-			os.Setenv("HARBOR_USER_NAME", originalUser)
-			os.Setenv("HARBOR_PASSWORD", originalPassword)
+			os.Setenv("DOCKER_REGISTRY_MIRROR", originalMirror)
+			os.Setenv("DOCKER_REGISTRY_MIRROR_USERNAME", originalUser)
+			os.Setenv("DOCKER_REGISTRY_MIRROR_PASSWORD", originalPassword)
 		})
 
-		os.Setenv("HARBOR_USER_NAME", "harbor-user")
-		os.Setenv("HARBOR_PASSWORD", "harbor-pass")
+		os.Setenv("DOCKER_REGISTRY_MIRROR", "registry.example.com")
+		os.Setenv("DOCKER_REGISTRY_MIRROR_USERNAME", "mirror-user")
+		os.Setenv("DOCKER_REGISTRY_MIRROR_PASSWORD", "mirror-pass")
 
-		config := NewHarborRegistry()
+		config := NewRegistry()
 
 		// Test path generation
 		imagePath := config.GetRegistryPath("mysql")
-		require.Equal(t, "hub.dev-rudder.rudderlabs.com/dockerhub-proxy/mysql", imagePath)
+		require.Equal(t, "registry.example.com/mysql", imagePath)
 
 		// Test authentication
 		auth := config.GetAuth()
-		require.Equal(t, "harbor-user", auth.Username)
-		require.Equal(t, "harbor-pass", auth.Password)
+		require.Equal(t, "mirror-user", auth.Username)
+		require.Equal(t, "mirror-pass", auth.Password)
 	})
 
 	t.Run("Docker Hub registry without authentication", func(t *testing.T) {
-		config := NewDockerHubRegistry()
+		// Unset environment variables to simulate Docker Hub usage
+		originalMirror := os.Getenv("DOCKER_REGISTRY_MIRROR")
+		originalUser := os.Getenv("DOCKER_REGISTRY_MIRROR_USERNAME")
+		originalPassword := os.Getenv("DOCKER_REGISTRY_MIRROR_PASSWORD")
+		t.Cleanup(func() {
+			os.Setenv("DOCKER_REGISTRY_MIRROR", originalMirror)
+			os.Setenv("DOCKER_REGISTRY_MIRROR_USERNAME", originalUser)
+			os.Setenv("DOCKER_REGISTRY_MIRROR_PASSWORD", originalPassword)
+		})
+
+		os.Unsetenv("DOCKER_REGISTRY_MIRROR")
+		os.Unsetenv("DOCKER_REGISTRY_MIRROR_USERNAME")
+		os.Unsetenv("DOCKER_REGISTRY_MIRROR_PASSWORD")
+
+		config := NewRegistry()
 
 		// Test path generation
 		imagePath := config.GetRegistryPath("postgres")
@@ -282,26 +236,12 @@ func TestRegistryConfig_Integration(t *testing.T) {
 		auth := config.GetAuth()
 		require.Equal(t, dc.AuthConfiguration{}, auth)
 	})
-
-	t.Run("Custom registry with authentication", func(t *testing.T) {
-		config := NewCustomRegistry("my-registry.com", "my-user", "my-pass")
-
-		// Test path generation
-		imagePath := config.GetRegistryPath("redis")
-		require.Equal(t, "my-registry.com/redis", imagePath)
-
-		// Test authentication
-		auth := config.GetAuth()
-		require.Equal(t, "my-user", auth.Username)
-		require.Equal(t, "my-pass", auth.Password)
-	})
 }
 
 // Benchmark tests for performance-critical operations
 func BenchmarkGetRegistryPath(b *testing.B) {
 	config := &RegistryConfig{
-		Type: RegistryHarbor,
-		URL:  "hub.dev-rudder.rudderlabs.com/dockerhub-proxy",
+		URL: "registry.example.com",
 	}
 
 	b.ResetTimer()

@@ -20,20 +20,6 @@ func WithNetwork(network *docker.Network) Option {
 	}
 }
 
-// WithRegistry allows to configure a custom registry
-func WithRegistry(registryConfig *registry.RegistryConfig) Option {
-	return func(c *config) {
-		c.registryConfig = registryConfig
-	}
-}
-
-// WithDockerHub allows to use Docker Hub registry
-func WithDockerHub() Option {
-	return func(c *config) {
-		c.registryConfig = registry.NewDockerHubRegistry()
-	}
-}
-
 type config struct {
 	tag            string
 	network        *docker.Network

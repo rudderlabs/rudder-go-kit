@@ -21,20 +21,6 @@ type config struct {
 	registryConfig *registry.RegistryConfig
 }
 
-// WithRegistry allows to configure a custom registry
-func WithRegistry(registryConfig *registry.RegistryConfig) Option {
-	return func(c *config) {
-		c.registryConfig = registryConfig
-	}
-}
-
-// WithDockerHub allows to use Docker Hub registry
-func WithDockerHub() Option {
-	return func(c *config) {
-		c.registryConfig = registry.NewDockerHubRegistry()
-	}
-}
-
 type Resource struct {
 	URL string
 
@@ -63,7 +49,7 @@ func (z *Resource) Purge() error {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	c := &config{
-		registryConfig: registry.NewHarborRegistry(),
+		registryConfig: registry.NewRegistry(),
 	}
 	for _, opt := range opts {
 		opt(c)

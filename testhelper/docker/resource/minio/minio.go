@@ -51,7 +51,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	c := &Config{
 		Tag:            "latest",
 		Options:        []string{},
-		RegistryConfig: registry.NewHarborRegistry(),
+		RegistryConfig: registry.NewRegistry(),
 	}
 	for _, opt := range opts {
 		opt(c)

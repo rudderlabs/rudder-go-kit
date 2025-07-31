@@ -7,60 +7,27 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 )
 
-type RegistryType uint8
-
-const (
-	RegistryHarbor RegistryType = iota
-	RegistryDockerHub
-	RegistryCustom
-)
-
 type RegistryConfig struct {
-	Type     RegistryType
 	URL      string
 	Username string
 	Password string
 }
 
-// NewHarborRegistry creates a new Harbor registry configuration
-func NewHarborRegistry() *RegistryConfig {
+// NewRegistry creates a registry configuration that uses a mirror if configured, otherwise Docker Hub
+func NewRegistry() *RegistryConfig {
 	return &RegistryConfig{
-		Type:     RegistryHarbor,
-		URL:      os.Getenv("HARBOR_URL"),
-		Username: os.Getenv("HARBOR_USER_NAME"),
-		Password: os.Getenv("HARBOR_PASSWORD"),
+		URL:      os.Getenv("DOCKER_REGISTRY_MIRROR"),
+		Username: os.Getenv("DOCKER_REGISTRY_MIRROR_USERNAME"),
+		Password: os.Getenv("DOCKER_REGISTRY_MIRROR_PASSWORD"),
 	}
 }
 
-// NewDockerHubRegistry creates a new Docker Hub registry configuration
-func NewDockerHubRegistry() *RegistryConfig {
-	return &RegistryConfig{
-		Type: RegistryDockerHub,
-	}
-}
-
-// NewCustomRegistry creates a new custom registry configuration
-func NewCustomRegistry(url, username, password string) *RegistryConfig {
-	return &RegistryConfig{
-		Type:     RegistryCustom,
-		URL:      url,
-		Username: username,
-		Password: password,
-	}
-}
-
-// GetImagePath returns the full image path based on registry type
+// GetRegistryPath returns the full image path based on whether a registry mirror is configured
 func (r *RegistryConfig) GetRegistryPath(image string) string {
-	switch r.Type {
-	case RegistryHarbor:
+	if r.URL != "" {
 		return fmt.Sprintf("%s/%s", r.URL, image)
-	case RegistryDockerHub:
-		return image
-	case RegistryCustom:
-		return fmt.Sprintf("%s/%s", r.URL, image)
-	default:
-		return image
 	}
+	return image
 }
 
 // GetAuth returns the authentication configuration for the registry

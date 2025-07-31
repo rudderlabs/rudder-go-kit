@@ -39,7 +39,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	c := &Config{
 		Tag:            "17-alpine",
 		ShmSize:        128 * bytesize.MB,
-		RegistryConfig: registry.NewHarborRegistry(),
+		RegistryConfig: registry.NewRegistry(),
 	}
 	for _, opt := range opts {
 		opt(c)

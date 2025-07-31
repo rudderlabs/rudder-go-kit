@@ -44,20 +44,6 @@ func WithRepository(repository string) Option {
 	}
 }
 
-// WithRegistry allows to configure a custom registry
-func WithRegistry(registryConfig *registry.RegistryConfig) Option {
-	return func(rc *redisConfig) {
-		rc.registryConfig = registryConfig
-	}
-}
-
-// WithDockerHub allows to use Docker Hub registry
-func WithDockerHub() Option {
-	return func(rc *redisConfig) {
-		rc.registryConfig = registry.NewDockerHubRegistry()
-	}
-}
-
 type Resource struct {
 	Addr string
 }
@@ -76,7 +62,7 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 	conf := redisConfig{
 		tag:            "6",
 		repository:     "redis",
-		registryConfig: registry.NewHarborRegistry(),
+		registryConfig: registry.NewRegistry(),
 	}
 	for _, opt := range opts {
 		opt(&conf)
