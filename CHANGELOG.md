@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.59.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.1...v0.59.2) (2025-07-31)
+
+
+### Miscellaneous
+
+* add sync.OnceEvery for performing actions at most once every interval ([#885](https://github.com/rudderlabs/rudder-go-kit/issues/885)) ([23dedda](https://github.com/rudderlabs/rudder-go-kit/commit/23deddafed3d47aa6763bc596c2e13c40339519b))
+* **deps:** bump cloud.google.com/go/storage from 1.55.0 to 1.56.0 in the frequent group ([#880](https://github.com/rudderlabs/rudder-go-kit/issues/880)) ([2401170](https://github.com/rudderlabs/rudder-go-kit/commit/2401170fba3f04c0db08e0aa2483d1c7fb16587e))
+* **deps:** bump github.com/docker/docker from 28.3.1+incompatible to 28.3.3+incompatible in the go_modules group ([#882](https://github.com/rudderlabs/rudder-go-kit/issues/882)) ([5e27c31](https://github.com/rudderlabs/rudder-go-kit/commit/5e27c311cf94012d06e873f8e1ce72f59e865d0e))
+* **deps:** bump the all group with 3 updates ([#884](https://github.com/rudderlabs/rudder-go-kit/issues/884)) ([2f5696e](https://github.com/rudderlabs/rudder-go-kit/commit/2f5696e890ead601eb17b557b9a7b6ef806cdfd4))
+* **deps:** bump the all group with 8 updates ([#881](https://github.com/rudderlabs/rudder-go-kit/issues/881)) ([0358a91](https://github.com/rudderlabs/rudder-go-kit/commit/0358a91d3c2f5629a2c561095c2aee779e790d53))
+
 ## [0.59.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.0...v0.59.1) (2025-07-25)
 
 
