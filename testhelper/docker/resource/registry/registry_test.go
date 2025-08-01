@@ -182,25 +182,3 @@ func TestIntegration(t *testing.T) {
 		require.Equal(t, dc.AuthConfiguration{}, auth)
 	})
 }
-
-// Benchmark tests for performance-critical operations
-func BenchmarkImagePath(b *testing.B) {
-	// Set up test environment
-	os.Setenv("DOCKER_REGISTRY_MIRROR", "registry.example.com")
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = ImagePath("mysql")
-	}
-}
-
-func BenchmarkAuthConfiguration(b *testing.B) {
-	// Set up test environment
-	os.Setenv("DOCKER_REGISTRY_MIRROR_USERNAME", "test-user")
-	os.Setenv("DOCKER_REGISTRY_MIRROR_PASSWORD", "test-password")
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		_ = AuthConfiguration()
-	}
-}

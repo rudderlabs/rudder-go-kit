@@ -15,11 +15,6 @@ import (
 
 const zipkinPort = "9411"
 
-type Option func(*config)
-
-type config struct {
-}
-
 type Resource struct {
 	URL string
 
@@ -46,12 +41,7 @@ func (z *Resource) Purge() error {
 	return nil
 }
 
-func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
-	c := &config{}
-	for _, opt := range opts {
-		opt(c)
-	}
-
+func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
 	zipkin, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   registry.ImagePath("openzipkin/zipkin"),
 		ExposedPorts: []string{zipkinPort + "/tcp"},
