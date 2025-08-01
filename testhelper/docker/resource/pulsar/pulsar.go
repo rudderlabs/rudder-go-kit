@@ -20,8 +20,7 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	c := &config{
-		tag:            "3.3.6",
-		registryConfig: registry.NewRegistry(),
+		tag: "3.3.6",
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -32,14 +31,14 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		networkID = c.network.ID
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   c.registryConfig.GetRegistryPath("apachepulsar/pulsar"),
+		Repository:   registry.ImagePath("apachepulsar/pulsar"),
 		Tag:          c.tag,
 		Env:          []string{},
 		ExposedPorts: []string{"6650/tcp", "8080/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}),
 		Cmd:          []string{"bin/pulsar", "standalone"},
 		NetworkID:    networkID,
-		Auth:         c.registryConfig.GetAuth(),
+		Auth:         registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot run pulsar container: %w", err)

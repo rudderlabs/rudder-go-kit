@@ -49,9 +49,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	)
 
 	c := &Config{
-		Tag:            "latest",
-		Options:        []string{},
-		RegistryConfig: registry.NewRegistry(),
+		Tag:     "latest",
+		Options: []string{},
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -63,11 +62,11 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	}
 
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: c.RegistryConfig.GetRegistryPath("minio/minio"),
+		Repository: registry.ImagePath("minio/minio"),
 		Tag:        c.Tag,
 		NetworkID:  networkID,
 		Cmd:        []string{"server", "/data"},
-		Auth:       c.RegistryConfig.GetAuth(),
+		Auth:       registry.AuthConfiguration(),
 		Env: append([]string{
 			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
 			fmt.Sprintf("MINIO_SECRET_KEY=%s", secretAccessKey),

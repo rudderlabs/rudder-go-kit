@@ -2,8 +2,6 @@ package minio
 
 import (
 	"github.com/ory/dockertest/v3/docker"
-
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 type Opt func(*Config)
@@ -33,9 +31,8 @@ func WithBindIP(ip string) Opt {
 }
 
 type Config struct {
-	Tag            string
-	Network        *docker.Network
-	Options        []string
-	BindIP         string
-	RegistryConfig *registry.RegistryConfig
+	Tag     string
+	Network *docker.Network
+	Options []string
+	BindIP  string
 }

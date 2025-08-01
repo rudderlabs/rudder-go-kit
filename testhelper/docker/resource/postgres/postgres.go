@@ -37,9 +37,8 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	c := &Config{
-		Tag:            "17-alpine",
-		ShmSize:        128 * bytesize.MB,
-		RegistryConfig: registry.NewRegistry(),
+		Tag:     "17-alpine",
+		ShmSize: 128 * bytesize.MB,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -51,7 +50,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	}
 	// pulls an image, creates a container based on it and runs it
 	postgresContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: c.RegistryConfig.GetRegistryPath("postgres"),
+		Repository: registry.ImagePath("postgres"),
 		Tag:        c.Tag,
 		NetworkID:  c.NetworkID,
 		Env: []string{
@@ -60,7 +59,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"POSTGRES_USER=" + postgresDefaultUser,
 		},
 		Cmd:          cmd,
-		Auth:         c.RegistryConfig.GetAuth(),
+		Auth:         registry.AuthConfiguration(),
 		PortBindings: internal.IPv4PortBindings([]string{"5432"}, internal.WithBindIP(c.BindIP)),
 	}, func(hc *docker.HostConfig) {
 		hc.ShmSize = c.ShmSize

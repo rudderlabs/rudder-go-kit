@@ -18,7 +18,6 @@ const zipkinPort = "9411"
 type Option func(*config)
 
 type config struct {
-	registryConfig *registry.RegistryConfig
 }
 
 type Resource struct {
@@ -48,18 +47,16 @@ func (z *Resource) Purge() error {
 }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
-	c := &config{
-		registryConfig: registry.NewRegistry(),
-	}
+	c := &config{}
 	for _, opt := range opts {
 		opt(c)
 	}
 
 	zipkin, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   c.registryConfig.GetRegistryPath("openzipkin/zipkin"),
+		Repository:   registry.ImagePath("openzipkin/zipkin"),
 		ExposedPorts: []string{zipkinPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{zipkinPort}),
-		Auth:         c.registryConfig.GetAuth(),
+		Auth:         registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start zipkin: %w", err)

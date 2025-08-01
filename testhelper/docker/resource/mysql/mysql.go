@@ -30,8 +30,7 @@ type Resource struct {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*Resource, error) {
 	c := &Config{
-		Tag:            "8.2",
-		RegistryConfig: registry.NewRegistry(),
+		Tag: "8.2",
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -39,7 +38,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 
 	// pulls an image, creates a container based on it and runs it
 	mysqlContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: c.RegistryConfig.GetRegistryPath("mysql"),
+		Repository: registry.ImagePath("mysql"),
 		Tag:        c.Tag,
 		Env: []string{
 			"MYSQL_ROOT_PASSWORD=" + defaultPassword,
@@ -47,7 +46,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		},
 		ExposedPorts: []string{"3306/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"3306"}),
-		Auth:         c.RegistryConfig.GetAuth(),
+		Auth:         registry.AuthConfiguration(),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
 	}, internal.DefaultHostConfig)

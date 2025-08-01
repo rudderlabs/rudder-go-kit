@@ -142,12 +142,11 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		opt(conf)
 	}
 
-	reg := registry.NewRegistry()
-	imageRepository := reg.GetRegistryPath(conf.repository)
+	imageRepository := registry.ImagePath(conf.repository)
 	if err := pool.Client.PullImage(docker.PullImageOptions{
 		Repository: imageRepository,
 		Tag:        conf.tag,
-	}, reg.GetAuth()); err != nil {
+	}, registry.AuthConfiguration()); err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
@@ -162,7 +161,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 		NetworkID:    networkID,
-		Auth:         reg.GetAuth(),
+		Auth:         registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err

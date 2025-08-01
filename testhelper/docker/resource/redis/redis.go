@@ -51,30 +51,28 @@ type Resource struct {
 type Option func(*redisConfig)
 
 type redisConfig struct {
-	repository     string
-	tag            string
-	envs           []string
-	cmdArgs        []string
-	registryConfig *registry.RegistryConfig
+	repository string
+	tag        string
+	envs       []string
+	cmdArgs    []string
 }
 
 func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	conf := redisConfig{
-		tag:            "6",
-		repository:     "redis",
-		registryConfig: registry.NewRegistry(),
+		tag:        "6",
+		repository: "redis",
 	}
 	for _, opt := range opts {
 		opt(&conf)
 	}
 	runOptions := &dockertest.RunOptions{
-		Repository:   conf.registryConfig.GetRegistryPath(conf.repository),
+		Repository:   registry.ImagePath(conf.repository),
 		Tag:          conf.tag,
 		Env:          conf.envs,
 		Cmd:          []string{"redis-server"},
 		ExposedPorts: []string{redisPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{redisPort}),
-		Auth:         conf.registryConfig.GetAuth(),
+		Auth:         registry.AuthConfiguration(),
 	}
 	if len(conf.cmdArgs) > 0 {
 		runOptions.Cmd = append(runOptions.Cmd, conf.cmdArgs...)

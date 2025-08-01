@@ -2,8 +2,6 @@ package pulsar
 
 import (
 	"github.com/ory/dockertest/v3/docker"
-
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 type Option func(*config)
@@ -21,7 +19,6 @@ func WithNetwork(network *docker.Network) Option {
 }
 
 type config struct {
-	tag            string
-	network        *docker.Network
-	registryConfig *registry.RegistryConfig
+	tag     string
+	network *docker.Network
 }

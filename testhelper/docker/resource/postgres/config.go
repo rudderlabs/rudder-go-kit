@@ -2,8 +2,6 @@ package postgres
 
 import (
 	"github.com/ory/dockertest/v3/docker"
-
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 type Opt func(*Config)
@@ -65,5 +63,4 @@ type Config struct {
 	PrintLogsOnError bool
 	NetworkID        string
 	BindIP           string
-	RegistryConfig   *registry.RegistryConfig
 }
