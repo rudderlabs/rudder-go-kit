@@ -14,6 +14,7 @@ import (
 	dockertesthelper "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const transformerPort = "9090/tcp"
@@ -135,17 +136,17 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 			"CONFIG_BACKEND_URL=https://api.rudderstack.com",
 			"NODE_OPTIONS=--no-node-snapshot",
 		},
-		authConfig: docker.AuthConfiguration{},
 	}
 
 	for _, opt := range opts {
 		opt(conf)
 	}
 
+	imageRepository := registry.ImagePath(conf.repository)
 	if err := pool.Client.PullImage(docker.PullImageOptions{
-		Repository: conf.repository,
+		Repository: imageRepository,
 		Tag:        conf.tag,
-	}, conf.authConfig); err != nil {
+	}, registry.AuthConfiguration()); err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
@@ -154,13 +155,13 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		networkID = conf.network.ID
 	}
 	transformerContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   conf.repository,
+		Repository:   imageRepository,
 		Tag:          conf.tag,
 		PortBindings: internal.IPv4PortBindings(conf.exposedPorts, internal.WithBindIP(conf.bindIP)),
 		Env:          conf.envs,
 		ExtraHosts:   conf.extraHosts,
 		NetworkID:    networkID,
-		Auth:         conf.authConfig,
+		Auth:         registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, err

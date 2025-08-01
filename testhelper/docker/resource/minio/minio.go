@@ -21,6 +21,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 type Resource struct {
@@ -61,10 +62,11 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	}
 
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "minio/minio",
+		Repository: registry.ImagePath("minio/minio"),
 		Tag:        c.Tag,
 		NetworkID:  networkID,
 		Cmd:        []string{"server", "/data"},
+		Auth:       registry.AuthConfiguration(),
 		Env: append([]string{
 			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
 			fmt.Sprintf("MINIO_SECRET_KEY=%s", secretAccessKey),

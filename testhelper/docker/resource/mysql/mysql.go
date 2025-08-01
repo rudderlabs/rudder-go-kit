@@ -10,6 +10,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const (
@@ -37,7 +38,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 
 	// pulls an image, creates a container based on it and runs it
 	mysqlContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "mysql",
+		Repository: registry.ImagePath("mysql"),
 		Tag:        c.Tag,
 		Env: []string{
 			"MYSQL_ROOT_PASSWORD=" + defaultPassword,
@@ -45,6 +46,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		},
 		ExposedPorts: []string{"3306/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"3306"}),
+		Auth:         registry.AuthConfiguration(),
 	}, func(hc *dc.HostConfig) {
 		hc.ShmSize = c.ShmSize
 	}, internal.DefaultHostConfig)

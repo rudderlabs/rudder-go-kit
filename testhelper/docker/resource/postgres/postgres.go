@@ -13,6 +13,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const (
@@ -49,7 +50,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	}
 	// pulls an image, creates a container based on it and runs it
 	postgresContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "postgres",
+		Repository: registry.ImagePath("postgres"),
 		Tag:        c.Tag,
 		NetworkID:  c.NetworkID,
 		Env: []string{
@@ -58,6 +59,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 			"POSTGRES_USER=" + postgresDefaultUser,
 		},
 		Cmd:          cmd,
+		Auth:         registry.AuthConfiguration(),
 		PortBindings: internal.IPv4PortBindings([]string{"5432"}, internal.WithBindIP(c.BindIP)),
 	}, func(hc *docker.HostConfig) {
 		hc.ShmSize = c.ShmSize
