@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.2...v0.59.3) (2025-08-03)
+
+
+### Miscellaneous
+
+* use harbor for tests ([#879](https://github.com/rudderlabs/rudder-go-kit/issues/879)) ([692305f](https://github.com/rudderlabs/rudder-go-kit/commit/692305f04e0bd0ad1afd846e1398538945de59e9))
+
 ## [0.59.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.1...v0.59.2) (2025-07-31)
 
 
