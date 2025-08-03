@@ -94,6 +94,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		mounts = []string{c.publicKeyPath + ":/test_key.pub"}
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
+		// not proxying lscr.io
 		Repository: "lscr.io/linuxserver/openssh-server",
 		Tag:        "9.3_p2-r1-ls145",
 		NetworkID:  network.ID,

@@ -11,6 +11,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const redisPort = "6379"
@@ -65,12 +66,13 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		opt(&conf)
 	}
 	runOptions := &dockertest.RunOptions{
-		Repository:   conf.repository,
+		Repository:   registry.ImagePath(conf.repository),
 		Tag:          conf.tag,
 		Env:          conf.envs,
 		Cmd:          []string{"redis-server"},
 		ExposedPorts: []string{redisPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{redisPort}),
+		Auth:         registry.AuthConfiguration(),
 	}
 	if len(conf.cmdArgs) > 0 {
 		runOptions.Cmd = append(runOptions.Cmd, conf.cmdArgs...)

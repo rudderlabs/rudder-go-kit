@@ -10,6 +10,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const zipkinPort = "9411"
@@ -42,9 +43,10 @@ func (z *Resource) Purge() error {
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
 	zipkin, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   "openzipkin/zipkin",
+		Repository:   registry.ImagePath("openzipkin/zipkin"),
 		ExposedPorts: []string{zipkinPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{zipkinPort}),
+		Auth:         registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start zipkin: %w", err)

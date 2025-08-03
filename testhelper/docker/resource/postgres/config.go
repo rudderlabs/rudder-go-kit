@@ -1,6 +1,8 @@
 package postgres
 
-import "github.com/ory/dockertest/v3/docker"
+import (
+	"github.com/ory/dockertest/v3/docker"
+)
 
 type Opt func(*Config)
 

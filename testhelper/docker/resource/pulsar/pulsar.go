@@ -8,6 +8,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 type Resource struct {
@@ -30,13 +31,14 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		networkID = c.network.ID
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   "apachepulsar/pulsar",
+		Repository:   registry.ImagePath("apachepulsar/pulsar"),
 		Tag:          c.tag,
 		Env:          []string{},
 		ExposedPorts: []string{"6650/tcp", "8080/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}),
 		Cmd:          []string{"bin/pulsar", "standalone"},
 		NetworkID:    networkID,
+		Auth:         registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot run pulsar container: %w", err)
