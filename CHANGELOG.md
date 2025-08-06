@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.3...v0.59.4) (2025-08-06)
+
+
+### Bug Fixes
+
+* in-memory gcra throttling cache not using a composite key ([#892](https://github.com/rudderlabs/rudder-go-kit/issues/892)) ([556402f](https://github.com/rudderlabs/rudder-go-kit/commit/556402fb1e261ee1a1c2079523d61b3978e7c92e))
+
 ## [0.59.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.2...v0.59.3) (2025-08-03)
 
 
