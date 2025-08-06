@@ -3,6 +3,7 @@ package throttling
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -43,7 +44,8 @@ func (g *gcra) getLimiter(key string, burst, rate, period int64) (*throttled.GCR
 		g.store = cachettl.New[string, *throttled.GCRARateLimiterCtx]()
 	}
 
-	rl := g.store.Get(key)
+	cacheKey := key + ":" + strconv.FormatInt(burst, 10) + ":" + strconv.FormatInt(rate, 10) + ":" + strconv.FormatInt(period, 10)
+	rl := g.store.Get(cacheKey)
 	if rl == nil {
 		var err error
 		rl, err = throttled.NewGCRARateLimiterCtx(newGCRAMemStore(), throttled.RateQuota{
@@ -56,7 +58,7 @@ func (g *gcra) getLimiter(key string, burst, rate, period int64) (*throttled.GCR
 		rl.SetMaxCASAttemptsLimit(defaultMaxCASAttemptsLimit)
 		// rate limiter should be cached for (burst/rate)*period seconds
 		// e.g. if burst is 100 and rate is 10/sec, then the rate limiter should be cached for 10 seconds
-		g.store.Put(key, rl, time.Duration((burst/rate)*period)*time.Second)
+		g.store.Put(cacheKey, rl, time.Duration((burst/rate)*period)*time.Second)
 	}
 
 	return rl, nil
