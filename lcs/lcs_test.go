@@ -118,7 +118,6 @@ func TestCalculateSimilarityWithOptions(t *testing.T) {
 			opts: lcs.Options{
 				CaseSensitive: true,
 				MaxLength:     1000,
-				Threshold:     0.7,
 			},
 			expected: 0.818, // Different case, but still some similarity
 		},
@@ -129,7 +128,6 @@ func TestCalculateSimilarityWithOptions(t *testing.T) {
 			opts: lcs.Options{
 				CaseSensitive: false,
 				MaxLength:     1000,
-				Threshold:     0.7,
 			},
 			expected: 1.0, // Same after case conversion
 		},
@@ -140,7 +138,6 @@ func TestCalculateSimilarityWithOptions(t *testing.T) {
 			opts: lcs.Options{
 				CaseSensitive: false,
 				MaxLength:     10,
-				Threshold:     0.7,
 			},
 			expected: 1.0, // Truncated to same string
 		},
@@ -190,22 +187,20 @@ func TestSimilarMessageExistsWithOptions(t *testing.T) {
 	opts := lcs.Options{
 		CaseSensitive: true,
 		MaxLength:     1000,
-		Threshold:     0.8,
 	}
 
 	target := "Hello World"
 
 	// Should find exact case match
-	exists := lcs.SimilarMessageExistsWithOptions(target, messages, opts)
+	exists := lcs.SimilarMessageExistsWithOptions(target, messages, 0.8, opts)
 	require.True(t, exists, "Should find exact case match")
 
 	// Should find case-insensitive match with case-sensitive option and high threshold (actual similarity is 0.818)
-	exists = lcs.SimilarMessageExistsWithOptions("hello world", messages, opts)
+	exists = lcs.SimilarMessageExistsWithOptions("hello world", messages, 0.8, opts)
 	require.True(t, exists, "Should find case-insensitive match with case-sensitive option and high threshold")
 
 	// Should find exact match with case-sensitive option and very high threshold (similarity is 1.0 >= 0.9)
-	opts.Threshold = 0.9
-	exists = lcs.SimilarMessageExistsWithOptions("hello world", messages, opts)
+	exists = lcs.SimilarMessageExistsWithOptions("hello world", messages, 0.9, opts)
 	require.True(t, exists, "Should find exact match with case-sensitive option and very high threshold")
 }
 
@@ -226,20 +221,17 @@ func TestSimilarMessageExistsEdgeCases(t *testing.T) {
 
 	// Test with very low threshold (should find any message with similarity > 0.1)
 	opts := lcs.DefaultOptions()
-	opts.Threshold = 0.1
-	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, opts)
+	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, 0.1, opts)
 	require.True(t, exists, "Should find similar message with very low threshold")
 
 	// Test with very high threshold (should not find similar but not identical)
 	opts = lcs.DefaultOptions()
-	opts.Threshold = 0.99
-	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, opts)
+	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, 0.99, opts)
 	require.False(t, exists, "Should not find similar message with very high threshold")
 
 	// Test with moderate threshold (should find similar message)
 	opts = lcs.DefaultOptions()
-	opts.Threshold = 0.7
-	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, opts)
+	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, 0.7, opts)
 	require.True(t, exists, "Should find similar message with moderate threshold")
 }
 
@@ -248,7 +240,6 @@ func TestDefaultOptions(t *testing.T) {
 
 	require.Equal(t, 150, opts.MaxLength)
 	require.False(t, opts.CaseSensitive)
-	require.Equal(t, 0.75, opts.Threshold)
 	require.True(t, opts.WordBased)
 }
 

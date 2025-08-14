@@ -1,12 +1,12 @@
 # LCS (Longest Common Subsequence) Similarity Package
 
-This package provides utilities for calculating string similarity using the Longest Common Subsequence (LCS) algorithm. It's designed for comparing error messages and identifying similar errors for deduplication purposes.
+This package provides utilities for calculating string similarity using the Longest Common Subsequence (LCS) algorithm.
 
-**Key Feature**: By default, this package uses **word-based comparison** rather than character-based comparison, which is more meaningful for error message analysis.
+**Key Feature**: By default, this package uses **word-based comparison** rather than character-based comparison, which is more meaningful for structural comparison.
 
 ## Features
 
-- **Word-based LCS similarity calculation** (default) - more meaningful for error messages
+- **Word-based LCS similarity calculation** (default) - more meaningful for structural comparison
 - **Character-based LCS similarity calculation** (optional) - for fine-grained comparison
 - **Case-sensitive and case-insensitive** comparison modes
 - **Configurable length limits** to prevent performance issues
@@ -71,10 +71,9 @@ Checks if a similar message exists with custom configuration options.
 
 ```go
 type Options struct {
-    MaxLength     int     // Maximum character length to process (default: 150)
-    CaseSensitive bool    // Whether to consider case (default: false)
-    Threshold     float64 // Default similarity threshold (default: 0.75)
-    WordBased     bool    // Whether to use word-based comparison (default: true)
+    MaxLength     int     // Maximum character length to process
+    CaseSensitive bool    // Whether to consider case
+    WordBased     bool    // Whether to use word-based comparison
 }
 ```
 
@@ -93,7 +92,7 @@ Where:
 
 ### Word-based vs Character-based Comparison
 
-**Word-based (default)**: Splits strings into words using `strings.Fields()` and compares word sequences. This is more meaningful for error messages as it focuses on structural similarity rather than character-level differences.
+**Word-based (default)**: Splits strings into words using `strings.Fields()` and compares word sequences. This is more meaningful for structural comparison as it focuses on structural similarity rather than character-level differences.
 
 **Character-based**: Compares individual characters. Useful for fine-grained similarity analysis.
 

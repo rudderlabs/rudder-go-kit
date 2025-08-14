@@ -6,10 +6,9 @@ import (
 
 // Options for LCS calculation
 type Options struct {
-	MaxLength     int     // Maximum character length to process (default: 150)
-	CaseSensitive bool    // Whether to consider case (default: false)
-	Threshold     float64 // Default similarity threshold (default: 0.7)
-	WordBased     bool    // Whether to use word-based comparison (default: true)
+	MaxLength     int  // Maximum character length to process
+	CaseSensitive bool // Whether to consider case
+	WordBased     bool // Whether to use word-based comparison
 }
 
 // DefaultOptions returns default configuration options
@@ -17,7 +16,6 @@ func DefaultOptions() Options {
 	return Options{
 		MaxLength:     150,
 		CaseSensitive: false,
-		Threshold:     0.75,
 		WordBased:     true,
 	}
 }
@@ -77,11 +75,11 @@ func calculateSimilarityFromSequences[T comparable](seq1, seq2 []T) float64 {
 
 // SimilarMessageExists checks if a similar message already exists in the given set
 func SimilarMessageExists(target string, messages []string) bool {
-	return SimilarMessageExistsWithOptions(target, messages, DefaultOptions())
+	return SimilarMessageExistsWithOptions(target, messages, 0.75, DefaultOptions())
 }
 
 // SimilarMessageExistsWithOptions checks if a similar message exists with custom options
-func SimilarMessageExistsWithOptions(target string, messages []string, opts Options) bool {
+func SimilarMessageExistsWithOptions(target string, messages []string, threshold float64, opts Options) bool {
 	if len(messages) == 0 {
 		return false
 	}
@@ -89,7 +87,7 @@ func SimilarMessageExistsWithOptions(target string, messages []string, opts Opti
 	// Check each message and return true as soon as we find one that meets the threshold
 	for _, message := range messages {
 		similarity := CalculateSimilarityWithOptions(target, message, opts)
-		if similarity >= opts.Threshold {
+		if similarity >= threshold {
 			return true
 		}
 	}
