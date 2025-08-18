@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.60.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.4...v0.60.0) (2025-08-18)
+
+
+### Features
+
+* add LCS similarity package for error message deduplication ([#898](https://github.com/rudderlabs/rudder-go-kit/issues/898)) ([bbed7c9](https://github.com/rudderlabs/rudder-go-kit/commit/bbed7c9e062a0b919cd5dbd0378b05689fa2698d))
+
 ## [0.59.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.3...v0.59.4) (2025-08-06)
 
 
