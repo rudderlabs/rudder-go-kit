@@ -7,7 +7,7 @@ require (
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/DataDog/zstd v1.5.7
-	github.com/apache/pulsar-client-go v0.15.1
+	github.com/apache/pulsar-client-go v0.16.0
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2 v1.37.0
 	github.com/aws/aws-sdk-go-v2/config v1.30.1
