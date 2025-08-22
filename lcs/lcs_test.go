@@ -8,7 +8,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/lcs"
 )
 
-func TestCalculateSimilarity(t *testing.T) {
+func TestSimilarity(t *testing.T) {
 	testCases := []struct {
 		name        string
 		str1        string
@@ -22,13 +22,6 @@ func TestCalculateSimilarity(t *testing.T) {
 			str2:        "hello world",
 			expected:    1.0,
 			description: "Identical strings should have 100% similarity",
-		},
-		{
-			name:        "Case insensitive exact match",
-			str1:        "Hello World",
-			str2:        "hello world",
-			expected:    1.0,
-			description: "Case-insensitive identical strings should have 100% similarity",
 		},
 		{
 			name:        "Empty strings",
@@ -76,7 +69,7 @@ func TestCalculateSimilarity(t *testing.T) {
 			name:        "GA4 validation errors",
 			str1:        "Validation Server Response Handler Validation Error for of field path events params NAME_INVALID Event param string_value hometogo has invalid name utm_campaign last touch Only alphanumeric characters and underscores are allowed",
 			str2:        "Validation Server Response Handler Validation Error for of field path events params NAME_INVALID Event param string_value housinganywhere has invalid name utm_term last touch Only alphanumeric characters and underscores are allowed",
-			expected:    0.9, // Very high similarity due to common structure (word-based, truncated to 150 chars)
+			expected:    0.933, // Very high similarity due to common structure (word-based)
 			description: "Similar GA4 validation error messages should have high similarity",
 		},
 		{
@@ -97,150 +90,10 @@ func TestCalculateSimilarity(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := lcs.CalculateSimilarity(tc.str1, tc.str2)
-			require.InDelta(t, tc.expected, result, 0.001, tc.description)
+			similarity := lcs.Similarity(tc.str1, tc.str2)
+			require.InDelta(t, tc.expected, similarity, 0.001, "Similarity score mismatch: "+tc.description)
 		})
 	}
-}
-
-func TestCalculateSimilarityWithOptions(t *testing.T) {
-	testCases := []struct {
-		name     string
-		str1     string
-		str2     string
-		opts     lcs.Options
-		expected float64
-	}{
-		{
-			name: "Case sensitive",
-			str1: "Hello World",
-			str2: "hello world",
-			opts: lcs.Options{
-				CaseSensitive: true,
-				MaxLength:     1000,
-			},
-			expected: 0.818, // Different case, but still some similarity
-		},
-		{
-			name: "Case insensitive",
-			str1: "Hello World",
-			str2: "hello world",
-			opts: lcs.Options{
-				CaseSensitive: false,
-				MaxLength:     1000,
-			},
-			expected: 1.0, // Same after case conversion
-		},
-		{
-			name: "Length limit applied",
-			str1: "very long string that exceeds the limit",
-			str2: "very long string that exceeds the limit",
-			opts: lcs.Options{
-				CaseSensitive: false,
-				MaxLength:     10,
-			},
-			expected: 1.0, // Truncated to same string
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := lcs.CalculateSimilarityWithOptions(tc.str1, tc.str2, tc.opts)
-			require.InDelta(t, tc.expected, result, 0.001)
-		})
-	}
-}
-
-func TestSimilarMessageExists(t *testing.T) {
-	messages := []string{
-		"Event name login is not valid must be mapped to one of standard events",
-		"Event name logout is not valid must be mapped to one of standard events",
-		"Message type not supported",
-		"Validation error occurred",
-	}
-
-	target := "Event name login is not valid must be mapped to one of standard events"
-
-	// Should find exact match (using default threshold of 0.75)
-	exists := lcs.SimilarMessageExists(target, messages)
-	require.True(t, exists, "Should find exact match")
-
-	// Should find similar message (using default threshold of 0.75)
-	similarTarget := "Event name logout is not valid must be mapped to one of standard events"
-	exists = lcs.SimilarMessageExists(similarTarget, messages)
-	require.True(t, exists, "Should find similar message")
-
-	// Should not find completely different message (using default threshold of 0.75)
-	differentTarget := "Completely different error message"
-	exists = lcs.SimilarMessageExists(differentTarget, messages)
-	require.False(t, exists, "Should not find completely different message")
-}
-
-func TestSimilarMessageExistsWithOptions(t *testing.T) {
-	messages := []string{
-		"Hello World",
-		"hello world",
-		"HELLO WORLD",
-		"Goodbye World",
-	}
-
-	opts := lcs.Options{
-		CaseSensitive: true,
-		MaxLength:     1000,
-	}
-
-	target := "Hello World"
-
-	// Should find exact case match
-	exists := lcs.SimilarMessageExistsWithOptions(target, messages, 0.8, opts)
-	require.True(t, exists, "Should find exact case match")
-
-	// Should find case-insensitive match with case-sensitive option and high threshold (actual similarity is 0.818)
-	exists = lcs.SimilarMessageExistsWithOptions("hello world", messages, 0.8, opts)
-	require.True(t, exists, "Should find case-insensitive match with case-sensitive option and high threshold")
-
-	// Should find exact match with case-sensitive option and very high threshold (similarity is 1.0 >= 0.9)
-	exists = lcs.SimilarMessageExistsWithOptions("hello world", messages, 0.9, opts)
-	require.True(t, exists, "Should find exact match with case-sensitive option and very high threshold")
-}
-
-func TestSimilarMessageExistsEmptyList(t *testing.T) {
-	exists := lcs.SimilarMessageExists("test", []string{})
-	require.False(t, exists, "Should return false for empty message list")
-}
-
-func TestSimilarMessageExistsEdgeCases(t *testing.T) {
-	messages := []string{
-		"Event name login is not valid",
-		"Event name logout is not valid",
-	}
-
-	// Test with exact same message (using default threshold of 0.75)
-	exists := lcs.SimilarMessageExists(messages[0], messages)
-	require.True(t, exists, "Should find exact same message")
-
-	// Test with very low threshold (should find any message with similarity > 0.1)
-	opts := lcs.DefaultOptions()
-	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, 0.1, opts)
-	require.True(t, exists, "Should find similar message with very low threshold")
-
-	// Test with very high threshold (should not find similar but not identical)
-	opts = lcs.DefaultOptions()
-	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, 0.99, opts)
-	require.False(t, exists, "Should not find similar message with very high threshold")
-
-	// Test with moderate threshold (should find similar message)
-	opts = lcs.DefaultOptions()
-	exists = lcs.SimilarMessageExistsWithOptions("Event name signup is not valid", messages, 0.7, opts)
-	require.True(t, exists, "Should find similar message with moderate threshold")
-}
-
-func TestDefaultOptions(t *testing.T) {
-	opts := lcs.DefaultOptions()
-
-	require.Equal(t, 150, opts.MaxLength)
-	require.False(t, opts.CaseSensitive)
-	require.True(t, opts.WordBased)
 }
 
 func TestEdgeCases(t *testing.T) {
@@ -249,42 +102,66 @@ func TestEdgeCases(t *testing.T) {
 	longStr2 := string(make([]byte, 2000)) // 2000 bytes
 
 	// Should not panic and should handle length limits
-	similarity := lcs.CalculateSimilarity(longStr1, longStr2)
+	similarity := lcs.Similarity(longStr1, longStr2)
 	require.GreaterOrEqual(t, similarity, 0.0)
 	require.LessOrEqual(t, similarity, 1.0)
 
 	// Test with special characters
 	specialStr1 := "Hello\n\t\rWorld!@#$%^&*()"
 	specialStr2 := "Hello\n\t\rWorld!@#$%^&*()"
-	similarity = lcs.CalculateSimilarity(specialStr1, specialStr2)
+	similarity = lcs.Similarity(specialStr1, specialStr2)
 	require.Equal(t, 1.0, similarity)
 
 	// Test with unicode characters
 	unicodeStr1 := "Hello 世界"
 	unicodeStr2 := "Hello 世界"
-	similarity = lcs.CalculateSimilarity(unicodeStr1, unicodeStr2)
+	similarity = lcs.Similarity(unicodeStr1, unicodeStr2)
 	require.Equal(t, 1.0, similarity)
 }
 
-func TestWordBasedVsCharacterBased(t *testing.T) {
-	str1 := "hello world"
-	str2 := "hello there"
+// TestDPTableBranches tests all branches in the DP table filling logic
+func TestDPTableBranches(t *testing.T) {
+	// Test case where dp[i-1][j] > dp[i][j-1]
+	// This should trigger the "else if dp[i-1][j] >= dp[i][j-1]" branch
+	str1 := "a b c d"
+	str2 := "a x c y"
+	similarity := lcs.Similarity(str1, str2)
+	require.Greater(t, similarity, 0.0)
+	require.Less(t, similarity, 1.0)
 
-	// Word-based comparison (default)
-	wordSimilarity := lcs.CalculateSimilarity(str1, str2)
-	require.Equal(t, 0.5, wordSimilarity) // 1 common word out of 2 words each
+	// Test case where dp[i][j-1] > dp[i-1][j]
+	// This should trigger the "else" branch
+	str3 := "a b c d e"
+	str4 := "a b x d e"
+	similarity2 := lcs.Similarity(str3, str4)
+	require.Greater(t, similarity2, 0.0)
+	require.Less(t, similarity2, 1.0)
 
-	// Character-based comparison
-	opts := lcs.Options{WordBased: false, MaxLength: 1000}
-	charSimilarity := lcs.CalculateSimilarityWithOptions(str1, str2, opts)
-	require.Greater(t, charSimilarity, wordSimilarity) // Character-based should be higher
+	// Test case where dp[i-1][j] == dp[i][j-1]
+	// This should trigger the "else if dp[i-1][j] >= dp[i][j-1]" branch
+	str5 := "a b c"
+	str6 := "a x c"
+	similarity3 := lcs.Similarity(str5, str6)
+	require.Greater(t, similarity3, 0.0)
+	require.Less(t, similarity3, 1.0)
+}
 
-	// Test with longer strings
-	longStr1 := "Event name login is not valid must be mapped to one of standard events"
-	longStr2 := "Event name logout is not valid must be mapped to one of standard events"
+// TestEmptyAndWhitespaceStrings tests edge cases with empty and whitespace strings
+func TestEmptyAndWhitespaceStrings(t *testing.T) {
+	// Test with whitespace-only strings
+	whitespace1 := "   \t\n\r   "
+	whitespace2 := "   \t\n\r   "
+	similarity := lcs.Similarity(whitespace1, whitespace2)
+	require.Equal(t, 1.0, similarity) // Both are empty after strings.Fields()
 
-	wordSimilarityLong := lcs.CalculateSimilarity(longStr1, longStr2)
-	charSimilarityLong := lcs.CalculateSimilarityWithOptions(longStr1, longStr2, opts)
+	// Test with one whitespace string and one normal string
+	normal := "hello world"
+	similarity2 := lcs.Similarity(whitespace1, normal)
+	require.Equal(t, 0.0, similarity2) // One empty after strings.Fields()
 
-	require.Greater(t, charSimilarityLong, wordSimilarityLong) // Character-based should be higher for longer strings
+	// Test with mixed whitespace and content
+	mixed1 := "  hello  world  "
+	mixed2 := "hello world"
+	similarity3 := lcs.Similarity(mixed1, mixed2)
+	require.Equal(t, 1.0, similarity3) // Should be identical after strings.Fields()
 }
