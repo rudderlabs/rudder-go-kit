@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.60.0...v0.61.0) (2025-08-22)
+
+
+### Features
+
+* complete LCS implementation with 100% test coverage ([#903](https://github.com/rudderlabs/rudder-go-kit/issues/903)) ([88c1ba0](https://github.com/rudderlabs/rudder-go-kit/commit/88c1ba02045a90db57e5add5dd4852e01d4fcbca))
+
 ## [0.60.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.59.4...v0.60.0) (2025-08-18)
 
 
