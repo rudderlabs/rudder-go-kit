@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.61.0...v0.61.1) (2025-08-28)
+
+
+### Miscellaneous
+
+* switch from bitnami to bitnamilegacy docker images ([#912](https://github.com/rudderlabs/rudder-go-kit/issues/912)) ([d34c321](https://github.com/rudderlabs/rudder-go-kit/commit/d34c3212662d63460979759efda5216329251331))
+
 ## [0.61.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.60.0...v0.61.0) (2025-08-22)
 
 
