@@ -43,7 +43,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		networkID = c.network.ID
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "bitnami/etcd",
+		Repository: "bitnamilegacy/etcd",
 		Tag:        "3.5",
 		NetworkID:  networkID,
 		Env: []string{
