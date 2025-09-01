@@ -8,26 +8,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/minio/minio-go/v7"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rudderlabs/rudder-go-kit/awsutil"
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	miniotest "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/minio"
 )
 
 func TestNewS3ManagerWithNil(t *testing.T) {
-	s3Manager, err := newS3ManagerV1(nil, nil, logger.NOP, func() time.Duration { return time.Minute })
+	s3Manager, err := NewS3Manager(nil, nil, logger.NOP, func() time.Duration { return time.Minute })
 	assert.EqualError(t, err, "config should not be nil")
 	assert.Nil(t, s3Manager)
 }
 
 func TestNewS3ManagerWithAccessKeys(t *testing.T) {
-	s3Manager, err := newS3ManagerV1(config.Default, map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
 		"bucketName":  "someBucket",
 		"region":      "someRegion",
 		"accessKeyID": "someAccessKeyId",
@@ -43,7 +42,7 @@ func TestNewS3ManagerWithAccessKeys(t *testing.T) {
 }
 
 func TestNewS3ManagerWithRole(t *testing.T) {
-	s3Manager, err := newS3ManagerV1(config.Default, map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
 		"bucketName": "someBucket",
 		"region":     "someRegion",
 		"iamRoleARN": "someIAMRole",
@@ -59,7 +58,7 @@ func TestNewS3ManagerWithRole(t *testing.T) {
 }
 
 func TestNewS3ManagerWithBothAccessKeysAndRole(t *testing.T) {
-	s3Manager, err := newS3ManagerV1(config.Default, map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
 		"bucketName":  "someBucket",
 		"region":      "someRegion",
 		"iamRoleARN":  "someIAMRole",
@@ -79,7 +78,7 @@ func TestNewS3ManagerWithBothAccessKeysAndRole(t *testing.T) {
 }
 
 func TestNewS3ManagerWithBothAccessKeysAndRoleButRoleBasedAuthFalse(t *testing.T) {
-	s3Manager, err := newS3ManagerV1(config.Default, map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
 		"bucketName":    "someBucket",
 		"region":        "someRegion",
 		"iamRoleARN":    "someIAMRole",
@@ -97,48 +96,6 @@ func TestNewS3ManagerWithBothAccessKeysAndRoleButRoleBasedAuthFalse(t *testing.T
 	assert.Equal(t, "someIAMRole", s3Manager.sessionConfig.IAMRoleARN)
 	assert.Equal(t, "someExternalID", s3Manager.sessionConfig.ExternalID)
 	assert.Equal(t, false, s3Manager.sessionConfig.RoleBasedAuth)
-}
-
-func TestGetSessionWithAccessKeys(t *testing.T) {
-	s3Manager := s3ManagerV1{
-		baseManager: &baseManager{
-			logger: logger.NOP,
-		},
-		config: &S3Config{
-			Bucket: "someBucket",
-			Region: aws.String("someRegion"),
-		},
-		sessionConfig: &awsutil.SessionConfig{
-			AccessKeyID: "someAccessKeyId",
-			AccessKey:   "someSecretAccessKey",
-			Region:      "someRegion",
-		},
-	}
-	awsSession, err := s3Manager.GetSession(context.TODO())
-	assert.Nil(t, err)
-	assert.NotNil(t, awsSession)
-	assert.NotNil(t, s3Manager.session)
-}
-
-func TestGetSessionWithIAMRole(t *testing.T) {
-	s3Manager := s3ManagerV1{
-		baseManager: &baseManager{
-			logger: logger.NOP,
-		},
-		config: &S3Config{
-			Bucket: "someBucket",
-			Region: aws.String("someRegion"),
-		},
-		sessionConfig: &awsutil.SessionConfig{
-			IAMRoleARN: "someIAMRole",
-			ExternalID: "someExternalID",
-			Region:     "someRegion",
-		},
-	}
-	awsSession, err := s3Manager.GetSession(context.TODO())
-	assert.Nil(t, err)
-	assert.NotNil(t, awsSession)
-	assert.NotNil(t, s3Manager.session)
 }
 
 func TestEmptyRegion(t *testing.T) {

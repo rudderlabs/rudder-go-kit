@@ -135,7 +135,7 @@ func New(settings *Settings) (FileManager, error) {
 	case "MINIO":
 		return NewMinioManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "DIGITAL_OCEAN_SPACES":
-		return NewDigitalOceanManager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+		return NewDigitalOceanManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	}
 	return nil, fmt.Errorf("%w: %s", ErrInvalidServiceProvider, settings.Provider)
 }

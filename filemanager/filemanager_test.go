@@ -839,7 +839,7 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 		}
 	}()
 
-	s3fm, ok := fm.(filemanager.S3Manager)
+	s3fm, ok := fm.(*filemanager.S3Manager)
 	if !ok {
 		t.Fatalf("filemanager is not an S3Manager, cannot call SelectObjects")
 	}
