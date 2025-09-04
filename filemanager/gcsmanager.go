@@ -280,15 +280,15 @@ type gcsListSession struct {
 	Iterator *storage.ObjectIterator
 }
 
-func (l *gcsListSession) Next() (fileObjects []*FileInfo, err error) {
+func (l *gcsListSession) Next() ([]*FileInfo, error) {
 	manager := l.manager
 	maxItems := l.maxItems
-	fileObjects = make([]*FileInfo, 0)
+	fileObjects := make([]*FileInfo, 0)
 
 	// Create GCS storage client
 	client, err := manager.getClient(l.ctx)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	// Create GCS Bucket handle
@@ -302,8 +302,8 @@ func (l *gcsListSession) Next() (fileObjects []*FileInfo, err error) {
 	var attrs *storage.ObjectAttrs
 	for maxItems > 0 {
 		attrs, err = l.Iterator.Next()
-		if err == iterator.Done || err != nil {
-			if err == iterator.Done {
+		if err != nil {
+			if errors.Is(err, iterator.Done) {
 				err = nil
 			}
 			break
@@ -311,5 +311,5 @@ func (l *gcsListSession) Next() (fileObjects []*FileInfo, err error) {
 		fileObjects = append(fileObjects, &FileInfo{attrs.Name, attrs.Updated})
 		maxItems--
 	}
-	return
+	return fileObjects, nil
 }

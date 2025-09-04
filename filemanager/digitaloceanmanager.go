@@ -307,17 +307,18 @@ type digitalOceanListSession struct {
 	isTruncated       bool
 }
 
-func (l *digitalOceanListSession) Next() (fileObjects []*FileInfo, err error) {
+func (l *digitalOceanListSession) Next() ([]*FileInfo, error) {
 	manager := l.manager
 	if !l.isTruncated {
 		manager.logger.Debugn("Manager is truncated, so returning here", logger.NewBoolField("isTruncated", l.isTruncated))
-		return
+		return nil, nil
 	}
-	fileObjects = make([]*FileInfo, 0)
+
+	fileObjects := make([]*FileInfo, 0)
 
 	sess, err := manager.getSession()
 	if err != nil {
-		return []*FileInfo{}, fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)
+		return nil, fmt.Errorf("error starting Digital Ocean Spaces session: %w", err)
 	}
 
 	// Create S3 service client
@@ -343,7 +344,7 @@ func (l *digitalOceanListSession) Next() (fileObjects []*FileInfo, err error) {
 	resp, err := svc.ListObjectsV2WithContext(ctx, &listObjectsV2Input)
 	if err != nil {
 		manager.logger.Errorn("Error while listing Digital Ocean Spaces objects", obskit.Error(err))
-		return
+		return nil, err
 	}
 	if resp.IsTruncated != nil {
 		l.isTruncated = *resp.IsTruncated
@@ -352,5 +353,5 @@ func (l *digitalOceanListSession) Next() (fileObjects []*FileInfo, err error) {
 	for _, item := range resp.Contents {
 		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
 	}
-	return
+	return fileObjects, nil
 }

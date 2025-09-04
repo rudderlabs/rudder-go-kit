@@ -13,6 +13,6 @@ type mockListSession struct {
 	err         error
 }
 
-func (m mockListSession) Next() (fileObjects []*FileInfo, err error) {
+func (m mockListSession) Next() ([]*FileInfo, error) {
 	return m.fileObjects, m.err
 }

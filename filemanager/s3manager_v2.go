@@ -322,13 +322,14 @@ type s3ListSessionV2 struct {
 }
 
 // Next returns the next batch of file objects from S3.
-func (l *s3ListSessionV2) Next() (fileObjects []*FileInfo, err error) {
+func (l *s3ListSessionV2) Next() ([]*FileInfo, error) {
 	manager := l.manager
 	if !l.isTruncated {
 		manager.logger.Debugn("Manager is truncated: returning here", logger.NewBoolField("isTruncated", l.isTruncated))
 		return nil, nil
 	}
-	fileObjects = make([]*FileInfo, 0)
+
+	fileObjects := make([]*FileInfo, 0)
 
 	client, err := manager.getClient(l.ctx)
 	if err != nil {
