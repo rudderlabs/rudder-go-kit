@@ -392,17 +392,18 @@ type s3ListSession struct {
 	isTruncated       bool
 }
 
-func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
+func (l *s3ListSession) Next() ([]*FileInfo, error) {
 	manager := l.manager
 	if !l.isTruncated {
 		manager.logger.Debugn("Manager is truncated, so returning here", logger.NewBoolField("isTruncated", l.isTruncated))
-		return
+		return nil, nil
 	}
-	fileObjects = make([]*FileInfo, 0)
+
+	fileObjects := make([]*FileInfo, 0)
 
 	sess, err := manager.GetSession(l.ctx)
 	if err != nil {
-		return []*FileInfo{}, fmt.Errorf("error starting S3 session: %w", err)
+		return nil, fmt.Errorf("error starting S3 session: %w", err)
 	}
 	// Create S3 service client
 	svc := s3.New(sess)
@@ -428,7 +429,7 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 	resp, err := svc.ListObjectsV2WithContext(ctx, &listObjectsV2Input)
 	if err != nil {
 		manager.logger.Errorn("Error while listing S3 objects", obskit.Error(err))
-		return
+		return nil, err
 	}
 	if resp.IsTruncated != nil {
 		l.isTruncated = *resp.IsTruncated
@@ -437,7 +438,7 @@ func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
 	for _, item := range resp.Contents {
 		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
 	}
-	return
+	return fileObjects, nil
 }
 
 type codeError interface {

@@ -128,7 +128,7 @@ func (m *AzureBlobManager) Download(ctx context.Context, output io.WriterAt, key
 	return err
 }
 
-func (m *AzureBlobManager) Delete(ctx context.Context, keys []string) (err error) {
+func (m *AzureBlobManager) Delete(ctx context.Context, keys []string) error {
 	containerURL, err := m.getContainerURL()
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func (m *AzureBlobManager) Delete(ctx context.Context, keys []string) (err error
 		}
 		cancel()
 	}
-	return
+	return err
 }
 
 func (m *AzureBlobManager) Prefix() string {
@@ -338,13 +338,13 @@ type azureBlobListSession struct {
 	Marker azblob.Marker
 }
 
-func (l *azureBlobListSession) Next() (fileObjects []*FileInfo, err error) {
+func (l *azureBlobListSession) Next() ([]*FileInfo, error) {
 	manager := l.manager
 	maxItems := l.maxItems
 
 	containerURL, err := manager.getContainerURL()
 	if err != nil {
-		return []*FileInfo{}, err
+		return nil, err
 	}
 
 	blobListingDetails := azblob.BlobListingDetails{
@@ -363,10 +363,11 @@ func (l *azureBlobListSession) Next() (fileObjects []*FileInfo, err error) {
 	var response *azblob.ListBlobsFlatSegmentResponse
 
 	// Checking if maxItems > 0 to avoid function calls which expect only maxItems to be returned and not more in the code
+	var fileObjects []*FileInfo
 	for maxItems > 0 && l.Marker.NotDone() {
 		response, err = containerURL.ListBlobsFlatSegment(ctx, l.Marker, segmentOptions)
 		if err != nil {
-			return
+			return nil, err
 		}
 		l.Marker = response.NextMarker
 
@@ -378,5 +379,5 @@ func (l *azureBlobListSession) Next() (fileObjects []*FileInfo, err error) {
 			}
 		}
 	}
-	return
+	return fileObjects, nil
 }

@@ -3,6 +3,7 @@ package pulsar
 import (
 	"bytes"
 	"fmt"
+	"sync"
 
 	"github.com/ory/dockertest/v3"
 
@@ -16,7 +17,13 @@ type Resource struct {
 	AdminURL string
 	// URLInNetwork is the URL accessible from the provided Docker network (if any).
 	URLInNetwork string
+
+	purge func()
 }
+
+// Purge is an optional method that can be called to purge the container before the test finishes.
+// It can be useful in integration tests to test what happens in the system when the container is removed.
+func (r *Resource) Purge() { r.purge() }
 
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	c := &config{
@@ -44,11 +51,15 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		return nil, fmt.Errorf("cannot run pulsar container: %w", err)
 	}
 
-	d.Cleanup(func() {
-		if err := pool.Purge(container); err != nil {
-			d.Log("Could not purge resource:", err)
-		}
-	})
+	purgeOnce := sync.Once{}
+	purge := func() {
+		purgeOnce.Do(func() {
+			if err := pool.Purge(container); err != nil {
+				d.Log("Could not purge resource:", err)
+			}
+		})
+	}
+	d.Cleanup(purge)
 
 	url := fmt.Sprintf("pulsar://127.0.0.1:%s", container.GetPort("6650/tcp"))
 	adminURL := fmt.Sprintf("http://127.0.0.1:%s", container.GetPort("8080/tcp"))
@@ -81,5 +92,6 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		URL:          url,
 		AdminURL:     adminURL,
 		URLInNetwork: urlInNetwork,
+		purge:        purge,
 	}, nil
 }

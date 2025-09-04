@@ -95,7 +95,7 @@ func testLimiter(
 		default:
 			allowed, _, err = l.Allow(ctx, cost, rate, window, key)
 		}
-		return
+		return allowed, redisTime, err
 	}
 	if l.useGCRA { // warm up the GCRA algorithms
 		for i := 0; i < int(rate); i++ {

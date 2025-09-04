@@ -269,13 +269,14 @@ type minioListSession struct {
 	isTruncated       bool
 }
 
-func (l *minioListSession) Next() (fileObjects []*FileInfo, err error) {
+func (l *minioListSession) Next() ([]*FileInfo, error) {
 	manager := l.manager
 	if !l.isTruncated {
 		manager.logger.Debugn("Manager is truncated, so returning here", logger.NewBoolField("isTruncated", l.isTruncated))
-		return
+		return nil, nil
 	}
-	fileObjects = make([]*FileInfo, 0)
+
+	fileObjects := make([]*FileInfo, 0)
 
 	// Created minio core
 	core, err := minio.NewCore(manager.config.EndPoint, &minio.Options{
@@ -283,19 +284,21 @@ func (l *minioListSession) Next() (fileObjects []*FileInfo, err error) {
 		Secure: manager.config.UseSSL,
 	})
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	// List the Objects in the bucket
 	result, err := core.ListObjectsV2(manager.config.Bucket, l.prefix, l.startAfter, l.continuationToken, "", int(l.maxItems))
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	for idx := range result.Contents {
 		fileObjects = append(fileObjects, &FileInfo{result.Contents[idx].Key, result.Contents[idx].LastModified})
 	}
+
 	l.isTruncated = result.IsTruncated
 	l.continuationToken = result.NextContinuationToken
-	return
+
+	return fileObjects, nil
 }

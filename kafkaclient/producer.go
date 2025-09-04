@@ -59,7 +59,7 @@ type Producer struct {
 }
 
 // NewProducer instantiates a new producer. To use it asynchronously just do "go p.Publish(ctx, msgs)".
-func (c *Client) NewProducer(producerConf ProducerConfig) (p *Producer, err error) { // skipcq: CRT-P0003
+func (c *Client) NewProducer(producerConf ProducerConfig) (*Producer, error) { // skipcq: CRT-P0003
 	producerConf.defaults()
 
 	transport := &kafka.Transport{
@@ -72,19 +72,21 @@ func (c *Client) NewProducer(producerConf ProducerConfig) (p *Producer, err erro
 		transport.ClientID = c.config.ClientID
 	}
 	if c.config.TLS != nil {
+		var err error
 		transport.TLS, err = c.config.TLS.build()
 		if err != nil {
 			return nil, fmt.Errorf("could not build TLS configuration: %w", err)
 		}
 	}
 	if c.config.SASL != nil {
+		var err error
 		transport.SASL, err = c.config.SASL.build()
 		if err != nil {
 			return nil, fmt.Errorf("could not build SASL configuration: %w", err)
 		}
 	}
 
-	p = &Producer{
+	return &Producer{
 		config: producerConf,
 		writer: &kafka.Writer{
 			Addr:                   kafka.TCP(c.addresses...),
@@ -101,8 +103,7 @@ func (c *Client) NewProducer(producerConf ProducerConfig) (p *Producer, err erro
 			Compression:            producerConf.Compression,
 			Transport:              transport,
 		},
-	}
-	return
+	}, nil
 }
 
 // Close tries to close the producer, but it will return sooner if the context is canceled.
