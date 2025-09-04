@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.61.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.61.1...v0.61.2) (2025-09-04)
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/go-viper/mapstructure/v2 from 2.3.0 to 2.4.0 in the go_modules group ([#905](https://github.com/rudderlabs/rudder-go-kit/issues/905)) ([7681df6](https://github.com/rudderlabs/rudder-go-kit/commit/7681df646fb159cfec4391344f0063ca761767d2))
+* pulsar container early purge ([#917](https://github.com/rudderlabs/rudder-go-kit/issues/917)) ([aa4a4cb](https://github.com/rudderlabs/rudder-go-kit/commit/aa4a4cbe727a301b6287d92ecda14876206dbc50))
+
 ## [0.61.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.61.0...v0.61.1) (2025-08-28)
 
 
