@@ -311,5 +311,5 @@ func (l *gcsListSession) Next() ([]*FileInfo, error) {
 		fileObjects = append(fileObjects, &FileInfo{attrs.Name, attrs.Updated})
 		maxItems--
 	}
-	return fileObjects, nil
+	return fileObjects, err
 }
