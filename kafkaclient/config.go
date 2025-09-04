@@ -120,21 +120,19 @@ type SASL struct {
 	Username, Password string
 }
 
-func (c *SASL) build() (mechanism sasl.Mechanism, err error) {
+func (c *SASL) build() (sasl.Mechanism, error) {
 	switch c.ScramHashGen {
 	case ScramPlainText:
-		mechanism = plain.Mechanism{
+		return plain.Mechanism{
 			Username: c.Username,
 			Password: c.Password,
-		}
-		return
+		}, nil
 	case ScramSHA256, ScramSHA512:
 		algo := scram.SHA256
 		if c.ScramHashGen == ScramSHA512 {
 			algo = scram.SHA512
 		}
-		mechanism, err = scram.Mechanism(algo, c.Username, c.Password)
-		return
+		return scram.Mechanism(algo, c.Username, c.Password)
 	default:
 		return nil, fmt.Errorf("scram hash generator out of the known domain: %v", c.ScramHashGen)
 	}

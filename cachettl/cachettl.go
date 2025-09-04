@@ -145,5 +145,5 @@ func (c *Cache[K, V]) slice() (s []V) {
 		s = append(s, cn.value)
 		cn = cn.next
 	}
-	return
+	return s
 }

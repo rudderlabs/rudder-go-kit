@@ -335,7 +335,7 @@ func registerSchema(
 	}, defaultTestTimeout, time.Second, "failed to register schema %s: %v", schemaName, err)
 
 	schema = string(buf)
-	return
+	return schema, schemaID
 }
 
 func serializeAvroMessage(t *testing.T, schemaID int, schema string, value []byte) []byte {

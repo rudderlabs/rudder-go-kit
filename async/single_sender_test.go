@@ -23,7 +23,7 @@ func TestSingleSender(t *testing.T) {
 		for i := 0; i < times; i++ {
 			if ctx.Err() != nil {
 				s.Send(valueOrError{err: ctx.Err()})
-				return
+				return sendCalls
 			}
 			s.Send(valueOrError{value: i})
 			sendCalls++

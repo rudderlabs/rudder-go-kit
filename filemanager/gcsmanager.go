@@ -127,7 +127,7 @@ func (m *GcsManager) UploadReader(ctx context.Context, objName string, rdr io.Re
 	return UploadedFile{Location: m.objectURL(w.Attrs()), ObjectName: objName}, err
 }
 
-func (m *GcsManager) Delete(ctx context.Context, keys []string) (err error) {
+func (m *GcsManager) Delete(ctx context.Context, keys []string) error {
 	client, err := m.getClient(ctx)
 	if err != nil {
 		return err
@@ -137,11 +137,12 @@ func (m *GcsManager) Delete(ctx context.Context, keys []string) (err error) {
 	defer cancel()
 
 	for _, key := range keys {
-		if err := client.Bucket(m.config.Bucket).Object(key).Delete(ctx); err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
+		err = client.Bucket(m.config.Bucket).Object(key).Delete(ctx)
+		if err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
 			return err
 		}
 	}
-	return
+	return nil
 }
 
 func (m *GcsManager) Prefix() string {
