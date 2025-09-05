@@ -132,7 +132,6 @@ func TestEmptyRegion(t *testing.T) {
 		}
 
 		config := config.New()
-		config.Set("FileManager.useAwsSdkV2", true)
 
 		return New(&Settings{
 			Provider: "S3",
