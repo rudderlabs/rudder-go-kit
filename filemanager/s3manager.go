@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -12,12 +13,11 @@ import (
 	"sync"
 	"time"
 
-	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	awsS3Manager "github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
 
@@ -25,7 +25,10 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/awsutil"
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
+
+const ServiceName = "s3"
 
 type S3Config struct {
 	Bucket           string  `mapstructure:"bucketName"`
@@ -38,23 +41,39 @@ type S3Config struct {
 	RegionHint       string  `mapstructure:"regionHint"`
 }
 
-// newS3ManagerV1 creates a new file manager for S3
-func newS3ManagerV1(
+// S3Manager manages S3 file operations using AWS SDK v2.
+type S3Manager struct {
+	*baseManager
+	config *S3Config
+
+	sessionConfig *awsutil.SessionConfig
+	client        *s3.Client
+	clientMu      sync.Mutex
+}
+
+// news3Manager creates a new file manager for S3 using v2 AWS SDK.
+func NewS3Manager(
 	kitconfig *kitconfig.Config, config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
-) (*s3ManagerV1, error) {
+) (*S3Manager, error) {
 	var s3Config S3Config
 	if err := mapstructure.Decode(config, &s3Config); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode S3 config: %w", err)
 	}
 
-	sessionConfig, err := awsutil.NewSimpleSessionConfig(config, s3.ServiceName)
+	sessionConfig, err := awsutil.NewSimpleSessionConfig(config, ServiceName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create AWS session config: %w", err)
 	}
 
 	s3Config.RegionHint = kitconfig.GetString("AWS_S3_REGION_HINT", "us-east-1")
 
-	return &s3ManagerV1{
+	if s3Config.Prefix != "" && s3Config.Prefix[0] == '/' {
+		s3Config.Prefix = sanitizeKey(s3Config.Prefix)
+	}
+
+	s3Config.Bucket = strings.TrimRight(s3Config.Bucket, "/")
+
+	return &S3Manager{
 		baseManager: &baseManager{
 			logger:         log,
 			defaultTimeout: defaultTimeout,
@@ -64,7 +83,9 @@ func newS3ManagerV1(
 	}, nil
 }
 
-func (m *s3ManagerV1) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+// ListFilesWithPrefix returns a session for listing files with the given prefix.
+func (m *S3Manager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
+	prefix = sanitizeKey(prefix)
 	return &s3ListSession{
 		baseListSession: &baseListSession{
 			ctx:        ctx,
@@ -77,17 +98,16 @@ func (m *s3ManagerV1) ListFilesWithPrefix(ctx context.Context, startAfter, prefi
 	}
 }
 
-// Download retrieves an object with the given key and writes it to the provided writer.
-// Pass *os.File as output to write the downloaded file on disk.
-func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+// Download downloads a file from S3 to the provided io.WriterAt.
+func (m *S3Manager) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
+	key = sanitizeKey(key)
 	downloadOpts := applyDownloadOptions(opts...)
-
-	sess, err := m.GetSession(ctx)
+	client, err := m.getClient(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting S3 session: %w", err)
+		return fmt.Errorf("s3 client: %w", err)
 	}
 
-	downloader := awsS3Manager.NewDownloader(sess)
+	downloader := s3manager.NewDownloader(client)
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
@@ -105,112 +125,116 @@ func (m *s3ManagerV1) Download(ctx context.Context, output io.WriterAt, key stri
 		}
 		getObjectInput.Range = aws.String(rangeOpt)
 	}
-	_, err = downloader.DownloadWithContext(ctx, output, getObjectInput)
-	if err != nil {
-		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "NoSuchKey" {
-			return ErrKeyNotFound
-		}
-		return err
+
+	_, err = downloader.Download(ctx, output, getObjectInput)
+	if err == nil {
+		return nil
 	}
-	return nil
+	var nsk *types.NoSuchKey
+	if errors.As(err, &nsk) {
+		return ErrKeyNotFound
+	}
+	return fmt.Errorf("failed to download from S3: %w", err)
 }
 
-// Upload uploads a file to S3
-func (m *s3ManagerV1) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
-	objName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
-	return m.UploadReader(ctx, objName, file)
+// Upload uploads a file to S3 and returns the uploaded file info.
+func (m *S3Manager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
+	fileName := path.Join(m.config.Prefix, path.Join(prefixes...), path.Base(file.Name()))
+	fileName = sanitizeKey(fileName)
+	return m.UploadReader(ctx, fileName, file)
 }
 
-// UploadReader uploads an object to S3 using the provided reader and object name.
-// It supports server-side encryption if enabled in the configuration.
-// Returns an UploadedFile containing the file's location and object name, or an error.
-func (m *s3ManagerV1) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
-	uploadInput := &awsS3Manager.UploadInput{
-		ACL:    aws.String("bucket-owner-full-control"),
+// UploadReader uploads data from an io.Reader to S3 with the given object name.
+func (m *S3Manager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
+	if objName == "" {
+		return UploadedFile{}, errors.New("object name cannot be empty")
+	}
+	objName = sanitizeKey(objName)
+	uploadInput := &s3.PutObjectInput{
+		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
 		Bucket: aws.String(m.config.Bucket),
 		Key:    aws.String(objName),
 		Body:   rdr,
 	}
+
 	if m.config.EnableSSE {
-		uploadInput.ServerSideEncryption = aws.String("AES256")
+		uploadInput.ServerSideEncryption = types.ServerSideEncryptionAes256
 	}
 
-	uploadSession, err := m.GetSession(ctx)
+	client, err := m.getClient(ctx)
 	if err != nil {
-		return UploadedFile{}, fmt.Errorf("error starting S3 session: %w", err)
+		return UploadedFile{}, fmt.Errorf("s3 client: %w", err)
 	}
-	s3manager := awsS3Manager.NewUploader(uploadSession)
+	uploader := s3manager.NewUploader(client)
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	output, err := s3manager.UploadWithContext(ctx, uploadInput)
-	if err != nil {
-		if codeErr, ok := err.(codeError); ok && codeErr.Code() == "MissingRegion" {
-			err = fmt.Errorf("bucket %q not found", m.config.Bucket)
-		}
-		return UploadedFile{}, fmt.Errorf("error uploading file to S3: %w", err)
+	output, err := uploader.Upload(ctx, uploadInput)
+	if err == nil {
+		return UploadedFile{Location: output.Location, ObjectName: objName}, nil
 	}
-
-	return UploadedFile{Location: output.Location, ObjectName: objName}, err
+	var regionError *aws.MissingRegionError
+	if errors.As(err, &regionError) {
+		err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
+	}
+	return UploadedFile{}, err
 }
 
-func (m *s3ManagerV1) Delete(ctx context.Context, keys []string) (err error) {
-	sess, err := m.GetSession(ctx)
+// Delete removes the specified keys from S3.
+func (m *S3Manager) Delete(ctx context.Context, keys []string) error {
+	client, err := m.getClient(ctx)
 	if err != nil {
-		return fmt.Errorf("error starting S3 session: %w", err)
+		return fmt.Errorf("s3 client: %w", err)
 	}
 
-	var objects []*s3.ObjectIdentifier
+	var objects []types.ObjectIdentifier
 	for _, key := range keys {
-		objects = append(objects, &s3.ObjectIdentifier{Key: aws.String(key)})
+		key = sanitizeKey(key)
+		objects = append(objects, types.ObjectIdentifier{Key: aws.String(key)})
 	}
-
-	svc := s3.New(sess)
 
 	batchSize := 1000 // max accepted by DeleteObjects API
 	chunks := lo.Chunk(objects, batchSize)
 	for _, chunk := range chunks {
-		input := &s3.DeleteObjectsInput{
+		deleteCtx, cancel := context.WithTimeout(ctx, m.getTimeout())
+		_, err := client.DeleteObjects(deleteCtx, &s3.DeleteObjectsInput{
 			Bucket: aws.String(m.config.Bucket),
-			Delete: &s3.Delete{
+			Delete: &types.Delete{
 				Objects: chunk,
 			},
-		}
-
-		deleteCtx, cancel := context.WithTimeout(ctx, m.getTimeout())
-		_, err := svc.DeleteObjectsWithContext(deleteCtx, input)
+		})
 		cancel()
-
 		if err != nil {
-			if codeErr, ok := err.(codeError); ok {
-				m.logger.Errorn("Error while deleting S3 objects", logger.NewStringField("code", codeErr.Code()), obskit.Error(err))
+			var apiErr smithy.APIError
+			if errors.As(err, &apiErr) {
+				m.logger.Errorn("Error while deleting S3 objects",
+					obskit.Error(err), logger.NewStringField("error_code", apiErr.ErrorCode()),
+				)
 			} else {
 				m.logger.Errorn("Error while deleting S3 objects", obskit.Error(err))
 			}
-			return err
+			return fmt.Errorf("failed to delete S3 objects: %w", err)
 		}
 	}
 	return nil
 }
 
-func (m *s3ManagerV1) Prefix() string {
+// Prefix returns the configured S3 prefix.
+func (m *S3Manager) Prefix() string {
 	return m.config.Prefix
 }
 
-func (m *s3ManagerV1) Bucket() string {
+func (m *S3Manager) Bucket() string {
 	return m.config.Bucket
 }
 
-/*
-GetObjectNameFromLocation gets the object name/key name from the object location url
-
-	https://bucket-name.s3.amazonaws.com/key - >> key
-*/
-func (m *s3ManagerV1) GetObjectNameFromLocation(location string) (string, error) {
+// GetObjectNameFromLocation extracts the object key from the S3 object location URL.
+// Example: https://bucket-name.s3.amazonaws.com/key -> key
+func (m *S3Manager) GetObjectNameFromLocation(location string) (string, error) {
 	parsedUrl, err := url.Parse(location)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse location URL: %w", err)
 	}
 	trimmedURL := strings.TrimLeft(parsedUrl.Path, "/")
 	if (m.config.S3ForcePathStyle != nil && *m.config.S3ForcePathStyle) ||
@@ -220,10 +244,12 @@ func (m *s3ManagerV1) GetObjectNameFromLocation(location string) (string, error)
 	return trimmedURL, nil
 }
 
-func (m *s3ManagerV1) GetDownloadKeyFromFileLocation(location string) string {
+// GetDownloadKeyFromFileLocation extracts the S3 key from a file location URL.
+func (m *S3Manager) GetDownloadKeyFromFileLocation(location string) string {
 	parsedURL, err := url.Parse(location)
 	if err != nil {
-		fmt.Println("error while parsing location url: ", err)
+		m.logger.Errorn("error while parsing location url", obskit.Error(err))
+		return ""
 	}
 	trimmedURL := strings.TrimLeft(parsedURL.Path, "/")
 	if (m.config.S3ForcePathStyle != nil && *m.config.S3ForcePathStyle) ||
@@ -233,28 +259,24 @@ func (m *s3ManagerV1) GetDownloadKeyFromFileLocation(location string) string {
 	return trimmedURL
 }
 
-func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) {
-	m.sessionMu.Lock()
-	defer m.sessionMu.Unlock()
+// getClient returns a cached S3 client or creates a new one if needed.
+func (m *S3Manager) getClient(ctx context.Context) (*s3.Client, error) {
+	m.clientMu.Lock()
+	defer m.clientMu.Unlock()
 
-	if m.session != nil {
-		return m.session, nil
+	if m.client != nil {
+		return m.client, nil
 	}
 
 	if m.config.Bucket == "" {
 		return nil, errors.New("no storage bucket configured to downloader")
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
+	defer cancel()
+
 	if m.config.Region == nil || *m.config.Region == "" {
-		getRegionSession, err := session.NewSession()
-		if err != nil {
-			return nil, err
-		}
-
-		ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
-		defer cancel()
-
-		region, err := awsS3Manager.GetBucketRegion(ctx, getRegionSession, m.config.Bucket, m.config.RegionHint)
+		region, err := awsutil.GetRegionFromBucket(ctx, m.config.Bucket, m.config.RegionHint)
 		if err != nil {
 			m.logger.Errorn("Failed to fetch AWS region for bucket",
 				logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
@@ -266,46 +288,121 @@ func (m *s3ManagerV1) GetSession(ctx context.Context) (*session.Session, error) 
 		m.sessionConfig.Region = region
 	}
 
-	var err error
-	m.session, err = awsutil.CreateSession(m.sessionConfig)
+	cnf, err := awsutil.CreateAWSConfig(ctx, m.sessionConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create AWS config: %w", err)
 	}
-	return m.session, err
+
+	client := s3.NewFromConfig(cnf, func(o *s3.Options) {
+		if m.config.Endpoint != nil && *m.config.Endpoint != "" {
+			o.BaseEndpoint = aws.String(*m.config.Endpoint)
+		}
+
+		o.UsePathStyle = aws.ToBool(m.config.S3ForcePathStyle)
+		o.EndpointOptions.DisableHTTPS = aws.ToBool(m.config.DisableSSL)
+		if m.timeout != 0 {
+			o.HTTPClient = &http.Client{
+				Timeout: m.timeout,
+			}
+		}
+	})
+
+	m.client = client
+
+	return m.client, nil
 }
 
-func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, func()) {
+// getTimeout returns the configured timeout for S3 operations.
+func (m *S3Manager) getTimeout() time.Duration {
+	if m.timeout > 0 {
+		return m.timeout
+	}
+	if m.defaultTimeout != nil {
+		return m.defaultTimeout()
+	}
+	return defaultTimeout
+}
+
+// s3ListSession implements ListSession for S3 using AWS SDK v2.
+type s3ListSession struct {
+	*baseListSession
+	manager *S3Manager
+
+	continuationToken *string
+	isTruncated       bool
+}
+
+// Next returns the next batch of file objects from S3.
+func (l *s3ListSession) Next() (fileObjects []*FileInfo, err error) {
+	manager := l.manager
+	if !l.isTruncated {
+		manager.logger.Debugn("Manager is truncated: returning here", logger.NewBoolField("isTruncated", l.isTruncated))
+		return nil, nil
+	}
+	fileObjects = make([]*FileInfo, 0)
+
+	client, err := manager.getClient(l.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("s3 client: %w", err)
+	}
+
+	listObjectsInput := s3.ListObjectsV2Input{
+		Bucket:            aws.String(manager.config.Bucket),
+		Prefix:            aws.String(l.prefix),
+		MaxKeys:           aws.Int32(int32(l.maxItems)),
+		ContinuationToken: l.continuationToken,
+	}
+	if l.startAfter != "" {
+		listObjectsInput.StartAfter = aws.String(l.startAfter)
+	}
+
+	ctx, cancel := context.WithTimeout(l.ctx, manager.getTimeout())
+	defer cancel()
+
+	resp, err := client.ListObjectsV2(ctx, &listObjectsInput)
+	if err != nil {
+		manager.logger.Errorn("Error while listing S3 objects", obskit.Error(err))
+		return nil, fmt.Errorf("failed to list S3 objects: %w", err)
+	}
+	l.isTruncated = *resp.IsTruncated
+	l.continuationToken = resp.NextContinuationToken
+	for _, item := range resp.Contents {
+		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
+	}
+	return fileObjects, nil
+}
+
+func (m *S3Manager) SelectObjects(ctx context.Context, selectConfig SelectConfig) (<-chan SelectResult, func()) {
 	s := async.SingleSender[SelectResult]{}
 	ctx, selectResultChan, leave := s.Begin(ctx)
 
 	go func() {
 		defer s.Close()
-		sess, err := m.GetSession(ctx)
+		client, err := m.getClient(ctx)
 		if err != nil {
-			s.Send(SelectResult{Error: fmt.Errorf("error starting S3 session: %w", err)})
+			s.Send(SelectResult{Error: fmt.Errorf("selecting objects: %w", err)})
 			return
 		}
-		svc := s3.New(sess)
 
-		inputSerialization, outputSerialization, err := createS3SelectSerialization(selectConfig.InputFormat, selectConfig.OutputFormat)
+		inputSerialization, outputSerialization, err := createS3SelectSerializationV2(selectConfig.InputFormat, selectConfig.OutputFormat)
 		if err != nil {
 			s.Send(SelectResult{Error: fmt.Errorf("error extracting input/output serialization: %w", err)})
 			return
 		}
 
-		input := &s3.SelectObjectContentInput{
-			Bucket:              aws.String(m.Bucket()),
+		selectObject, err := client.SelectObjectContent(ctx, &s3.SelectObjectContentInput{
+			Bucket:              aws.String(m.config.Bucket),
 			Key:                 aws.String(selectConfig.Key),
 			Expression:          aws.String(selectConfig.SQLExpression),
-			ExpressionType:      aws.String(s3.ExpressionTypeSql),
+			ExpressionType:      types.ExpressionTypeSql,
 			InputSerialization:  inputSerialization,
 			OutputSerialization: outputSerialization,
-		}
-		selectObject, err := svc.SelectObjectContentWithContext(ctx, input)
+		})
 		if err != nil {
-			s.Send(SelectResult{Error: fmt.Errorf("error selecting object: %w", err)})
+			s.Send(SelectResult{Error: fmt.Errorf("selecting object: %w", err)})
 			return
 		}
+
 		stream := selectObject.GetStream()
 		defer func() {
 			if err := stream.Err(); err != nil && ctx.Err() == nil {
@@ -323,9 +420,9 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 					return
 				}
 				switch e := event.(type) {
-				case *s3.RecordsEvent:
-					s.Send(SelectResult{Data: e.Payload})
-				case *s3.EndEvent:
+				case *types.SelectObjectContentEventStreamMemberRecords:
+					s.Send(SelectResult{Data: e.Value.Payload})
+				case *types.SelectObjectContentEventStreamMemberEnd:
 					return
 				}
 			}
@@ -334,29 +431,29 @@ func (m *s3ManagerV1) SelectObjects(ctx context.Context, selectConfig SelectConf
 	return selectResultChan, leave
 }
 
-func createS3SelectSerialization(inputFormat SelectObjectInputFormat, outputFormat SelectObjectOutputFormat) (*s3.InputSerialization, *s3.OutputSerialization, error) {
-	var inputSerialization *s3.InputSerialization
+func createS3SelectSerializationV2(inputFormat SelectObjectInputFormat, outputFormat SelectObjectOutputFormat) (*types.InputSerialization, *types.OutputSerialization, error) {
+	var inputSerialization *types.InputSerialization
 	switch inputFormat {
 	case SelectObjectInputFormatParquet:
-		inputSerialization = &s3.InputSerialization{
-			Parquet: &s3.ParquetInput{},
+		inputSerialization = &types.InputSerialization{
+			Parquet: &types.ParquetInput{},
 		}
 	default:
 		return nil, nil, fmt.Errorf("invalid input format: %s", inputFormat)
 	}
 
-	var outputSerialization *s3.OutputSerialization
+	var outputSerialization *types.OutputSerialization
 	switch outputFormat {
 	case SelectObjectOutputFormatCSV:
-		outputSerialization = &s3.OutputSerialization{
-			CSV: &s3.CSVOutput{
+		outputSerialization = &types.OutputSerialization{
+			CSV: &types.CSVOutput{
 				RecordDelimiter: aws.String("\n"),
 				FieldDelimiter:  aws.String(","),
 			},
 		}
 	case SelectObjectOutputFormatJSON:
-		outputSerialization = &s3.OutputSerialization{
-			JSON: &s3.JSONOutput{},
+		outputSerialization = &types.OutputSerialization{
+			JSON: &types.JSONOutput{},
 		}
 	default:
 		return nil, nil, fmt.Errorf("invalid output format: %s", outputFormat)
@@ -365,82 +462,11 @@ func createS3SelectSerialization(inputFormat SelectObjectInputFormat, outputForm
 	return inputSerialization, outputSerialization, nil
 }
 
-type s3ManagerV1 struct {
-	*baseManager
-	config *S3Config
+func sanitizeKey(key string) string {
+	// remove leading and trailing spaces
+	key = strings.TrimSpace(key)
+	// remove all leading slashes
+	key = strings.TrimLeft(key, "/")
 
-	sessionConfig *awsutil.SessionConfig
-	session       *session.Session
-	sessionMu     sync.Mutex
-}
-
-func (m *s3ManagerV1) getTimeout() time.Duration {
-	if m.timeout > 0 {
-		return m.timeout
-	}
-	if m.defaultTimeout != nil {
-		return m.defaultTimeout()
-	}
-	return defaultTimeout
-}
-
-type s3ListSession struct {
-	*baseListSession
-	manager *s3ManagerV1
-
-	continuationToken *string
-	isTruncated       bool
-}
-
-func (l *s3ListSession) Next() ([]*FileInfo, error) {
-	manager := l.manager
-	if !l.isTruncated {
-		manager.logger.Debugn("Manager is truncated, so returning here", logger.NewBoolField("isTruncated", l.isTruncated))
-		return nil, nil
-	}
-
-	fileObjects := make([]*FileInfo, 0)
-
-	sess, err := manager.GetSession(l.ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error starting S3 session: %w", err)
-	}
-	// Create S3 service client
-	svc := s3.New(sess)
-	listObjectsV2Input := s3.ListObjectsV2Input{
-		Bucket:  aws.String(manager.config.Bucket),
-		Prefix:  aws.String(l.prefix),
-		MaxKeys: &l.maxItems,
-		// Delimiter: aws.String("/"),
-	}
-	// startAfter is to resume a paused task.
-	if l.startAfter != "" {
-		listObjectsV2Input.StartAfter = aws.String(l.startAfter)
-	}
-
-	if l.continuationToken != nil {
-		listObjectsV2Input.ContinuationToken = l.continuationToken
-	}
-
-	ctx, cancel := context.WithTimeout(l.ctx, manager.getTimeout())
-	defer cancel()
-
-	// Get the list of items
-	resp, err := svc.ListObjectsV2WithContext(ctx, &listObjectsV2Input)
-	if err != nil {
-		manager.logger.Errorn("Error while listing S3 objects", obskit.Error(err))
-		return nil, err
-	}
-	if resp.IsTruncated != nil {
-		l.isTruncated = *resp.IsTruncated
-	}
-	l.continuationToken = resp.NextContinuationToken
-	for _, item := range resp.Contents {
-		fileObjects = append(fileObjects, &FileInfo{*item.Key, *item.LastModified})
-	}
-	return fileObjects, nil
-}
-
-type codeError interface {
-	Code() string
+	return key
 }

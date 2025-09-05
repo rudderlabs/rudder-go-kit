@@ -47,6 +47,7 @@ func TestMinioResource(t *testing.T) {
 	})
 
 	t.Run("can use a s3 filemanager", func(t *testing.T) {
+		c["endPoint"] = "http://" + c["endPoint"].(string)
 		fm, err := filemanager.New(&filemanager.Settings{
 			Provider: "S3",
 			Config:   c,
