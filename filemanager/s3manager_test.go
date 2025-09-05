@@ -21,7 +21,7 @@ import (
 
 func TestNewS3ManagerWithNil(t *testing.T) {
 	s3Manager, err := NewS3Manager(nil, nil, logger.NOP, func() time.Duration { return time.Minute })
-	assert.EqualError(t, err, "config should not be nil")
+	assert.EqualError(t, err, "failed to create AWS session config: config should not be nil")
 	assert.Nil(t, s3Manager)
 }
 

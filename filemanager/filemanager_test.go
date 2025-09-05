@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	AzuriteEndpoint, gcsURL, minioEndpoint, azureSASTokens string
+	AzuriteEndpoint, gcsURL, minioEndpoint, minioHostPort, azureSASTokens string
 	base64Secret                                           = base64.StdEncoding.EncodeToString([]byte(secretAccessKey))
 	bucket                                                 = "filemanager-test-1"
 	region                                                 = "us-east-1"
@@ -87,11 +87,12 @@ func run(m *testing.M) int {
 		}
 	}()
 
-	minioEndpoint = fmt.Sprintf("localhost:%s", minioResource.GetPort("9000/tcp"))
+	minioHostPort = fmt.Sprintf("localhost:%s", minioResource.GetPort("9000/tcp"))
+	minioEndpoint = fmt.Sprintf("http://%s", minioHostPort)
 
 	// check if minio server is up & running.
 	if err := pool.Retry(func() error {
-		url := fmt.Sprintf("http://%s/minio/health/live", minioEndpoint)
+		url := fmt.Sprintf("%s/minio/health/live", minioEndpoint)
 		resp, err := http.Get(url)
 		if err != nil {
 			return err
@@ -107,7 +108,7 @@ func run(m *testing.M) int {
 	}
 	fmt.Println("minio is up & running properly")
 
-	minioClient, err := minio.New(minioEndpoint, &minio.Options{
+	minioClient, err := minio.New(minioHostPort, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyId, secretAccessKey, ""),
 		Secure: false, // no SSL
 	})
@@ -269,7 +270,7 @@ func TestFileManager(t *testing.T) {
 				"accessKey":        secretAccessKey,
 				"enableSSE":        false,
 				"prefix":           "///some-prefix/",
-				"endPoint":         fmt.Sprintf("http://%s", minioEndpoint),
+				"endPoint":         minioEndpoint,
 				"s3ForcePathStyle": true,
 				"disableSSL":       true,
 				"region":           region,
@@ -661,9 +662,10 @@ func TestFileManager_S3(t *testing.T) {
 	testFileContent := []byte("integration test content")
 	require.NoError(t, os.WriteFile(testFilePath, testFileContent, 0o644))
 
-	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
-	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	envBucket := os.Getenv("AWS_BUCKET_NAME")
+	// Use test credentials and bucket for integration testing
+	envAccessKey := accessKeyId
+	envSecretKey := secretAccessKey
+	envBucket := bucket
 	isV2ManagerEnabled := []bool{false, true}
 	for _, enabled := range isV2ManagerEnabled {
 		authMethods := []struct {
@@ -677,6 +679,7 @@ func TestFileManager_S3(t *testing.T) {
 					"accessKeyID":      envAccessKey,
 					"secretAccessKey":  envSecretKey,
 					"region":           region,
+					"endPoint":         minioEndpoint,
 					"s3ForcePathStyle": true,
 					"disableSSL":       true,
 					"prefix":           "",
@@ -689,6 +692,7 @@ func TestFileManager_S3(t *testing.T) {
 					"accessKeyID":      envAccessKey,
 					"secretAccessKey":  envSecretKey,
 					"region":           region,
+					"endPoint":         minioEndpoint,
 					"s3ForcePathStyle": true,
 					"disableSSL":       true,
 					"prefix":           "test-prefix",
@@ -701,9 +705,9 @@ func TestFileManager_S3(t *testing.T) {
 					"accessKeyID":      envAccessKey,
 					"secretAccessKey":  envSecretKey,
 					"region":           region,
+					"endPoint":         minioEndpoint,
 					"s3ForcePathStyle": true,
 					"disableSSL":       true,
-					"endpoint":         "",
 					"prefix":           "",
 				},
 			},
