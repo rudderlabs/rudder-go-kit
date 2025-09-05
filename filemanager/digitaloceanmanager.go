@@ -29,14 +29,14 @@ import (
 )
 
 type DigitalOceanConfig struct {
-	Bucket         string
-	Prefix         string
-	EndPoint       string
-	AccessKeyID    string
-	AccessKey      string
-	Region         *string
-	ForcePathStyle *bool
-	DisableSSL     *bool
+	Bucket         string  `mapstructure:"bucketName"`
+	Prefix         string  `mapstructure:"prefix"`
+	EndPoint       string  `mapstructure:"endPoint"`
+	AccessKeyID    string  `mapstructure:"accessKeyID"`
+	AccessKey      string  `mapstructure:"accessKey"`
+	Region         *string `mapstructure:"region"`
+	ForcePathStyle *bool   `mapstructure:"s3ForcePathStyle"`
+	DisableSSL     *bool   `mapstructure:"disableSSL"`
 }
 
 type digitalOceanManager struct {
@@ -170,11 +170,10 @@ func (m *digitalOceanManager) Upload(ctx context.Context, file *os.File, prefixe
 	return m.UploadReader(ctx, objName, file)
 }
 
-func (m *digitalOceanManager) UploadReader(ctx context.Context, objName string, rdr io.Reader) (UploadedFile, error) {
+func (m *digitalOceanManager) UploadReader(ctx context.Context, fileName string, rdr io.Reader) (UploadedFile, error) {
 	if m.config.Bucket == "" {
 		return UploadedFile{}, errors.New("no storage bucket configured to uploader")
 	}
-	fileName := path.Join(m.config.Prefix, objName)
 
 	uploadInput := &s3.PutObjectInput{
 		ACL:    types.ObjectCannedACLBucketOwnerFullControl,
