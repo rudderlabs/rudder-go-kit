@@ -1,4 +1,4 @@
-package awsutil_v2
+package awsutil
 
 import (
 	"context"

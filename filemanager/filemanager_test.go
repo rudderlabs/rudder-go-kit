@@ -14,7 +14,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -37,15 +36,15 @@ import (
 )
 
 var (
-	AzuriteEndpoint, gcsURL, minioEndpoint, azureSASTokens string
-	base64Secret                                           = base64.StdEncoding.EncodeToString([]byte(secretAccessKey))
-	bucket                                                 = "filemanager-test-1"
-	region                                                 = "us-east-1"
-	accessKeyId                                            = "MYACCESSKEY"
-	secretAccessKey                                        = "MYSECRETKEY"
-	hold                                                   bool
-	regexRequiredSuffix                                    = regexp.MustCompile(".json.gz$")
-	fileList                                               []string
+	AzuriteEndpoint, gcsURL, minioHostPort, azureSASTokens, s3Endpoint string
+	base64Secret                                                       = base64.StdEncoding.EncodeToString([]byte(secretAccessKey))
+	bucket                                                             = "filemanager-test-1"
+	region                                                             = "us-east-1"
+	accessKeyId                                                        = "MYACCESSKEY"
+	secretAccessKey                                                    = "MYSECRETKEY"
+	hold                                                               bool
+	regexRequiredSuffix                                                = regexp.MustCompile(".json.gz$")
+	fileList                                                           []string
 )
 
 func TestMain(m *testing.M) {
@@ -87,11 +86,12 @@ func run(m *testing.M) int {
 		}
 	}()
 
-	minioEndpoint = fmt.Sprintf("localhost:%s", minioResource.GetPort("9000/tcp"))
+	minioHostPort = fmt.Sprintf("localhost:%s", minioResource.GetPort("9000/tcp"))
+	s3Endpoint = fmt.Sprintf("http://%s", minioHostPort)
 
 	// check if minio server is up & running.
 	if err := pool.Retry(func() error {
-		url := fmt.Sprintf("http://%s/minio/health/live", minioEndpoint)
+		url := fmt.Sprintf("%s/minio/health/live", s3Endpoint)
 		resp, err := http.Get(url)
 		if err != nil {
 			return err
@@ -107,7 +107,7 @@ func run(m *testing.M) int {
 	}
 	fmt.Println("minio is up & running properly")
 
-	minioClient, err := minio.New(minioEndpoint, &minio.Options{
+	minioClient, err := minio.New(minioHostPort, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyId, secretAccessKey, ""),
 		Secure: false, // no SSL
 	})
@@ -253,7 +253,7 @@ func TestFileManager(t *testing.T) {
 				"accessKey":        secretAccessKey,
 				"enableSSE":        false,
 				"prefix":           "some-prefix",
-				"endPoint":         minioEndpoint,
+				"endPoint":         s3Endpoint,
 				"s3ForcePathStyle": true,
 				"disableSSL":       true,
 				"region":           region,
@@ -269,14 +269,13 @@ func TestFileManager(t *testing.T) {
 				"accessKey":        secretAccessKey,
 				"enableSSE":        false,
 				"prefix":           "///some-prefix/",
-				"endPoint":         fmt.Sprintf("http://%s", minioEndpoint),
+				"endPoint":         s3Endpoint,
 				"s3ForcePathStyle": true,
 				"disableSSL":       true,
 				"region":           region,
 			},
 			appConf: func() *config.Config {
 				conf := config.New()
-				conf.Set("FileManager.useAwsSdkV2", "true")
 				return conf
 			}(),
 		},
@@ -290,7 +289,7 @@ func TestFileManager(t *testing.T) {
 				"secretAccessKey":  secretAccessKey,
 				"enableSSE":        false,
 				"prefix":           "some-prefix",
-				"endPoint":         minioEndpoint,
+				"endPoint":         minioHostPort,
 				"s3ForcePathStyle": true,
 				"disableSSL":       true,
 				"region":           region,
@@ -301,15 +300,15 @@ func TestFileManager(t *testing.T) {
 			destName:      "DIGITAL_OCEAN_SPACES",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
 			config: map[string]interface{}{
-				"bucketName":     bucket,
-				"accessKeyID":    accessKeyId,
-				"accessKey":      secretAccessKey,
-				"prefix":         "some-prefix",
-				"endPoint":       minioEndpoint,
-				"forcePathStyle": true,
-				"disableSSL":     true,
-				"region":         region,
-				"enableSSE":      false,
+				"bucketName":       bucket,
+				"accessKeyID":      accessKeyId,
+				"accessKey":        secretAccessKey,
+				"prefix":           "some-prefix",
+				"endPoint":         s3Endpoint,
+				"s3ForcePathStyle": true,
+				"disableSSL":       true,
+				"region":           region,
+				"enableSSE":        false,
 			},
 		},
 		{
@@ -661,140 +660,139 @@ func TestFileManager_S3(t *testing.T) {
 	testFileContent := []byte("integration test content")
 	require.NoError(t, os.WriteFile(testFilePath, testFileContent, 0o644))
 
-	envAccessKey := os.Getenv("AWS_ACCESS_KEY_ID")
-	envSecretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-	envBucket := os.Getenv("AWS_BUCKET_NAME")
-	isV2ManagerEnabled := []bool{false, true}
-	for _, enabled := range isV2ManagerEnabled {
-		authMethods := []struct {
-			name   string
-			config map[string]any
-		}{
-			{
-				name: "AccessKey/Secret",
-				config: map[string]any{
-					"bucketName":       envBucket,
-					"accessKeyID":      envAccessKey,
-					"secretAccessKey":  envSecretKey,
-					"region":           region,
-					"s3ForcePathStyle": true,
-					"disableSSL":       true,
-					"prefix":           "",
-				},
+	// Use test credentials and bucket for integration testing
+	envAccessKey := accessKeyId
+	envSecretKey := secretAccessKey
+	envBucket := bucket
+	authMethods := []struct {
+		name   string
+		config map[string]any
+	}{
+		{
+			name: "AccessKey/Secret",
+			config: map[string]any{
+				"bucketName":       envBucket,
+				"accessKeyID":      envAccessKey,
+				"secretAccessKey":  envSecretKey,
+				"region":           region,
+				"endPoint":         s3Endpoint,
+				"s3ForcePathStyle": true,
+				"disableSSL":       true,
+				"prefix":           "",
 			},
-			{
-				name: "AccessKey/Secret With Prefix",
-				config: map[string]any{
-					"bucketName":       envBucket,
-					"accessKeyID":      envAccessKey,
-					"secretAccessKey":  envSecretKey,
-					"region":           region,
-					"s3ForcePathStyle": true,
-					"disableSSL":       true,
-					"prefix":           "test-prefix",
-				},
+		},
+		{
+			name: "AccessKey/Secret With Prefix",
+			config: map[string]any{
+				"bucketName":       envBucket,
+				"accessKeyID":      envAccessKey,
+				"secretAccessKey":  envSecretKey,
+				"region":           region,
+				"endPoint":         s3Endpoint,
+				"s3ForcePathStyle": true,
+				"disableSSL":       true,
+				"prefix":           "test-prefix",
 			},
-			{
-				name: "AccessKey/Secret With Empty Endpoint",
-				config: map[string]any{
-					"bucketName":       envBucket,
-					"accessKeyID":      envAccessKey,
-					"secretAccessKey":  envSecretKey,
-					"region":           region,
-					"s3ForcePathStyle": true,
-					"disableSSL":       true,
-					"endpoint":         "",
-					"prefix":           "",
-				},
+		},
+		{
+			name: "AccessKey/Secret With Empty Endpoint",
+			config: map[string]any{
+				"bucketName":       envBucket,
+				"accessKeyID":      envAccessKey,
+				"secretAccessKey":  envSecretKey,
+				"region":           region,
+				"endPoint":         s3Endpoint,
+				"s3ForcePathStyle": true,
+				"disableSSL":       true,
+				"prefix":           "",
 			},
-		}
+		},
+	}
 
-		for _, auth := range authMethods {
-			t.Run("running with: "+auth.name+" and v2 manager enabled: "+strconv.FormatBool(enabled), func(t *testing.T) {
-				conf := config.New()
-				conf.Set("FileManager.useAwsSdkV2", enabled)
-				fm, err := filemanager.New(&filemanager.Settings{
-					Provider: "S3",
-					Config:   auth.config,
-					Logger:   logger.NOP,
-					Conf:     conf,
-				})
-				require.NoError(t, err)
-
-				// 1. Upload a file
-				filePtr, err := os.Open(testFilePath)
-				require.NoError(t, err)
-				uploadOutput, err := fm.Upload(context.TODO(), filePtr)
-				require.NoError(t, err)
-				require.NoError(t, filePtr.Close())
-				// check if the file name is exactly the same as the one we uploaded
-				require.Equal(t, uploadOutput.ObjectName, path.Join(auth.config["prefix"].(string), "testfile.txt"), "uploaded file name should be exactly the same as the one we uploaded")
-
-				// 2. List files and check our file is present
-				session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
-				files, err := session.Next()
-				require.NoError(t, err)
-				var found bool
-				for _, f := range files {
-					if f.Key == uploadOutput.ObjectName {
-						found = true
-						break
-					}
-				}
-				require.True(t, found, "uploaded file should be listed")
-
-				// 3. Download the file and verify contents
-				downloadPath := filepath.Join(tempDir, "downloaded.txt")
-				downloadPtr, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
-				require.NoError(t, err)
-				err = fm.Download(context.TODO(), downloadPtr, uploadOutput.ObjectName)
-				require.NoError(t, err)
-				require.NoError(t, downloadPtr.Close())
-
-				downloadedContent, err := os.ReadFile(downloadPath)
-				require.NoError(t, err)
-				require.Equal(t, testFileContent, downloadedContent, "downloaded file content should match uploaded")
-
-				// 4. Test GetObjectNameFromLocation
-				objectName, err := fm.GetObjectNameFromLocation(uploadOutput.Location)
-				require.NoError(t, err)
-				require.Equal(t, uploadOutput.ObjectName, objectName, "object name from location should match")
-
-				// 5. Test GetDownloadKeyFromFileLocation
-				downloadKey := fm.GetDownloadKeyFromFileLocation(uploadOutput.Location)
-				require.Equal(t, uploadOutput.ObjectName, downloadKey, "download key from location should match")
-
-				// 6. Test UploadReader
-				readerContent := []byte("test content from reader")
-				readerObjName := "test-reader-upload.txt"
-				uploadReaderOutput, err := fm.UploadReader(context.TODO(), readerObjName, bytes.NewReader(readerContent))
-				require.NoError(t, err)
-
-				// 7. Download file uploaded via UploadReader and verify
-				downloadReaderPath := filepath.Join(tempDir, "downloaded-reader.txt")
-				downloadReaderPtr, err := os.OpenFile(downloadReaderPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
-				require.NoError(t, err)
-				err = fm.Download(context.TODO(), downloadReaderPtr, uploadReaderOutput.ObjectName)
-				require.NoError(t, err)
-				require.NoError(t, downloadReaderPtr.Close())
-
-				downloadedReaderContent, err := os.ReadFile(downloadReaderPath)
-				require.NoError(t, err)
-				require.Equal(t, readerContent, downloadedReaderContent, "downloaded content should match uploaded reader content")
-
-				// 8. Test Delete
-				err = fm.Delete(context.TODO(), []string{uploadReaderOutput.ObjectName})
-				require.NoError(t, err)
-
-				// 9. Verify deletion
-				deletedSession := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
-				deletedFiles, err := deletedSession.Next()
-				require.NoError(t, err)
-				for _, f := range deletedFiles {
-					require.NotEqual(t, uploadReaderOutput.ObjectName, f.Key, "deleted file should not be present")
-				}
+	for _, auth := range authMethods {
+		t.Run("running with: "+auth.name, func(t *testing.T) {
+			conf := config.New()
+			fm, err := filemanager.New(&filemanager.Settings{
+				Provider: "S3",
+				Config:   auth.config,
+				Logger:   logger.NOP,
+				Conf:     conf,
 			})
-		}
+			require.NoError(t, err)
+
+			// 1. Upload a file
+			filePtr, err := os.Open(testFilePath)
+			require.NoError(t, err)
+			uploadOutput, err := fm.Upload(context.TODO(), filePtr)
+			require.NoError(t, err)
+			require.NoError(t, filePtr.Close())
+			// check if the file name is exactly the same as the one we uploaded
+			require.Equal(t, uploadOutput.ObjectName, path.Join(auth.config["prefix"].(string), "testfile.txt"), "uploaded file name should be exactly the same as the one we uploaded")
+
+			// 2. List files and check our file is present
+			session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+			files, err := session.Next()
+			require.NoError(t, err)
+			var found bool
+			for _, f := range files {
+				if f.Key == uploadOutput.ObjectName {
+					found = true
+					break
+				}
+			}
+			require.True(t, found, "uploaded file should be listed")
+
+			// 3. Download the file and verify contents
+			downloadPath := filepath.Join(tempDir, "downloaded.txt")
+			downloadPtr, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+			require.NoError(t, err)
+			err = fm.Download(context.TODO(), downloadPtr, uploadOutput.ObjectName)
+			require.NoError(t, err)
+			require.NoError(t, downloadPtr.Close())
+
+			downloadedContent, err := os.ReadFile(downloadPath)
+			require.NoError(t, err)
+			require.Equal(t, testFileContent, downloadedContent, "downloaded file content should match uploaded")
+
+			// 4. Test GetObjectNameFromLocation
+			objectName, err := fm.GetObjectNameFromLocation(uploadOutput.Location)
+			require.NoError(t, err)
+			require.Equal(t, uploadOutput.ObjectName, objectName, "object name from location should match")
+
+			// 5. Test GetDownloadKeyFromFileLocation
+			downloadKey := fm.GetDownloadKeyFromFileLocation(uploadOutput.Location)
+			require.Equal(t, uploadOutput.ObjectName, downloadKey, "download key from location should match")
+
+			// 6. Test UploadReader
+			readerContent := []byte("test content from reader")
+			readerObjName := "test-reader-upload.txt"
+			uploadReaderOutput, err := fm.UploadReader(context.TODO(), readerObjName, bytes.NewReader(readerContent))
+			require.NoError(t, err)
+
+			// 7. Download file uploaded via UploadReader and verify
+			downloadReaderPath := filepath.Join(tempDir, "downloaded-reader.txt")
+			downloadReaderPtr, err := os.OpenFile(downloadReaderPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+			require.NoError(t, err)
+			err = fm.Download(context.TODO(), downloadReaderPtr, uploadReaderOutput.ObjectName)
+			require.NoError(t, err)
+			require.NoError(t, downloadReaderPtr.Close())
+
+			downloadedReaderContent, err := os.ReadFile(downloadReaderPath)
+			require.NoError(t, err)
+			require.Equal(t, readerContent, downloadedReaderContent, "downloaded content should match uploaded reader content")
+
+			// 8. Test Delete
+			err = fm.Delete(context.TODO(), []string{uploadReaderOutput.ObjectName})
+			require.NoError(t, err)
+
+			// 9. Verify deletion
+			deletedSession := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+			deletedFiles, err := deletedSession.Next()
+			require.NoError(t, err)
+			for _, f := range deletedFiles {
+				require.NotEqual(t, uploadReaderOutput.ObjectName, f.Key, "deleted file should not be present")
+			}
+		})
 	}
 }
 
@@ -805,7 +803,7 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 		"accessKey":        secretAccessKey,
 		"enableSSE":        false,
 		"prefix":           "some-prefix",
-		"endPoint":         minioEndpoint,
+		"endPoint":         s3Endpoint,
 		"s3ForcePathStyle": true,
 		"disableSSL":       true,
 		"region":           region,
@@ -839,7 +837,7 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 		}
 	}()
 
-	s3fm, ok := fm.(filemanager.S3Manager)
+	s3fm, ok := fm.(*filemanager.S3Manager)
 	if !ok {
 		t.Fatalf("filemanager is not an S3Manager, cannot call SelectObjects")
 	}
