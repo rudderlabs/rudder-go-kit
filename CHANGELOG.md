@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.61.2...v0.62.0) (2025-09-08)
+
+
+### Features
+
+* remove aws v1 references ([#915](https://github.com/rudderlabs/rudder-go-kit/issues/915)) ([5bb0d52](https://github.com/rudderlabs/rudder-go-kit/commit/5bb0d5273a8e93b799b94b4a2d077869050d15e6))
+
 ## [0.61.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.61.1...v0.61.2) (2025-09-04)
 
 
