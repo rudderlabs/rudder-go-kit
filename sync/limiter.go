@@ -49,6 +49,22 @@ type Limiter interface {
 	// Caller is expected to call the returned function to end the operation, otherwise
 	// the slot will be reserved indefinitely. End can be called multiple times without any side effects
 	BeginWithPriority(key string, priority LimiterPriorityValue) (end func())
+
+	// BeginWithSleep starts a new operation with sleep capability, blocking until a slot becomes available.
+	// Returns a LimiterExecutionHandle that can be used to sleep during the operation without affecting working time metrics or blocking other waiting operations
+	BeginWithSleep(key string) LimiterExecution
+
+	// BeginWithSleepAndPriority starts a new operation with sleep capability and priority, blocking until a slot becomes available.
+	// Returns a LimiterExecutionHandle that can be used to sleep during the operation without affecting working time metrics or blocking other waiting operations
+	BeginWithSleepAndPriority(key string, priority LimiterPriorityValue) LimiterExecution
+}
+
+// LimiterExecution represents a function that can end a limiter operation and optionally sleep
+type LimiterExecution interface {
+	// End the limiter operation (same as calling the function directly)
+	End()
+	// Sleep pauses the working timer for the specified duration
+	Sleep(ctx context.Context, duration time.Duration) error
 }
 
 var WithLimiterStatsTriggerFunc = func(triggerFunc func() <-chan time.Time) func(*limiter) {
@@ -152,30 +168,25 @@ func (l *limiter) Begin(key string) (end func()) {
 }
 
 func (l *limiter) BeginWithPriority(key string, priority LimiterPriorityValue) (end func()) {
+	return l.BeginWithSleepAndPriority(key, priority).End
+}
+
+func (l *limiter) BeginWithSleep(key string) LimiterExecution {
+	return l.BeginWithSleepAndPriority(key, LimiterPriorityValueLow)
+}
+
+func (l *limiter) BeginWithSleepAndPriority(key string, priority LimiterPriorityValue) LimiterExecution {
+	tags := lo.Assign(l.tags, stats.Tags{"key": key})
 	start := time.Now()
 	l.wait(priority)
-	tags := lo.Assign(l.tags, stats.Tags{"key": key})
-	l.stats.stat.NewTaggedStat(l.name+"_limiter_waiting", stats.TimerType, tags).Since(start)
-	start = time.Now()
-	var endOnce sync.Once
-
-	end = func() {
-		endOnce.Do(func() {
-			defer l.stats.stat.NewTaggedStat(l.name+"_limiter_working", stats.TimerType, tags).Since(start)
-			l.mu.Lock()
-			l.count--
-			if len(l.waitList) == 0 {
-				l.mu.Unlock()
-				return
-			}
-			next := heap.Pop(&l.waitList).(*queue.Item[chan struct{}])
-			l.count++
-			l.mu.Unlock()
-			next.Value <- struct{}{}
-			close(next.Value)
-		})
+	totalWaiting := time.Since(start)
+	return &limiterExecution{
+		p:            priority,
+		l:            l,
+		tags:         tags,
+		workingStart: time.Now(),
+		totalWaiting: totalWaiting,
 	}
-	return end
 }
 
 // wait until a slot becomes available
@@ -223,5 +234,68 @@ func (l *limiter) wait(priority LimiterPriorityValue) {
 				return
 			}
 		}
+	}
+}
+
+func (l *limiter) end() {
+	l.mu.Lock()
+	l.count--
+	if len(l.waitList) == 0 {
+		l.mu.Unlock()
+		return
+	}
+	next := heap.Pop(&l.waitList).(*queue.Item[chan struct{}])
+	l.count++
+	l.mu.Unlock()
+	next.Value <- struct{}{}
+	close(next.Value)
+}
+
+type limiterExecution struct {
+	p             LimiterPriorityValue
+	l             *limiter
+	tags          stats.Tags
+	workingStart  time.Time
+	totalWorking  time.Duration
+	totalWaiting  time.Duration
+	totalSleeping time.Duration
+	ended         bool
+	endOnce       sync.Once
+}
+
+func (le *limiterExecution) End() {
+	le.endOnce.Do(func() {
+		le.l.end()
+		le.totalWorking += time.Since(le.workingStart)
+		le.l.stats.stat.NewTaggedStat(le.l.name+"_limiter_waiting", stats.TimerType, le.tags).SendTiming(le.totalWaiting)
+		le.l.stats.stat.NewTaggedStat(le.l.name+"_limiter_sleeping", stats.TimerType, le.tags).SendTiming(le.totalSleeping)
+		le.l.stats.stat.NewTaggedStat(le.l.name+"_limiter_working", stats.TimerType, le.tags).SendTiming(le.totalWorking)
+		le.ended = true
+	})
+}
+
+func (le *limiterExecution) Sleep(ctx context.Context, duration time.Duration) error {
+	if le.ended {
+		return fmt.Errorf("limiter execution has ended, sleep not allowed")
+	}
+	start := time.Now()
+	// before sleeping we need to release the slot
+	// so that other waiting operations can proceed
+	le.l.end()
+	le.totalWorking += time.Since(le.workingStart)
+
+	defer func() {
+		le.totalSleeping += time.Since(start)
+		// reacquire the slot after sleeping
+		waitStart := time.Now()
+		le.l.wait(le.p)
+		le.totalWaiting += time.Since(waitStart)
+		le.workingStart = time.Now()
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(duration):
+		return nil
 	}
 }
