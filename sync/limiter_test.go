@@ -45,9 +45,9 @@ func TestLimiter(t *testing.T) {
 			wg.Add(1)
 			key := strconv.Itoa(i)
 			go func() {
+				defer wg.Done()
 				limiter.Do(key, func() {
 					counter++ // since the limiter's limit is 1, we shouldn't need an atomic counter
-					wg.Done()
 				})
 			}()
 		}
@@ -81,10 +81,8 @@ func TestLimiter(t *testing.T) {
 	t.Run("with priority", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
-		ms, err := memstats.New()
-		require.NoError(t, err)
 
-		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, ms)
+		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, stats.NOP)
 		var counterLow int
 		var counterHigh int
 		sleepTime := 100 * time.Microsecond
@@ -92,11 +90,11 @@ func TestLimiter(t *testing.T) {
 			wg.Add(1)
 			key := strconv.Itoa(i)
 			go func() {
+				defer wg.Done()
 				limiter.DoWithPriority(key, miscsync.LimiterPriorityValueHigh, func() {
 					time.Sleep(sleepTime)
 					counterHigh++ // since the limiter's limit is 1, we shouldn't need an atomic counter
 					require.Equal(t, 0, counterLow, "counterLow should be 0")
-					wg.Done()
 				})
 			}()
 		}
@@ -106,9 +104,9 @@ func TestLimiter(t *testing.T) {
 			wg.Add(1)
 			key := strconv.Itoa(i)
 			go func() {
+				defer wg.Done()
 				limiter.DoWithPriority(key, miscsync.LimiterPriorityValueLow, func() {
 					counterLow++ // since the limiter's limit is 1, we shouldn't need an atomic counter
-					wg.Done()
 				})
 			}()
 		}
@@ -123,11 +121,9 @@ func TestLimiter(t *testing.T) {
 	t.Run("with dynamic priority", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
-		ms, err := memstats.New()
-		require.NoError(t, err)
 
 		sleepTime := 1 * time.Millisecond
-		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, ms, miscsync.WithLimiterDynamicPeriod(sleepTime/100))
+		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, stats.NOP, miscsync.WithLimiterDynamicPeriod(sleepTime/100))
 		var counterLow int
 		var counterHigh int
 
@@ -136,13 +132,13 @@ func TestLimiter(t *testing.T) {
 			wg.Add(1)
 			key := strconv.Itoa(i)
 			go func() {
+				defer wg.Done()
 				limiter.DoWithPriority(key, miscsync.LimiterPriorityValueHigh, func() {
 					time.Sleep(sleepTime)
 					counterHigh++ // since the limiter's limit is 1, we shouldn't need an atomic counter
 					if counterLow > 0 {
 						dynamicPriorityVerified = true
 					}
-					wg.Done()
 				})
 			}()
 		}
@@ -151,9 +147,9 @@ func TestLimiter(t *testing.T) {
 			wg.Add(1)
 			key := strconv.Itoa(i)
 			go func() {
+				defer wg.Done()
 				limiter.DoWithPriority(key, miscsync.LimiterPriorityValueLow, func() {
 					counterLow++ // since the limiter's limit is 1, we shouldn't need an atomic counter
-					wg.Done()
 				})
 			}()
 		}
@@ -169,17 +165,16 @@ func TestLimiter(t *testing.T) {
 	t.Run("with sleep", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
-		ms, err := memstats.New()
-		require.NoError(t, err)
 
 		sleepTime := 1 * time.Millisecond
-		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, ms, miscsync.WithLimiterDynamicPeriod(sleepTime/100))
+		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, stats.NOP, miscsync.WithLimiterDynamicPeriod(sleepTime/100))
 		var counter int
 		var sleepVerified bool
 		for i := range 1000 {
 			wg.Add(1)
 			key := strconv.Itoa(i)
 			go func() {
+				defer wg.Done()
 				le := limiter.BeginWithSleep(key)
 				defer le.End()
 				if !sleepVerified && counter == 0 && i > 0 {
@@ -187,7 +182,6 @@ func TestLimiter(t *testing.T) {
 				}
 				require.NoError(t, le.Sleep(context.Background(), sleepTime))
 				counter++ // since the limiter's limit is 1, we shouldn't need an atomic counter
-				wg.Done()
 			}()
 		}
 		cancel()
