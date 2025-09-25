@@ -194,8 +194,8 @@ func TestLimiter(t *testing.T) {
 			sl := ms.Get("test_limiter_sleeping", map[string]string{"key": key})
 			require.NotNil(t, sl)
 			require.Lenf(t, sl.Durations(), 1, "should have recorded 1 sleeping timer duration for key %d", i)
-			require.GreaterOrEqual(t, sl.LastDuration(), sleepTime, "sleeping time should be greater than or equal to 1ms")
-			require.Less(t, sl.LastDuration(), sleepTime*2, "sleeping time should be greater than or equal to 1ms")
+			require.GreaterOrEqual(t, sl.LastDuration(), sleepTime)
+			require.Less(t, sl.LastDuration(), sleepTime*2)
 		}
 	})
 
