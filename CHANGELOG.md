@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.63.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.62.0...v0.63.0) (2025-09-25)
+
+
+### Features
+
+* support sleeping during limiter execution ([#934](https://github.com/rudderlabs/rudder-go-kit/issues/934)) ([84137ba](https://github.com/rudderlabs/rudder-go-kit/commit/84137bab6455b0453ed80878da26d97604499d71))
+
+
+### Miscellaneous
+
+* updating grafana jsonparser ([#931](https://github.com/rudderlabs/rudder-go-kit/issues/931)) ([6216122](https://github.com/rudderlabs/rudder-go-kit/commit/621612248a989818f1fd2876f860fb169544527c))
+
 ## [0.62.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.61.2...v0.62.0) (2025-09-08)
 
 
