@@ -561,7 +561,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				panic(err)
 			}
-			newFileObject, err := fmNew.ListFilesWithPrefix(context.TODO(), "", "", 1000).Next()
+			newFileObject, err := fmNew.ListFilesWithPrefix(context.TODO(), "", prefix, 1000).Next()
 			if err != nil {
 				fmt.Println("error while getting new file object: ", err)
 			}
