@@ -565,6 +565,14 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				fmt.Println("error while getting new file object: ", err)
 			}
+			for _, file := range newFileObject {
+				t.Errorf("file: %+v", file.Key)
+			}
+
+			for _, file := range originalFileObject {
+				t.Errorf("original file: %+v", file.Key)
+			}
+
 			require.Equal(t, len(originalFileObject)-1, len(newFileObject), "expected original file list length to be greater than new list by 1, but is different")
 		})
 
