@@ -165,9 +165,11 @@ func TestLimiter(t *testing.T) {
 	t.Run("with sleep", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		var wg sync.WaitGroup
+		ms, err := memstats.New()
+		require.NoError(t, err)
 
-		sleepTime := 1 * time.Millisecond
-		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, stats.NOP, miscsync.WithLimiterDynamicPeriod(sleepTime/100))
+		sleepTime := 10 * time.Millisecond
+		limiter := miscsync.NewLimiter(ctx, &wg, "test", 1, ms, miscsync.WithLimiterDynamicPeriod(sleepTime/100))
 		var counter int
 		var sleepVerified bool
 		for i := range 1000 {
@@ -187,6 +189,14 @@ func TestLimiter(t *testing.T) {
 		cancel()
 		wg.Wait()
 		require.True(t, sleepVerified, "sleep should have been verified")
+		for i := range 1000 {
+			key := strconv.Itoa(i)
+			sl := ms.Get("test_limiter_sleeping", map[string]string{"key": key})
+			require.NotNil(t, sl)
+			require.Lenf(t, sl.Durations(), 1, "should have recorded 1 sleeping timer duration for key %d", i)
+			require.GreaterOrEqual(t, sl.LastDuration(), sleepTime, "sleeping time should be greater than or equal to 1ms")
+			require.Less(t, sl.LastDuration(), sleepTime*2, "sleeping time should be greater than or equal to 1ms")
+		}
 	})
 
 	t.Run("invalid limit", func(t *testing.T) {
