@@ -36,6 +36,7 @@ type conf struct {
 	minProcs              int
 	cpuRequestsMultiplier float64
 	roundQuotaFunc        func(float64) int
+	stop                  chan os.Signal
 }
 
 type Option func(*conf)
@@ -109,6 +110,7 @@ func SetWithConfig(c *config.Config, opts ...Option) {
 		minProcs:              c.GetInt("MinProcs", defaultMinProcs),
 		cpuRequestsMultiplier: c.GetFloat64("RequestsMultiplier", defaultCPURequestsMultiplier),
 		roundQuotaFunc:        roundQuotaCeil,
+		stop:                  make(chan os.Signal, 1),
 	}
 	for _, opt := range opts {
 		opt(conf)
@@ -139,13 +141,12 @@ func SetWithConfig(c *config.Config, opts ...Option) {
 		conf.logger.Infon("Starting file watcher to monitor CPU requests changes",
 			logger.NewStringField("file", requestsFile),
 		)
-		stop := make(chan os.Signal, 1)
-		signal.Notify(stop, os.Kill, os.Interrupt, syscall.SIGTERM)
-		go watchFile(requestsFile, conf, stop)
+		signal.Notify(conf.stop, os.Kill, os.Interrupt, syscall.SIGTERM)
+		go watchFile(conf, requestsFile)
 	}
 }
 
-func watchFile(file string, conf *conf, stop chan os.Signal) {
+func watchFile(conf *conf, file string) {
 	log := conf.logger.Withn(logger.NewStringField("file", file))
 
 	watcher, err := fsnotify.NewWatcher()
@@ -169,7 +170,7 @@ func watchFile(file string, conf *conf, stop chan os.Signal) {
 
 	for {
 		select {
-		case <-stop:
+		case <-conf.stop:
 			log.Infon("Received signal, stopping file watcher")
 			return
 		case event, ok := <-watcher.Events:
