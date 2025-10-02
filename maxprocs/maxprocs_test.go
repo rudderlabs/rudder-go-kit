@@ -362,7 +362,60 @@ func TestSetWithConfig_FileWatcherWithChanges(t *testing.T) {
 }
 
 func TestSetWithConfig_FileWatcherWithSignal(t *testing.T) {
-	t.Skip("Skipping signal test as it affects other tests running in parallel")
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte("1000"), 0o644))
+
+	cfg := config.New()
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", true)
+
+	stop := make(chan os.Signal, 1)
+
+	mockLog := requireLoggerInfo(t, 1, 1, 1.5, 2)
+	mockLog.EXPECT().Infon("Using CPU requests from file",
+		logger.NewStringField("requests", "1000m"),
+		logger.NewStringField("file", requestsFile),
+	).Times(1)
+	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes",
+		logger.NewStringField("file", requestsFile),
+	).Times(1)
+	mockLog.EXPECT().Withn(logger.NewStringField("file", requestsFile)).Return(mockLog).Times(1)
+
+	watcherIsSetup := make(chan struct{})
+	mockLog.EXPECT().Debugn("Watching file for changes").Do(func(_ string, _ ...logger.Field) {
+		close(watcherIsSetup)
+	}).Times(1)
+	mockLog.EXPECT().Infon("Received signal, stopping file watcher").Times(1)
+
+	watcherStopped := make(chan struct{})
+	mockLog.EXPECT().Debugn("Stopped watching file for changes").Do(func(_ string, _ ...logger.Field) {
+		close(watcherStopped)
+	}).Times(1)
+
+	SetWithConfig(cfg, WithLogger(mockLog), WithStopFileWatcher(stop))
+
+	// Wait for watcher to be setup
+	select {
+	case <-watcherIsSetup:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("File watcher was not setup within 5 seconds")
+	}
+
+	// Send signal to stop the watcher
+	stop <- os.Interrupt
+
+	// Wait for watcher to stop
+	select {
+	case <-watcherStopped:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("File watcher did not stop within 5 seconds")
+	}
+
+	require.Equal(t, 2, runtime.GOMAXPROCS(0))
 }
 
 func requireLoggerInfo(t testing.TB,

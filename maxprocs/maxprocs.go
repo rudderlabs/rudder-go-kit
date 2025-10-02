@@ -57,6 +57,10 @@ func WithRoundQuotaFunc(roundQuotaFunc func(float64) int) Option {
 	return func(c *conf) { c.roundQuotaFunc = roundQuotaFunc }
 }
 
+func WithStopFileWatcher(stop chan os.Signal) Option {
+	return func(c *conf) { c.stop = stop }
+}
+
 func Set(raw string, opts ...Option) {
 	conf := &conf{
 		logger:                logger.NOP,
@@ -167,6 +171,7 @@ func watchFile(conf *conf, file string) {
 	}
 
 	log.Debugn("Watching file for changes")
+	defer log.Debugn("Stopped watching file for changes")
 
 	for {
 		select {
