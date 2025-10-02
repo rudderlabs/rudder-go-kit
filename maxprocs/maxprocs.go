@@ -18,6 +18,7 @@ import (
 
 const (
 	defaultMinProcs              = 1
+	defaultMaxProcs              = 12
 	defaultCPURequestsMultiplier = 1.5
 )
 
@@ -34,6 +35,7 @@ func setDefault() {
 type conf struct {
 	logger                logger.Logger
 	minProcs              int
+	maxProcs              int
 	cpuRequestsMultiplier float64
 	roundQuotaFunc        func(float64) int
 	stop                  chan os.Signal
@@ -47,6 +49,10 @@ func WithLogger(logger logger.Logger) Option {
 
 func WithMinProcs(minProcs int) Option {
 	return func(c *conf) { c.minProcs = minProcs }
+}
+
+func WithMaxProcs(maxProcs int) Option {
+	return func(c *conf) { c.maxProcs = maxProcs }
 }
 
 func WithCPURequestsMultiplier(cpuRequestsMultiplier float64) Option {
@@ -94,6 +100,9 @@ func Set(raw string, opts ...Option) {
 	if gomaxprocs < conf.minProcs {
 		gomaxprocs = conf.minProcs
 	}
+	if conf.maxProcs > 0 && gomaxprocs > conf.maxProcs {
+		gomaxprocs = conf.maxProcs
+	}
 
 	// Set GOMAXPROCS
 	runtime.GOMAXPROCS(gomaxprocs)
@@ -103,6 +112,7 @@ func Set(raw string, opts ...Option) {
 		logger.NewFloatField("cpuRequests", cpuRequests),
 		logger.NewFloatField("multiplier", conf.cpuRequestsMultiplier),
 		logger.NewIntField("minProcs", int64(conf.minProcs)),
+		logger.NewIntField("maxProcs", int64(conf.maxProcs)),
 		logger.NewIntField("result", int64(gomaxprocs)),
 		logger.NewIntField("GOMAXPROCS", int64(runtime.GOMAXPROCS(0))),
 	)
@@ -112,6 +122,7 @@ func SetWithConfig(c *config.Config, opts ...Option) {
 	conf := &conf{
 		logger:                logger.NOP,
 		minProcs:              c.GetInt("MinProcs", defaultMinProcs),
+		maxProcs:              c.GetInt("MaxProcs", defaultMaxProcs),
 		cpuRequestsMultiplier: c.GetFloat64("RequestsMultiplier", defaultCPURequestsMultiplier),
 		roundQuotaFunc:        roundQuotaCeil,
 		stop:                  make(chan os.Signal, 1),
@@ -137,6 +148,7 @@ func SetWithConfig(c *config.Config, opts ...Option) {
 	Set(requests,
 		WithLogger(conf.logger),
 		WithMinProcs(conf.minProcs),
+		WithMaxProcs(conf.maxProcs),
 		WithCPURequestsMultiplier(conf.cpuRequestsMultiplier),
 		WithRoundQuotaFunc(conf.roundQuotaFunc),
 	)
@@ -188,6 +200,7 @@ func watchFile(conf *conf, file string) {
 					Set(requests,
 						WithLogger(conf.logger),
 						WithMinProcs(conf.minProcs),
+						WithMaxProcs(conf.maxProcs),
 						WithCPURequestsMultiplier(conf.cpuRequestsMultiplier),
 						WithRoundQuotaFunc(conf.roundQuotaFunc),
 					)
