@@ -145,7 +145,7 @@ func SetWithConfig(c *config.Config, opts ...Option) {
 		conf.logger.Infon("Starting file watcher to monitor CPU requests changes",
 			logger.NewStringField("file", requestsFile),
 		)
-		signal.Notify(conf.stop, os.Kill, os.Interrupt, syscall.SIGTERM)
+		signal.Notify(conf.stop, os.Interrupt, syscall.SIGTERM)
 		go watchFile(conf, requestsFile)
 	}
 }
