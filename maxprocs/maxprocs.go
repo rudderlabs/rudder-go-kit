@@ -2,12 +2,18 @@ package maxprocs
 
 import (
 	"math"
+	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
+
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 const (
@@ -108,12 +114,80 @@ func SetWithConfig(c *config.Config, opts ...Option) {
 		opt(conf)
 	}
 
-	Set(c.GetString("Requests", "1"),
+	var (
+		fileMode     bool
+		requests     = c.GetString("Requests", "1")
+		requestsFile = c.GetString("RequestsFile", "/etc/podinfo/cpu_requests")
+	)
+	if data, err := os.ReadFile(requestsFile); err == nil && len(data) > 0 {
+		fileMode = true
+		requests = strings.TrimSpace(string(data)) + "m"
+	}
+
+	Set(requests,
 		WithLogger(conf.logger),
 		WithMinProcs(conf.minProcs),
 		WithCPURequestsMultiplier(conf.cpuRequestsMultiplier),
 		WithRoundQuotaFunc(conf.roundQuotaFunc),
 	)
+
+	if fileMode && c.GetBool("Watch", true) {
+		conf.logger.Infon("Starting file watcher to monitor CPU requests changes",
+			logger.NewStringField("file", requestsFile),
+		)
+		stop := make(chan os.Signal, 1)
+		signal.Notify(stop, os.Kill, os.Interrupt, syscall.SIGTERM)
+		go watchFile(requestsFile, conf, stop)
+	}
+}
+
+func watchFile(file string, conf *conf, stop chan os.Signal) {
+	log := conf.logger.Withn(logger.NewStringField("file", file))
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Warnn("Failed to create file watcher", obskit.Error(err))
+		return
+	}
+	defer func() {
+		err := watcher.Close()
+		if err != nil {
+			log.Warnn("Failed to close file watcher", obskit.Error(err))
+		}
+	}()
+
+	if err := watcher.Add(file); err != nil {
+		log.Warnn("Failed to watch file", obskit.Error(err))
+		return
+	}
+
+	for {
+		select {
+		case <-stop:
+			log.Infon("Received signal, stopping file watcher")
+			return
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+			if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
+				if data, err := os.ReadFile(file); err == nil && len(data) > 0 {
+					requests := strings.TrimSpace(string(data)) + "m"
+					Set(requests,
+						WithLogger(conf.logger),
+						WithMinProcs(conf.minProcs),
+						WithCPURequestsMultiplier(conf.cpuRequestsMultiplier),
+						WithRoundQuotaFunc(conf.roundQuotaFunc),
+					)
+				}
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Warnn("File watcher error", obskit.Error(err))
+		}
+	}
 }
 
 func roundQuotaCeil(f float64) int {
