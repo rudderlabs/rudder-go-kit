@@ -122,6 +122,10 @@ func SetWithConfig(c *config.Config, opts ...Option) {
 	if data, err := os.ReadFile(requestsFile); err == nil && len(data) > 0 {
 		fileMode = true
 		requests = strings.TrimSpace(string(data)) + "m"
+		conf.logger.Infon("Using CPU requests from file",
+			logger.NewStringField("requests", requests),
+			logger.NewStringField("file", requestsFile),
+		)
 	}
 
 	Set(requests,

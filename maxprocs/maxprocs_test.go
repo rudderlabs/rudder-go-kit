@@ -2,8 +2,12 @@ package maxprocs
 
 import (
 	"math"
+	"os"
+	"path/filepath"
 	"runtime"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -227,12 +231,151 @@ func TestEnvironmentVariables(t *testing.T) {
 	require.Equal(t, 7, runtime.GOMAXPROCS(0))
 }
 
+func TestSetWithConfig_ReadFromFile(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte("1500"), 0o644))
+
+	cfg := config.New()
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", false)
+
+	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, 3)
+	SetWithConfig(cfg, WithLogger(mockLog))
+
+	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // 1500m * 1.5 = 2.25 → ceil = 3
+}
+
+func TestSetWithConfig_EmptyFile(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte(""), 0o644))
+
+	cfg := config.New()
+	cfg.Set("Requests", "1100m")
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", false)
+
+	mockLog := requireLoggerInfo(t, 1.1, 1, 1.5, 2)
+	SetWithConfig(cfg, WithLogger(mockLog))
+
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Falls back to Requests config: 1100m * 1.5 = 1.65 → ceil = 2
+}
+
+func TestSetWithConfig_NonExistentFile(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	cfg := config.New()
+	cfg.Set("Requests", "2000m")
+	cfg.Set("RequestsFile", "/non/existent/file")
+	cfg.Set("Watch", false)
+
+	mockLog := requireLoggerInfo(t, 2.0, 1, 1.5, 3)
+	SetWithConfig(cfg, WithLogger(mockLog))
+
+	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // Falls back to Requests config: 2000m * 1.5 = 3.0 → ceil = 3
+}
+
+func TestSetWithConfig_WatchDisabled(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte("1000"), 0o644))
+
+	cfg := config.New()
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", false)
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Infon("GOMAXPROCS has been configured", gomock.Any()).Times(1)
+	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes", gomock.Any()).Times(0)
+
+	SetWithConfig(cfg, WithLogger(mockLog))
+
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // 1000m * 1.5 = 1.5 → ceil = 2
+}
+
+func TestSetWithConfig_FileWatcherWithChanges(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte("1000"), 0o644))
+
+	cfg := config.New()
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", true)
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+
+	// Initial setup
+	mockLog.EXPECT().Infon("GOMAXPROCS has been configured", gomock.Any()).Times(1)
+	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes", gomock.Any()).Times(1)
+	mockLog.EXPECT().Withn(gomock.Any()).Return(mockLog).Times(1)
+
+	// File change
+	mockLog.EXPECT().Infon("GOMAXPROCS has been configured", gomock.Any()).Times(1)
+
+	SetWithConfig(cfg, WithLogger(mockLog))
+	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // 1000m * 1.5 = 1.5 → ceil = 2
+
+	// Update the file
+	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, os.WriteFile(requestsFile, []byte("2000"), 0o644))
+
+	// Wait for file watcher to process
+	time.Sleep(200 * time.Millisecond)
+	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // 2000m * 1.5 = 3.0 → ceil = 3
+}
+
+func TestSetWithConfig_FileWatcherWithSignal(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte("1000"), 0o644))
+
+	cfg := config.New()
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", true)
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+
+	mockLog.EXPECT().Infon("GOMAXPROCS has been configured", gomock.Any()).Times(1)
+	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes", gomock.Any()).Times(1)
+	mockLog.EXPECT().Withn(gomock.Any()).Return(mockLog).Times(1)
+	mockLog.EXPECT().Infon("Received signal, stopping file watcher").Times(1)
+
+	SetWithConfig(cfg, WithLogger(mockLog))
+
+	// Send SIGTERM to stop the watcher
+	time.Sleep(100 * time.Millisecond)
+	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+
+	time.Sleep(100 * time.Millisecond)
+}
+
 func requireLoggerInfo(t testing.TB,
 	cpuRequests float64,
 	minProcs int64,
 	multiplier float64,
 	required int64,
-) logger.Logger {
+) *mock_logger.MockLogger {
+	t.Helper()
 	ctrl := gomock.NewController(t)
 	mockLog := mock_logger.NewMockLogger(ctrl)
 	mockLog.EXPECT().Infon("GOMAXPROCS has been configured",
