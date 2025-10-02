@@ -242,18 +242,10 @@ func TestSetWithConfig_ReadFromFile(t *testing.T) {
 	cfg.Set("RequestsFile", requestsFile)
 	cfg.Set("Watch", false)
 
-	ctrl := gomock.NewController(t)
-	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, 3)
 	mockLog.EXPECT().Infon("Using CPU requests from file",
 		logger.NewStringField("requests", "1500m"),
 		logger.NewStringField("file", requestsFile),
-	).Times(1)
-	mockLog.EXPECT().Infon("GOMAXPROCS has been configured",
-		logger.NewFloatField("cpuRequests", 1.5),
-		logger.NewFloatField("multiplier", 1.5),
-		logger.NewIntField("minProcs", int64(1)),
-		logger.NewIntField("result", int64(3)),
-		logger.NewIntField("GOMAXPROCS", int64(3)),
 	).Times(1)
 
 	SetWithConfig(cfg, WithLogger(mockLog))
@@ -307,13 +299,11 @@ func TestSetWithConfig_WatchDisabled(t *testing.T) {
 	cfg.Set("RequestsFile", requestsFile)
 	cfg.Set("Watch", false)
 
-	ctrl := gomock.NewController(t)
-	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog := requireLoggerInfo(t, 1, 1, 1.5, 2)
 	mockLog.EXPECT().Infon("Using CPU requests from file",
 		logger.NewStringField("requests", "1000m"),
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
-	mockLog.EXPECT().Infon("GOMAXPROCS has been configured", gomock.Any()).Times(1)
 	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes", gomock.Any()).Times(0)
 
 	SetWithConfig(cfg, WithLogger(mockLog))
@@ -333,26 +323,42 @@ func TestSetWithConfig_FileWatcherWithChanges(t *testing.T) {
 	cfg.Set("RequestsFile", requestsFile)
 	cfg.Set("Watch", true)
 
-	ctrl := gomock.NewController(t)
-	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog := requireLoggerInfo(t, 1, 1, 1.5, 2)
+	mockLog.EXPECT().Infon("Using CPU requests from file",
+		logger.NewStringField("requests", "1000m"),
+		logger.NewStringField("file", requestsFile),
+	).Times(1)
+	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes",
+		logger.NewStringField("file", requestsFile),
+	).Times(1)
+	mockLog.EXPECT().Withn(logger.NewStringField("file", requestsFile)).Return(mockLog).Times(1)
+	mockLog.EXPECT().Infon("GOMAXPROCS has been configured", // 2nd call is for the watcher
+		logger.NewFloatField("cpuRequests", 2),
+		logger.NewFloatField("multiplier", 1.5),
+		logger.NewIntField("minProcs", 1),
+		logger.NewIntField("result", 3),
+		logger.NewIntField("GOMAXPROCS", 3),
+	).MinTimes(1)
 
-	// Initial setup - using AnyTimes() to handle potential race conditions with fsnotify
-	mockLog.EXPECT().Infon("Using CPU requests from file", gomock.Any(), gomock.Any()).AnyTimes()
-	mockLog.EXPECT().Infon("GOMAXPROCS has been configured", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes", gomock.Any()).Times(1)
-	mockLog.EXPECT().Withn(gomock.Any()).Return(mockLog).AnyTimes()
+	watcherIsSetup := make(chan struct{})
+	mockLog.EXPECT().Debugn("Watching file for changes").Do(func(_ string, _ ...logger.Field) {
+		close(watcherIsSetup)
+	}).Times(1)
 
 	SetWithConfig(cfg, WithLogger(mockLog))
 	initialProcs := runtime.GOMAXPROCS(0)
 	require.Equal(t, 2, initialProcs) // 1000m * 1.5 = 1.5 → ceil = 2
 
 	// Update the file
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-watcherIsSetup:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("File watcher was not setup within 5 seconds")
+	}
 	require.NoError(t, os.WriteFile(requestsFile, []byte("2000"), 0o644))
-
-	// Wait for file watcher to process
-	time.Sleep(200 * time.Millisecond)
-	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // 2000m * 1.5 = 3.0 → ceil = 3
+	require.Eventually(t, func() bool {
+		return runtime.GOMAXPROCS(0) == 3 // 2000m * 1.5 = 3.0 → ceil = 3
+	}, 5*time.Second, 1*time.Second)
 }
 
 func TestSetWithConfig_FileWatcherWithSignal(t *testing.T) {
@@ -363,7 +369,7 @@ func requireLoggerInfo(t testing.TB,
 	cpuRequests float64,
 	minProcs int64,
 	multiplier float64,
-	required int64,
+	result int64,
 ) *mock_logger.MockLogger {
 	t.Helper()
 	ctrl := gomock.NewController(t)
@@ -372,8 +378,8 @@ func requireLoggerInfo(t testing.TB,
 		logger.NewFloatField("cpuRequests", cpuRequests),
 		logger.NewFloatField("multiplier", multiplier),
 		logger.NewIntField("minProcs", minProcs),
-		logger.NewIntField("result", required),
-		logger.NewIntField("GOMAXPROCS", required),
+		logger.NewIntField("result", result),
+		logger.NewIntField("GOMAXPROCS", result),
 	).Times(1)
 	return mockLog
 }

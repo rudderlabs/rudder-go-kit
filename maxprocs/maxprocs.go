@@ -165,6 +165,8 @@ func watchFile(file string, conf *conf, stop chan os.Signal) {
 		return
 	}
 
+	log.Debugn("Watching file for changes")
+
 	for {
 		select {
 		case <-stop:
