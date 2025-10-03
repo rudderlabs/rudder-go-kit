@@ -116,11 +116,16 @@ func TestSetWithConfig_WithMinProcs(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
+	// Expected result: min(max(ceil(0.1 * 1.5), 5), numCPU) = min(5, numCPU)
 	numCPU := runtime.NumCPU()
-	mockLog := requireLoggerInfo(t, 0.1, 5, 1.5, int64(numCPU), 5)
+	expectedResult := 5
+	if numCPU < 5 {
+		expectedResult = numCPU
+	}
+	mockLog := requireLoggerInfo(t, 0.1, 5, 1.5, int64(numCPU), int64(expectedResult))
 	setWithConfig(cfg, withLogger(mockLog))
 
-	require.Equal(t, 5, runtime.GOMAXPROCS(0)) // MinProcs overrides calculated value
+	require.Equal(t, expectedResult, runtime.GOMAXPROCS(0)) // MinProcs overrides calculated value, but capped by maxProcs (numCPU)
 }
 
 func TestSet_WithMultiplier(t *testing.T) {
@@ -251,11 +256,24 @@ func TestEnvironmentVariables(t *testing.T) {
 
 	t.Setenv("MAXPROCS_MIN_PROCS", "5")
 	setDefault()
-	require.Equal(t, 5, runtime.GOMAXPROCS(0))
+
+	// Expected: min(max(ceil(1.1 * 1.5), 5), numCPU) = min(5, numCPU)
+	numCPU := runtime.NumCPU()
+	expectedProcs := 5
+	if numCPU < 5 {
+		expectedProcs = numCPU
+	}
+	require.Equal(t, expectedProcs, runtime.GOMAXPROCS(0))
 
 	t.Setenv("MAXPROCS_REQUESTS_MULTIPLIER", "6")
 	setDefault()
-	require.Equal(t, 7, runtime.GOMAXPROCS(0))
+
+	// Expected: min(max(ceil(1.1 * 6), 5), numCPU) = min(7, numCPU)
+	expectedProcs = 7
+	if numCPU < 7 {
+		expectedProcs = numCPU
+	}
+	require.Equal(t, expectedProcs, runtime.GOMAXPROCS(0))
 }
 
 func TestSetWithConfig_ReadFromFile(t *testing.T) {
@@ -270,8 +288,13 @@ func TestSetWithConfig_ReadFromFile(t *testing.T) {
 	cfg.Set("RequestsFile", requestsFile)
 	cfg.Set("Watch", false)
 
+	// Expected: min(ceil(1.5 * 1.5), numCPU) = min(3, numCPU)
 	numCPU := runtime.NumCPU()
-	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, int64(numCPU), 3)
+	expectedResult := 3
+	if numCPU < 3 {
+		expectedResult = numCPU
+	}
+	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, int64(numCPU), int64(expectedResult))
 	mockLog.EXPECT().Infon("Using CPU requests from file",
 		logger.NewStringField("requests", "1500m"),
 		logger.NewStringField("file", requestsFile),
@@ -279,7 +302,7 @@ func TestSetWithConfig_ReadFromFile(t *testing.T) {
 
 	setWithConfig(cfg, withLogger(mockLog))
 
-	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // 1500m * 1.5 = 2.25 → ceil = 3
+	require.Equal(t, expectedResult, runtime.GOMAXPROCS(0)) // 1500m * 1.5 = 2.25 → ceil = 3 (or capped at numCPU)
 }
 
 func TestSetWithConfig_EmptyFile(t *testing.T) {
@@ -311,11 +334,16 @@ func TestSetWithConfig_NonExistentFile(t *testing.T) {
 	cfg.Set("RequestsFile", "/non/existent/file")
 	cfg.Set("Watch", false)
 
+	// Expected: min(ceil(2.0 * 1.5), numCPU) = min(3, numCPU)
 	numCPU := runtime.NumCPU()
-	mockLog := requireLoggerInfo(t, 2.0, 1, 1.5, int64(numCPU), 3)
+	expectedResult := 3
+	if numCPU < 3 {
+		expectedResult = numCPU
+	}
+	mockLog := requireLoggerInfo(t, 2.0, 1, 1.5, int64(numCPU), int64(expectedResult))
 	setWithConfig(cfg, withLogger(mockLog))
 
-	require.Equal(t, 3, runtime.GOMAXPROCS(0)) // Falls back to Requests config: 2000m * 1.5 = 3.0 → ceil = 3
+	require.Equal(t, expectedResult, runtime.GOMAXPROCS(0)) // Falls back to Requests config: 2000m * 1.5 = 3.0 → ceil = 3 (or capped at numCPU)
 }
 
 func TestSetWithConfig_WatchDisabled(t *testing.T) {
@@ -355,7 +383,13 @@ func TestSetWithConfig_FileWatcherWithChanges(t *testing.T) {
 	cfg.Set("RequestsFile", requestsFile)
 	cfg.Set("Watch", true)
 
+	// Expected after file update: min(ceil(2.0 * 1.5), numCPU) = min(3, numCPU)
 	numCPU := runtime.NumCPU()
+	expectedAfterUpdate := 3
+	if numCPU < 3 {
+		expectedAfterUpdate = numCPU
+	}
+
 	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
 	mockLog.EXPECT().Infon("Using CPU requests from file",
 		logger.NewStringField("requests", "1000m"),
@@ -370,8 +404,8 @@ func TestSetWithConfig_FileWatcherWithChanges(t *testing.T) {
 		logger.NewFloatField("multiplier", 1.5),
 		logger.NewIntField("minProcs", 1),
 		logger.NewIntField("maxProcs", int64(numCPU)),
-		logger.NewIntField("result", 3),
-		logger.NewIntField("GOMAXPROCS", 3),
+		logger.NewIntField("result", int64(expectedAfterUpdate)),
+		logger.NewIntField("GOMAXPROCS", int64(expectedAfterUpdate)),
 	).MinTimes(1)
 
 	watcherIsSetup := make(chan struct{})
@@ -391,7 +425,7 @@ func TestSetWithConfig_FileWatcherWithChanges(t *testing.T) {
 	}
 	require.NoError(t, os.WriteFile(requestsFile, []byte("2000"), 0o644))
 	require.Eventually(t, func() bool {
-		return runtime.GOMAXPROCS(0) == 3 // 2000m * 1.5 = 3.0 → ceil = 3
+		return runtime.GOMAXPROCS(0) == expectedAfterUpdate // 2000m * 1.5 = 3.0 → ceil = 3 (or capped at numCPU)
 	}, 5*time.Second, 1*time.Second)
 }
 
