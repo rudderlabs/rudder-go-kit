@@ -18,7 +18,6 @@ import (
 
 const (
 	defaultMinProcs              = 1
-	defaultMaxProcs              = 12
 	defaultCPURequestsMultiplier = 1.5
 )
 
@@ -29,7 +28,11 @@ func init() {
 func setDefault() {
 	c := config.New(config.WithEnvPrefix("MAXPROCS"))
 	l := logger.NewFactory(c).NewLogger().Child("maxprocs")
-	SetWithConfig(c, WithLogger(l))
+	setWithConfig(c, withLogger(l))
+}
+
+func defaultMaxProcs() int {
+	return runtime.NumCPU()
 }
 
 type conf struct {
@@ -41,33 +44,33 @@ type conf struct {
 	stop                  chan os.Signal
 }
 
-type Option func(*conf)
+type option func(*conf)
 
-func WithLogger(logger logger.Logger) Option {
+func withLogger(logger logger.Logger) option {
 	return func(c *conf) { c.logger = logger }
 }
 
-func WithMinProcs(minProcs int) Option {
+func withMinProcs(minProcs int) option {
 	return func(c *conf) { c.minProcs = minProcs }
 }
 
-func WithMaxProcs(maxProcs int) Option {
+func withMaxProcs(maxProcs int) option {
 	return func(c *conf) { c.maxProcs = maxProcs }
 }
 
-func WithCPURequestsMultiplier(cpuRequestsMultiplier float64) Option {
+func withCPURequestsMultiplier(cpuRequestsMultiplier float64) option {
 	return func(c *conf) { c.cpuRequestsMultiplier = cpuRequestsMultiplier }
 }
 
-func WithRoundQuotaFunc(roundQuotaFunc func(float64) int) Option {
+func withRoundQuotaFunc(roundQuotaFunc func(float64) int) option {
 	return func(c *conf) { c.roundQuotaFunc = roundQuotaFunc }
 }
 
-func WithStopFileWatcher(stop chan os.Signal) Option {
+func withStopFileWatcher(stop chan os.Signal) option {
 	return func(c *conf) { c.stop = stop }
 }
 
-func Set(raw string, opts ...Option) {
+func set(raw string, opts ...option) {
 	conf := &conf{
 		logger:                logger.NOP,
 		minProcs:              defaultMinProcs,
@@ -118,11 +121,11 @@ func Set(raw string, opts ...Option) {
 	)
 }
 
-func SetWithConfig(c *config.Config, opts ...Option) {
+func setWithConfig(c *config.Config, opts ...option) {
 	conf := &conf{
 		logger:                logger.NOP,
 		minProcs:              c.GetInt("MinProcs", defaultMinProcs),
-		maxProcs:              c.GetInt("MaxProcs", defaultMaxProcs),
+		maxProcs:              c.GetInt("MaxProcs", defaultMaxProcs()),
 		cpuRequestsMultiplier: c.GetFloat64("RequestsMultiplier", defaultCPURequestsMultiplier),
 		roundQuotaFunc:        roundQuotaCeil,
 		stop:                  make(chan os.Signal, 1),
@@ -145,12 +148,12 @@ func SetWithConfig(c *config.Config, opts ...Option) {
 		)
 	}
 
-	Set(requests,
-		WithLogger(conf.logger),
-		WithMinProcs(conf.minProcs),
-		WithMaxProcs(conf.maxProcs),
-		WithCPURequestsMultiplier(conf.cpuRequestsMultiplier),
-		WithRoundQuotaFunc(conf.roundQuotaFunc),
+	set(requests,
+		withLogger(conf.logger),
+		withMinProcs(conf.minProcs),
+		withMaxProcs(conf.maxProcs),
+		withCPURequestsMultiplier(conf.cpuRequestsMultiplier),
+		withRoundQuotaFunc(conf.roundQuotaFunc),
 	)
 
 	if fileMode && c.GetBool("Watch", true) {
@@ -197,12 +200,12 @@ func watchFile(conf *conf, file string) {
 			if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
 				if data, err := os.ReadFile(file); err == nil && len(data) > 0 {
 					requests := strings.TrimSpace(string(data)) + "m"
-					Set(requests,
-						WithLogger(conf.logger),
-						WithMinProcs(conf.minProcs),
-						WithMaxProcs(conf.maxProcs),
-						WithCPURequestsMultiplier(conf.cpuRequestsMultiplier),
-						WithRoundQuotaFunc(conf.roundQuotaFunc),
+					set(requests,
+						withLogger(conf.logger),
+						withMinProcs(conf.minProcs),
+						withMaxProcs(conf.maxProcs),
+						withCPURequestsMultiplier(conf.cpuRequestsMultiplier),
+						withRoundQuotaFunc(conf.roundQuotaFunc),
 					)
 				}
 			}
