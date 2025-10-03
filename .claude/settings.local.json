@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(make test:*)",
+      "Bash(go vet:*)",
+      "Bash(go run:*)",
+      "Bash(go test:*)",
+      "Bash(gofmt:*)",
+      "Bash(git tag:*)",
+      "Bash(go tool cover:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
