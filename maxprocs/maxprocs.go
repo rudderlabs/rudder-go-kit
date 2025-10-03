@@ -81,21 +81,27 @@ func set(raw string, opts ...option) {
 		opt(conf)
 	}
 
-	cpuRequests := 1.0
+	cpuRequests := 0.0
 	if strings.HasSuffix(raw, "m") {
 		value, err := strconv.Atoi(strings.TrimSuffix(raw, "m"))
 		if err == nil {
 			cpuRequests = float64(value) / 1000
 		} else {
-			conf.logger.Warnn("unable to parse CPU requests with Atoi, using default value")
+			conf.logger.Warnn("unable to parse CPU requests with Atoi")
 		}
 	} else {
 		value, err := strconv.ParseFloat(raw, 64)
 		if err == nil {
 			cpuRequests = value
 		} else {
-			conf.logger.Warnn("unable to parse CPU requests with ParseFloat, using default value")
+			conf.logger.Warnn("unable to parse CPU requests with ParseFloat")
 		}
+	}
+
+	// Guard: if no valid configuration provided, don't touch GOMAXPROCS
+	if cpuRequests <= 0 {
+		conf.logger.Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified")
+		return
 	}
 
 	// Calculate GOMAXPROCS

@@ -43,12 +43,14 @@ func TestSet_WithInvalidCPURequest_Invalid1(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
-	mockLog := requireLoggerInfo(t, 1, 1, 1.5, 0, 2)
-	mockLog.EXPECT().Warnn("unable to parse CPU requests with ParseFloat, using default value").Times(1)
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("unable to parse CPU requests with ParseFloat").Times(1)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
 
 	set("invalid", withLogger(mockLog))
 
-	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Defaults to 1 * 1.5 → ceil = 2
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
 }
 
 func TestSetWithConfig_WithInvalidCPURequest_Invalid1(t *testing.T) {
@@ -58,25 +60,28 @@ func TestSetWithConfig_WithInvalidCPURequest_Invalid1(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
-	numCPU := runtime.NumCPU()
-	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
-	mockLog.EXPECT().Warnn("unable to parse CPU requests with ParseFloat, using default value").Times(1)
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("unable to parse CPU requests with ParseFloat").Times(1)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
 
 	setWithConfig(cfg, withLogger(mockLog))
 
-	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Defaults to 1 * 1.5 → ceil = 2
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
 }
 
 func TestSet_WithInvalidCPURequest_Invalid2(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
-	mockLog := requireLoggerInfo(t, 1, 1, 1.5, 0, 2)
-	mockLog.EXPECT().Warnn("unable to parse CPU requests with Atoi, using default value").Times(1)
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("unable to parse CPU requests with Atoi").Times(1)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
 
 	set("invalid_m", withLogger(mockLog))
 
-	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Defaults to 1 * 1.5 → ceil = 2
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
 }
 
 func TestSetWithConfig_WithInvalidCPURequest_Invalid2(t *testing.T) {
@@ -86,13 +91,14 @@ func TestSetWithConfig_WithInvalidCPURequest_Invalid2(t *testing.T) {
 	before := runtime.GOMAXPROCS(0)
 	defer runtime.GOMAXPROCS(before)
 
-	numCPU := runtime.NumCPU()
-	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
-	mockLog.EXPECT().Warnn("unable to parse CPU requests with Atoi, using default value").Times(1)
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("unable to parse CPU requests with Atoi").Times(1)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
 
 	setWithConfig(cfg, withLogger(mockLog))
 
-	require.Equal(t, 2, runtime.GOMAXPROCS(0)) // Defaults to 1 * 1.5 → ceil = 2
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
 }
 
 func TestSet_WithMinProcs(t *testing.T) {
@@ -484,6 +490,162 @@ func TestSetWithConfig_FileWatcherWithSignal(t *testing.T) {
 		t.Fatalf("File watcher did not stop within 5 seconds")
 	}
 
+	require.Equal(t, 2, runtime.GOMAXPROCS(0))
+}
+
+func TestSetWithConfig_EmptyRequests(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	cfg := config.New()
+	cfg.Set("Requests", "")
+	cfg.Set("Watch", false)
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("unable to parse CPU requests with ParseFloat").Times(1)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
+
+	setWithConfig(cfg, withLogger(mockLog))
+
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
+}
+
+func TestSetWithConfig_ZeroRequests(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	cfg := config.New()
+	cfg.Set("Requests", "0")
+	cfg.Set("Watch", false)
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
+
+	setWithConfig(cfg, withLogger(mockLog))
+
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
+}
+
+func TestSetWithConfig_ZeroMillicoreRequests(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	cfg := config.New()
+	cfg.Set("Requests", "0m")
+	cfg.Set("Watch", false)
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
+
+	setWithConfig(cfg, withLogger(mockLog))
+
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
+}
+
+func TestSetWithConfig_EmptyFileAndZeroRequests(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte(""), 0o644))
+
+	cfg := config.New()
+	cfg.Set("Requests", "0")
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", false)
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
+
+	setWithConfig(cfg, withLogger(mockLog))
+
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
+}
+
+func TestSetWithConfig_ZeroInFile(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte("0"), 0o644))
+
+	cfg := config.New()
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", false)
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Infon("Using CPU requests from file",
+		logger.NewStringField("requests", "0m"),
+		logger.NewStringField("file", requestsFile),
+	).Times(1)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Times(1)
+
+	setWithConfig(cfg, withLogger(mockLog))
+
+	require.Equal(t, before, runtime.GOMAXPROCS(0)) // GOMAXPROCS should remain unchanged
+}
+
+func TestSetWithConfig_FileWatcherWithZeroValue(t *testing.T) {
+	before := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(before)
+
+	tmpDir := t.TempDir()
+	requestsFile := filepath.Join(tmpDir, "cpu_requests")
+	require.NoError(t, os.WriteFile(requestsFile, []byte("1000"), 0o644))
+
+	cfg := config.New()
+	cfg.Set("RequestsFile", requestsFile)
+	cfg.Set("Watch", true)
+
+	numCPU := runtime.NumCPU()
+
+	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
+	mockLog.EXPECT().Infon("Using CPU requests from file",
+		logger.NewStringField("requests", "1000m"),
+		logger.NewStringField("file", requestsFile),
+	).Times(1)
+	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes",
+		logger.NewStringField("file", requestsFile),
+	).Times(1)
+	mockLog.EXPECT().Withn(logger.NewStringField("file", requestsFile)).Return(mockLog).Times(1)
+
+	watcherIsSetup := make(chan struct{})
+	mockLog.EXPECT().Debugn("Watching file for changes").Do(func(_ string, _ ...logger.Field) {
+		close(watcherIsSetup)
+	}).Times(1)
+
+	zeroValueWarning := make(chan struct{})
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Do(func(_ string, _ ...logger.Field) {
+		close(zeroValueWarning)
+	}).Times(1)
+
+	setWithConfig(cfg, withLogger(mockLog))
+	initialProcs := runtime.GOMAXPROCS(0)
+	require.Equal(t, 2, initialProcs) // 1000m * 1.5 = 1.5 → ceil = 2
+
+	// Update the file with zero value
+	select {
+	case <-watcherIsSetup:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("File watcher was not setup within 5 seconds")
+	}
+	require.NoError(t, os.WriteFile(requestsFile, []byte("0"), 0o644))
+
+	// Wait for the warning to be logged
+	select {
+	case <-zeroValueWarning:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Zero value warning was not logged within 5 seconds")
+	}
+
+	// GOMAXPROCS should remain unchanged
 	require.Equal(t, 2, runtime.GOMAXPROCS(0))
 }
 
