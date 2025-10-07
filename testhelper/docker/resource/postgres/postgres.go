@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	_ "encoding/json"
 	"fmt"
+	"strings"
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
@@ -149,7 +150,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		Password:      postgresDefaultPassword,
 		Host:          postgresContainer.GetBoundIP("5432/tcp"),
 		Port:          postgresContainer.GetPort("5432/tcp"),
-		ContainerName: postgresContainer.Container.Name,
+		ContainerName: strings.TrimPrefix(postgresContainer.Container.Name, "/"),
 		ContainerID:   postgresContainer.Container.ID,
 	}, nil
 }
