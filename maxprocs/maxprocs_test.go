@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -620,11 +621,15 @@ func TestSetWithConfig_FileWatcherWithZeroValue(t *testing.T) {
 	mockLog.EXPECT().Debugn("Watching file for changes").Do(func(_ string, _ ...logger.Field) {
 		close(watcherIsSetup)
 	}).Times(1)
+	mockLog.EXPECT().Debugn("Stopped watching file for changes").MaxTimes(1)
 
 	zeroValueWarning := make(chan struct{})
+	zeroValueWarningOnce := sync.Once{}
 	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").Do(func(_ string, _ ...logger.Field) {
-		close(zeroValueWarning)
-	}).Times(1)
+		zeroValueWarningOnce.Do(func() {
+			close(zeroValueWarning)
+		})
+	}).MinTimes(1)
 
 	setWithConfig(cfg, withLogger(mockLog))
 	initialProcs := runtime.GOMAXPROCS(0)
