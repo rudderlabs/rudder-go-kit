@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -25,6 +26,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/ory/dockertest/v3"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/option"
@@ -36,15 +38,14 @@ import (
 )
 
 var (
-	AzuriteEndpoint, gcsURL, minioHostPort, azureSASTokens, s3Endpoint string
-	base64Secret                                                       = base64.StdEncoding.EncodeToString([]byte(secretAccessKey))
-	bucket                                                             = "filemanager-test-1"
-	region                                                             = "us-east-1"
-	accessKeyId                                                        = "MYACCESSKEY"
-	secretAccessKey                                                    = "MYSECRETKEY"
-	hold                                                               bool
-	regexRequiredSuffix                                                = regexp.MustCompile(".json.gz$")
-	fileList                                                           []string
+	base64Secret        = base64.StdEncoding.EncodeToString([]byte(secretAccessKey))
+	bucket              = "filemanager-test-1"
+	region              = "us-east-1"
+	accessKeyId         = "MYACCESSKEY"
+	secretAccessKey     = "MYSECRETKEY"
+	hold                bool
+	regexRequiredSuffix = regexp.MustCompile(".json.gz$")
+	fileList            []string
 )
 
 func TestMain(m *testing.M) {
@@ -59,143 +60,9 @@ func run(m *testing.M) int {
 	flag.BoolVar(&hold, "hold", false, "hold environment clean-up after test execution until Ctrl+C is provided")
 	flag.Parse()
 
-	// docker pool setup
-	pool, err := dockertest.NewPool("")
-	if err != nil {
-		panic(fmt.Errorf("could not connect to docker: %s", err))
-	}
-
-	// running minio container on docker
-	minioResource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "minio/minio",
-		Tag:        "latest",
-		Cmd:        []string{"server", "/data"},
-		Env: []string{
-			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
-			fmt.Sprintf("MINIO_SECRET_KEY=%s", secretAccessKey),
-			fmt.Sprintf("MINIO_SITE_REGION=%s", region),
-			"MINIO_API_SELECT_PARQUET=on",
-		},
-	})
-	if err != nil {
-		panic(fmt.Errorf("could not start resource: %s", err))
-	}
-	defer func() {
-		if err := pool.Purge(minioResource); err != nil {
-			log.Printf("Could not purge resource: %s \n", err)
-		}
-	}()
-
-	minioHostPort = fmt.Sprintf("localhost:%s", minioResource.GetPort("9000/tcp"))
-	s3Endpoint = fmt.Sprintf("http://%s", minioHostPort)
-
-	// check if minio server is up & running.
-	if err := pool.Retry(func() error {
-		url := fmt.Sprintf("%s/minio/health/live", s3Endpoint)
-		resp, err := http.Get(url)
-		if err != nil {
-			return err
-		}
-		defer func() { httputil.CloseResponse(resp) }()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("status code not OK")
-		}
-		return nil
-	}); err != nil {
-		log.Fatalf("Could not connect to docker: %s", err)
-	}
-	fmt.Println("minio is up & running properly")
-
-	minioClient, err := minio.New(minioHostPort, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyId, secretAccessKey, ""),
-		Secure: false, // no SSL
-	})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("minioClient created successfully")
-
-	// creating bucket inside minio where testing will happen.
-	err = minioClient.MakeBucket(context.Background(), bucket, minio.MakeBucketOptions{Region: "us-east-1"})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("bucket created successfully")
-
-	// Running Azure emulator, Azurite.
-	AzuriteResource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "mcr.microsoft.com/azure-storage/azurite",
-		Tag:        "latest",
-		Env: []string{
-			fmt.Sprintf("AZURITE_ACCOUNTS=%s:%s", accessKeyId, base64Secret),
-			fmt.Sprintf("DefaultEndpointsProtocol=%s", "http"),
-		},
-	})
-	if err != nil {
-		log.Fatalf("Could not start azure resource: %s", err)
-	}
-	defer func() {
-		if err := pool.Purge(AzuriteResource); err != nil {
-			log.Printf("Could not purge resource: %s \n", err)
-		}
-	}()
-	AzuriteEndpoint = fmt.Sprintf("localhost:%s", AzuriteResource.GetPort("10000/tcp"))
-	fmt.Println("Azurite endpoint", AzuriteEndpoint)
-	fmt.Println("azurite resource successfully created")
-
-	azureSASTokens, err = createAzureSASTokens()
-	if err != nil {
-		log.Fatalf("Could not create azure sas tokens: %s", err)
-	}
-
-	// Running GCS emulator
-	GCSResource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "fsouza/fake-gcs-server",
-		Tag:        "1.49.0",
-		Cmd:        []string{"-scheme", "http", "-backend", "memory", "-location", "us-east-1"},
-	})
-	if err != nil {
-		log.Fatalf("Could not start resource: %s", err)
-	}
-	defer func() {
-		if err := pool.Purge(GCSResource); err != nil {
-			log.Printf("Could not purge resource: %s \n", err)
-		}
-	}()
-
-	GCSEndpoint := fmt.Sprintf("localhost:%s", GCSResource.GetPort("4443/tcp"))
-	fmt.Println("GCS test server successfully created with endpoint: ", GCSEndpoint)
-	gcsURL = fmt.Sprintf("http://%s/storage/v1/", GCSEndpoint)
-	_ = os.Setenv("STORAGE_EMULATOR_HOST", GCSEndpoint)
-	_ = os.Setenv("RSERVER_WORKLOAD_IDENTITY_TYPE", "GKE")
-
-	for i := 0; i < 10; i++ {
-		if err := func() error {
-			client, err := storage.NewClient(context.TODO(), option.WithEndpoint(gcsURL))
-			if err != nil {
-				return fmt.Errorf("failed to create client: %w", err)
-			}
-			bkt := client.Bucket(bucket)
-			err = bkt.Create(context.Background(), "test", &storage.BucketAttrs{Name: bucket})
-			if err != nil {
-				return fmt.Errorf("failed to create bucket: %w", err)
-			}
-			return nil
-		}(); err != nil {
-			if i == 9 {
-				log.Fatalf("Could not connect to docker: %s", err)
-			}
-			time.Sleep(time.Second)
-			continue
-		}
-		fmt.Println("bucket created successfully")
-		break
-	}
-
 	// getting list of files in `testData` directory while will be used to testing filemanager.
 	searchDir := "./goldenDirectory"
-	err = filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
+	err := filepath.Walk(searchDir, func(path string, f os.FileInfo, err error) error {
 		if regexRequiredSuffix.MatchString(path) {
 			fileList = append(fileList, path)
 		}
@@ -214,32 +81,12 @@ func run(m *testing.M) int {
 	return code
 }
 
-func createAzureSASTokens() (string, error) {
-	credential, err := azblob.NewSharedKeyCredential(accessKeyId, base64Secret)
-	if err != nil {
-		return "", err
-	}
-
-	sasQueryParams, err := azblob.AccountSASSignatureValues{
-		Protocol:      azblob.SASProtocolHTTPSandHTTP,
-		ExpiryTime:    time.Now().UTC().Add(1 * time.Hour),
-		Permissions:   azblob.AccountSASPermissions{Read: true, List: true, Write: true, Delete: true}.String(),
-		Services:      azblob.AccountSASServices{Blob: true}.String(),
-		ResourceTypes: azblob.AccountSASResourceTypes{Container: true, Object: true}.String(),
-	}.NewSASQueryParameters(credential)
-	if err != nil {
-		return "", err
-	}
-
-	return sasQueryParams.Encode(), nil
-}
-
 func TestFileManager(t *testing.T) {
 	tests := []struct {
 		name          string
 		skip          string
 		destName      string
-		config        map[string]interface{}
+		config        func(t *testing.T) map[string]interface{}
 		otherPrefixes []string
 		appConf       *config.Config
 	}{
@@ -247,32 +94,38 @@ func TestFileManager(t *testing.T) {
 			name:          "testing s3manager functionality",
 			destName:      "S3",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: map[string]interface{}{
-				"bucketName":       bucket,
-				"accessKeyID":      accessKeyId,
-				"accessKey":        secretAccessKey,
-				"enableSSE":        false,
-				"prefix":           "some-prefix",
-				"endPoint":         s3Endpoint,
-				"s3ForcePathStyle": true,
-				"disableSSL":       true,
-				"region":           region,
+			config: func(t *testing.T) map[string]interface{} {
+				_, s3Endpoint := startMinioContainer(t)
+				return map[string]interface{}{
+					"bucketName":       bucket,
+					"accessKeyID":      accessKeyId,
+					"accessKey":        secretAccessKey,
+					"enableSSE":        false,
+					"prefix":           "some-prefix",
+					"endPoint":         s3Endpoint,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"region":           region,
+				}
 			},
 		},
 		{
 			name:          "testing s3manager functionality with / in prefix",
 			destName:      "S3",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: map[string]interface{}{
-				"bucketName":       bucket + "///",
-				"accessKeyID":      accessKeyId,
-				"accessKey":        secretAccessKey,
-				"enableSSE":        false,
-				"prefix":           "///some-prefix/",
-				"endPoint":         s3Endpoint,
-				"s3ForcePathStyle": true,
-				"disableSSL":       true,
-				"region":           region,
+			config: func(t *testing.T) map[string]interface{} {
+				_, s3Endpoint := startMinioContainer(t)
+				return map[string]interface{}{
+					"bucketName":       bucket + "///",
+					"accessKeyID":      accessKeyId,
+					"accessKey":        secretAccessKey,
+					"enableSSE":        false,
+					"prefix":           "///some-prefix/",
+					"endPoint":         s3Endpoint,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"region":           region,
+				}
 			},
 			appConf: func() *config.Config {
 				conf := config.New()
@@ -283,73 +136,88 @@ func TestFileManager(t *testing.T) {
 			name:          "testing minio functionality",
 			destName:      "MINIO",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: map[string]interface{}{
-				"bucketName":       bucket,
-				"accessKeyID":      accessKeyId,
-				"secretAccessKey":  secretAccessKey,
-				"enableSSE":        false,
-				"prefix":           "some-prefix",
-				"endPoint":         minioHostPort,
-				"s3ForcePathStyle": true,
-				"disableSSL":       true,
-				"region":           region,
+			config: func(t *testing.T) map[string]interface{} {
+				minioHostPort, _ := startMinioContainer(t)
+				return map[string]interface{}{
+					"bucketName":       bucket,
+					"accessKeyID":      accessKeyId,
+					"secretAccessKey":  secretAccessKey,
+					"enableSSE":        false,
+					"prefix":           "some-prefix",
+					"endPoint":         minioHostPort,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"region":           region,
+				}
 			},
 		},
 		{
 			name:          "testing digital ocean functionality",
 			destName:      "DIGITAL_OCEAN_SPACES",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: map[string]interface{}{
-				"bucketName":       bucket,
-				"accessKeyID":      accessKeyId,
-				"accessKey":        secretAccessKey,
-				"prefix":           "some-prefix",
-				"endPoint":         s3Endpoint,
-				"s3ForcePathStyle": true,
-				"disableSSL":       true,
-				"region":           region,
-				"enableSSE":        false,
+			config: func(t *testing.T) map[string]interface{} {
+				_, s3Endpoint := startMinioContainer(t)
+				return map[string]interface{}{
+					"bucketName":       bucket,
+					"accessKeyID":      accessKeyId,
+					"accessKey":        secretAccessKey,
+					"prefix":           "some-prefix",
+					"endPoint":         s3Endpoint,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"region":           region,
+					"enableSSE":        false,
+				}
 			},
 		},
 		{
 			name:          "testing Azure blob storage filemanager functionality with account keys configured",
 			destName:      "AZURE_BLOB",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: map[string]interface{}{
-				"containerName":  bucket,
-				"prefix":         "some-prefix",
-				"accountName":    accessKeyId,
-				"accountKey":     base64Secret,
-				"endPoint":       AzuriteEndpoint,
-				"forcePathStyle": true,
-				"disableSSL":     true,
+			config: func(t *testing.T) map[string]interface{} {
+				AzuriteEndpoint, _ := startAzuriteContainer(t)
+				return map[string]interface{}{
+					"containerName":  bucket,
+					"prefix":         "some-prefix",
+					"accountName":    accessKeyId,
+					"accountKey":     base64Secret,
+					"endPoint":       AzuriteEndpoint,
+					"forcePathStyle": true,
+					"disableSSL":     true,
+				}
 			},
 		},
 		{
 			name:          "testing Azure blob storage filemanager functionality with sas tokens configured",
 			destName:      "AZURE_BLOB",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: map[string]interface{}{
-				"containerName":  bucket,
-				"prefix":         "some-prefix",
-				"accountName":    accessKeyId,
-				"useSASTokens":   true,
-				"sasToken":       azureSASTokens,
-				"endPoint":       AzuriteEndpoint,
-				"forcePathStyle": true,
-				"disableSSL":     true,
+			config: func(t *testing.T) map[string]interface{} {
+				AzuriteEndpoint, azureSASTokens := startAzuriteContainer(t)
+				return map[string]interface{}{
+					"containerName":  bucket,
+					"prefix":         "some-prefix",
+					"accountName":    accessKeyId,
+					"useSASTokens":   true,
+					"sasToken":       azureSASTokens,
+					"endPoint":       AzuriteEndpoint,
+					"forcePathStyle": true,
+					"disableSSL":     true,
+				}
 			},
 		},
 		{
 			name:          "testing GCS filemanager functionality",
 			destName:      "GCS",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: map[string]interface{}{
-				"bucketName": bucket,
-				"prefix":     "some-prefix",
-				"endPoint":   gcsURL,
-				"disableSSL": true,
-				"jsonReads":  true,
+			config: func(t *testing.T) map[string]interface{} {
+				gcsURL := startGCSContainer(t)
+				return map[string]interface{}{
+					"bucketName": bucket,
+					"prefix":     "some-prefix",
+					"endPoint":   gcsURL,
+					"disableSSL": true,
+					"jsonReads":  true,
+				}
 			},
 		},
 	}
@@ -364,16 +232,17 @@ func TestFileManager(t *testing.T) {
 			if tt.appConf != nil {
 				conf = tt.appConf
 			}
+			fmConfig := tt.config(t)
 			fm, err := filemanager.New(&filemanager.Settings{
 				Provider: tt.destName,
-				Config:   tt.config,
+				Config:   fmConfig,
 				Logger:   logger.NOP,
 				Conf:     conf,
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-			prefix := tt.config["prefix"].(string)
+			prefix := fmConfig["prefix"].(string)
 
 			var prefixes []string
 			if prefix != "" {
@@ -419,7 +288,7 @@ func TestFileManager(t *testing.T) {
 
 			tempFm, err := filemanager.New(&filemanager.Settings{
 				Provider: tt.destName,
-				Config:   tt.config,
+				Config:   fmConfig,
 				Logger:   logger.NOP,
 				Conf:     config.New(),
 			})
@@ -554,18 +423,29 @@ func TestFileManager(t *testing.T) {
 			// list files again & assert if that file is still present.
 			fmNew, err := filemanager.New(&filemanager.Settings{
 				Provider: tt.destName,
-				Config:   tt.config,
+				Config:   fmConfig,
 				Logger:   logger.NOP,
 				Conf:     config.New(),
 			})
 			if err != nil {
 				panic(err)
 			}
-			newFileObject, err := fmNew.ListFilesWithPrefix(context.TODO(), "", "", 1000).Next()
+			newFileObject, err := fmNew.ListFilesWithPrefix(context.TODO(), path.Join(prefixes...), "", 1000).Next()
 			if err != nil {
 				fmt.Println("error while getting new file object: ", err)
 			}
-			require.Equal(t, len(originalFileObject)-1, len(newFileObject), "expected original file list length to be greater than new list by 1, but is different")
+
+			expected := lo.FilterMap(originalFileObject, func(item *filemanager.FileInfo, index int) (string, bool) {
+				if item.Key == key {
+					return "", false
+				}
+				return item.Key, true
+			})
+			require.Len(t, expected, len(originalFileObject)-1, "expected number of files after deletion should be one less than original")
+			actual := lo.Map(newFileObject, func(item *filemanager.FileInfo, index int) string {
+				return item.Key
+			})
+			require.ElementsMatch(t, expected, actual, "expected original file list to match new list after deleting file: %s", key)
 		})
 
 		t.Run("uploadFailed-"+tt.name, func(t *testing.T) {
@@ -578,7 +458,7 @@ func TestFileManager(t *testing.T) {
 			}
 			fm, err := filemanager.New(&filemanager.Settings{
 				Provider: tt.destName,
-				Config:   tt.config,
+				Config:   tt.config(t),
 				Logger:   logger.NOP,
 				Conf:     conf,
 			})
@@ -666,45 +546,54 @@ func TestFileManager_S3(t *testing.T) {
 	envBucket := bucket
 	authMethods := []struct {
 		name   string
-		config map[string]any
+		config func(t *testing.T) map[string]any
 	}{
 		{
 			name: "AccessKey/Secret",
-			config: map[string]any{
-				"bucketName":       envBucket,
-				"accessKeyID":      envAccessKey,
-				"secretAccessKey":  envSecretKey,
-				"region":           region,
-				"endPoint":         s3Endpoint,
-				"s3ForcePathStyle": true,
-				"disableSSL":       true,
-				"prefix":           "",
+			config: func(t *testing.T) map[string]any {
+				_, s3Endpoint := startMinioContainer(t)
+				return map[string]any{
+					"bucketName":       envBucket,
+					"accessKeyID":      envAccessKey,
+					"secretAccessKey":  envSecretKey,
+					"region":           region,
+					"endPoint":         s3Endpoint,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"prefix":           "",
+				}
 			},
 		},
 		{
 			name: "AccessKey/Secret With Prefix",
-			config: map[string]any{
-				"bucketName":       envBucket,
-				"accessKeyID":      envAccessKey,
-				"secretAccessKey":  envSecretKey,
-				"region":           region,
-				"endPoint":         s3Endpoint,
-				"s3ForcePathStyle": true,
-				"disableSSL":       true,
-				"prefix":           "test-prefix",
+			config: func(t *testing.T) map[string]any {
+				_, s3Endpoint := startMinioContainer(t)
+				return map[string]any{
+					"bucketName":       envBucket,
+					"accessKeyID":      envAccessKey,
+					"secretAccessKey":  envSecretKey,
+					"region":           region,
+					"endPoint":         s3Endpoint,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"prefix":           "test-prefix",
+				}
 			},
 		},
 		{
 			name: "AccessKey/Secret With Empty Endpoint",
-			config: map[string]any{
-				"bucketName":       envBucket,
-				"accessKeyID":      envAccessKey,
-				"secretAccessKey":  envSecretKey,
-				"region":           region,
-				"endPoint":         s3Endpoint,
-				"s3ForcePathStyle": true,
-				"disableSSL":       true,
-				"prefix":           "",
+			config: func(t *testing.T) map[string]any {
+				_, s3Endpoint := startMinioContainer(t)
+				return map[string]any{
+					"bucketName":       envBucket,
+					"accessKeyID":      envAccessKey,
+					"secretAccessKey":  envSecretKey,
+					"region":           region,
+					"endPoint":         s3Endpoint,
+					"s3ForcePathStyle": true,
+					"disableSSL":       true,
+					"prefix":           "",
+				}
 			},
 		},
 	}
@@ -712,9 +601,10 @@ func TestFileManager_S3(t *testing.T) {
 	for _, auth := range authMethods {
 		t.Run("running with: "+auth.name, func(t *testing.T) {
 			conf := config.New()
+			fmConfig := auth.config(t)
 			fm, err := filemanager.New(&filemanager.Settings{
 				Provider: "S3",
-				Config:   auth.config,
+				Config:   fmConfig,
 				Logger:   logger.NOP,
 				Conf:     conf,
 			})
@@ -727,7 +617,7 @@ func TestFileManager_S3(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, filePtr.Close())
 			// check if the file name is exactly the same as the one we uploaded
-			require.Equal(t, uploadOutput.ObjectName, path.Join(auth.config["prefix"].(string), "testfile.txt"), "uploaded file name should be exactly the same as the one we uploaded")
+			require.Equal(t, uploadOutput.ObjectName, path.Join(fmConfig["prefix"].(string), "testfile.txt"), "uploaded file name should be exactly the same as the one we uploaded")
 
 			// 2. List files and check our file is present
 			session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
@@ -797,6 +687,7 @@ func TestFileManager_S3(t *testing.T) {
 }
 
 func TestS3Manager_SelectObjects(t *testing.T) {
+	_, s3Endpoint := startMinioContainer(t)
 	minioConfig := map[string]interface{}{
 		"bucketName":       bucket,
 		"accessKeyID":      accessKeyId,
@@ -894,4 +785,164 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 	t.Run("SelectObjects with CSV output", func(t *testing.T) {
 		runSelectAndAssert(t, filemanager.SelectObjectOutputFormatCSV)
 	})
+}
+
+func startMinioContainer(t *testing.T) (minioHostPort, s3Endpoint string) {
+	// docker pool setup
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err, "could not connect to docker")
+
+	// running minio container on docker
+	minioResource, err := pool.RunWithOptions(&dockertest.RunOptions{
+		Repository: "minio/minio",
+		Tag:        "latest",
+		Cmd:        []string{"server", "/data"},
+		Env: []string{
+			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
+			fmt.Sprintf("MINIO_SECRET_KEY=%s", secretAccessKey),
+			fmt.Sprintf("MINIO_SITE_REGION=%s", region),
+			"MINIO_API_SELECT_PARQUET=on",
+		},
+	})
+	require.NoError(t, err, "could not start minio container")
+	t.Cleanup(func() {
+		if err := pool.Purge(minioResource); err != nil {
+			t.Logf("Could not purge resource: %s \n", err)
+		}
+	})
+
+	minioHostPort = fmt.Sprintf("localhost:%s", minioResource.GetPort("9000/tcp"))
+	s3Endpoint = fmt.Sprintf("http://%s", minioHostPort)
+
+	// check if minio server is up & running.
+	err = pool.Retry(func() error {
+		url := fmt.Sprintf("%s/minio/health/live", s3Endpoint)
+		resp, err := http.Get(url)
+		if err != nil {
+			return err
+		}
+		defer func() { httputil.CloseResponse(resp) }()
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("status code not OK")
+		}
+		return nil
+	})
+	require.NoError(t, err, "minio container not responding in time")
+
+	minioClient, err := minio.New(minioHostPort, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyId, secretAccessKey, ""),
+		Secure: false, // no SSL
+	})
+	require.NoError(t, err, "should create minio client successfully")
+
+	// creating bucket inside minio where testing will happen.
+	err = minioClient.MakeBucket(context.Background(), bucket, minio.MakeBucketOptions{Region: "us-east-1"})
+	require.NoError(t, err, "should create bucket successfully")
+	return minioHostPort, s3Endpoint
+}
+
+func startAzuriteContainer(t *testing.T) (endpoint, tokens string) {
+	t.Helper()
+	// docker pool setup
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err, "could not connect to docker")
+
+	// Running Azure emulator, Azurite.
+	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
+		Repository: "mcr.microsoft.com/azure-storage/azurite",
+		Tag:        "latest",
+		Env: []string{
+			fmt.Sprintf("AZURITE_ACCOUNTS=%s:%s", accessKeyId, base64Secret),
+			fmt.Sprintf("DefaultEndpointsProtocol=%s", "http"),
+		},
+	})
+	require.NoError(t, err, "could not start azurite container")
+	t.Cleanup(func() {
+		if err := pool.Purge(resource); err != nil {
+			t.Logf("Could not purge resource: %s \n", err)
+		}
+	})
+	endpoint = fmt.Sprintf("localhost:%s", resource.GetPort("10000/tcp"))
+
+	tokens, err = createAzureSASTokens()
+	require.NoError(t, err, "could not create azure sas tokens")
+
+	credential, err := azblob.NewSharedKeyCredential(accessKeyId, base64Secret)
+	require.NoError(t, err, "could not create azure shared key credentials")
+	pipeline := azblob.NewPipeline(credential, azblob.PipelineOptions{})
+	primaryURL := url.URL{
+		Scheme: "http",
+		Host:   fmt.Sprintf("%s.%s", accessKeyId, endpoint),
+	}
+	serviceURL := azblob.NewServiceURL(primaryURL, pipeline)
+	containerURL := serviceURL.NewContainerURL(bucket)
+
+	err = pool.Retry(func() error {
+		_, err = containerURL.Create(context.TODO(), azblob.Metadata{}, azblob.PublicAccessNone)
+		return err
+	})
+	require.NoError(t, err, "could not create container in azurite instance in time")
+
+	return endpoint, tokens
+}
+
+func createAzureSASTokens() (string, error) {
+	credential, err := azblob.NewSharedKeyCredential(accessKeyId, base64Secret)
+	if err != nil {
+		return "", err
+	}
+
+	sasQueryParams, err := azblob.AccountSASSignatureValues{
+		Protocol:      azblob.SASProtocolHTTPSandHTTP,
+		ExpiryTime:    time.Now().UTC().Add(1 * time.Hour),
+		Permissions:   azblob.AccountSASPermissions{Read: true, List: true, Write: true, Delete: true}.String(),
+		Services:      azblob.AccountSASServices{Blob: true}.String(),
+		ResourceTypes: azblob.AccountSASResourceTypes{Container: true, Object: true}.String(),
+	}.NewSASQueryParameters(credential)
+	if err != nil {
+		return "", err
+	}
+
+	return sasQueryParams.Encode(), nil
+}
+
+func startGCSContainer(t *testing.T) (url string) {
+	t.Helper()
+	// docker pool setup
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err, "could not connect to docker")
+
+	// Running GCS emulator
+	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
+		Repository: "fsouza/fake-gcs-server",
+		Tag:        "1.49.0",
+		Cmd:        []string{"-scheme", "http", "-backend", "memory", "-location", "us-east-1"},
+	})
+	require.NoError(t, err, "could not start resource")
+	t.Cleanup(func() {
+		if err := pool.Purge(resource); err != nil {
+			log.Printf("Could not purge resource: %s \n", err)
+		}
+	})
+
+	endpoint := fmt.Sprintf("localhost:%s", resource.GetPort("4443/tcp"))
+	url = fmt.Sprintf("http://%s/storage/v1/", endpoint)
+	t.Setenv("STORAGE_EMULATOR_HOST", endpoint)
+	t.Setenv("RSERVER_WORKLOAD_IDENTITY_TYPE", "GKE")
+
+	err = pool.Retry(func() error {
+		client, err := storage.NewClient(context.TODO(), option.WithEndpoint(url))
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+		bkt := client.Bucket(bucket)
+		err = bkt.Create(context.Background(), "test", &storage.BucketAttrs{Name: bucket})
+		if err != nil {
+			return fmt.Errorf("failed to create bucket: %w", err)
+		}
+		return nil
+	})
+	require.NoError(t, err, "gcs container not responding in time")
+	return url
 }

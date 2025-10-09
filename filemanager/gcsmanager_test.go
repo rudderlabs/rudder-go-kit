@@ -55,6 +55,8 @@ func TestGCSManager(t *testing.T) {
 			})
 			require.NoError(t, err)
 			defer server.Stop()
+			t.Setenv("STORAGE_EMULATOR_HOST", server.URL())
+			t.Setenv("RSERVER_WORKLOAD_IDENTITY_TYPE", "GKE")
 
 			gcsURL := fmt.Sprintf("%s/storage/v1/", server.URL())
 			t.Log("GCS URL:", gcsURL)
