@@ -255,7 +255,7 @@ func TestFileManager(t *testing.T) {
 			for _, file := range fileList {
 				filePtr, err := os.Open(file)
 				require.NoError(t, err, "error while opening testData file to upload")
-				uploadOutput, err := fm.Upload(context.TODO(), filePtr, tt.otherPrefixes...)
+				uploadOutput, err := fm.Upload(context.Background(), filePtr, tt.otherPrefixes...)
 				require.NoError(t, err, "error while uploading file")
 				paths := append([]string{}, prefixes...)
 				paths = append(paths, path.Base(file))
@@ -270,7 +270,7 @@ func TestFileManager(t *testing.T) {
 			originalFileNames := make(map[string]int)
 			fileListNames := make(map[string]int)
 
-			session := fm.ListFilesWithPrefix(context.TODO(), path.Join(prefixes...), "", 1)
+			session := fm.ListFilesWithPrefix(context.Background(), path.Join(prefixes...), "", 1)
 			for i := 0; i < len(fileList); i++ {
 				files, err := session.Next()
 				require.NoError(t, err, "expected no error while listing files")
@@ -298,7 +298,7 @@ func TestFileManager(t *testing.T) {
 
 			iteratorMap := make(map[string]int)
 			iteratorCount := 0
-			iter := filemanager.IterateFilesWithPrefix(context.TODO(), path.Join(prefixes...), "", int64(len(fileList)), tempFm)
+			iter := filemanager.IterateFilesWithPrefix(context.Background(), path.Join(prefixes...), "", int64(len(fileList)), tempFm)
 			for iter.Next() {
 				iteratorFile := iter.Get().Key
 				iteratorMap[iteratorFile]++
@@ -350,7 +350,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				fmt.Println("error while Creating file to download data: ", err)
 			}
-			ctx, cancel := context.WithCancel(context.TODO())
+			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
 			err = fm.Download(ctx, filePtr, key)
 			require.Error(t, err, "expected error while downloading file")
@@ -360,7 +360,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				fmt.Println("error while Creating file to download data: ", err)
 			}
-			err = fm.Download(context.TODO(), filePtr, key)
+			err = fm.Download(context.Background(), filePtr, key)
 
 			require.NoError(t, err, "expected no error")
 			require.NoError(t, filePtr.Close())
@@ -382,7 +382,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				fmt.Println("error while Creating file to download data: ", err)
 			}
-			err = fm.Download(context.TODO(), filePtr, key, filemanager.WithDownloadOffSetAndLength(0, 10))
+			err = fm.Download(context.Background(), filePtr, key, filemanager.WithDownloadOffSetAndLength(0, 10))
 			require.NoError(t, err, "expected no error")
 			require.NoError(t, filePtr.Close())
 			filePtr, err = os.OpenFile(DownloadedFileName, os.O_RDWR, 0o644)
@@ -399,7 +399,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				fmt.Println("error while Creating file to download data: ", err)
 			}
-			err = fm.Download(context.TODO(), filePtr, key, filemanager.WithDownloadOffSet(5))
+			err = fm.Download(context.Background(), filePtr, key, filemanager.WithDownloadOffSet(5))
 			require.NoError(t, err, "expected no error")
 			require.NoError(t, filePtr.Close())
 			filePtr, err = os.OpenFile(DownloadedFileName, os.O_RDWR, 0o644)
@@ -412,13 +412,13 @@ func TestFileManager(t *testing.T) {
 			require.Equal(t, string(originalFile[5:]), string(downloadedFile), "downloaded file different than actual file")
 
 			// fail to delete the file with cancelled context
-			ctx, cancel = context.WithCancel(context.TODO())
+			ctx, cancel = context.WithCancel(context.Background())
 			cancel()
 			err = fm.Delete(ctx, []string{key})
 			require.Error(t, err, "expected error while deleting file")
 
 			// delete that file
-			err = fm.Delete(context.TODO(), []string{key})
+			err = fm.Delete(context.Background(), []string{key})
 			require.NoError(t, err, "expected no error while deleting object")
 			// list files again & assert if that file is still present.
 			fmNew, err := filemanager.New(&filemanager.Settings{
@@ -430,7 +430,7 @@ func TestFileManager(t *testing.T) {
 			if err != nil {
 				panic(err)
 			}
-			newFileObject, err := fmNew.ListFilesWithPrefix(context.TODO(), path.Join(prefixes...), "", 1000).Next()
+			newFileObject, err := fmNew.ListFilesWithPrefix(context.Background(), path.Join(prefixes...), "", 1000).Next()
 			if err != nil {
 				fmt.Println("error while getting new file object: ", err)
 			}
@@ -470,7 +470,7 @@ func TestFileManager(t *testing.T) {
 			file := fileList[0]
 			filePtr, err := os.Open(file)
 			require.NoError(t, err, "error while opening testData file to upload")
-			ctx, cancel := context.WithTimeout(context.TODO(), time.Second*5)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			cancel()
 			_, err = fm.Upload(ctx, filePtr)
 			require.Error(t, err, "expected error while uploading file")
@@ -479,7 +479,7 @@ func TestFileManager(t *testing.T) {
 			// MINIO doesn't support list files with context cancellation
 			if tt.destName != "MINIO" {
 				// fail to fetch file list
-				ctx1, cancel := context.WithTimeout(context.TODO(), time.Second*5)
+				ctx1, cancel := context.WithTimeout(context.Background(), time.Second*5)
 				cancel()
 				_, err = fm.ListFilesWithPrefix(ctx1, "", "", 1000).Next()
 				require.Error(t, err, "expected error while listing files")
@@ -513,7 +513,7 @@ func TestGCSManager_unsupported_credentials(t *testing.T) {
 	assert.NoError(t, err)
 	manager, err := filemanager.NewGCSManager(conf, logger.NOP, func() time.Duration { return time.Minute })
 	assert.NoError(t, err)
-	_, err = manager.ListFilesWithPrefix(context.TODO(), "", "/tests", 100).Next()
+	_, err = manager.ListFilesWithPrefix(context.Background(), "", "/tests", 100).Next()
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "client_credentials.json file is not supported")
 }
@@ -613,14 +613,14 @@ func TestFileManager_S3(t *testing.T) {
 			// 1. Upload a file
 			filePtr, err := os.Open(testFilePath)
 			require.NoError(t, err)
-			uploadOutput, err := fm.Upload(context.TODO(), filePtr)
+			uploadOutput, err := fm.Upload(context.Background(), filePtr)
 			require.NoError(t, err)
 			require.NoError(t, filePtr.Close())
 			// check if the file name is exactly the same as the one we uploaded
 			require.Equal(t, uploadOutput.ObjectName, path.Join(fmConfig["prefix"].(string), "testfile.txt"), "uploaded file name should be exactly the same as the one we uploaded")
 
 			// 2. List files and check our file is present
-			session := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+			session := fm.ListFilesWithPrefix(context.Background(), "", "", 100)
 			files, err := session.Next()
 			require.NoError(t, err)
 			var found bool
@@ -636,7 +636,7 @@ func TestFileManager_S3(t *testing.T) {
 			downloadPath := filepath.Join(tempDir, "downloaded.txt")
 			downloadPtr, err := os.OpenFile(downloadPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
 			require.NoError(t, err)
-			err = fm.Download(context.TODO(), downloadPtr, uploadOutput.ObjectName)
+			err = fm.Download(context.Background(), downloadPtr, uploadOutput.ObjectName)
 			require.NoError(t, err)
 			require.NoError(t, downloadPtr.Close())
 
@@ -656,14 +656,14 @@ func TestFileManager_S3(t *testing.T) {
 			// 6. Test UploadReader
 			readerContent := []byte("test content from reader")
 			readerObjName := "test-reader-upload.txt"
-			uploadReaderOutput, err := fm.UploadReader(context.TODO(), readerObjName, bytes.NewReader(readerContent))
+			uploadReaderOutput, err := fm.UploadReader(context.Background(), readerObjName, bytes.NewReader(readerContent))
 			require.NoError(t, err)
 
 			// 7. Download file uploaded via UploadReader and verify
 			downloadReaderPath := filepath.Join(tempDir, "downloaded-reader.txt")
 			downloadReaderPtr, err := os.OpenFile(downloadReaderPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
 			require.NoError(t, err)
-			err = fm.Download(context.TODO(), downloadReaderPtr, uploadReaderOutput.ObjectName)
+			err = fm.Download(context.Background(), downloadReaderPtr, uploadReaderOutput.ObjectName)
 			require.NoError(t, err)
 			require.NoError(t, downloadReaderPtr.Close())
 
@@ -672,11 +672,11 @@ func TestFileManager_S3(t *testing.T) {
 			require.Equal(t, readerContent, downloadedReaderContent, "downloaded content should match uploaded reader content")
 
 			// 8. Test Delete
-			err = fm.Delete(context.TODO(), []string{uploadReaderOutput.ObjectName})
+			err = fm.Delete(context.Background(), []string{uploadReaderOutput.ObjectName})
 			require.NoError(t, err)
 
 			// 9. Verify deletion
-			deletedSession := fm.ListFilesWithPrefix(context.TODO(), "", "", 100)
+			deletedSession := fm.ListFilesWithPrefix(context.Background(), "", "", 100)
 			deletedFiles, err := deletedSession.Next()
 			require.NoError(t, err)
 			for _, f := range deletedFiles {
@@ -717,13 +717,13 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 	}
 	defer filePtr.Close()
 
-	uploadOutput, err := fm.Upload(context.TODO(), filePtr)
+	uploadOutput, err := fm.Upload(context.Background(), filePtr)
 	if err != nil {
 		t.Fatalf("failed to upload parquet file: %v", err)
 	}
 	// Always clean up the uploaded file at the end
 	defer func() {
-		if err := fm.Delete(context.TODO(), []string{uploadOutput.ObjectName}); err != nil {
+		if err := fm.Delete(context.Background(), []string{uploadOutput.ObjectName}); err != nil {
 			t.Errorf("failed to delete parquet file from bucket during cleanup: %v", err)
 		}
 	}()
@@ -741,7 +741,7 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 			InputFormat:   filemanager.SelectObjectInputFormatParquet,
 			OutputFormat:  outputFormat,
 		}
-		selectResult, leave := s3fm.SelectObjects(context.TODO(), selectConfig)
+		selectResult, leave := s3fm.SelectObjects(context.Background(), selectConfig)
 		defer leave()
 		var receivedData bool
 		for data := range selectResult {
@@ -879,7 +879,7 @@ func startAzuriteContainer(t *testing.T) (endpoint, tokens string) {
 	containerURL := serviceURL.NewContainerURL(bucket)
 
 	err = pool.Retry(func() error {
-		_, err = containerURL.Create(context.TODO(), azblob.Metadata{}, azblob.PublicAccessNone)
+		_, err = containerURL.Create(context.Background(), azblob.Metadata{}, azblob.PublicAccessNone)
 		return err
 	})
 	require.NoError(t, err, "could not create container in azurite instance in time")
@@ -932,7 +932,7 @@ func startGCSContainer(t *testing.T) (url string) {
 	t.Setenv("RSERVER_WORKLOAD_IDENTITY_TYPE", "GKE")
 
 	err = pool.Retry(func() error {
-		client, err := storage.NewClient(context.TODO(), option.WithEndpoint(url))
+		client, err := storage.NewClient(context.Background(), option.WithEndpoint(url))
 		if err != nil {
 			return fmt.Errorf("failed to create client: %w", err)
 		}
