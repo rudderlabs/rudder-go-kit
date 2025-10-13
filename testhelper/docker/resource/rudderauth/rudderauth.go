@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/rudderlabs/rudder-go-kit/httputil"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/postgres"
@@ -72,7 +73,7 @@ func (r *Resource) FetchToken() ([]byte, error) {
 	url := fmt.Sprintf("%s/destination/workspaces/%s/accounts/%s/token", r.ConfigBackendURL, r.Fixture.WorkspaceID, r.Fixture.ID)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(json.RawMessage(`{}`)))
 	if err != nil {
-		return nil, fmt.Errorf("creating token request: %w", err)
+		return nil, fmt.Errorf("creating fetch token request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.SetBasicAuth(r.HostedSecret, "")
@@ -83,7 +84,7 @@ func (r *Resource) FetchToken() ([]byte, error) {
 	}
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("fetching token: %s: %s", res.Status, string(body))
+		return nil, fmt.Errorf("fetching token not ok: %s: %s", res.Status, string(body))
 	}
 	token, err := io.ReadAll(res.Body)
 	if err != nil {
@@ -98,7 +99,7 @@ func (r *Resource) ToggleStatus(status string) error {
 		return errors.New("cannot toggle status: Fixture.DestinationID is empty")
 	}
 	url := fmt.Sprintf("%s/workspaces/%s/destinations/%s/authStatus/toggle", r.ConfigBackendURL, r.Fixture.WorkspaceID, r.Fixture.DestinationID)
-	body, err := json.Marshal(map[string]string{
+	body, err := jsonrs.Marshal(map[string]string{
 		"authStatus": status,
 	})
 	if err != nil {
@@ -117,7 +118,7 @@ func (r *Resource) ToggleStatus(status string) error {
 	}
 	if res.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(res.Body)
-		return fmt.Errorf("toggling status: %s: %s", res.Status, string(body))
+		return fmt.Errorf("toggling status not ok: %s: %s", res.Status, string(body))
 	}
 	return nil
 }
@@ -280,7 +281,7 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 		resource.SecretsURL = secretsURL
 
 		// create account secret
-		reqBody, err := json.Marshal(map[string]any{
+		reqBody, err := jsonrs.Marshal(map[string]any{
 			"key":         "account_" + fixture.ID,
 			"value":       fixture.Secret,
 			"workspaceId": fixture.WorkspaceID,
@@ -294,7 +295,7 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 			return fmt.Errorf("creating secret: %w", err)
 		}
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("creating secret: %s", resp.Status)
+			return fmt.Errorf("creating secret not ok: %s", resp.Status)
 		}
 		return nil
 	})
@@ -340,29 +341,81 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 		}
 		resource.ConfigBackendURL = configBackendURL
 		// seed postgres with user, workspace, destination, destination definition, account & account definition
-		if _, err := postgresResource.DB.Exec(`insert into users (id, name, email) values ($1, $2, $3)`, adminUsername, adminUsername, "admin@example.com"); err != nil {
+		if _, err := postgresResource.DB.Exec(`insert into users (id, name, email) values ($1, $2, $3)`,
+			adminUsername,
+			adminUsername,
+			"admin@example.com",
+		); err != nil {
 			return fmt.Errorf("seeding user: %w", err)
 		}
-		if _, err := postgresResource.DB.Exec(`insert into workspaces (id, name, token) values ($1, $2, $3)`, fixture.WorkspaceID, "Test Workspace", "test-token"); err != nil {
+		if _, err := postgresResource.DB.Exec(`insert into workspaces (id, name, token) values ($1, $2, $3)`,
+			fixture.WorkspaceID,
+			"Test Workspace",
+			"test-token",
+		); err != nil {
 			return fmt.Errorf("seeding workspace: %w", err)
 		}
 
 		var accountDefinitionName sql.NullString
 		if fixture.HasAccountDefinition {
 			accountDefinitionName = sql.NullString{String: fixture.accountDefName(), Valid: true}
-			if _, err := postgresResource.DB.Exec(`insert into account_definitions (name, type, "authenticationType", category, config, "optionsSchema", "secretSchema", "uiConfig") values ($1, $2, 'oauth', $3, '{}', '{}', '{}', '{}')`, accountDefinitionName, fixture.Type, fixture.Category); err != nil {
+			if _, err := postgresResource.DB.Exec(`insert into account_definitions 
+				(name, type, "authenticationType", category, config, "optionsSchema", "secretSchema", "uiConfig") 
+				values 
+				($1, $2, 'oauth', $3, '{}', '{}', '{}', '{}')`,
+				accountDefinitionName,
+				fixture.Type,
+				fixture.Category,
+			); err != nil {
 				return fmt.Errorf("seeding account definition: %w", err)
 			}
 		}
-		if _, err := postgresResource.DB.Exec(`insert into accounts (id, name, options, role, "userId", "workspaceId", "rudderCategory", "secretVersion", "accountDefinitionName") values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, fixture.ID, "Test Account", fixture.Options, fixture.Type, adminUsername, fixture.WorkspaceID, fixture.Category, 1, accountDefinitionName); err != nil {
+		if _, err := postgresResource.DB.Exec(`insert into accounts 
+			(id, name, options, role, "userId", "workspaceId", "rudderCategory", "secretVersion", "accountDefinitionName") 
+			values 
+			($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+			fixture.ID,
+			"Test Account",
+			fixture.Options,
+			fixture.Type,
+			adminUsername,
+			fixture.WorkspaceID,
+			fixture.Category,
+			1,
+			accountDefinitionName,
+		); err != nil {
 			return fmt.Errorf("seeding account: %w", err)
 		}
 
 		if fixture.DestinationID != "" {
-			if _, err := postgresResource.DB.Exec(`insert into destination_definitions (id, name, "displayName", config, "responseRules", "configSchema", "connectionConfigSchema") values ($1, $2, $3, $4, $5, $6, $7)`, "destination-1", "Test Destination definition", "Test Destination definition", `{"auth": {"type": "OAuth"}}`, `{}`, `{}`, `{}`); err != nil {
+			if _, err := postgresResource.DB.Exec(`insert into destination_definitions 
+			(id, name, "displayName", config, "responseRules", "configSchema", "connectionConfigSchema") 
+			values 
+			($1, $2, $3, $4, $5, $6, $7)`,
+				"destination-1",
+				"Test Destination definition",
+				"Test Destination definition",
+				`{"auth": {"type": "OAuth"}}`,
+				`{}`,
+				`{}`,
+				`{}`,
+			); err != nil {
 				return fmt.Errorf("seeding destination definition: %w", err)
 			}
-			if _, err := postgresResource.DB.Exec(`insert into destinations (id, name, enabled, config, "destinationDefinitionId", "workspaceId", "accountId", "createdBy", "updatedBy") values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, fixture.DestinationID, "Test Destination", true, `{"authStatus": "active"}`, "destination-1", fixture.WorkspaceID, fixture.ID, adminUsername, adminUsername); err != nil {
+			if _, err := postgresResource.DB.Exec(`insert into destinations 
+			(id, name, enabled, config, "destinationDefinitionId", "workspaceId", "accountId", "createdBy", "updatedBy") 
+			values 
+			($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				fixture.DestinationID,
+				"Test Destination",
+				true,
+				`{"authStatus": "active"}`,
+				"destination-1",
+				fixture.WorkspaceID,
+				fixture.ID,
+				adminUsername,
+				adminUsername,
+			); err != nil {
 				return fmt.Errorf("seeding destination: %w", err)
 			}
 		}

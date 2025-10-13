@@ -13,6 +13,7 @@ import (
 
 func TestRudderAuth(t *testing.T) {
 	runScenario := func(t *testing.T, accountDefinition bool) {
+		t.Parallel()
 		pool, err := dockertest.NewPool("")
 		require.NoError(t, err)
 		fixture := rudderauth.AccountFixture{
@@ -46,7 +47,6 @@ func TestRudderAuth(t *testing.T) {
 		require.NoError(t, err, "it should be able to toggle the status back to active")
 	}
 
-	t.Parallel()
 	t.Run("without account definition", func(t *testing.T) {
 		runScenario(t, false)
 	})
