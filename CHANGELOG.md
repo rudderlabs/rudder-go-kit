@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.63.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.0...v0.63.1) (2025-10-13)
+
+
+### Bug Fixes
+
+* filemanager tests failing intermittently ([#942](https://github.com/rudderlabs/rudder-go-kit/issues/942)) ([2071308](https://github.com/rudderlabs/rudder-go-kit/commit/207130881ba6e68d4ae5531d9b5cb018202995e3))
+* maxProcs flaky test ([#943](https://github.com/rudderlabs/rudder-go-kit/issues/943)) ([e98c5bd](https://github.com/rudderlabs/rudder-go-kit/commit/e98c5bdd3d881440d5a0d8a5b314d608ce1b0ccc))
+
+
+### Miscellaneous
+
+* apply security best practices from step-security ([#945](https://github.com/rudderlabs/rudder-go-kit/issues/945)) ([3d9b2c6](https://github.com/rudderlabs/rudder-go-kit/commit/3d9b2c6bda33c878167ed3eaebc1cacd18b6ada1))
+* **deps:** bump actions/labeler from 5 to 6 ([#926](https://github.com/rudderlabs/rudder-go-kit/issues/926)) ([81af3a4](https://github.com/rudderlabs/rudder-go-kit/commit/81af3a439c555eb3bdcbca43982da8c7f0ab2f6c))
+* **deps:** bump actions/setup-go from 5 to 6 ([#920](https://github.com/rudderlabs/rudder-go-kit/issues/920)) ([5b8dd96](https://github.com/rudderlabs/rudder-go-kit/commit/5b8dd963c2fb444af08746355c3dbb91e3053955))
+* **deps:** bump actions/stale from 9 to 10 ([#919](https://github.com/rudderlabs/rudder-go-kit/issues/919)) ([2332ca0](https://github.com/rudderlabs/rudder-go-kit/commit/2332ca004461660b99cc8f8a47677ae91c3c1153))
+* maxprocs to support vpa in-place ([#939](https://github.com/rudderlabs/rudder-go-kit/issues/939)) ([5b8f49c](https://github.com/rudderlabs/rudder-go-kit/commit/5b8f49c3a5fecdbd49a4cec298872ca529faa185))
+
 ## [0.63.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.62.0...v0.63.0) (2025-09-25)
 
 
