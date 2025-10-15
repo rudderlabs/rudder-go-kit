@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.63.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.1...v0.63.2) (2025-10-15)
+
+
+### Miscellaneous
+
+* **deps:** bump the frequent group with 2 updates ([#936](https://github.com/rudderlabs/rudder-go-kit/issues/936)) ([b14c3f3](https://github.com/rudderlabs/rudder-go-kit/commit/b14c3f3427c2245c33d7b603b06bbc8c2a658f38))
+* new docker test resource for rudder-auth ([#941](https://github.com/rudderlabs/rudder-go-kit/issues/941)) ([dd43771](https://github.com/rudderlabs/rudder-go-kit/commit/dd43771c349498b1b5e0ac9b2bfce83e5c977c7d))
+
 ## [0.63.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.0...v0.63.1) (2025-10-13)
 
 
