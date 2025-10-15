@@ -5,6 +5,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
+
+	"github.com/rudderlabs/rudder-go-kit/logger"
+	"github.com/rudderlabs/rudder-go-kit/logger/mock_logger"
 )
 
 var loremIpsumDolor = []byte(`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
@@ -197,4 +201,32 @@ func TestCompressWithTimeoutAndPanic(t *testing.T) {
 			_, _ = c.Compress(loremIpsumDolor)
 		})
 	})
+}
+
+func TestCompressWithTimeoutAndLogger(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockLogger := mock_logger.NewMockLogger(ctrl)
+
+	// Expect Warnn to be called with timeout message and fields
+	mockLogger.EXPECT().Warnn(
+		"Compression operation timeout",
+		logger.NewStringField("operation", "compress"),
+		logger.NewDurationField("timeout", 1*time.Nanosecond),
+		gomock.Any(), // dataLength
+		gomock.Any(), // dataTruncated
+		gomock.Any(), // dataBase64
+	).Times(1)
+
+	c, err := New(CompressionAlgoZstd, CompressionLevelZstdDefault,
+		WithTimeout(1*time.Nanosecond),
+		WithLogger(mockLogger))
+	require.NoError(t, err)
+	require.NotNil(t, c.settings.logger)
+
+	t.Cleanup(func() { _ = c.Close() })
+
+	// This should timeout and call the logger
+	_, err = c.Compress(loremIpsumDolor)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "timeout")
 }

@@ -1,11 +1,14 @@
 package compress
 
 import (
+	"encoding/base64"
 	"fmt"
 	"time"
 
 	zstdcgo "github.com/DataDog/zstd"
 	"github.com/klauspost/compress/zstd"
+
+	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 // CompressionAlgorithm is the interface that wraps the compression algorithm method.
@@ -87,6 +90,7 @@ var (
 type settings struct {
 	timeout        time.Duration
 	panicOnTimeout bool
+	logger         logger.Logger
 }
 
 // Option is a function that configures a Compressor.
@@ -115,10 +119,20 @@ func WithPanicOnTimeout() Option {
 	return func(s *settings) { s.panicOnTimeout = true }
 }
 
+// WithLogger configures a logger to be used for logging timeout warnings.
+// If not provided, logging is disabled (uses logger.NOP).
+// When a timeout occurs, the logger will emit a warning with details about
+// the operation and the data that caused the timeout (base64 encoded, truncated
+// to first 1KB for safety).
+func WithLogger(l logger.Logger) Option {
+	return func(s *settings) { s.logger = l }
+}
+
 func New(algo CompressionAlgorithm, level CompressionLevel, opts ...Option) (*Compressor, error) {
 	customSettings := &settings{
 		timeout:        0, // no timeout by default
 		panicOnTimeout: false,
+		logger:         logger.NOP,
 	}
 	for _, opt := range opts {
 		opt(customSettings)
@@ -175,7 +189,7 @@ type Compressor struct {
 }
 
 func (c *Compressor) Compress(src []byte) ([]byte, error) {
-	return c.withTimeout("compress", func() ([]byte, error) {
+	return c.withTimeout("compress", src, func() ([]byte, error) {
 		if c.compressorZstdCgo != nil {
 			return c.compressorZstdCgo.Compress(src)
 		}
@@ -184,7 +198,7 @@ func (c *Compressor) Compress(src []byte) ([]byte, error) {
 }
 
 func (c *Compressor) Decompress(src []byte) ([]byte, error) {
-	return c.withTimeout("decompress", func() ([]byte, error) {
+	return c.withTimeout("decompress", src, func() ([]byte, error) {
 		if c.compressorZstdCgo != nil {
 			return c.compressorZstdCgo.Decompress(src)
 		}
@@ -202,7 +216,7 @@ func (c *Compressor) Decompress(src []byte) ([]byte, error) {
 // The goroutine executing the operation will continue running in the background and
 // cannot be cancelled due to lack of context support in the underlying compression
 // libraries. This is a known limitation - see WithTimeout for details.
-func (c *Compressor) withTimeout(operation string, fn func() ([]byte, error)) ([]byte, error) {
+func (c *Compressor) withTimeout(operation string, data []byte, fn func() ([]byte, error)) ([]byte, error) {
 	// If no timeout configured, call function directly
 	if c.settings.timeout == 0 {
 		return fn()
@@ -226,12 +240,42 @@ func (c *Compressor) withTimeout(operation string, fn func() ([]byte, error)) ([
 	case <-time.After(c.settings.timeout):
 		// Goroutine leak: the goroutine above will continue running until fn() completes.
 		// This is unavoidable without context cancellation support in the underlying libraries.
+
+		// Log timeout warning with data details
+		c.logTimeoutWarning(operation, data)
+
 		timeoutErr := fmt.Errorf("%s operation timeout after %v", operation, c.settings.timeout)
 		if c.settings.panicOnTimeout {
 			panic(timeoutErr)
 		}
 		return nil, timeoutErr
 	}
+}
+
+// logTimeoutWarning logs a warning when a timeout occurs, including safe serialization of the data.
+// The data is base64 encoded and truncated to the first 1KB to prevent excessive logging.
+func (c *Compressor) logTimeoutWarning(operation string, data []byte) {
+	const maxLoggedBytes = 1024
+
+	dataLen := len(data)
+	dataSample := data
+	isTruncated := false
+
+	if dataLen > maxLoggedBytes {
+		dataSample = data[:maxLoggedBytes]
+		isTruncated = true
+	}
+
+	encodedData := base64.StdEncoding.EncodeToString(dataSample)
+
+	c.settings.logger.Warnn(
+		"Compression operation timeout",
+		logger.NewStringField("operation", operation),
+		logger.NewDurationField("timeout", c.settings.timeout),
+		logger.NewIntField("dataLength", int64(dataLen)),
+		logger.NewBoolField("dataTruncated", isTruncated),
+		logger.NewStringField("dataBase64", encodedData),
+	)
 }
 
 func (c *Compressor) Close() error {
