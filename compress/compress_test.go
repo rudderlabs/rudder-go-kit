@@ -122,42 +122,79 @@ func TestCompressWithTimeout(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.algo.String()+"-"+tc.level.String(), func(t *testing.T) {
-			c, err := New(tc.algo, tc.level, WithTimeout(5*time.Second))
-			require.NoError(t, err)
-			require.NotNil(t, c.settings)
-			require.Equal(t, 5*time.Second, c.settings.timeout)
-			require.False(t, c.settings.panicOnTimeout)
+			t.Run("normal operation", func(t *testing.T) {
+				c, err := New(tc.algo, tc.level, WithTimeout(5*time.Second))
+				require.NoError(t, err)
+				require.NotNil(t, c.settings)
+				require.Equal(t, 5*time.Second, c.settings.timeout)
+				require.False(t, c.settings.panicOnTimeout)
 
-			t.Cleanup(func() { _ = c.Close() })
+				t.Cleanup(func() { _ = c.Close() })
 
-			// Normal operations should complete within timeout
-			compressed, err := c.Compress(loremIpsumDolor)
-			require.NoError(t, err)
-			require.Less(t, len(compressed), len(loremIpsumDolor))
+				// Normal operations should complete within timeout
+				compressed, err := c.Compress(loremIpsumDolor)
+				require.NoError(t, err)
+				require.Less(t, len(compressed), len(loremIpsumDolor))
 
-			decompressed, err := c.Decompress(compressed)
-			require.NoError(t, err)
-			require.Equal(t, string(loremIpsumDolor), string(decompressed))
+				decompressed, err := c.Decompress(compressed)
+				require.NoError(t, err)
+				require.Equal(t, string(loremIpsumDolor), string(decompressed))
+			})
+
+			t.Run("timeout returns error", func(t *testing.T) {
+				c, err := New(tc.algo, tc.level, WithTimeout(1*time.Nanosecond))
+				require.NoError(t, err)
+				require.NotNil(t, c.settings)
+				require.Equal(t, 1*time.Nanosecond, c.settings.timeout)
+				require.False(t, c.settings.panicOnTimeout)
+
+				t.Cleanup(func() { _ = c.Close() })
+
+				// Operations should timeout and return error
+				data, err := c.Compress(loremIpsumDolor)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "timeout")
+				require.Nil(t, data)
+			})
 		})
 	}
 }
 
 func TestCompressWithTimeoutAndPanic(t *testing.T) {
-	c, err := New(CompressionAlgoZstd, CompressionLevelZstdDefault,
-		WithTimeout(5*time.Second),
-		WithPanicOnTimeout())
-	require.NoError(t, err)
-	require.NotNil(t, c.settings)
-	require.Equal(t, 5*time.Second, c.settings.timeout)
-	require.True(t, c.settings.panicOnTimeout)
+	t.Run("normal operation", func(t *testing.T) {
+		c, err := New(CompressionAlgoZstd, CompressionLevelZstdDefault,
+			WithTimeout(5*time.Second),
+			WithPanicOnTimeout())
+		require.NoError(t, err)
+		require.NotNil(t, c.settings)
+		require.Equal(t, 5*time.Second, c.settings.timeout)
+		require.True(t, c.settings.panicOnTimeout)
 
-	t.Cleanup(func() { _ = c.Close() })
+		t.Cleanup(func() { _ = c.Close() })
 
-	// Normal operations should complete without panic
-	compressed, err := c.Compress(loremIpsumDolor)
-	require.NoError(t, err)
+		// Normal operations should complete without panic
+		compressed, err := c.Compress(loremIpsumDolor)
+		require.NoError(t, err)
 
-	decompressed, err := c.Decompress(compressed)
-	require.NoError(t, err)
-	require.Equal(t, string(loremIpsumDolor), string(decompressed))
+		decompressed, err := c.Decompress(compressed)
+		require.NoError(t, err)
+		require.Equal(t, string(loremIpsumDolor), string(decompressed))
+	})
+
+	t.Run("timeout panics", func(t *testing.T) {
+		c, err := New(CompressionAlgoZstd, CompressionLevelZstdDefault,
+			WithTimeout(1*time.Nanosecond),
+			WithPanicOnTimeout())
+		require.NoError(t, err)
+		require.NotNil(t, c.settings)
+		require.Equal(t, 1*time.Nanosecond, c.settings.timeout)
+		require.True(t, c.settings.panicOnTimeout)
+
+		t.Cleanup(func() { _ = c.Close() })
+
+		// Operations should timeout and panic
+		require.Panics(t, func() {
+			_, _ = c.Compress(loremIpsumDolor)
+		})
+	})
 }
