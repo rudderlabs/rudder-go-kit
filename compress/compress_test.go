@@ -2,6 +2,7 @@ package compress
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -107,4 +108,56 @@ func TestNewError(t *testing.T) {
 	c, err = New(CompressionAlgoZstd, CompressionLevel(0))
 	require.Nil(t, c)
 	require.Error(t, err)
+}
+
+func TestCompressWithTimeout(t *testing.T) {
+	type testCase struct {
+		algo  CompressionAlgorithm
+		level CompressionLevel
+	}
+	testCases := []testCase{
+		{CompressionAlgoZstd, CompressionLevelZstdDefault},
+		{CompressionAlgoZstdCgo, CompressionLevelZstdCgoDefault},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.algo.String()+"-"+tc.level.String(), func(t *testing.T) {
+			c, err := New(tc.algo, tc.level, WithTimeout(5*time.Second))
+			require.NoError(t, err)
+			require.NotNil(t, c.settings)
+			require.Equal(t, 5*time.Second, c.settings.timeout)
+			require.False(t, c.settings.panicOnTimeout)
+
+			t.Cleanup(func() { _ = c.Close() })
+
+			// Normal operations should complete within timeout
+			compressed, err := c.Compress(loremIpsumDolor)
+			require.NoError(t, err)
+			require.Less(t, len(compressed), len(loremIpsumDolor))
+
+			decompressed, err := c.Decompress(compressed)
+			require.NoError(t, err)
+			require.Equal(t, string(loremIpsumDolor), string(decompressed))
+		})
+	}
+}
+
+func TestCompressWithTimeoutAndPanic(t *testing.T) {
+	c, err := New(CompressionAlgoZstd, CompressionLevelZstdDefault,
+		WithTimeout(5*time.Second),
+		WithPanicOnTimeout())
+	require.NoError(t, err)
+	require.NotNil(t, c.settings)
+	require.Equal(t, 5*time.Second, c.settings.timeout)
+	require.True(t, c.settings.panicOnTimeout)
+
+	t.Cleanup(func() { _ = c.Close() })
+
+	// Normal operations should complete without panic
+	compressed, err := c.Compress(loremIpsumDolor)
+	require.NoError(t, err)
+
+	decompressed, err := c.Decompress(compressed)
+	require.NoError(t, err)
+	require.Equal(t, string(loremIpsumDolor), string(decompressed))
 }
