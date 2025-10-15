@@ -15,19 +15,26 @@ const (
 )
 
 var (
+	srcMu                 sync.Mutex
 	src                   = rand.NewSource(time.Now().UnixNano())
 	uniqueRandomStrings   = make(map[string]struct{})
 	uniqueRandomStringsMu sync.Mutex
 )
+
+func randomInt63() int64 {
+	srcMu.Lock()
+	defer srcMu.Unlock()
+	return src.Int63()
+}
 
 // String returns a random string
 // Credits to https://stackoverflow.com/a/31832326/828366
 func String(n int) string {
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+	for i, cache, remain := n-1, randomInt63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
+			cache, remain = randomInt63(), letterIdxMax
 		}
 		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
 			b[i] = letterBytes[idx]
@@ -43,10 +50,8 @@ func String(n int) string {
 // UniqueString returns a random string that is unique
 func UniqueString(n int) string {
 	str := String(n)
-
 	uniqueRandomStringsMu.Lock()
 	defer uniqueRandomStringsMu.Unlock()
-
 	for {
 		if _, ok := uniqueRandomStrings[str]; !ok {
 			uniqueRandomStrings[str] = struct{}{}
