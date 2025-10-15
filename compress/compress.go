@@ -185,7 +185,7 @@ func New(algo CompressionAlgorithm, level CompressionLevel, opts ...Option) (*Co
 type Compressor struct {
 	*compressorZstd
 	*compressorZstdCgo
-	*settings
+	settings *settings
 }
 
 func (c *Compressor) Compress(src []byte) ([]byte, error) {
