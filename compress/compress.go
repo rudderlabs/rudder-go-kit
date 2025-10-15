@@ -268,7 +268,7 @@ func (c *Compressor) logTimeoutWarning(operation string, data []byte) {
 
 	encodedData := base64.StdEncoding.EncodeToString(dataSample)
 
-	c.settings.logger.Warnn(
+	c.settings.logger.Debugn(
 		"Compression operation timeout",
 		logger.NewStringField("operation", operation),
 		logger.NewDurationField("timeout", c.settings.timeout),

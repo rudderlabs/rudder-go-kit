@@ -207,8 +207,8 @@ func TestCompressWithTimeoutAndLogger(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockLogger := mock_logger.NewMockLogger(ctrl)
 
-	// Expect Warnn to be called with timeout message and fields
-	mockLogger.EXPECT().Warnn(
+	// Expect Debugn to be called with timeout message and fields
+	mockLogger.EXPECT().Debugn(
 		"Compression operation timeout",
 		logger.NewStringField("operation", "compress"),
 		logger.NewDurationField("timeout", 1*time.Nanosecond),
