@@ -2,6 +2,7 @@ package compress
 
 import (
 	"fmt"
+	"time"
 
 	zstdcgo "github.com/DataDog/zstd"
 	"github.com/klauspost/compress/zstd"
@@ -83,7 +84,54 @@ var (
 	CompressionLevelZstdCgoBest    = CompressionLevel(zstdcgo.BestCompression)    // 20
 )
 
-func New(algo CompressionAlgorithm, level CompressionLevel) (*Compressor, error) {
+type settings struct {
+	timeout        time.Duration
+	panicOnTimeout bool
+	onTimeout      func(operation string, timeout time.Duration, data []byte)
+}
+
+// Option is a function that configures a Compressor.
+type Option func(*settings)
+
+// WithTimeout sets the timeout for compression and decompression operations.
+// If the timeout is exceeded, the operation will return an error.
+// If panicOnTimeout is enabled via WithPanicOnTimeout, it will panic instead.
+//
+// IMPORTANT: When a timeout occurs, the underlying compression/decompression
+// goroutine will leak because the underlying libraries (both klauspost/compress/zstd
+// and DataDog/zstd) do not support context cancellation. The goroutine will continue
+// running until the operation completes or the process terminates. This is an
+// unavoidable trade-off to prevent indefinite blocking of the caller.
+//
+// Consider the implications of goroutine leaks in high-throughput scenarios and
+// set appropriate timeout values to balance between preventing indefinite hangs
+// and minimizing leaked goroutines.
+func WithTimeout(timeout time.Duration) Option {
+	return func(s *settings) { s.timeout = timeout }
+}
+
+// WithPanicOnTimeout configures the compressor to panic when a timeout occurs
+// instead of returning an error. This should be used with WithTimeout.
+func WithPanicOnTimeout() Option {
+	return func(s *settings) { s.panicOnTimeout = true }
+}
+
+// WithOnTimeout configures a callback function to be invoked when a timeout occurs.
+// The callback receives the operation name, timeout duration, and the data that caused the timeout.
+// The data is provided unmodified without truncation.
+func WithOnTimeout(f func(operation string, timeout time.Duration, data []byte)) Option {
+	return func(s *settings) { s.onTimeout = f }
+}
+
+func New(algo CompressionAlgorithm, level CompressionLevel, opts ...Option) (*Compressor, error) {
+	customSettings := &settings{
+		timeout:        0, // no timeout by default
+		panicOnTimeout: false,
+	}
+	for _, opt := range opts {
+		opt(customSettings)
+	}
+
 	var err error
 	algo, level, err = NewSettings(algo.String(), level.String())
 	if err != nil {
@@ -102,36 +150,102 @@ func New(algo CompressionAlgorithm, level CompressionLevel) (*Compressor, error)
 			return nil, fmt.Errorf("cannot create zstd decoder: %w", err)
 		}
 
-		return &Compressor{compressorZstd: &compressorZstd{
-			encoder: encoder,
-			decoder: decoder,
-		}}, nil
+		return &Compressor{
+			compressorZstd: &compressorZstd{
+				encoder: encoder,
+				decoder: decoder,
+			},
+			settings: customSettings,
+		}, nil
 	case CompressionAlgoZstdCgo:
 		return &Compressor{
 			compressorZstdCgo: &compressorZstdCgo{level: int(level)},
+			settings:          customSettings,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown compression algorithm: %d", algo)
 	}
 }
 
+// Compressor provides compression and decompression operations with optional timeout support.
+//
+// By default, compression and decompression operations have no timeout and may block
+// indefinitely if the underlying library encounters issues. Use WithTimeout option
+// during construction to add timeout protection.
+//
+// Note: Both supported algorithms (klauspost/compress/zstd and DataDog/zstd) do not
+// support context cancellation. If a timeout occurs, the goroutine performing the
+// operation will leak. See WithTimeout documentation for details.
 type Compressor struct {
 	*compressorZstd
 	*compressorZstdCgo
+	settings *settings
 }
 
 func (c *Compressor) Compress(src []byte) ([]byte, error) {
-	if c.compressorZstdCgo != nil {
-		return c.compressorZstdCgo.Compress(src)
-	}
-	return c.compressorZstd.Compress(src)
+	return c.withTimeout("compress", src, func() ([]byte, error) {
+		if c.compressorZstdCgo != nil {
+			return c.compressorZstdCgo.Compress(src)
+		}
+		return c.compressorZstd.Compress(src)
+	})
 }
 
 func (c *Compressor) Decompress(src []byte) ([]byte, error) {
-	if c.compressorZstdCgo != nil {
-		return c.compressorZstdCgo.Decompress(src)
+	return c.withTimeout("decompress", src, func() ([]byte, error) {
+		if c.compressorZstdCgo != nil {
+			return c.compressorZstdCgo.Decompress(src)
+		}
+		return c.compressorZstd.Decompress(src)
+	})
+}
+
+// withTimeout wraps a compression/decompression operation with timeout protection.
+//
+// If no timeout is configured (c.settings.timeout == 0), the function executes directly
+// without any overhead. If a timeout is configured, the operation runs in a separate
+// goroutine with timeout monitoring.
+//
+// On timeout, this method returns an error (or panics if panicOnTimeout is enabled).
+// The goroutine executing the operation will continue running in the background and
+// cannot be cancelled due to lack of context support in the underlying compression
+// libraries. This is a known limitation - see WithTimeout for details.
+func (c *Compressor) withTimeout(operation string, data []byte, fn func() ([]byte, error)) ([]byte, error) {
+	// If no timeout configured, call function directly
+	if c.settings.timeout == 0 {
+		return fn()
 	}
-	return c.compressorZstd.Decompress(src)
+
+	type result struct {
+		data []byte
+		err  error
+	}
+
+	resultCh := make(chan result, 1)
+	go func() {
+		data, err := fn()
+		resultCh <- result{data: data, err: err}
+		close(resultCh)
+	}()
+
+	select {
+	case r := <-resultCh:
+		return r.data, r.err
+	case <-time.After(c.settings.timeout):
+		// Goroutine leak: the goroutine above will continue running until fn() completes.
+		// This is unavoidable without context cancellation support in the underlying libraries.
+
+		// Call timeout callback if configured
+		if c.settings.onTimeout != nil {
+			c.settings.onTimeout(operation, c.settings.timeout, data)
+		}
+
+		timeoutErr := fmt.Errorf("%s operation timeout after %v", operation, c.settings.timeout)
+		if c.settings.panicOnTimeout {
+			panic(timeoutErr)
+		}
+		return nil, timeoutErr
+	}
 }
 
 func (c *Compressor) Close() error {

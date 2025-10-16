@@ -2,6 +2,7 @@ package compress
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -107,4 +108,127 @@ func TestNewError(t *testing.T) {
 	c, err = New(CompressionAlgoZstd, CompressionLevel(0))
 	require.Nil(t, c)
 	require.Error(t, err)
+}
+
+func TestCompressWithTimeout(t *testing.T) {
+	type testCase struct {
+		algo  CompressionAlgorithm
+		level CompressionLevel
+	}
+	testCases := []testCase{
+		{CompressionAlgoZstd, CompressionLevelZstdDefault},
+		{CompressionAlgoZstdCgo, CompressionLevelZstdCgoDefault},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.algo.String()+"-"+tc.level.String(), func(t *testing.T) {
+			t.Run("normal operation", func(t *testing.T) {
+				c, err := New(tc.algo, tc.level, WithTimeout(5*time.Second))
+				require.NoError(t, err)
+				require.NotNil(t, c.settings)
+				require.Equal(t, 5*time.Second, c.settings.timeout)
+				require.False(t, c.settings.panicOnTimeout)
+
+				t.Cleanup(func() { _ = c.Close() })
+
+				// Normal operations should complete within timeout
+				compressed, err := c.Compress(loremIpsumDolor)
+				require.NoError(t, err)
+				require.Less(t, len(compressed), len(loremIpsumDolor))
+
+				decompressed, err := c.Decompress(compressed)
+				require.NoError(t, err)
+				require.Equal(t, string(loremIpsumDolor), string(decompressed))
+			})
+
+			t.Run("timeout returns error", func(t *testing.T) {
+				c, err := New(tc.algo, tc.level, WithTimeout(1*time.Nanosecond))
+				require.NoError(t, err)
+				require.NotNil(t, c.settings)
+				require.Equal(t, 1*time.Nanosecond, c.settings.timeout)
+				require.False(t, c.settings.panicOnTimeout)
+
+				t.Cleanup(func() { _ = c.Close() })
+
+				// Operations should timeout and return error
+				data, err := c.Compress(loremIpsumDolor)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "timeout")
+				require.Nil(t, data)
+			})
+		})
+	}
+}
+
+func TestCompressWithTimeoutAndPanic(t *testing.T) {
+	t.Run("normal operation", func(t *testing.T) {
+		c, err := New(CompressionAlgoZstd, CompressionLevelZstdDefault,
+			WithTimeout(5*time.Second),
+			WithPanicOnTimeout())
+		require.NoError(t, err)
+		require.NotNil(t, c.settings)
+		require.Equal(t, 5*time.Second, c.settings.timeout)
+		require.True(t, c.settings.panicOnTimeout)
+
+		t.Cleanup(func() { _ = c.Close() })
+
+		// Normal operations should complete without panic
+		compressed, err := c.Compress(loremIpsumDolor)
+		require.NoError(t, err)
+
+		decompressed, err := c.Decompress(compressed)
+		require.NoError(t, err)
+		require.Equal(t, string(loremIpsumDolor), string(decompressed))
+	})
+
+	t.Run("timeout panics", func(t *testing.T) {
+		c, err := New(CompressionAlgoZstd, CompressionLevelZstdDefault,
+			WithTimeout(1*time.Nanosecond),
+			WithPanicOnTimeout())
+		require.NoError(t, err)
+		require.NotNil(t, c.settings)
+		require.Equal(t, 1*time.Nanosecond, c.settings.timeout)
+		require.True(t, c.settings.panicOnTimeout)
+
+		t.Cleanup(func() { _ = c.Close() })
+
+		// Operations should timeout and panic
+		require.Panics(t, func() {
+			_, _ = c.Compress(loremIpsumDolor)
+		})
+	})
+}
+
+func TestCompressWithTimeoutAndCallback(t *testing.T) {
+	var callbackCalled bool
+	var callbackOperation string
+	var callbackTimeout time.Duration
+	var callbackData []byte
+
+	onTimeout := func(operation string, timeout time.Duration, data []byte) {
+		callbackCalled = true
+		callbackOperation = operation
+		callbackTimeout = timeout
+		callbackData = data
+	}
+
+	c, err := New(CompressionAlgoZstd, CompressionLevelZstdDefault,
+		WithTimeout(1*time.Nanosecond),
+		WithOnTimeout(onTimeout))
+	require.NoError(t, err)
+	require.NotNil(t, c.settings.onTimeout)
+
+	t.Cleanup(func() { _ = c.Close() })
+
+	// This should timeout and call the callback
+	data, err := c.Compress(loremIpsumDolor)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "timeout")
+	require.Nil(t, data)
+
+	// Verify callback was called with correct parameters
+	require.True(t, callbackCalled, "callback should have been called")
+	require.Equal(t, "compress", callbackOperation)
+	require.Equal(t, 1*time.Nanosecond, callbackTimeout)
+	require.Equal(t, loremIpsumDolor, callbackData, "data should not be truncated")
 }

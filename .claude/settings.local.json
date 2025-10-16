@@ -8,7 +8,8 @@
       "Bash(go test:*)",
       "Bash(gofmt:*)",
       "Bash(git tag:*)",
-      "Bash(go tool cover:*)"
+      "Bash(go tool cover:*)",
+      "Bash(make lint)"
     ],
     "deny": [],
     "ask": []
