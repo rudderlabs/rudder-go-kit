@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.2...v0.63.3) (2025-10-16)
+
+
+### Miscellaneous
+
+* compress timeout ([#948](https://github.com/rudderlabs/rudder-go-kit/issues/948)) ([123a7fd](https://github.com/rudderlabs/rudder-go-kit/commit/123a7fd688d2ca6b2282992e5d0377c4f5d59007))
+
 ## [0.63.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.1...v0.63.2) (2025-10-15)
 
 
