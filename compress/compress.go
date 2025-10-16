@@ -1,14 +1,11 @@
 package compress
 
 import (
-	"encoding/base64"
 	"fmt"
 	"time"
 
 	zstdcgo "github.com/DataDog/zstd"
 	"github.com/klauspost/compress/zstd"
-
-	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 // CompressionAlgorithm is the interface that wraps the compression algorithm method.
@@ -90,7 +87,7 @@ var (
 type settings struct {
 	timeout        time.Duration
 	panicOnTimeout bool
-	logger         logger.Logger
+	onTimeout      func(operation string, timeout time.Duration, data []byte)
 }
 
 // Option is a function that configures a Compressor.
@@ -119,20 +116,17 @@ func WithPanicOnTimeout() Option {
 	return func(s *settings) { s.panicOnTimeout = true }
 }
 
-// WithLogger configures a logger to be used for logging timeout warnings.
-// If not provided, logging is disabled (uses logger.NOP).
-// When a timeout occurs, the logger will emit a warning with details about
-// the operation and the data that caused the timeout (base64 encoded, truncated
-// to first 1KB for safety).
-func WithLogger(l logger.Logger) Option {
-	return func(s *settings) { s.logger = l }
+// WithOnTimeout configures a callback function to be invoked when a timeout occurs.
+// The callback receives the operation name, timeout duration, and the data that caused the timeout.
+// The data is provided unmodified without truncation.
+func WithOnTimeout(f func(operation string, timeout time.Duration, data []byte)) Option {
+	return func(s *settings) { s.onTimeout = f }
 }
 
 func New(algo CompressionAlgorithm, level CompressionLevel, opts ...Option) (*Compressor, error) {
 	customSettings := &settings{
 		timeout:        0, // no timeout by default
 		panicOnTimeout: false,
-		logger:         logger.NOP,
 	}
 	for _, opt := range opts {
 		opt(customSettings)
@@ -241,8 +235,10 @@ func (c *Compressor) withTimeout(operation string, data []byte, fn func() ([]byt
 		// Goroutine leak: the goroutine above will continue running until fn() completes.
 		// This is unavoidable without context cancellation support in the underlying libraries.
 
-		// Log timeout warning with data details
-		c.logTimeoutWarning(operation, data)
+		// Call timeout callback if configured
+		if c.settings.onTimeout != nil {
+			c.settings.onTimeout(operation, c.settings.timeout, data)
+		}
 
 		timeoutErr := fmt.Errorf("%s operation timeout after %v", operation, c.settings.timeout)
 		if c.settings.panicOnTimeout {
@@ -250,32 +246,6 @@ func (c *Compressor) withTimeout(operation string, data []byte, fn func() ([]byt
 		}
 		return nil, timeoutErr
 	}
-}
-
-// logTimeoutWarning logs a warning when a timeout occurs, including safe serialization of the data.
-// The data is base64 encoded and truncated to the first 1KB to prevent excessive logging.
-func (c *Compressor) logTimeoutWarning(operation string, data []byte) {
-	const maxLoggedBytes = 1024
-
-	dataLen := len(data)
-	dataSample := data
-	isTruncated := false
-
-	if dataLen > maxLoggedBytes {
-		dataSample = data[:maxLoggedBytes]
-		isTruncated = true
-	}
-
-	encodedData := base64.StdEncoding.EncodeToString(dataSample)
-
-	c.settings.logger.Debugn(
-		"Compression operation timeout",
-		logger.NewStringField("operation", operation),
-		logger.NewDurationField("timeout", c.settings.timeout),
-		logger.NewIntField("dataLength", int64(dataLen)),
-		logger.NewBoolField("dataTruncated", isTruncated),
-		logger.NewStringField("dataBase64", encodedData),
-	)
 }
 
 func (c *Compressor) Close() error {
