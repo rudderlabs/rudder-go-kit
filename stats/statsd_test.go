@@ -113,6 +113,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 	defer server.Close()
 
 	c := config.New()
+	c.Set("enableStats", true)
 	c.Set("STATSD_SERVER_URL", server.addr)
 	c.Set("INSTANCE_ID", "test")
 	c.Set("RuntimeStats.enabled", false)
@@ -120,7 +121,10 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 
 	l := logger.NewFactory(c)
 	m := metric.NewManager()
-	s := stats.NewStats(c, l, m)
+	s := stats.NewStats(c, l, m,
+		stats.WithServiceName("test-service"),
+		stats.WithServiceVersion("1.0.0"),
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -133,15 +137,15 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-counter", stats.CountType).Increment()
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-counter,instanceName=test:1|c"
-		}, 2*time.Second, time.Millisecond)
+			return lastReceived.Load() == "test-counter,instanceName=test,service_name=test-service,service_version=1.0.0:1|c"
+		}, 5*time.Second, time.Millisecond)
 	})
 
 	t.Run("counter count", func(t *testing.T) {
 		s.NewStat("test-counter", stats.CountType).Count(10)
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-counter,instanceName=test:10|c"
+			return lastReceived.Load() == "test-counter,instanceName=test,service_name=test-service,service_version=1.0.0:10|c"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -149,7 +153,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-gauge", stats.GaugeType).Gauge(1234)
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-gauge,instanceName=test:1234|g"
+			return lastReceived.Load() == "test-gauge,instanceName=test,service_name=test-service,service_version=1.0.0:1234|g"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -157,7 +161,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-timer-1", stats.TimerType).SendTiming(10 * time.Second)
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-timer-1,instanceName=test:10000|ms"
+			return lastReceived.Load() == "test-timer-1,instanceName=test,service_name=test-service,service_version=1.0.0:10000|ms"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -165,7 +169,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("test-timer-2", stats.TimerType).Since(time.Now())
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-timer-2,instanceName=test:0|ms"
+			return lastReceived.Load() == "test-timer-2,instanceName=test,service_name=test-service,service_version=1.0.0:0|ms"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -175,27 +179,27 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		}()
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-timer-4,instanceName=test:0|ms"
+			return lastReceived.Load() == "test-timer-4,instanceName=test,service_name=test-service,service_version=1.0.0:0|ms"
 		}, 2*time.Second, time.Millisecond)
 	})
 
 	t.Run("histogram", func(t *testing.T) {
 		s.NewStat("test-hist-1", stats.HistogramType).Observe(1.2)
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-hist-1,instanceName=test:1.2|h"
+			return lastReceived.Load() == "test-hist-1,instanceName=test,service_name=test-service,service_version=1.0.0:1.2|h"
 		}, 2*time.Second, time.Millisecond)
 	})
 
 	t.Run("tagged stats", func(t *testing.T) {
 		s.NewTaggedStat("test-tagged", stats.CountType, stats.Tags{"key": "value"}).Increment()
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-tagged,instanceName=test,key=value:1|c"
+			return lastReceived.Load() == "test-tagged,instanceName=test,service_name=test-service,service_version=1.0.0,key=value:1|c"
 		}, 2*time.Second, time.Millisecond)
 
 		// same measurement name, different measurement type
 		s.NewTaggedStat("test-tagged", stats.GaugeType, stats.Tags{"key": "value"}).Gauge(22)
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-tagged,instanceName=test,key=value:22|g"
+			return lastReceived.Load() == "test-tagged,instanceName=test,service_name=test-service,service_version=1.0.0,key=value:22|g"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -206,13 +210,13 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		counter.Increment()
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "test-tagged-sampled,instanceName=test,key=value:1|c"
+			return lastReceived.Load() == "test-tagged-sampled,instanceName=test,service_name=test-service,service_version=1.0.0,key=value:1|c"
 		}, 2*time.Second, time.Millisecond)
 
 		counterSampled := s.NewSampledTaggedStat("test-tagged-sampled", stats.CountType, stats.Tags{"key": "value"})
 		counterSampled.Increment()
 		require.Eventually(t, func() bool {
-			if lastReceived.Load() == "test-tagged-sampled,instanceName=test,key=value:1|c|@0.5" {
+			if lastReceived.Load() == "test-tagged-sampled,instanceName=test,service_name=test-service,service_version=1.0.0,key=value:1|c|@0.5" {
 				return true
 			}
 			// playing with probabilities, we might or might not get the sample (0.5 -> 50% chance)
@@ -225,7 +229,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewStat("", stats.CountType).Increment()
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "novalue,instanceName=test:1|c"
+			return lastReceived.Load() == "novalue,instanceName=test,service_name=test-service,service_version=1.0.0:1|c"
 		}, 2*time.Second, time.Millisecond)
 	})
 
@@ -233,7 +237,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		s.NewTaggedStat(" ", stats.GaugeType, stats.Tags{"key": "value", "": "value2"}).Gauge(22)
 
 		require.Eventually(t, func() bool {
-			return lastReceived.Load() == "novalue,instanceName=test,key=value:22|g"
+			return lastReceived.Load() == "novalue,instanceName=test,service_name=test-service,service_version=1.0.0,key=value:22|g"
 		}, 2*time.Second, time.Millisecond)
 	})
 }
@@ -255,6 +259,7 @@ func TestStatsdPeriodicStats(t *testing.T) {
 		c := config.New()
 		m := metric.NewManager()
 		t.Setenv("KUBE_NAMESPACE", "my-namespace")
+		c.Set("enableStats", true)
 		c.Set("STATSD_SERVER_URL", server.addr)
 		c.Set("INSTANCE_ID", "test")
 		c.Set("RuntimeStats.enabled", true)
@@ -387,6 +392,7 @@ func TestStatsdRegisterCollector(t *testing.T) {
 		t.Setenv("KUBE_NAMESPACE", "my-namespace")
 		c.Set("STATSD_SERVER_URL", server.addr)
 		c.Set("INSTANCE_ID", "test")
+		c.Set("enableStats", true)
 		c.Set("RuntimeStats.enabled", true)
 		c.Set("RuntimeStats.statsCollectionInterval", 60)
 		c.Set("RuntimeStats.enableCPUStats", false)
@@ -501,6 +507,7 @@ func TestStatsdExcludedTags(t *testing.T) {
 	c.Set("STATSD_SERVER_URL", server.addr)
 	c.Set("statsExcludedTags", []string{"workspaceId"})
 	c.Set("INSTANCE_ID", "test")
+	c.Set("enableStats", true)
 	c.Set("RuntimeStats.enabled", false)
 
 	l := logger.NewFactory(c)

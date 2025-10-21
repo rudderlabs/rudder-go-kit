@@ -143,6 +143,8 @@ func NewStats(
 			samplingRate:        float32(config.GetFloat64("statsSamplingRate", 1)),
 			instanceName:        statsConfig.instanceName,
 			namespaceIdentifier: statsConfig.namespaceIdentifier,
+			serviceName:         statsConfig.serviceName,
+			serviceVersion:      statsConfig.serviceVersion,
 		},
 		state: &statsdState{
 			client:         &statsdClient{},
