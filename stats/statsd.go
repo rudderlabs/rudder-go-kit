@@ -282,6 +282,8 @@ type statsdConfig struct {
 	samplingRate        float32
 	instanceName        string
 	namespaceIdentifier string
+	serviceName         string
+	serviceVersion      string
 }
 
 // statsdDefaultTags returns the default tags to use for statsd
@@ -292,6 +294,12 @@ func (c *statsdConfig) statsdDefaultTags() statsd.Option {
 	}
 	if c.namespaceIdentifier != "" {
 		tags = append(tags, "namespace", c.namespaceIdentifier)
+	}
+	if c.serviceName != "" {
+		tags = append(tags, "service_name", c.serviceName)
+	}
+	if c.serviceVersion != "" {
+		tags = append(tags, "service_version", c.serviceVersion)
 	}
 	return statsd.Tags(tags...)
 }
