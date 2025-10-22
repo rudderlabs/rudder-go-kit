@@ -430,5 +430,7 @@ func parseString(val []byte, dtype jsonparser.ValueType) (string, error) {
 		return string(val), nil
 	case jsonparser.String, jsonparser.Boolean, jsonparser.Number:
 		return jsonparser.ParseString(val)
+	case jsonparser.Null:
+		return "", nil
 	}
 }
