@@ -381,6 +381,13 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			want:     false,
 			wantErr:  true,
 		},
+		{
+			name:     "null",
+			jsonData: `{"active": null}`,
+			keys:     []string{"active"},
+			want:     false,
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -467,6 +474,13 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			want:     0,
 			wantErr:  true,
 		},
+		{
+			name:     "null",
+			jsonData: `{"active": null}`,
+			keys:     []string{"active"},
+			want:     0,
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -550,6 +564,13 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			name:     "no key",
 			jsonData: `{"active": true}`,
 			keys:     []string{},
+			want:     0,
+			wantErr:  true,
+		},
+		{
+			name:     "null",
+			jsonData: `{"active": null}`,
+			keys:     []string{"active"},
 			want:     0,
 			wantErr:  true,
 		},
@@ -1088,7 +1109,7 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.True(t, boolVal)
 	boolVal = jsonParser.GetBooleanOrFalse([]byte(`{"active": "random"}`), "active")
 	require.False(t, boolVal)
-	boolVal = jsonParser.GetBooleanOrFalse([]byte(`{"city": null}`), "city")
+	boolVal = jsonParser.GetBooleanOrFalse([]byte(`{"active": null}`), "active")
 	require.False(t, boolVal)
 
 	// Test GetIntOrZero
@@ -1100,7 +1121,7 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.Equal(t, int64(1), intVal)
 	intVal = jsonParser.GetIntOrZero([]byte(`{"age": "random"}`), "age")
 	require.Equal(t, int64(0), intVal)
-	intVal = jsonParser.GetIntOrZero([]byte(`{"city": null}`), "city")
+	intVal = jsonParser.GetIntOrZero([]byte(`{"age": null}`), "age")
 	require.Equal(t, int64(0), intVal)
 
 	// Test GetFloatOrZero
@@ -1112,7 +1133,7 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.Equal(t, float64(1), floatVal)
 	floatVal = jsonParser.GetFloatOrZero([]byte(`{"price": "random"}`), "price")
 	require.Equal(t, float64(0), floatVal)
-	floatVal = jsonParser.GetFloatOrZero([]byte(`{"city": null}`), "city")
+	floatVal = jsonParser.GetFloatOrZero([]byte(`{"price": null}`), "price")
 	require.Equal(t, float64(0), floatVal)
 
 	// Test GetStringOrEmpty
