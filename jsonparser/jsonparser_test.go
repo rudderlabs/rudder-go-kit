@@ -1088,6 +1088,8 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.True(t, boolVal)
 	boolVal = jsonParser.GetBooleanOrFalse([]byte(`{"active": "random"}`), "active")
 	require.False(t, boolVal)
+	boolVal = jsonParser.GetBooleanOrFalse([]byte(`{"city": null}`), "city")
+	require.False(t, boolVal)
 
 	// Test GetIntOrZero
 	intVal := jsonParser.GetIntOrZero([]byte(`{"age": 30}`), "age")
@@ -1098,6 +1100,8 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.Equal(t, int64(1), intVal)
 	intVal = jsonParser.GetIntOrZero([]byte(`{"age": "random"}`), "age")
 	require.Equal(t, int64(0), intVal)
+	intVal = jsonParser.GetIntOrZero([]byte(`{"city": null}`), "city")
+	require.Equal(t, int64(0), intVal)
 
 	// Test GetFloatOrZero
 	floatVal := jsonParser.GetFloatOrZero([]byte(`{"price": 29.99}`), "price")
@@ -1107,6 +1111,8 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	floatVal = jsonParser.GetFloatOrZero([]byte(`{"price": true}`), "price")
 	require.Equal(t, float64(1), floatVal)
 	floatVal = jsonParser.GetFloatOrZero([]byte(`{"price": "random"}`), "price")
+	require.Equal(t, float64(0), floatVal)
+	floatVal = jsonParser.GetFloatOrZero([]byte(`{"city": null}`), "city")
 	require.Equal(t, float64(0), floatVal)
 
 	// Test GetStringOrEmpty
