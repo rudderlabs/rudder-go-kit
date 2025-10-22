@@ -632,6 +632,13 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			want:     "",
 			wantErr:  true,
 		},
+		{
+			name:     "null",
+			jsonData: `{"active": null}`,
+			keys:     []string{"active"},
+			want:     "",
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1042,6 +1049,13 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{},
 			wantErr:  true,
 		},
+		{
+			name:     "null",
+			jsonData: `{"user": {"name": "John", "age": null}}`,
+			keys:     []string{"user", "age"},
+			want:     map[string]interface{}{"user": map[string]interface{}{"name": "John"}},
+			wantErr:  false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1104,6 +1118,8 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.Equal(t, "true", strVal)
 	strVal = jsonParser.GetStringOrEmpty([]byte(`{"city": {"New": "York"}}`), "city")
 	require.Equal(t, `{"New": "York"}`, strVal)
+	strVal = jsonParser.GetStringOrEmpty([]byte(`{"city": null}`), "city")
+	require.Equal(t, "", strVal)
 
 	// Test that non-existent keys return zero values
 	require.Nil(t, jsonParser.GetValueOrEmpty([]byte(`{}`), "missing"))
