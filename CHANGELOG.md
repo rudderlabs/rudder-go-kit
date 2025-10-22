@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.63.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.3...v0.63.4) (2025-10-22)
+
+
+### Bug Fixes
+
+* handle null values in JSON parsing ([#958](https://github.com/rudderlabs/rudder-go-kit/issues/958)) ([03f6883](https://github.com/rudderlabs/rudder-go-kit/commit/03f68838c24038c343482856e2b4c3ded5212b6f))
+* statsd is not including service name and service version labels ([#956](https://github.com/rudderlabs/rudder-go-kit/issues/956)) ([4878f72](https://github.com/rudderlabs/rudder-go-kit/commit/4878f72ef5c7f830ca59a3425e2eec84d8e104d8))
+
 ## [0.63.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.2...v0.63.3) (2025-10-16)
 
 
