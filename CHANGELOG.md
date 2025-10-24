@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.5](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.4...v0.63.5) (2025-10-24)
+
+
+### Miscellaneous
+
+* remove unused oauthV2Enabled flag ([#965](https://github.com/rudderlabs/rudder-go-kit/issues/965)) ([77fb62b](https://github.com/rudderlabs/rudder-go-kit/commit/77fb62b579030e7fc9643dfbafdf13dd4fc5bd65))
+
 ## [0.63.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.3...v0.63.4) (2025-10-22)
 
 
