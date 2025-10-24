@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.63.5](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.4...v0.63.5) (2025-10-24)
+
+
+### Miscellaneous
+
+* add test branch trigger (temporary) ([004b666](https://github.com/rudderlabs/rudder-go-kit/commit/004b66651a5a32c68c6930ef99238c41506835e9))
+* align workflow with git-hooks PR [#29](https://github.com/rudderlabs/rudder-go-kit/issues/29) exactly ([36796e2](https://github.com/rudderlabs/rudder-go-kit/commit/36796e24862df432e63be704a8da22a7c9d10746))
+* migrate release-please to GitHub App authentication ([ffbca7b](https://github.com/rudderlabs/rudder-go-kit/commit/ffbca7baa95ee4fd753352b2706b10895422442a))
+* pin GitHub actions to SHA commits ([cde6944](https://github.com/rudderlabs/rudder-go-kit/commit/cde69446313914d4b487fa62111c1c12baea257a))
+
 ## [0.63.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.3...v0.63.4) (2025-10-22)
 
 
