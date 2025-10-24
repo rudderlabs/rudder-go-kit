@@ -12,16 +12,22 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2.1.4
+        with:
+          app-id: ${{ vars.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_PRIVATE_KEY }}
+
       - name: Extract branch name
         shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
         id: extract_branch
-      - uses: google-github-actions/release-please-action@v3
+
+      - uses: googleapis/release-please-action@4.4.0
         with:
-          token: ${{ secrets.PAT }}
+          token: ${{ steps.generate-token.outputs.token }}
           pull-request-title-pattern: "chore: release ${version}"
-          release-type: go
-          package-name: rudder-server
-          default-branch: ${{ steps.extract_branch.outputs.branch }}
-          changelog-types: '[{"type":"feat","section":"Features","hidden":false},{"type":"fix","section":"Bug Fixes","hidden":false},{"type":"chore","section":"Miscellaneous","hidden":false},{"type":"refactor","section":"Miscellaneous","hidden":false},{"type":"test","section":"Miscellaneous","hidden":false},{"type":"doc","section":"Documentation","hidden":false}]'
-          bump-minor-pre-major: true
+          target-branch: ${{ steps.extract_branch.outputs.branch }}
+          config-file: .github/release-please-config.json
+          manifest-file: .github/release-please-manifest.json
