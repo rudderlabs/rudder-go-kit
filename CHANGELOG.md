@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.63.5](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.4...v0.63.5) (2025-10-28)
+
+
+### Bug Fixes
+
+* max procs defaults ([#968](https://github.com/rudderlabs/rudder-go-kit/issues/968)) ([4f26f44](https://github.com/rudderlabs/rudder-go-kit/commit/4f26f44dbe802ea47b726cce675c1d6fad67585f))
+
+
+### Miscellaneous
+
+* remove unused oauthV2Enabled flag ([#965](https://github.com/rudderlabs/rudder-go-kit/issues/965)) ([77fb62b](https://github.com/rudderlabs/rudder-go-kit/commit/77fb62b579030e7fc9643dfbafdf13dd4fc5bd65))
+
 ## [0.63.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.3...v0.63.4) (2025-10-22)
 
 
