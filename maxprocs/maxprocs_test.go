@@ -654,6 +654,20 @@ func TestSetWithConfig_FileWatcherWithZeroValue(t *testing.T) {
 	require.Equal(t, 2, runtime.GOMAXPROCS(0))
 }
 
+func TestNotSetByDefault(t *testing.T) {
+	runtime.GOMAXPROCS(2)
+	require.Equal(t, 2, runtime.GOMAXPROCS(0))
+
+	ctrl := gomock.NewController(t)
+	mockLog := mock_logger.NewMockLogger(ctrl)
+	mockLog.EXPECT().Warnn("No valid CPU requests configuration provided, GOMAXPROCS will not be modified").MinTimes(1)
+
+	c := config.New(config.WithEnvPrefix("MAXPROCS"))
+	setWithConfig(c, withLogger(mockLog))
+
+	require.Equal(t, 2, runtime.GOMAXPROCS(0))
+}
+
 func requireLoggerInfo(t testing.TB,
 	cpuRequests float64,
 	minProcs int64,
