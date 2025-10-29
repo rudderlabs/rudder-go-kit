@@ -1,0 +1,20 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "go",
+      "package-name": "rudder-go-kit",
+      "include-component-in-tag": false,
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "pull-request-title-pattern": "chore(ci): release ${version}",
+      "changelog-sections": [
+        {"type": "feat", "section": "Features", "hidden": false},
+        {"type": "fix", "section": "Bug Fixes", "hidden": false},
+        {"type": "chore", "section": "Miscellaneous", "hidden": false},
+        {"type": "refactor", "section": "Miscellaneous", "hidden": false},
+        {"type": "test", "section": "Miscellaneous", "hidden": false},
+        {"type": "doc", "section": "Documentation", "hidden": false}
+      ]
+    }
+  }
+}
