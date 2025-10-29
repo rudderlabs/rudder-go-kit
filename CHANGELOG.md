@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.5...v0.64.0) (2025-10-29)
+
+
+### Features
+
+* simple moving average metric ([#967](https://github.com/rudderlabs/rudder-go-kit/issues/967)) ([93e7e10](https://github.com/rudderlabs/rudder-go-kit/commit/93e7e10e88637401209d32cc1ca9c077fee81aa0))
+
 ## [0.63.5](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.4...v0.63.5) (2025-10-28)
 
 
