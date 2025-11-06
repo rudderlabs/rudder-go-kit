@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.64.0...v0.64.1) (2025-11-06)
+
+
+### Miscellaneous
+
+* apply security best practices from step security ([#974](https://github.com/rudderlabs/rudder-go-kit/issues/974)) ([3715dde](https://github.com/rudderlabs/rudder-go-kit/commit/3715dde2208c1fb2f36175721f0c6ccd5ba13187))
+
 ## [0.64.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.5...v0.64.0) (2025-10-29)
 
 
