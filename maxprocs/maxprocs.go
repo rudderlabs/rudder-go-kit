@@ -142,7 +142,7 @@ func setWithConfig(c *config.Config, opts ...option) {
 
 	var (
 		fileMode     bool
-		requests     = c.GetString("Requests", "1")
+		requests     = c.GetString("Requests", "0")
 		requestsFile = c.GetString("RequestsFile", "/etc/podinfo/cpu_requests")
 	)
 	if data, err := os.ReadFile(requestsFile); err == nil && len(data) > 0 {

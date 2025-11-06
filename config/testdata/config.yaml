@@ -153,8 +153,6 @@ Pulsar:
   Client:
     url: pulsar://random-pulsar-address:6650
 RUDDER_WAREHOUSE_BUCKET: warehouse-bucket-qwerty
-RegulationWorker:
-  oauthV2Enabled: false
 Reporting:
   enabled: false
   errorIndexReporting:
@@ -315,7 +313,6 @@ Router:
   jobRetention: 36h
   maxRetryBackoff: 20s
   minRetryBackoff: 2s
-  oauthV2Enabled: false
   throttler:
     BLOOMREACH_CATALOG:
       limit: 30000
