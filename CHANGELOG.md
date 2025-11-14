@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.63.5](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.4...v0.63.5) (2025-11-14)
+
+
+### Features
+
+* add MergedContext and NotifyContextWithCallback utilities ([#981](https://github.com/rudderlabs/rudder-go-kit/issues/981)) ([2e46830](https://github.com/rudderlabs/rudder-go-kit/commit/2e4683011e7cf1e5bc28458ecd215a22f75ba104))
+* simple moving average metric ([#967](https://github.com/rudderlabs/rudder-go-kit/issues/967)) ([93e7e10](https://github.com/rudderlabs/rudder-go-kit/commit/93e7e10e88637401209d32cc1ca9c077fee81aa0))
+
+
+### Bug Fixes
+
+* max procs defaults ([#968](https://github.com/rudderlabs/rudder-go-kit/issues/968)) ([4f26f44](https://github.com/rudderlabs/rudder-go-kit/commit/4f26f44dbe802ea47b726cce675c1d6fad67585f))
+
+
+### Miscellaneous
+
+* apply security best practices from step security ([#974](https://github.com/rudderlabs/rudder-go-kit/issues/974)) ([3715dde](https://github.com/rudderlabs/rudder-go-kit/commit/3715dde2208c1fb2f36175721f0c6ccd5ba13187))
+* migrate release please to github app token ([#962](https://github.com/rudderlabs/rudder-go-kit/issues/962)) ([b546286](https://github.com/rudderlabs/rudder-go-kit/commit/b5462862e6f85ef3f44dd71fbe5f631d731a0570))
+* release 0.63.5 ([#966](https://github.com/rudderlabs/rudder-go-kit/issues/966)) ([c2dd36a](https://github.com/rudderlabs/rudder-go-kit/commit/c2dd36adf64358febbf0266f3e5bcf760c49f94a))
+* release 0.64.0 ([#969](https://github.com/rudderlabs/rudder-go-kit/issues/969)) ([4c55950](https://github.com/rudderlabs/rudder-go-kit/commit/4c55950b85867f2033f79fbc3932e4b49f3a1ad1))
+* remove unused oauthV2Enabled flag ([#965](https://github.com/rudderlabs/rudder-go-kit/issues/965)) ([77fb62b](https://github.com/rudderlabs/rudder-go-kit/commit/77fb62b579030e7fc9643dfbafdf13dd4fc5bd65))
+
 ## [0.64.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.5...v0.64.0) (2025-10-29)
 
 
