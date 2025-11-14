@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.65.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.5...v0.65.0) (2025-11-14)
+
+
+### Features
+
+* add MergedContext and NotifyContextWithCallback utilities ([#981](https://github.com/rudderlabs/rudder-go-kit/issues/981)) ([2e46830](https://github.com/rudderlabs/rudder-go-kit/commit/2e4683011e7cf1e5bc28458ecd215a22f75ba104))
+* simple moving average metric ([#967](https://github.com/rudderlabs/rudder-go-kit/issues/967)) ([93e7e10](https://github.com/rudderlabs/rudder-go-kit/commit/93e7e10e88637401209d32cc1ca9c077fee81aa0))
+
+
+### Miscellaneous
+
+* apply security best practices from step security ([#974](https://github.com/rudderlabs/rudder-go-kit/issues/974)) ([3715dde](https://github.com/rudderlabs/rudder-go-kit/commit/3715dde2208c1fb2f36175721f0c6ccd5ba13187))
+* **ci:** release 0.63.5 ([#978](https://github.com/rudderlabs/rudder-go-kit/issues/978)) ([7c4febc](https://github.com/rudderlabs/rudder-go-kit/commit/7c4febccefe0048958a4533e28f7db144cf75a3e))
+* force release 0.65.0 ([#983](https://github.com/rudderlabs/rudder-go-kit/issues/983)) ([0226c79](https://github.com/rudderlabs/rudder-go-kit/commit/0226c79c9a1b900b2e35e6fd2c2a299380c976ad))
+* migrate release please to github app token ([#962](https://github.com/rudderlabs/rudder-go-kit/issues/962)) ([b546286](https://github.com/rudderlabs/rudder-go-kit/commit/b5462862e6f85ef3f44dd71fbe5f631d731a0570))
+* release 0.64.0 ([#969](https://github.com/rudderlabs/rudder-go-kit/issues/969)) ([4c55950](https://github.com/rudderlabs/rudder-go-kit/commit/4c55950b85867f2033f79fbc3932e4b49f3a1ad1))
+* remove bump-patch-for-minor-pre-major option from release-please config ([#986](https://github.com/rudderlabs/rudder-go-kit/issues/986)) ([9b2cf04](https://github.com/rudderlabs/rudder-go-kit/commit/9b2cf04a86738e20f0cad84c0d64c4bda8140a0d))
+* remove package-name from release-please configuration ([#984](https://github.com/rudderlabs/rudder-go-kit/issues/984)) ([9f6aacc](https://github.com/rudderlabs/rudder-go-kit/commit/9f6aaccc9efe0c22c16c1e904525aed0dd3fe840))
+
 ## [0.63.5](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.4...v0.63.5) (2025-11-14)
 
 
