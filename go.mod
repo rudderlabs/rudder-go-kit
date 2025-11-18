@@ -43,6 +43,7 @@ require (
 	github.com/samber/lo v1.51.0
 	github.com/segmentio/kafka-go v0.4.48
 	github.com/shirou/gopsutil/v3 v3.24.5
+	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/cast v1.9.2
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
@@ -193,7 +194,6 @@ require (
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
