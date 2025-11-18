@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.65.0...v0.66.0) (2025-11-18)
+
+
+### Features
+
+* partmap package for partition mapping and indexing ([#987](https://github.com/rudderlabs/rudder-go-kit/issues/987)) ([4aaf3c8](https://github.com/rudderlabs/rudder-go-kit/commit/4aaf3c8a26b7bbc17265836d01fd3f43bacee720))
+
 ## [0.65.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.63.5...v0.65.0) (2025-11-14)
 
 
