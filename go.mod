@@ -50,6 +50,7 @@ require (
 	github.com/throttled/throttled/v2 v2.13.0
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
+	github.com/twmb/murmur3 v1.1.8
 	github.com/zenizh/go-capturer v0.0.0-20211219060012-52ea6c8fed04
 	go.etcd.io/etcd/client/v3 v3.6.4
 	go.opentelemetry.io/otel v1.37.0
@@ -179,7 +180,7 @@ require (
 	github.com/onsi/gomega v1.37.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
-	github.com/opencontainers/runc v1.3.0 // indirect
+	github.com/opencontainers/runc v1.3.3 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect

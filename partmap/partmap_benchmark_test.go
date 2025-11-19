@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/spaolacci/murmur3"
+	spaolaccimurmur3 "github.com/spaolacci/murmur3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 )
@@ -61,7 +61,7 @@ func FuzzMurmur3Partition32(f *testing.F) {
 		if numPartitions == 0 {
 			t.Skip("skipping zero partitions")
 		}
-		if numPartitions == 1 || (numPartitions&(numPartitions-1)) != 0 {
+		if (numPartitions & (numPartitions - 1)) != 0 {
 			t.Skip("skipping non-power-of-two partitions")
 		}
 
@@ -94,7 +94,7 @@ func FuzzMurmur3Partition32(f *testing.F) {
 }
 
 func legacyMurmur3Partition32(key string, numPartitions uint32) (uint32, uint32) {
-	hash := murmur3.New32()
+	hash := spaolaccimurmur3.New32()
 	if _, err := hash.Write([]byte(key)); err != nil {
 		panic(err)
 	}
