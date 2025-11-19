@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.66.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.66.0...v0.66.1) (2025-11-19)
+
+
+### Bug Fixes
+
+* partmap panics with a single partition ([#990](https://github.com/rudderlabs/rudder-go-kit/issues/990)) ([071bd0c](https://github.com/rudderlabs/rudder-go-kit/commit/071bd0ccc4a63434c1c8696c13abee4d7fe2564d))
+
 ## [0.66.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.65.0...v0.66.0) (2025-11-18)
 
 
