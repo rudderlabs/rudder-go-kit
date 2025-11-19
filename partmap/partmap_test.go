@@ -14,6 +14,20 @@ func TestMurmur3Partition32(t *testing.T) {
 			key := "test-key"
 			emptyKey := ""
 
+			t.Run("0 partition", func(t *testing.T) {
+				numPartitions := uint32(0)
+				require.Panics(t, func() {
+					partmap.Murmur3Partition32(key, numPartitions)
+				})
+			})
+
+			t.Run("1 partition", func(t *testing.T) {
+				numPartitions := uint32(1)
+				partitionIdx, startsAt := partmap.Murmur3Partition32(key, numPartitions)
+				require.EqualValues(t, 0, int(partitionIdx), "invalid partition index")
+				require.EqualValues(t, 0, int(startsAt), "invalid startsAt")
+			})
+
 			t.Run("2 partitions", func(t *testing.T) {
 				numPartitions := uint32(2)
 				partitionIdx, startsAt := partmap.Murmur3Partition32(key, numPartitions)
