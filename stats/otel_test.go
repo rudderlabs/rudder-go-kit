@@ -887,33 +887,48 @@ func TestExponentialHistogram(t *testing.T) {
 			histogram.Observe(value)
 		}
 
-		// Verify metrics are exported
-		var (
-			resp            *http.Response
-			metrics         map[string]*promClient.MetricFamily
-			metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", freePort)
-		)
+		// Verify native histogram is exported via direct registry access
+		var histogramMetric *promClient.MetricFamily
 		require.Eventuallyf(t, func() bool {
-			resp, err = http.Get(metricsEndpoint)
+			metricFamilies, err := r.Gather()
 			if err != nil {
 				return false
 			}
-			defer func() { httputil.CloseResponse(resp) }()
-			metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
-			if err != nil {
+			// Find the histogram metric
+			for _, mf := range metricFamilies {
+				if mf.GetName() == histogramName {
+					histogramMetric = mf
+					break
+				}
+			}
+			if histogramMetric == nil {
 				return false
 			}
-			if _, ok := metrics[histogramName]; !ok {
+			// Check if metric has data
+			if len(histogramMetric.Metric) == 0 {
 				return false
 			}
-			return true
-		}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+			if histogramMetric.Metric[0].Histogram == nil {
+				return false
+			}
+			return histogramMetric.Metric[0].Histogram.GetSampleCount() > 0
+		}, 10*time.Second, 100*time.Millisecond, "histogram metric not found or has no data")
 
-		require.EqualValues(t, &histogramName, metrics[histogramName].Name)
-		require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics[histogramName].Type)
-		require.Len(t, metrics[histogramName].Metric, 1)
-		require.NotNil(t, metrics[histogramName].Metric[0].Histogram)
-		require.EqualValues(t, uint64(6), *metrics[histogramName].Metric[0].Histogram.SampleCount)
+		require.EqualValues(t, &histogramName, histogramMetric.Name)
+		require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), histogramMetric.Type)
+		require.Len(t, histogramMetric.Metric, 1)
+
+		// Verify native histogram fields
+		h := histogramMetric.Metric[0].Histogram
+		require.NotNil(t, h)
+		require.EqualValues(t, uint64(6), *h.SampleCount)
+		require.NotNil(t, h.Schema, "native histogram should have schema")
+		require.NotNil(t, h.ZeroThreshold, "native histogram should have zero threshold")
+		// Native histograms should have positive or negative spans
+		hasSpans := len(h.PositiveSpan) > 0 || len(h.NegativeSpan) > 0
+		require.True(t, hasSpans, "native histogram should have spans")
+
+		t.Logf("histogram: %+v", h)
 	})
 
 	t.Run("per histogram config", func(t *testing.T) {
@@ -948,33 +963,46 @@ func TestExponentialHistogram(t *testing.T) {
 			histogram.Observe(float64(i * 10))
 		}
 
-		// Verify metrics are exported
-		var (
-			resp            *http.Response
-			metrics         map[string]*promClient.MetricFamily
-			metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", freePort)
-		)
+		// Verify native histogram is exported via direct registry access
+		var histogramMetric *promClient.MetricFamily
 		require.Eventuallyf(t, func() bool {
-			resp, err = http.Get(metricsEndpoint)
+			metricFamilies, err := r.Gather()
 			if err != nil {
 				return false
 			}
-			defer func() { httputil.CloseResponse(resp) }()
-			metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
-			if err != nil {
+			// Find the histogram metric
+			for _, mf := range metricFamilies {
+				if mf.GetName() == histogramName {
+					histogramMetric = mf
+					break
+				}
+			}
+			if histogramMetric == nil {
 				return false
 			}
-			if _, ok := metrics[histogramName]; !ok {
+			// Check if metric has data
+			if len(histogramMetric.Metric) == 0 {
 				return false
 			}
-			return true
-		}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+			if histogramMetric.Metric[0].Histogram == nil {
+				return false
+			}
+			return histogramMetric.Metric[0].Histogram.GetSampleCount() > 0
+		}, 10*time.Second, 100*time.Millisecond, "histogram metric not found or has no data")
 
-		require.EqualValues(t, &histogramName, metrics[histogramName].Name)
-		require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics[histogramName].Type)
-		require.Len(t, metrics[histogramName].Metric, 1)
-		require.NotNil(t, metrics[histogramName].Metric[0].Histogram)
-		require.EqualValues(t, uint64(10), *metrics[histogramName].Metric[0].Histogram.SampleCount)
+		require.EqualValues(t, &histogramName, histogramMetric.Name)
+		require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), histogramMetric.Type)
+		require.Len(t, histogramMetric.Metric, 1)
+
+		// Verify native histogram fields
+		h := histogramMetric.Metric[0].Histogram
+		require.NotNil(t, h)
+		require.EqualValues(t, uint64(10), *h.SampleCount)
+		require.NotNil(t, h.Schema, "native histogram should have schema")
+		require.NotNil(t, h.ZeroThreshold, "native histogram should have zero threshold")
+		// Native histograms should have positive or negative spans
+		hasSpans := len(h.PositiveSpan) > 0 || len(h.NegativeSpan) > 0
+		require.True(t, hasSpans, "native histogram should have spans")
 	})
 }
 
