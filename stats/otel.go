@@ -115,16 +115,34 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	meterProviderOptions := []otel.MeterProviderOption{
 		otel.WithMeterProviderExportsInterval(s.otelConfig.metricsExportInterval),
 	}
-	if len(s.config.defaultHistogramBuckets) > 0 {
+
+	// Configure default histogram aggregation (exponential takes precedence over explicit buckets)
+	if s.config.useExponentialHistogram {
+		meterProviderOptions = append(meterProviderOptions,
+			otel.WithDefaultExponentialHistogram(s.config.exponentialHistogramMaxSize),
+		)
+	} else if len(s.config.defaultHistogramBuckets) > 0 {
 		meterProviderOptions = append(meterProviderOptions,
 			otel.WithDefaultHistogramBucketBoundaries(s.config.defaultHistogramBuckets),
 		)
 	}
+
+	// Configure per-histogram aggregation (exponential histograms are configured first, then explicit buckets)
+	if len(s.config.exponentialHistograms) > 0 {
+		for histogramName, maxSize := range s.config.exponentialHistograms {
+			meterProviderOptions = append(meterProviderOptions,
+				otel.WithExponentialHistogram(histogramName, defaultMeterName, maxSize),
+			)
+		}
+	}
 	if len(s.config.histogramBuckets) > 0 {
 		for histogramName, buckets := range s.config.histogramBuckets {
-			meterProviderOptions = append(meterProviderOptions,
-				otel.WithHistogramBucketBoundaries(histogramName, defaultMeterName, buckets),
-			)
+			// Only apply explicit bucket config if not already configured as exponential
+			if _, isExponential := s.config.exponentialHistograms[histogramName]; !isExponential {
+				meterProviderOptions = append(meterProviderOptions,
+					otel.WithHistogramBucketBoundaries(histogramName, defaultMeterName, buckets),
+				)
+			}
 		}
 	}
 	if s.otelConfig.metricsEndpoint != "" {
