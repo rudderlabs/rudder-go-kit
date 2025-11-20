@@ -854,6 +854,130 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 }
 
+func TestExponentialHistogram(t *testing.T) {
+	t.Run("with option", func(t *testing.T) {
+		freePort, err := testhelper.GetFreePort()
+		require.NoError(t, err)
+
+		c := config.New()
+		c.Set("INSTANCE_ID", "my-instance-id")
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+		c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+		c.Set("RuntimeStats.enabled", false)
+		l := logger.NewFactory(c)
+		m := metric.NewManager()
+		r := prometheus.NewRegistry()
+
+		// Create stats with exponential histogram enabled
+		s := NewStats(c, l, m,
+			WithServiceName(t.Name()),
+			WithServiceVersion("v1.2.3"),
+			WithPrometheusRegistry(r, r),
+			WithDefaultExponentialHistogram(160),
+		)
+		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+		t.Cleanup(s.Stop)
+
+		// Record some histogram observations
+		histogramName := "test_exponential_histogram"
+		histogram := s.NewStat(histogramName, HistogramType)
+		for _, value := range []float64{1.0, 5.0, 10.0, 50.0, 100.0, 500.0} {
+			histogram.Observe(value)
+		}
+
+		// Verify metrics are exported
+		var (
+			resp            *http.Response
+			metrics         map[string]*promClient.MetricFamily
+			metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", freePort)
+		)
+		require.Eventuallyf(t, func() bool {
+			resp, err = http.Get(metricsEndpoint)
+			if err != nil {
+				return false
+			}
+			defer func() { httputil.CloseResponse(resp) }()
+			metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
+			if err != nil {
+				return false
+			}
+			if _, ok := metrics[histogramName]; !ok {
+				return false
+			}
+			return true
+		}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+
+		require.EqualValues(t, &histogramName, metrics[histogramName].Name)
+		require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics[histogramName].Type)
+		require.Len(t, metrics[histogramName].Metric, 1)
+		require.NotNil(t, metrics[histogramName].Metric[0].Histogram)
+		require.EqualValues(t, uint64(6), *metrics[histogramName].Metric[0].Histogram.SampleCount)
+	})
+
+	t.Run("per histogram config", func(t *testing.T) {
+		freePort, err := testhelper.GetFreePort()
+		require.NoError(t, err)
+
+		c := config.New()
+		c.Set("INSTANCE_ID", "my-instance-id")
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+		c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+		c.Set("RuntimeStats.enabled", false)
+		l := logger.NewFactory(c)
+		m := metric.NewManager()
+		r := prometheus.NewRegistry()
+
+		histogramName := "test_per_histogram_exponential"
+		// Create stats with per-histogram exponential config
+		s := NewStats(c, l, m,
+			WithServiceName(t.Name()),
+			WithServiceVersion("v1.2.3"),
+			WithPrometheusRegistry(r, r),
+			WithExponentialHistogram(histogramName, 100),
+		)
+		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+		t.Cleanup(s.Stop)
+
+		// Record some histogram observations
+		histogram := s.NewStat(histogramName, HistogramType)
+		for i := 0; i < 10; i++ {
+			histogram.Observe(float64(i * 10))
+		}
+
+		// Verify metrics are exported
+		var (
+			resp            *http.Response
+			metrics         map[string]*promClient.MetricFamily
+			metricsEndpoint = fmt.Sprintf("http://localhost:%d/metrics", freePort)
+		)
+		require.Eventuallyf(t, func() bool {
+			resp, err = http.Get(metricsEndpoint)
+			if err != nil {
+				return false
+			}
+			defer func() { httputil.CloseResponse(resp) }()
+			metrics, err = statsTest.ParsePrometheusMetrics(resp.Body)
+			if err != nil {
+				return false
+			}
+			if _, ok := metrics[histogramName]; !ok {
+				return false
+			}
+			return true
+		}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+
+		require.EqualValues(t, &histogramName, metrics[histogramName].Name)
+		require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics[histogramName].Type)
+		require.Len(t, metrics[histogramName].Metric, 1)
+		require.NotNil(t, metrics[histogramName].Metric[0].Histogram)
+		require.EqualValues(t, uint64(10), *metrics[histogramName].Metric[0].Histogram.SampleCount)
+	})
+}
+
 func TestNoopTracingNoPanics(t *testing.T) {
 	freePort, err := testhelper.GetFreePort()
 	require.NoError(t, err)
