@@ -2,7 +2,6 @@
 .vscode
 *.coverprofile
 runtime.log
-*.coverprofile
 junit*.xml
 **/profile.out
 **/*.test
