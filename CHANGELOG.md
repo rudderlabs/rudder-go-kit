@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.67.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.66.1...v0.67.0) (2025-11-25)
+
+
+### Features
+
+* watch and update memory limits periodically ([#996](https://github.com/rudderlabs/rudder-go-kit/issues/996)) ([01186bb](https://github.com/rudderlabs/rudder-go-kit/commit/01186bb5db54cd5bac700ee875d97e2ddcf4cb23))
+
 ## [0.66.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.66.0...v0.66.1) (2025-11-19)
 
 
