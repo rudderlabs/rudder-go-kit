@@ -15,9 +15,7 @@ import (
 
 func TestSetMemoryLimit(t *testing.T) {
 	t.Run("uses default 90 percent", func(t *testing.T) {
-		ctx := context.Background()
-
-		SetMemoryLimit(ctx)
+		SetMemoryLimit()
 
 		currentLimit := debug.SetMemoryLimit(-1)
 		require.Greater(t, currentLimit, int64(0), "memory limit should be set to a positive value")
@@ -29,9 +27,7 @@ func TestSetMemoryLimit(t *testing.T) {
 	})
 
 	t.Run("sets memory limit with custom percentage", func(t *testing.T) {
-		ctx := context.Background()
-
-		SetMemoryLimit(ctx, SetWithPercentage(75))
+		SetMemoryLimit(SetWithPercentage(75))
 
 		currentLimit := debug.SetMemoryLimit(-1)
 		require.Greater(t, currentLimit, int64(0), "memory limit should be set to a positive value")
@@ -43,10 +39,9 @@ func TestSetMemoryLimit(t *testing.T) {
 	})
 
 	t.Run("sets memory limit with percentage loader", func(t *testing.T) {
-		ctx := context.Background()
 		limitPercent := config.GetReloadableIntVar(60, 1, "memoryLimitPercent")
 
-		SetMemoryLimit(ctx, SetWithPercentageLoader(limitPercent))
+		SetMemoryLimit(SetWithPercentageLoader(limitPercent))
 
 		currentLimit := debug.SetMemoryLimit(-1)
 		require.Greater(t, currentLimit, int64(0), "memory limit should be set to a positive value")
@@ -58,18 +53,14 @@ func TestSetMemoryLimit(t *testing.T) {
 	})
 
 	t.Run("handles zero percentage", func(t *testing.T) {
-		ctx := context.Background()
-
-		SetMemoryLimit(ctx, SetWithPercentage(0))
+		SetMemoryLimit(SetWithPercentage(0))
 
 		currentLimit := debug.SetMemoryLimit(-1)
 		require.GreaterOrEqual(t, currentLimit, int64(0), "memory limit should be set")
 	})
 
 	t.Run("handles 100 percentage", func(t *testing.T) {
-		ctx := context.Background()
-
-		SetMemoryLimit(ctx, SetWithPercentage(100))
+		SetMemoryLimit(SetWithPercentage(100))
 
 		currentLimit := debug.SetMemoryLimit(-1)
 		require.Greater(t, currentLimit, int64(0), "memory limit should be set to a positive value")
@@ -81,10 +72,9 @@ func TestSetMemoryLimit(t *testing.T) {
 	})
 
 	t.Run("uses custom logger", func(t *testing.T) {
-		ctx := context.Background()
 		customLog := logger.NOP
 
-		SetMemoryLimit(ctx, SetWithPercentage(50), SetWithLogger(customLog))
+		SetMemoryLimit(SetWithPercentage(50), SetWithLogger(customLog))
 
 		currentLimit := debug.SetMemoryLimit(-1)
 		require.Greater(t, currentLimit, int64(0), "memory limit should be set with custom logger")

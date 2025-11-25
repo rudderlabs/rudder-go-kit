@@ -14,7 +14,7 @@ import (
 // SetMemoryLimit sets the GOMEMLIMIT based on the configured percentage of total system memory.
 // By default, it uses 90% of total memory and uses a NOP logger.
 // Use SetWithPercentage/SetWithPercentageLoader and SetWithLogger options to customize behavior.
-func SetMemoryLimit(ctx context.Context, opts ...SetOption) {
+func SetMemoryLimit(opts ...SetOption) {
 	cfg := &SetConfig{
 		limitPercent: config.SingleValueLoader(90),
 		log:          logger.NOP,
