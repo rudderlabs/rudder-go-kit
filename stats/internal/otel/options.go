@@ -178,6 +178,50 @@ func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries 
 	}
 }
 
+// WithDefaultExponentialHistogram configures all histograms to use exponential bucketing.
+// Exponential histograms provide better accuracy and lower memory usage for high-dynamic-range metrics.
+// maxSize controls the maximum number of buckets (default: 160, min: 1, max: 160).
+func WithDefaultExponentialHistogram(maxSize int32) MeterProviderOption {
+	return func(c *meterProviderConfig) {
+		c.defaultHistogramBuckets = sdkmetric.NewView(
+			sdkmetric.Instrument{
+				Kind: sdkmetric.InstrumentKindHistogram,
+			},
+			sdkmetric.Stream{
+				Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
+					MaxSize: maxSize,
+				},
+			},
+		)
+	}
+}
+
+// WithExponentialHistogram configures a specific histogram to use exponential bucketing.
+// Exponential histograms provide better accuracy and lower memory usage for high-dynamic-range metrics.
+// meterName is optional.
+// maxSize controls the maximum number of buckets (default: 160, min: 1, max: 160).
+func WithExponentialHistogram(instrumentName, meterName string, maxSize int32) MeterProviderOption {
+	var scope instrumentation.Scope
+	if meterName != "" {
+		scope.Name = meterName
+	}
+	newView := sdkmetric.NewView(
+		sdkmetric.Instrument{
+			Name:  instrumentName,
+			Scope: scope,
+			Kind:  sdkmetric.InstrumentKindHistogram,
+		},
+		sdkmetric.Stream{
+			Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
+				MaxSize: maxSize,
+			},
+		},
+	)
+	return func(c *meterProviderConfig) {
+		c.views = append(c.views, newView)
+	}
+}
+
 // WithLogger allows to set the logger
 func WithLogger(l logger) Option {
 	return func(c *config) { c.logger = l }

@@ -1,6 +1,6 @@
 // Package prometheus is imported from the official OpenTelemetry package:
-// https://github.com/open-telemetry/opentelemetry-go/tree/v1.14.0/exporters/prometheus
-// The version of the exporter would be v0.37.0 (not v1.14.0, see releases).
+// https://github.com/open-telemetry/opentelemetry-go/tree/v1.38.0/exporters/prometheus
+// The version of the exporter would be v0.60.0 (not v1.38.0, see releases).
 //
 // Customisations applied:
 //
@@ -15,12 +15,22 @@
 //     see here: https://github.com/open-telemetry/opentelemetry-go/blob/v1.14.0/exporters/prometheus/exporter.go#L393
 //
 //  4. removed unnecessary otel_scope_info metric
+//
+// Features added from v1.38.0/v0.60.0:
+//
+//  5. exponential histogram support - converts OTel exponential histograms to Prometheus native histograms
+//     with scale conversion (supports scales -4 to 8)
+//
+//  6. exemplar support - attaches trace_id and span_id to histogram and counter metrics for distributed
+//     tracing correlation
 package prometheus
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -29,7 +39,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"google.golang.org/protobuf/proto"
 
 	"go.opentelemetry.io/otel"
@@ -141,6 +151,10 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			case metricdata.Histogram[float64]:
 				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+			case metricdata.ExponentialHistogram[int64]:
+				addExponentialHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+			case metricdata.ExponentialHistogram[float64]:
+				addExponentialHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			case metricdata.Sum[int64]:
 				addSumMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
 			case metricdata.Sum[float64]:
@@ -182,6 +196,7 @@ func addHistogramMetric[N int64 | float64](
 			otel.Handle(err)
 			continue
 		}
+		m = addExemplars(m, dp.Exemplars)
 		ch <- m
 	}
 }
@@ -214,6 +229,10 @@ func addSumMetric[N int64 | float64](
 			otel.Handle(err)
 			continue
 		}
+		// Only add exemplars for counters (monotonic metrics), not gauges
+		if valueType != prometheus.GaugeValue {
+			m = addExemplars(m, dp.Exemplars)
+		}
 		ch <- m
 	}
 }
@@ -239,6 +258,166 @@ func addGaugeMetric[N int64 | float64](
 			otel.Handle(err)
 			continue
 		}
+		ch <- m
+	}
+}
+
+// addExemplars attaches exemplars (trace context) to a Prometheus metric.
+// Exemplars enable correlation between metrics and distributed traces in Prometheus.
+func addExemplars[N int64 | float64](
+	m prometheus.Metric,
+	exemplars []metricdata.Exemplar[N],
+) prometheus.Metric {
+	if len(exemplars) == 0 {
+		return m
+	}
+
+	promExemplars := make([]prometheus.Exemplar, len(exemplars))
+	for i, exemplar := range exemplars {
+		labels := make(map[string]string)
+
+		// Convert filtered attributes to labels
+		for _, kv := range exemplar.FilteredAttributes {
+			key := strings.Map(sanitizeRune, string(kv.Key))
+			labels[key] = kv.Value.Emit()
+		}
+
+		// Add trace context - these are the standard Prometheus exemplar labels
+		// for distributed tracing correlation
+		if len(exemplar.TraceID) > 0 {
+			labels["trace_id"] = hex.EncodeToString(exemplar.TraceID)
+		}
+		if len(exemplar.SpanID) > 0 {
+			labels["span_id"] = hex.EncodeToString(exemplar.SpanID)
+		}
+
+		promExemplars[i] = prometheus.Exemplar{
+			Value:     float64(exemplar.Value),
+			Timestamp: exemplar.Time,
+			Labels:    labels,
+		}
+	}
+
+	metricWithExemplar, err := prometheus.NewMetricWithExemplars(m, promExemplars...)
+	if err != nil {
+		otel.Handle(err)
+		return m
+	}
+	return metricWithExemplar
+}
+
+// downscaleExponentialBucket downscales an exponential histogram bucket by the given scale delta.
+// This is used to convert high-scale OTel exponential histograms to Prometheus native histograms
+// which support scales from -4 to 8.
+func downscaleExponentialBucket(bucket metricdata.ExponentialBucket, scaleDelta int32) metricdata.ExponentialBucket {
+	if len(bucket.Counts) == 0 || scaleDelta < 1 {
+		return metricdata.ExponentialBucket{
+			Offset: bucket.Offset >> scaleDelta,
+			Counts: append([]uint64(nil), bucket.Counts...),
+		}
+	}
+
+	newOffset := bucket.Offset >> scaleDelta
+	lastBucketIdx := bucket.Offset + int32(len(bucket.Counts)) - 1
+	lastNewIdx := lastBucketIdx >> scaleDelta
+	newBucketCount := int(lastNewIdx - newOffset + 1)
+
+	if newBucketCount <= 0 {
+		return metricdata.ExponentialBucket{
+			Offset: newOffset,
+			Counts: []uint64{},
+		}
+	}
+
+	newCounts := make([]uint64, newBucketCount)
+
+	for i, count := range bucket.Counts {
+		if count == 0 {
+			continue
+		}
+		originalIdx := bucket.Offset + int32(i)
+		newIdx := originalIdx >> scaleDelta
+		position := newIdx - newOffset
+		if position >= 0 && position < int32(len(newCounts)) {
+			newCounts[position] += count
+		}
+	}
+
+	return metricdata.ExponentialBucket{
+		Offset: newOffset,
+		Counts: newCounts,
+	}
+}
+
+// addExponentialHistogramMetric converts OTel exponential histograms to Prometheus native histograms.
+// Exponential histograms provide better accuracy and performance for high-dynamic-range data.
+func addExponentialHistogramMetric[N int64 | float64](
+	ch chan<- prometheus.Metric, histogram metricdata.ExponentialHistogram[N], m metricdata.Metrics,
+	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+) {
+	drop, help := validateMetrics(name, m.Description, dto.MetricType_HISTOGRAM.Enum(), mfs, l)
+	if drop {
+		return
+	}
+	if help != "" {
+		m.Description = help
+	}
+
+	for _, dp := range histogram.DataPoints {
+		keys, values := getAttrs(dp.Attributes, ks, vs)
+		desc := prometheus.NewDesc(name, m.Description, keys, nil)
+
+		scale := dp.Scale
+		if scale < -4 {
+			otel.Handle(fmt.Errorf(
+				"exponential histogram scale %d is below minimum supported scale -4, skipping data point",
+				scale))
+			continue
+		}
+
+		positiveBucket := dp.PositiveBucket
+		negativeBucket := dp.NegativeBucket
+		if scale > 8 {
+			scaleDelta := scale - 8
+			positiveBucket = downscaleExponentialBucket(dp.PositiveBucket, scaleDelta)
+			negativeBucket = downscaleExponentialBucket(dp.NegativeBucket, scaleDelta)
+			scale = 8
+		}
+
+		positiveBuckets := make(map[int]int64)
+		for i, c := range positiveBucket.Counts {
+			if c > math.MaxInt64 {
+				otel.Handle(fmt.Errorf("positive count %d is too large to be represented as int64", c))
+				continue
+			}
+			positiveBuckets[int(positiveBucket.Offset)+i+1] = int64(c)
+		}
+
+		negativeBuckets := make(map[int]int64)
+		for i, c := range negativeBucket.Counts {
+			if c > math.MaxInt64 {
+				otel.Handle(fmt.Errorf("negative count %d is too large to be represented as int64", c))
+				continue
+			}
+			negativeBuckets[int(negativeBucket.Offset)+i+1] = int64(c)
+		}
+
+		m, err := prometheus.NewConstNativeHistogram(
+			desc,
+			dp.Count,
+			float64(dp.Sum),
+			positiveBuckets,
+			negativeBuckets,
+			dp.ZeroCount,
+			scale,
+			dp.ZeroThreshold,
+			dp.StartTime,
+			values...)
+		if err != nil {
+			otel.Handle(err)
+			continue
+		}
+		m = addExemplars(m, dp.Exemplars)
 		ch <- m
 	}
 }

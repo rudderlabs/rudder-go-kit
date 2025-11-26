@@ -19,6 +19,11 @@ type statsConfig struct {
 	histogramBuckets        map[string][]float64
 	prometheusRegisterer    prometheus.Registerer
 	prometheusGatherer      prometheus.Gatherer
+
+	// Exponential histogram configuration
+	useExponentialHistogram     bool
+	exponentialHistogramMaxSize int32
+	exponentialHistograms       map[string]int32 // per-histogram maxSize
 }
 
 // Option is a function used to configure the stats service.
@@ -52,6 +57,33 @@ func WithHistogramBuckets(histogramName string, buckets []float64) Option {
 			c.histogramBuckets = make(map[string][]float64)
 		}
 		c.histogramBuckets[histogramName] = buckets
+	}
+}
+
+// WithDefaultExponentialHistogram configures all histograms to use exponential bucketing.
+// Exponential histograms provide better accuracy and lower memory usage for high-dynamic-range metrics.
+// They automatically adapt to the data distribution and are exported as Prometheus native histograms.
+// maxSize controls the maximum number of buckets (default: 160, min: 1, max: 160).
+// Note: This option is mutually exclusive with WithDefaultHistogramBuckets. The last one applied wins.
+func WithDefaultExponentialHistogram(maxSize int32) Option {
+	return func(c *statsConfig) {
+		c.useExponentialHistogram = true
+		c.exponentialHistogramMaxSize = maxSize
+	}
+}
+
+// WithExponentialHistogram configures a specific histogram to use exponential bucketing.
+// Exponential histograms provide better accuracy and lower memory usage for high-dynamic-range metrics.
+// They automatically adapt to the data distribution and are exported as Prometheus native histograms.
+// maxSize controls the maximum number of buckets (default: 160, min: 1, max: 160).
+// Note: This option takes precedence over both WithDefaultHistogramBuckets and WithHistogramBuckets for the specified
+// histogram.
+func WithExponentialHistogram(histogramName string, maxSize int32) Option {
+	return func(c *statsConfig) {
+		if c.exponentialHistograms == nil {
+			c.exponentialHistograms = make(map[string]int32)
+		}
+		c.exponentialHistograms[histogramName] = maxSize
 	}
 }
 
