@@ -13,6 +13,8 @@ const (
 	SonnetLib = "sonnet"
 	// JsoniterLib is the JSON implementation of github.com/json-iterator/go.
 	JsoniterLib = "jsoniter"
+	// TidwallLib is the JSON implementation using github.com/tidwall/gjson for validation.
+	TidwallLib = "tidwall"
 	// DefaultLib is the default JSON implementation.
 	DefaultLib = SonnetLib
 )
@@ -73,6 +75,7 @@ func New(conf *config.Config) JSON {
 			StdLib:      &stdJSON{},
 			SonnetLib:   &sonnetJSON{},
 			JsoniterLib: &jsoniterJSON{},
+			TidwallLib:  &tidwallJSON{},
 		},
 		marshallerFn:   marshaller,
 		unmarshallerFn: unmarshaller,
@@ -89,6 +92,8 @@ func NewWithLibrary(library string) JSON {
 		return &sonnetJSON{}
 	case JsoniterLib:
 		return &jsoniterJSON{}
+	case TidwallLib:
+		return &tidwallJSON{}
 	default:
 		return &sonnetJSON{}
 	}

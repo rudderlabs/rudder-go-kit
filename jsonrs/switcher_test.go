@@ -20,6 +20,7 @@ func TestSwitcher(t *testing.T) {
 			StdLib:      &stdJSON{},
 			JsoniterLib: &jsoniterJSON{},
 			SonnetLib:   &sonnetJSON{},
+			TidwallLib:  &tidwallJSON{},
 		},
 	}
 
@@ -80,6 +81,18 @@ func TestSwitcher(t *testing.T) {
 
 		_ = switcher.Valid([]byte(`""`))
 		require.Equal(t, 1, threeJSON.called)
+	})
+
+	t.Run("tidwall validator", func(t *testing.T) {
+		validator = TidwallLib
+
+		// Valid JSON
+		isValid := switcher.Valid([]byte(`{"key": "value"}`))
+		require.True(t, isValid)
+
+		// Invalid JSON
+		isValid = switcher.Valid([]byte(`{"key": }`))
+		require.False(t, isValid)
 	})
 }
 
