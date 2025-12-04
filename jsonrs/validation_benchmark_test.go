@@ -32,7 +32,7 @@ func runValidationBenchmarks(b *testing.B, data []byte) {
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			j := jsonrs.NewWithLibrary(bm.lib)
+			j := jsonrs.NewValidatorWithLibrary(bm.lib)
 			b.ResetTimer()
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {

@@ -7,7 +7,7 @@ import (
 )
 
 func TestTidwallJSONValidFunctionality(t *testing.T) {
-	j := NewWithLibrary(TidwallLib)
+	j := NewValidatorWithLibrary(TidwallLib)
 
 	t.Run("valid json", func(t *testing.T) {
 		// Test valid JSON objects

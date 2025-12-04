@@ -70,12 +70,26 @@ func New(conf *config.Config) JSON {
 	marshaller := conf.GetReloadableStringVar(DefaultLib, "Json.Library.Marshaller", "Json.Library").Load
 	unmarshaller := conf.GetReloadableStringVar(DefaultLib, "Json.Library.Unmarshaller", "Json.Library").Load
 	validator := conf.GetReloadableStringVar(DefaultLib, "Json.Library.Validator", "Json.Library").Load
+	stdLib := &stdJSON{}
+	sonnetLib := &sonnetJSON{}
+	jsoniterLib := &jsoniterJSON{}
+	tidwallLib := &tidwallJSON{}
 	return &switcher{
-		impls: map[string]JSON{
-			StdLib:      &stdJSON{},
-			SonnetLib:   &sonnetJSON{},
-			JsoniterLib: &jsoniterJSON{},
-			TidwallLib:  &tidwallJSON{},
+		validatorImpls: map[string]Validator{
+			StdLib:      stdLib,
+			SonnetLib:   sonnetLib,
+			JsoniterLib: jsoniterLib,
+			TidwallLib:  tidwallLib,
+		},
+		unmarshallerImpls: map[string]Unmarshaller{
+			StdLib:      stdLib,
+			SonnetLib:   sonnetLib,
+			JsoniterLib: jsoniterLib,
+		},
+		marshallerImpls: map[string]Marshaller{
+			StdLib:      stdLib,
+			SonnetLib:   sonnetLib,
+			JsoniterLib: jsoniterLib,
 		},
 		marshallerFn:   marshaller,
 		unmarshallerFn: unmarshaller,
@@ -85,6 +99,20 @@ func New(conf *config.Config) JSON {
 
 // NewWithLibrary returns a new JSON implementation based on the library.
 func NewWithLibrary(library string) JSON {
+	switch library {
+	case StdLib:
+		return &stdJSON{}
+	case SonnetLib:
+		return &sonnetJSON{}
+	case JsoniterLib:
+		return &jsoniterJSON{}
+	default:
+		return &sonnetJSON{}
+	}
+}
+
+// NewValidatorWithLibrary returns a new Validator implementation based on the library.
+func NewValidatorWithLibrary(library string) Validator {
 	switch library {
 	case StdLib:
 		return &stdJSON{}
