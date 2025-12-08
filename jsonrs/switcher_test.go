@@ -15,7 +15,7 @@ func TestSwitcher(t *testing.T) {
 	stdLib := &stdJSON{}
 	sonnetLib := &sonnetJSON{}
 	jsoniterLib := &jsoniterJSON{}
-	tidwallLib := &tidwallJSON{}
+	tidwallLib := &tidwallValidator{}
 
 	switcher := &switcher{
 		marshallerFn:   func() string { return marshaller },

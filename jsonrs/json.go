@@ -73,7 +73,7 @@ func New(conf *config.Config) JSON {
 	stdLib := &stdJSON{}
 	sonnetLib := &sonnetJSON{}
 	jsoniterLib := &jsoniterJSON{}
-	tidwallLib := &tidwallJSON{}
+	tidwallLib := &tidwallValidator{}
 	return &switcher{
 		validatorImpls: map[string]Validator{
 			StdLib:      stdLib,
@@ -114,16 +114,10 @@ func NewWithLibrary(library string) JSON {
 // NewValidatorWithLibrary returns a new Validator implementation based on the library.
 func NewValidatorWithLibrary(library string) Validator {
 	switch library {
-	case StdLib:
-		return &stdJSON{}
-	case SonnetLib:
-		return &sonnetJSON{}
-	case JsoniterLib:
-		return &jsoniterJSON{}
 	case TidwallLib:
-		return &tidwallJSON{}
+		return &tidwallValidator{}
 	default:
-		return &sonnetJSON{}
+		return NewWithLibrary(library)
 	}
 }
 

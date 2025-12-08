@@ -4,8 +4,8 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-type tidwallJSON struct{}
+type tidwallValidator struct{}
 
-func (j *tidwallJSON) Valid(data []byte) bool {
+func (j *tidwallValidator) Valid(data []byte) bool {
 	return gjson.ValidBytes(data)
 }
