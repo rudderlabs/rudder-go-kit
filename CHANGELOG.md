@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.68.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.67.0...v0.68.0) (2025-12-10)
+
+
+### Features
+
+* introduce readonly map ([#999](https://github.com/rudderlabs/rudder-go-kit/issues/999)) ([38d21e8](https://github.com/rudderlabs/rudder-go-kit/commit/38d21e8c80e3bedaa347a8cdfca48de95fc0eefa))
+
 ## [0.67.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.66.1...v0.67.0) (2025-11-25)
 
 
