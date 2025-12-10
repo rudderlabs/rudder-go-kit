@@ -1,6 +1,6 @@
 module github.com/rudderlabs/rudder-go-kit
 
-go 1.25.3
+go 1.25.5
 
 require (
 	cloud.google.com/go/storage v1.57.0
