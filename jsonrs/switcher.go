@@ -4,10 +4,12 @@ import "io"
 
 // switcher is a JSON implementation that switches between different JSON implementations, based on the configuration.
 type switcher struct {
-	marshallerFn   func() string
-	unmarshallerFn func() string
-	validatorFn    func() string
-	impls          map[string]JSON
+	marshallerFn      func() string
+	unmarshallerFn    func() string
+	validatorFn       func() string
+	marshallerImpls   map[string]Marshaller
+	unmarshallerImpls map[string]Unmarshaller
+	validatorImpls    map[string]Validator
 }
 
 func (s *switcher) Marshal(v any) ([]byte, error) {
@@ -39,22 +41,22 @@ func (s *switcher) Valid(data []byte) bool {
 }
 
 func (s *switcher) marshaller() Marshaller {
-	if impl, ok := s.impls[s.marshallerFn()]; ok {
+	if impl, ok := s.marshallerImpls[s.marshallerFn()]; ok {
 		return impl
 	}
-	return s.impls[DefaultLib]
+	return s.marshallerImpls[DefaultLib]
 }
 
 func (s *switcher) unmarshaller() Unmarshaller {
-	if impl, ok := s.impls[s.unmarshallerFn()]; ok {
+	if impl, ok := s.unmarshallerImpls[s.unmarshallerFn()]; ok {
 		return impl
 	}
-	return s.impls[DefaultLib]
+	return s.unmarshallerImpls[DefaultLib]
 }
 
 func (s *switcher) validator() Validator {
-	if impl, ok := s.impls[s.validatorFn()]; ok {
+	if impl, ok := s.validatorImpls[s.validatorFn()]; ok {
 		return impl
 	}
-	return s.impls[DefaultLib]
+	return s.validatorImpls[DefaultLib]
 }
