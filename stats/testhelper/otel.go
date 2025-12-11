@@ -1,6 +1,7 @@
 package testhelper
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -49,12 +50,14 @@ func StartOTelCollector(t testing.TB, metricsPort, configPath string, opts ...St
 
 	collector, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   "otel/opentelemetry-collector",
-		Tag:          "0.67.0",
-		ExposedPorts: []string{healthPort, metricsPort},
+		Tag:          "0.115.0",
+		ExposedPorts: []string{healthPort + "/tcp", metricsPort + "/tcp", "4317/tcp"},
 		PortBindings: map[docker.Port][]docker.PortBinding{
-			"4317/tcp": {{HostPort: strconv.Itoa(conf.port)}},
+			"4317/tcp":                        {{HostPort: strconv.Itoa(conf.port)}},
+			healthPort + "/tcp":               {{}},
+			docker.Port(metricsPort + "/tcp"): {{}},
 		},
-		Mounts: []string{configPath + ":/etc/otelcol/config.yaml"},
+		Mounts: []string{configPath + ":/etc/otelcol/config.yaml:z"},
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -64,14 +67,42 @@ func StartOTelCollector(t testing.TB, metricsPort, configPath string, opts ...St
 	})
 
 	healthEndpoint := fmt.Sprintf("http://%s:%d", collector.GetBoundIP(healthPort), dt.GetHostPort(t, healthPort, collector.Container))
-	require.Eventually(t, func() bool {
-		resp, err := http.Get(healthEndpoint)
+	healthy := false
+	deadline := time.Now().Add(10 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		resp, err := http.Get(healthEndpoint) //nolint:gosec,bodyclose // this is a test helper, body closed below
 		if err != nil {
-			return false
+			lastErr = err
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
-		defer func() { httputil.CloseResponse(resp) }()
-		return resp.StatusCode == http.StatusOK
-	}, 10*time.Second, 100*time.Millisecond, "Collector was not ready on health port")
+		statusOK := resp.StatusCode == http.StatusOK
+		httputil.CloseResponse(resp)
+		if statusOK {
+			healthy = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !healthy {
+		// Log container output to help debug why it's not healthy
+		var stdout, stderr bytes.Buffer
+		logsErr := pool.Client.Logs(docker.LogsOptions{
+			Container:    collector.Container.ID,
+			OutputStream: &stdout,
+			ErrorStream:  &stderr,
+			Stdout:       true,
+			Stderr:       true,
+		})
+		if logsErr != nil {
+			t.Logf("Failed to get container logs: %v", logsErr)
+		} else {
+			t.Logf("Container stdout:\n%s", stdout.String())
+			t.Logf("Container stderr:\n%s", stderr.String())
+		}
+		require.Fail(t, "Collector was not ready on health port", "health endpoint: %s, last error: %v", healthEndpoint, lastErr)
+	}
 
 	t.Log("Container is healthy")
 
