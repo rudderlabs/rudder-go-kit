@@ -24,7 +24,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.uber.org/mock/gomock"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
@@ -315,7 +315,7 @@ func TestOTelPeriodicStats(t *testing.T) {
 		c.Set("INSTANCE_ID", "my-instance-id")
 		c.Set("OpenTelemetry.enabled", true)
 		c.Set("OpenTelemetry.metrics.endpoint", grpcEndpoint)
-		c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+		c.Set("OpenTelemetry.metrics.exportInterval", 20*time.Millisecond)
 		m := metric.NewManager()
 		prepareFunc(c, m)
 
@@ -479,7 +479,7 @@ func TestOTelExcludedTags(t *testing.T) {
 	c.Set("INSTANCE_ID", "my-instance-id")
 	c.Set("OpenTelemetry.enabled", true)
 	c.Set("OpenTelemetry.metrics.endpoint", grpcEndpoint)
-	c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+	c.Set("OpenTelemetry.metrics.exportInterval", 20*time.Millisecond)
 	c.Set("RuntimeStats.enabled", false)
 	c.Set("statsExcludedTags", []string{"workspaceId"})
 	l := logger.NewFactory(c)
@@ -498,20 +498,22 @@ func TestOTelExcludedTags(t *testing.T) {
 		"should_not_be_filtered": "fancy-value",
 	}).Increment()
 
+	// Note: Counter metrics have _total suffix due to OTel Collector Prometheus exporter
+	expectedMetricName := metricName + "_total"
 	metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", docker.GetHostPort(t, metricsPort, container))
-	metrics := requireMetrics(t, metricsEndpoint, metricName)
+	metrics := requireMetrics(t, metricsEndpoint, expectedMetricName)
 
-	require.EqualValues(t, &metricName, metrics[metricName].Name)
-	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
-	require.Len(t, metrics[metricName].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics[metricName].Metric[0].Counter)
+	require.EqualValues(t, &expectedMetricName, metrics[expectedMetricName].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[expectedMetricName].Type)
+	require.Len(t, metrics[expectedMetricName].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics[expectedMetricName].Metric[0].Counter)
 	require.ElementsMatchf(t, append(globalDefaultAttrs,
 		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
 		&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
 		&promClient.LabelPair{Name: ptr("should_not_be_filtered"), Value: ptr("fancy-value")},
 		&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestOTelExcludedTags")},
 		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestOTelExcludedTags")},
-	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
+	), metrics[expectedMetricName].Metric[0].Label, "Got %+v", metrics[expectedMetricName].Metric[0].Label)
 }
 
 func TestOTelStartStopError(t *testing.T) {
@@ -544,6 +546,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 	type testCase struct {
 		name               string
 		additionalLabels   []*promClient.LabelPair
+		counterSuffix      string // "_total" for gRPC/collector, "" for direct prometheus exporter
 		setupMeterProvider func(testing.TB) (Stats, string)
 	}
 	scenarios := []testCase{
@@ -553,6 +556,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
 				&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
 			),
+			counterSuffix: "_total", // OTel Collector Prometheus exporter adds _total suffix
 			setupMeterProvider: func(t testing.TB) (Stats, string) {
 				cwd, err := os.Getwd()
 				require.NoError(t, err)
@@ -564,7 +568,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				c.Set("INSTANCE_ID", "my-instance-id")
 				c.Set("OpenTelemetry.enabled", true)
 				c.Set("OpenTelemetry.metrics.endpoint", grpcEndpoint)
-				c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+				c.Set("OpenTelemetry.metrics.exportInterval", 20*time.Millisecond)
 				c.Set("RuntimeStats.enabled", false)
 				l := logger.NewFactory(c)
 				m := metric.NewManager()
@@ -582,6 +586,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 		{
 			name:             "prometheus",
 			additionalLabels: globalDefaultAttrs,
+			counterSuffix:    "", // Direct Prometheus exporter doesn't add _total suffix
 			setupMeterProvider: func(t testing.TB) (Stats, string) {
 				freePort, err := testhelper.GetFreePort()
 				require.NoError(t, err)
@@ -591,7 +596,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				c.Set("OpenTelemetry.enabled", true)
 				c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
 				c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
-				c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+				c.Set("OpenTelemetry.metrics.exportInterval", 30*time.Millisecond)
 				c.Set("RuntimeStats.enabled", false)
 				l := logger.NewFactory(c)
 				m := metric.NewManager()
@@ -624,7 +629,9 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			s.NewTaggedStat("qux", GaugeType, Tags{"g": "h"}).Gauge(13)
 			s.NewTaggedStat("asd", TimerType, Tags{"i": "l"}).SendTiming(20 * time.Second)
 
-			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "baz", "qux", "asd")
+			// Note: Counter metrics may have _total suffix depending on exporter
+			bazName := "baz" + scenario.counterSuffix
+			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", bazName, "qux", "asd")
 
 			require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["foo"].Type)
@@ -660,15 +667,15 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label, "Got %+v", metrics["bar"].Metric[0].Label)
 
-			require.EqualValues(t, ptr("baz"), metrics["baz"].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["baz"].Type)
-			require.Len(t, metrics["baz"].Metric, 1)
-			require.EqualValues(t, ptr(7.0), metrics["baz"].Metric[0].Counter.Value)
+			require.EqualValues(t, ptr(bazName), metrics[bazName].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[bazName].Type)
+			require.Len(t, metrics[bazName].Metric, 1)
+			require.EqualValues(t, ptr(7.0), metrics[bazName].Metric[0].Counter.Value)
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
 				{Name: ptr("e"), Value: ptr("f")},
 				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
 				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
-			}, scenario.additionalLabels...), metrics["baz"].Metric[0].Label, "Got %+v", metrics["baz"].Metric[0].Label)
+			}, scenario.additionalLabels...), metrics[bazName].Metric[0].Label, "Got %+v", metrics[bazName].Metric[0].Label)
 
 			require.EqualValues(t, ptr("qux"), metrics["qux"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_GAUGE), metrics["qux"].Type)
@@ -709,7 +716,7 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		c.Set("OpenTelemetry.enabled", true)
 		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
 		c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
-		c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+		c.Set("OpenTelemetry.metrics.exportInterval", 30*time.Millisecond)
 		c.Set("RuntimeStats.enabled", false)
 		l := logger.NewFactory(c)
 		m := metric.NewManager()
@@ -796,7 +803,7 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	c.Set("OpenTelemetry.enabled", true)
 	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
 	c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
-	c.Set("OpenTelemetry.metrics.exportInterval", time.Millisecond)
+	c.Set("OpenTelemetry.metrics.exportInterval", 30*time.Millisecond)
 	c.Set("RuntimeStats.enabled", false)
 	ctrl := gomock.NewController(t)
 	loggerSpy := mock_logger.NewMockLogger(ctrl)
@@ -852,6 +859,158 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 		&promClient.LabelPair{Name: ptr("job"), Value: ptr(t.Name())},
 		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr(t.Name())},
 	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
+}
+
+func TestExponentialHistogram(t *testing.T) {
+	t.Run("with option", func(t *testing.T) {
+		freePort, err := testhelper.GetFreePort()
+		require.NoError(t, err)
+
+		c := config.New()
+		c.Set("INSTANCE_ID", "my-instance-id")
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+		c.Set("OpenTelemetry.metrics.exportInterval", 20*time.Millisecond)
+		c.Set("RuntimeStats.enabled", false)
+		l := logger.NewFactory(c)
+		m := metric.NewManager()
+		r := prometheus.NewRegistry()
+
+		// Create stats with exponential histogram enabled
+		s := NewStats(c, l, m,
+			WithServiceName(t.Name()),
+			WithServiceVersion("v1.2.3"),
+			WithPrometheusRegistry(r, r),
+			WithDefaultExponentialHistogram(160),
+		)
+		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+		t.Cleanup(s.Stop)
+
+		// Record some histogram observations
+		histogramName := "test_exponential_histogram"
+		histogram := s.NewStat(histogramName, HistogramType)
+		for _, value := range []float64{1.0, 5.0, 10.0, 50.0, 100.0, 500.0} {
+			histogram.Observe(value)
+		}
+
+		// Verify native histogram is exported via direct registry access
+		var histogramMetric *promClient.MetricFamily
+		require.Eventuallyf(t, func() bool {
+			metricFamilies, err := r.Gather()
+			if err != nil {
+				return false
+			}
+			// Find the histogram metric
+			for _, mf := range metricFamilies {
+				if mf.GetName() == histogramName {
+					histogramMetric = mf
+					break
+				}
+			}
+			if histogramMetric == nil {
+				return false
+			}
+			// Check if metric has data
+			if len(histogramMetric.Metric) == 0 {
+				return false
+			}
+			if histogramMetric.Metric[0].Histogram == nil {
+				return false
+			}
+			return histogramMetric.Metric[0].Histogram.GetSampleCount() > 0
+		}, 10*time.Second, 100*time.Millisecond, "histogram metric not found or has no data")
+
+		require.EqualValues(t, &histogramName, histogramMetric.Name)
+		require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), histogramMetric.Type)
+		require.Len(t, histogramMetric.Metric, 1)
+
+		// Verify native histogram fields
+		h := histogramMetric.Metric[0].Histogram
+		require.NotNil(t, h)
+		require.EqualValues(t, uint64(6), *h.SampleCount)
+		require.NotNil(t, h.Schema, "native histogram should have schema")
+		require.NotNil(t, h.ZeroThreshold, "native histogram should have zero threshold")
+		// Native histograms should have positive or negative spans
+		hasSpans := len(h.PositiveSpan) > 0 || len(h.NegativeSpan) > 0
+		require.True(t, hasSpans, "native histogram should have spans")
+
+		t.Logf("histogram: %+v", h)
+	})
+
+	t.Run("per histogram config", func(t *testing.T) {
+		freePort, err := testhelper.GetFreePort()
+		require.NoError(t, err)
+
+		c := config.New()
+		c.Set("INSTANCE_ID", "my-instance-id")
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+		c.Set("OpenTelemetry.metrics.exportInterval", 20*time.Millisecond)
+		c.Set("RuntimeStats.enabled", false)
+		l := logger.NewFactory(c)
+		m := metric.NewManager()
+		r := prometheus.NewRegistry()
+
+		histogramName := "test_per_histogram_exponential"
+		// Create stats with per-histogram exponential config
+		s := NewStats(c, l, m,
+			WithServiceName(t.Name()),
+			WithServiceVersion("v1.2.3"),
+			WithPrometheusRegistry(r, r),
+			WithExponentialHistogram(histogramName, 100),
+		)
+		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+		t.Cleanup(s.Stop)
+
+		// Record some histogram observations
+		histogram := s.NewStat(histogramName, HistogramType)
+		for i := 0; i < 10; i++ {
+			histogram.Observe(float64(i * 10))
+		}
+
+		// Verify native histogram is exported via direct registry access
+		var histogramMetric *promClient.MetricFamily
+		require.Eventuallyf(t, func() bool {
+			metricFamilies, err := r.Gather()
+			if err != nil {
+				return false
+			}
+			// Find the histogram metric
+			for _, mf := range metricFamilies {
+				if mf.GetName() == histogramName {
+					histogramMetric = mf
+					break
+				}
+			}
+			if histogramMetric == nil {
+				return false
+			}
+			// Check if metric has data
+			if len(histogramMetric.Metric) == 0 {
+				return false
+			}
+			if histogramMetric.Metric[0].Histogram == nil {
+				return false
+			}
+			return histogramMetric.Metric[0].Histogram.GetSampleCount() > 0
+		}, 10*time.Second, 100*time.Millisecond, "histogram metric not found or has no data")
+
+		require.EqualValues(t, &histogramName, histogramMetric.Name)
+		require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), histogramMetric.Type)
+		require.Len(t, histogramMetric.Metric, 1)
+
+		// Verify native histogram fields
+		h := histogramMetric.Metric[0].Histogram
+		require.NotNil(t, h)
+		require.EqualValues(t, uint64(10), *h.SampleCount)
+		require.NotNil(t, h.Schema, "native histogram should have schema")
+		require.NotNil(t, h.ZeroThreshold, "native histogram should have zero threshold")
+		// Native histograms should have positive or negative spans
+		hasSpans := len(h.PositiveSpan) > 0 || len(h.NegativeSpan) > 0
+		require.True(t, hasSpans, "native histogram should have spans")
+	})
 }
 
 func TestNoopTracingNoPanics(t *testing.T) {
@@ -1034,7 +1193,7 @@ func requireMetrics(
 			}
 		}
 		return true
-	}, 5*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
+	}, 10*time.Second, 100*time.Millisecond, "err: %v, metrics: %+v", err, metrics)
 
 	return metrics
 }

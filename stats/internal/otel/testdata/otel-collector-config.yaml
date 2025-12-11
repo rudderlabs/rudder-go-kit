@@ -2,6 +2,7 @@ receivers:
   otlp:
     protocols:
       grpc:
+        endpoint: "0.0.0.0:4317"
 
 exporters:
   prometheus:
@@ -10,17 +11,19 @@ exporters:
       enabled: true
     const_labels:
       label1: value1
-
-processors:
-  batch:
+  debug:
+    verbosity: basic
 
 extensions:
   health_check:
+    endpoint: "0.0.0.0:13133"
 
 service:
   extensions: [health_check]
   pipelines:
     metrics:
       receivers: [otlp]
-      processors: [batch]
       exporters: [prometheus]
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
