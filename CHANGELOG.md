@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.69.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.68.0...v0.69.0) (2025-12-15)
+
+
+### Features
+
+* opentelemetry update with exponential histograms ([#995](https://github.com/rudderlabs/rudder-go-kit/issues/995)) ([5e1daaa](https://github.com/rudderlabs/rudder-go-kit/commit/5e1daaac848158eac476f473b947c650db046cd6))
+
+
+### Miscellaneous
+
+* **deps:** bump step-security/harden-runner from 2.13.1 to 2.13.2 ([#971](https://github.com/rudderlabs/rudder-go-kit/issues/971)) ([e8a1c28](https://github.com/rudderlabs/rudder-go-kit/commit/e8a1c28e46c3fbc48a56342af2aa207944ffad31))
+
 ## [0.68.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.67.0...v0.68.0) (2025-12-10)
 
 
