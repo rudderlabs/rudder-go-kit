@@ -42,25 +42,28 @@ func TestMonitorDatabase(t *testing.T) {
 	}()
 
 	require.Eventually(t, func() bool {
-		return statsStore.Get("db_max_open_connections", stats.Tags{
+		m := statsStore.Get("db_max_open_connections", stats.Tags{
 			"identifier": identifier,
-		}).LastValue() == 10
+		})
+		return m != nil && m.LastValue() == 10
 	},
 		5*time.Second,
 		100*time.Millisecond,
 	)
 	require.Eventually(t, func() bool {
-		return statsStore.Get("db_open_connections", stats.Tags{
+		m := statsStore.Get("db_open_connections", stats.Tags{
 			"identifier": identifier,
-		}).LastValue() == 1
+		})
+		return m != nil && m.LastValue() == 1
 	},
 		5*time.Second,
 		100*time.Millisecond,
 	)
 	require.Eventually(t, func() bool {
-		return statsStore.Get("db_idle", stats.Tags{
+		m := statsStore.Get("db_idle", stats.Tags{
 			"identifier": identifier,
-		}).LastValue() == 1
+		})
+		return m != nil && m.LastValue() == 1
 	},
 		5*time.Second,
 		100*time.Millisecond,

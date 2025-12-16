@@ -2,7 +2,6 @@
 .vscode
 *.coverprofile
 runtime.log
-*.coverprofile
 junit*.xml
 **/profile.out
 **/*.test
@@ -15,3 +14,4 @@ coverage.html
 **/gomock_reflect_*/*
 ginkgo.report
 vendor/
+.claude/settings.local.json

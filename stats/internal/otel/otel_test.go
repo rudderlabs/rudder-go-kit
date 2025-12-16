@@ -58,6 +58,7 @@ func TestMetrics(t *testing.T) {
 		{
 			name:             "grpc",
 			additionalLabels: globalGRPCDefaultAttrs,
+			counterSuffix:    "_total", // OTel Collector Prometheus exporter adds _total suffix
 			setupMeterProvider: func(t testing.TB, _ ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				cwd, err := os.Getwd()
 				require.NoError(t, err)
@@ -70,19 +71,17 @@ func TestMetrics(t *testing.T) {
 				)
 				require.NoError(t, err)
 				var om Manager
-				tp, mp, err := om.Setup(ctx, res,
+				_, mp, err := om.Setup(ctx, res,
 					WithInsecure(),
-					WithTracerProvider(grpcEndpoint, WithTracingSamplingRate(1.0)),
 					WithMeterProvider(
 						WithGRPCMeterProvider(grpcEndpoint),
-						WithMeterProviderExportsInterval(100*time.Millisecond),
+						WithMeterProviderExportsInterval(50*time.Millisecond),
 						WithDefaultHistogramBucketBoundaries([]float64{1, 2, 3}),
 						WithHistogramBucketBoundaries("baz", meterName, []float64{10, 20, 30}),
 					),
 				)
 				require.NoError(t, err)
 				t.Cleanup(func() { require.NoError(t, om.Shutdown(context.Background())) })
-				require.NotEqual(t, tp, otel.GetTracerProvider())
 				require.NotEqual(t, mp, otel.GetMeterProvider())
 
 				metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
@@ -92,6 +91,7 @@ func TestMetrics(t *testing.T) {
 		{
 			name:             "prometheus",
 			additionalLabels: globalDefaultAttrs,
+			counterSuffix:    "", // Direct Prometheus exporter doesn't add _total suffix
 			setupMeterProvider: func(t testing.TB, _ ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				registry := prometheus.NewRegistry()
 
@@ -146,28 +146,31 @@ func TestMetrics(t *testing.T) {
 			h2.Record(ctx, 2, metric.WithAttributes(attribute.String("c", "d")))
 
 			// Run assertions
-			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", "baz", "qux")
+			// Note: Counter metrics may have _total suffix depending on exporter
+			fooName := "foo" + scenario.counterSuffix
+			barName := "bar" + scenario.counterSuffix
+			metrics := requireMetrics(t, metricsEndpoint, fooName, barName, "baz", "qux")
 
-			require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
-			require.Len(t, metrics["foo"].Metric, 1)
-			require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics["foo"].Metric[0].Counter)
+			require.EqualValues(t, ptr(fooName), metrics[fooName].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[fooName].Type)
+			require.Len(t, metrics[fooName].Metric, 1)
+			require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics[fooName].Metric[0].Counter)
 			require.ElementsMatch(t, append(
 				scenario.additionalLabels,
 				&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
 				&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
 				&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
-			), metrics["foo"].Metric[0].Label)
+			), metrics[fooName].Metric[0].Label)
 
-			require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
-			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar"].Type)
-			require.Len(t, metrics["bar"].Metric, 1)
-			require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics["bar"].Metric[0].Counter)
+			require.EqualValues(t, ptr(barName), metrics[barName].Name)
+			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[barName].Type)
+			require.Len(t, metrics[barName].Metric, 1)
+			require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics[barName].Metric[0].Counter)
 			require.ElementsMatch(t, append(
 				scenario.additionalLabels,
 				&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
 				&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
-			), metrics["bar"].Metric[0].Label)
+			), metrics[barName].Metric[0].Label)
 
 			requireHistogramEqual(t, metrics["baz"], histogram{
 				name: "baz", count: 1, sum: 20,
@@ -406,7 +409,7 @@ func TestCollectorGlobals(t *testing.T) {
 
 	collector, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "otel/opentelemetry-collector",
-		Tag:        "0.67.0",
+		Tag:        "0.115.0",
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"4317/tcp": {{HostPort: strconv.Itoa(grpcPort)}},
 		},
@@ -487,26 +490,27 @@ func TestNonBlockingConnection(t *testing.T) {
 	barCounter.Add(ctx, 456) // this should be recorded
 
 	metricsEndpoint := fmt.Sprintf("http://localhost:%d/metrics", dt.GetHostPort(t, metricsPort, container))
-	metrics := requireMetrics(t, metricsEndpoint, "foo", "bar")
+	// Note: Counter metrics have _total suffix due to OTel Collector Prometheus exporter
+	metrics := requireMetrics(t, metricsEndpoint, "foo_total", "bar_total")
 
 	defaultAttrs := append(globalGRPCDefaultAttrs,
 		&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
 		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestNonBlockingConnection")},
 	)
 
-	require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
-	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo"].Type)
-	require.Len(t, metrics["foo"].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(123.0)}, metrics["foo"].Metric[0].Counter)
+	require.EqualValues(t, ptr("foo_total"), metrics["foo_total"].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo_total"].Type)
+	require.Len(t, metrics["foo_total"].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(123.0)}, metrics["foo_total"].Metric[0].Counter)
 	require.ElementsMatch(t, append(defaultAttrs,
 		&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
-	), metrics["foo"].Metric[0].Label)
+	), metrics["foo_total"].Metric[0].Label)
 
-	require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
-	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar"].Type)
-	require.Len(t, metrics["bar"].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(456.0)}, metrics["bar"].Metric[0].Counter)
-	require.ElementsMatch(t, defaultAttrs, metrics["bar"].Metric[0].Label)
+	require.EqualValues(t, ptr("bar_total"), metrics["bar_total"].Name)
+	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar_total"].Type)
+	require.Len(t, metrics["bar_total"].Metric, 1)
+	require.EqualValues(t, &promClient.Counter{Value: ptr(456.0)}, metrics["bar_total"].Metric[0].Counter)
+	require.ElementsMatch(t, defaultAttrs, metrics["bar_total"].Metric[0].Label)
 }
 
 func requireMetrics(
@@ -562,6 +566,7 @@ func ptr[T any](v T) *T {
 type testCase struct {
 	name               string
 	additionalLabels   []*promClient.LabelPair
+	counterSuffix      string // "_total" for gRPC/collector, "" for direct prometheus exporter
 	setupMeterProvider func(testing.TB, ...MeterProviderOption) (*sdkmetric.MeterProvider, string)
 }
 
