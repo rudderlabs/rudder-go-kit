@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.70.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.69.0...v0.70.0) (2025-12-16)
+
+
+### Features
+
+* add tidwall JSON lib in jsonrs for validation ([#998](https://github.com/rudderlabs/rudder-go-kit/issues/998)) ([eee7bf9](https://github.com/rudderlabs/rudder-go-kit/commit/eee7bf9084f8f6f500dd73cdaa53041592dff6e6))
+
 ## [0.69.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.68.0...v0.69.0) (2025-12-15)
 
 
