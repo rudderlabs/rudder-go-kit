@@ -177,4 +177,5 @@ func TestJSONValidFunctionality(t *testing.T) {
 	run(t, jsonrs.StdLib)
 	run(t, jsonrs.SonnetLib)
 	run(t, jsonrs.JsoniterLib)
+	run(t, jsonrs.TidwallLib)
 }

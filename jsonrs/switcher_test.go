@@ -12,14 +12,30 @@ func TestSwitcher(t *testing.T) {
 	unmarshaller := StdLib
 	validator := StdLib
 
+	stdLib := &stdJSON{}
+	sonnetLib := &sonnetJSON{}
+	jsoniterLib := &jsoniterJSON{}
+	tidwallLib := &tidwallValidator{}
+
 	switcher := &switcher{
 		marshallerFn:   func() string { return marshaller },
 		unmarshallerFn: func() string { return unmarshaller },
 		validatorFn:    func() string { return validator },
-		impls: map[string]JSON{
-			StdLib:      &stdJSON{},
-			JsoniterLib: &jsoniterJSON{},
-			SonnetLib:   &sonnetJSON{},
+		validatorImpls: map[string]Validator{
+			StdLib:      stdLib,
+			SonnetLib:   sonnetLib,
+			JsoniterLib: jsoniterLib,
+			TidwallLib:  tidwallLib,
+		},
+		unmarshallerImpls: map[string]Unmarshaller{
+			StdLib:      stdLib,
+			SonnetLib:   sonnetLib,
+			JsoniterLib: jsoniterLib,
+		},
+		marshallerImpls: map[string]Marshaller{
+			StdLib:      stdLib,
+			SonnetLib:   sonnetLib,
+			JsoniterLib: jsoniterLib,
 		},
 	}
 
@@ -57,9 +73,9 @@ func TestSwitcher(t *testing.T) {
 		oneJSON := &mockJSON{}
 		twoJSON := &mockJSON{}
 		threeJSON := &mockJSON{}
-		switcher.impls["one"] = oneJSON
-		switcher.impls["two"] = twoJSON
-		switcher.impls["three"] = threeJSON
+		switcher.marshallerImpls["one"] = oneJSON
+		switcher.unmarshallerImpls["two"] = twoJSON
+		switcher.validatorImpls["three"] = threeJSON
 		marshaller = "one"
 		unmarshaller = "two"
 		validator = "three"
@@ -80,6 +96,18 @@ func TestSwitcher(t *testing.T) {
 
 		_ = switcher.Valid([]byte(`""`))
 		require.Equal(t, 1, threeJSON.called)
+	})
+
+	t.Run("tidwall validator", func(t *testing.T) {
+		validator = TidwallLib
+
+		// Valid JSON
+		isValid := switcher.Valid([]byte(`{"key": "value"}`))
+		require.True(t, isValid)
+
+		// Invalid JSON
+		isValid = switcher.Valid([]byte(`{"key": }`))
+		require.False(t, isValid)
 	})
 }
 
