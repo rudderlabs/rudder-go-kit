@@ -4,7 +4,8 @@ package etcdwatcher
 import (
 	"context"
 	"fmt"
-	"sync"
+
+	"github.com/rudderlabs/rudder-go-kit/async"
 
 	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 
@@ -53,6 +54,15 @@ type Event[T any] struct {
 	Revision int64
 }
 
+type EventOrError[T any] struct {
+	Event *Event[T]
+	Error error
+}
+type EventsOrError[T any] struct {
+	Events []Event[T]
+	Error  error
+}
+
 // WatchEventType defines what types of events to watch for.
 type WatchEventType string
 
@@ -65,103 +75,149 @@ const (
 	AllWatchEventType WatchEventType = "ALL"
 )
 
-// Config holds the configuration for the watcher.
-type Config[T any] struct {
+// config holds the configuration for the watcher.
+type config[T any] struct {
 	// EventTypes specifies which event types to watch for.
-	EventTypes WatchEventType
+	eventTypes WatchEventType
 	// Mode specifies the watch mode.
-	Mode WatchMode
+	mode WatchMode
 	// Filter is an optional function to filter events.
-	Filter func(Event[T]) bool
+	filter func(Event[T]) bool
+	// UnmarshalValue is an optional function to unmarshal the value of a key.
+	unmarshalValue func([]byte) (T, error)
+}
+
+type Opt[T any] func(*Watcher[T])
+
+// WithPrefix configures the watcher to watch a prefix. By default, the watcher watches a single key.
+func WithPrefix[T any]() Opt[T] {
+	return func(w *Watcher[T]) {
+		w.isPrefix = true
+	}
+}
+
+// WithWatchEventType configures the watcher to watch specific event types (PUT, DELETE, or ALL). By default, it watches for ALL event types.
+func WithWatchEventType[T any](eventType WatchEventType) Opt[T] {
+	return func(w *Watcher[T]) {
+		w.config.eventTypes = eventType
+	}
+}
+
+// WithWatchMode configures the watcher to use a specific watch mode (ALL, ONCE, or NONE). By default, it uses ALL mode.
+func WithWatchMode[T any](mode WatchMode) Opt[T] {
+	return func(w *Watcher[T]) {
+		w.config.mode = mode
+	}
+}
+
+// WithFilter configures the watcher to use a filter function to filter events.
+// Only events for which the filter function returns false will be filtered.
+func WithFilter[T any](filter func(Event[T]) bool) Opt[T] {
+	return func(w *Watcher[T]) {
+		w.config.filter = filter
+	}
+}
+
+// WithValueUnmarshaller configures the watcher to use a custom unmarshaller function for values.
+func WithValueUnmarshaller[T any](unmarshalFunc func([]byte, *T) error) Opt[T] {
+	return func(w *Watcher[T]) {
+		w.config.unmarshalValue = func(data []byte) (T, error) {
+			var target T
+			err := unmarshalFunc(data, &target)
+			return target, err
+		}
+	}
 }
 
 // Watcher provides methods for watching etcd keys.
 type Watcher[T any] struct {
 	client   etcdClient
-	config   Config[T]
+	config   config[T]
 	key      string
 	isPrefix bool
 }
 
 // New creates a new Watcher instance.
-func New[T any](client etcdClient, key string, isPrefix bool, config Config[T]) (*Watcher[T], error) {
-	// Set defaults
-	if config.EventTypes == "" {
-		config.EventTypes = AllWatchEventType
-	}
-	if config.Mode == "" {
-		config.Mode = AllMode
+func New[T any](client etcdClient, key string, opts ...Opt[T]) (*Watcher[T], error) {
+	w := &Watcher[T]{
+		client: client,
+		config: config[T]{
+			eventTypes:     AllWatchEventType,
+			mode:           AllMode,
+			unmarshalValue: defaultUnmarshalValue[T],
+		},
+		key: key,
 	}
 
-	if config.Mode == OnceMode && !isPrefix {
+	for _, opt := range opts {
+		opt(w)
+	}
+
+	if w.config.mode == OnceMode && !w.isPrefix {
 		return nil, fmt.Errorf("once mode can only be used with prefix watches")
 	}
 
-	return &Watcher[T]{
-		client:   client,
-		config:   config,
-		key:      key,
-		isPrefix: isPrefix,
-	}, nil
+	return w, nil
 }
 
 // LoadAndWatch loads initial data and then starts watching for changes.
 // It returns the initial events, a channel for subsequent events and a function to stop watching for events.
-func (w *Watcher[T]) LoadAndWatch(ctx context.Context) ([]Event[T], <-chan Event[T], <-chan error, func()) {
-	// Create a new context for this watch operation
-	watchCtx, cancel := context.WithCancel(ctx)
+func (w *Watcher[T]) LoadAndWatch(ctx context.Context) (EventsOrError[T], <-chan EventOrError[T], func()) {
+	eventSender := async.SingleSender[EventOrError[T]]{}
+	ctx, watchChan, stop := eventSender.Begin(ctx)
 
 	// Channel for events
-	eventCh := make(chan Event[T])
-	errorCh := make(chan error, 1) // Buffered to prevent blocking
-
+	initialEvents := EventsOrError[T]{}
 	// Load initial data
-	initialEvents, revision, err := w.loadInitialData(watchCtx)
+	events, revision, err := w.loadInitialData(ctx)
 	if err != nil {
-		// Send error and close channels
-		go func() {
-			errorCh <- err
-		}()
-		return nil, eventCh, errorCh, cancel
+		stop()
+		initialEvents.Error = err
+		return initialEvents, watchChan, stop
 	}
+	initialEvents.Events = events
 
 	// If in NoneMode, we don't need to watch for changes
-	if w.config.Mode == NoneMode {
-		close(eventCh)
-		close(errorCh)
-		return initialEvents, eventCh, errorCh, cancel
+	if w.config.mode == NoneMode {
+		stop()
+		return initialEvents, watchChan, stop
 	}
 
 	// Start watching in a separate goroutine
-	go w.watch(watchCtx, initialEvents, eventCh, errorCh, revision)
+	go w.watch(ctx, events, eventSender, revision)
 
-	return initialEvents, eventCh, errorCh, cancel
+	return initialEvents, watchChan, stop
 }
 
-// Watch watches for changes and returns all events(after watch is started) through a single channel.
-func (w *Watcher[T]) Watch(ctx context.Context) (<-chan Event[T], <-chan error, func(), error) {
-	if w.config.Mode == NoneMode {
-		return nil, nil, nil, fmt.Errorf("cannot watch in NoneMode")
-	}
+// Watch watches for changes and returns all events(including initial set of events) through a channel.
+func (w *Watcher[T]) Watch(ctx context.Context) (<-chan EventOrError[T], func()) {
+	eventSender := async.SingleSender[EventOrError[T]]{}
+	ctx, watchChan, stop := eventSender.Begin(ctx)
 
-	// Create a new context for this watch operation
-	watchCtx, cancel := context.WithCancel(ctx)
+	go func() {
+		// Load initial data
+		initialEvents, revision, err := w.loadInitialData(ctx)
+		if err != nil {
+			eventSender.Send(EventOrError[T]{Error: err})
+			eventSender.Close()
+			return
+		}
 
-	// Channel for events
-	eventCh := make(chan Event[T])
-	errorCh := make(chan error, 1) // Buffered to prevent blocking
+		if len(initialEvents) > 0 {
+			for _, event := range initialEvents {
+				eventSender.Send(EventOrError[T]{Event: &event})
+			}
+		}
 
-	// Load initial data
-	initialEvents, revision, err := w.loadInitialData(watchCtx)
-	if err != nil {
-		cancel()
-		return nil, nil, nil, fmt.Errorf("loading initial data: %w", err)
-	}
+		if w.config.mode == NoneMode {
+			eventSender.Close()
+			return
+		}
 
-	// Start watching in a separate goroutine
-	go w.watch(watchCtx, initialEvents, eventCh, errorCh, revision)
+		w.watch(ctx, initialEvents, eventSender, revision)
+	}()
 
-	return eventCh, errorCh, cancel, nil
+	return watchChan, stop
 }
 
 // loadInitialData loads the initial data for the given key or prefix.
@@ -180,31 +236,26 @@ func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]Event[T], int64, er
 	}
 
 	events := make([]Event[T], 0, len(resp.Kvs))
-	emittedKeys := make(map[string]bool)
+
+	// If only watching for delete events, return early as there are no delete events in initial load
+	if w.config.eventTypes == DeleteWatchEventType {
+		return events, resp.Header.GetRevision(), nil
+	}
 
 	for _, kv := range resp.Kvs {
-		// In OnceMode or NoneMode, track emitted keys to avoid duplicates
-		if w.config.Mode == OnceMode {
-			if emittedKeys[string(kv.Key)] {
-				continue
-			}
-			emittedKeys[string(kv.Key)] = true
-		}
-
 		event := Event[T]{
 			Key:      string(kv.Key),
 			Type:     PutEvent,
 			Revision: kv.ModRevision,
 		}
 
-		err = jsonrs.Unmarshal(kv.Value, &event.Value)
+		event.Value, err = w.config.unmarshalValue(kv.Value)
 		if err != nil {
-			// Skip values that can't be unmarshalled
-			continue
+			return nil, 0, fmt.Errorf("failed to unmarshal value: %w", err)
 		}
 
 		// Apply filter if present
-		if w.config.Filter != nil && !w.config.Filter(event) {
+		if w.config.filter != nil && !w.config.filter(event) {
 			continue
 		}
 
@@ -215,22 +266,18 @@ func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]Event[T], int64, er
 }
 
 // watch starts watching etcd for changes.
-func (w *Watcher[T]) watch(ctx context.Context, initialEvents []Event[T], eventCh chan<- Event[T], errorCh chan<- error, revision int64) {
+func (w *Watcher[T]) watch(ctx context.Context, initialEvents []Event[T], eventSender async.SingleSender[EventOrError[T]], revision int64) {
 	defer func() {
-		close(eventCh)
-		close(errorCh)
+		eventSender.Close()
 	}()
 	// Track emitted keys for OnceMode
-	emittedKeys := make(map[string]bool)
-	var emittedKeysMutex sync.Mutex
+	emittedKeys := make(map[string]struct{})
 
 	// Initialize with keys from initial events if in OnceMode
-	if w.config.Mode == OnceMode {
-		emittedKeysMutex.Lock()
+	if w.config.mode == OnceMode {
 		for _, event := range initialEvents {
-			emittedKeys[event.Key] = true
+			emittedKeys[event.Key] = struct{}{}
 		}
-		emittedKeysMutex.Unlock()
 	}
 
 	// Prepare watch options
@@ -256,10 +303,7 @@ func (w *Watcher[T]) watch(ctx context.Context, initialEvents []Event[T], eventC
 			}
 
 			if err := watchResp.Err(); err != nil {
-				select {
-				case errorCh <- err:
-				case <-ctx.Done():
-				}
+				eventSender.Send(EventOrError[T]{Error: err})
 				return
 			}
 
@@ -271,7 +315,7 @@ func (w *Watcher[T]) watch(ctx context.Context, initialEvents []Event[T], eventC
 
 				// Check if we should process this event type
 				shouldProcess := false
-				switch w.config.EventTypes {
+				switch w.config.eventTypes {
 				case PutWatchEventType:
 					shouldProcess = eventType == PutEvent
 				case DeleteWatchEventType:
@@ -292,38 +336,45 @@ func (w *Watcher[T]) watch(ctx context.Context, initialEvents []Event[T], eventC
 
 				// For PUT events, unmarshal the value
 				if eventType == PutEvent {
-					err := jsonrs.Unmarshal(ev.Kv.Value, &event.Value)
+					value, err := w.config.unmarshalValue(ev.Kv.Value)
 					if err != nil {
-						errorCh <- err
-						continue
+						eventSender.Send(EventOrError[T]{Error: err})
+						return
 					}
+					event.Value = value
 				}
 
 				// Apply filter if present
-				if w.config.Filter != nil && !w.config.Filter(event) {
+				if w.config.filter != nil && !w.config.filter(event) {
 					continue
 				}
 
 				// Handle OnceMode - skip already emitted keys
-				if w.config.Mode == OnceMode {
-					emittedKeysMutex.Lock()
-					if eventType == PutEvent && emittedKeys[event.Key] {
-						emittedKeysMutex.Unlock()
+				if w.config.mode == OnceMode {
+					if _, emitted := emittedKeys[event.Key]; emitted {
 						continue
 					}
-					if eventType == PutEvent {
-						emittedKeys[event.Key] = true
-					}
-					emittedKeysMutex.Unlock()
+					emittedKeys[event.Key] = struct{}{}
 				}
 
 				// Send event
-				select {
-				case eventCh <- event:
-				case <-ctx.Done():
-					return
-				}
+				eventSender.Send(EventOrError[T]{Event: &event})
 			}
 		}
+	}
+}
+
+func defaultUnmarshalValue[T any](data []byte) (T, error) {
+	var target T
+	switch v := any(&target).(type) {
+	case *[]byte:
+		*v = append([]byte(nil), data...)
+		return target, nil
+	case *string:
+		*v = string(data)
+		return target, nil
+	default:
+		err := jsonrs.Unmarshal(data, &target)
+		return target, err
 	}
 }
