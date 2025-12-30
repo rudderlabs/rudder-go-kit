@@ -43,30 +43,28 @@ func (m *MockEtcdClient) Watch(_ context.Context, key string, _ ...clientv3.OpOp
 }
 
 // Constructor tests
-func TestWatcher_New(t *testing.T) {
+func TestWatcher_Builder(t *testing.T) {
 	t.Run("valid construction with default values", func(t *testing.T) {
 		client := &MockEtcdClient{}
-		watcher, err := etcdwatcher.New[TestData](client, "/test/key")
-
+		watcher, err := etcdwatcher.NewBuilder[TestData](client, "/test/key").Build()
 		require.NoError(t, err)
 		require.NotNil(t, watcher)
 	})
 
 	t.Run("valid construction with explicit values", func(t *testing.T) {
 		client := &MockEtcdClient{}
-		watcher, err := etcdwatcher.New[TestData](client, "/test/",
-			etcdwatcher.WithPrefix[TestData](),
-			etcdwatcher.WithWatchEventType[TestData](etcdwatcher.PutWatchEventType),
-			etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
-
+		watcher, err := (etcdwatcher.NewBuilder[TestData](client, "/test/").
+			WithPrefix().
+			WithWatchEventType(etcdwatcher.PutWatchEventType).
+			WithWatchMode(etcdwatcher.AllMode)).Build()
 		require.NoError(t, err)
 		require.NotNil(t, watcher)
 	})
 
 	t.Run("error when using OnceMode with non-prefix watches", func(t *testing.T) {
 		client := &MockEtcdClient{}
-		watcher, err := etcdwatcher.New[TestData](client, "/test/key",
-			etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+		watcher, err := etcdwatcher.NewBuilder[TestData](client, "/test/key").
+			WithWatchMode(etcdwatcher.OnceMode).Build()
 
 		require.Error(t, err)
 		require.Nil(t, watcher)
@@ -75,9 +73,9 @@ func TestWatcher_New(t *testing.T) {
 
 	t.Run("valid construction with OnceMode and prefix watches", func(t *testing.T) {
 		client := &MockEtcdClient{}
-		watcher, err := etcdwatcher.New[TestData](client, "/test/",
-			etcdwatcher.WithPrefix[TestData](),
-			etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+		watcher, err := (etcdwatcher.NewBuilder[TestData](client, "/test/").
+			WithPrefix().
+			WithWatchMode(etcdwatcher.OnceMode)).Build()
 
 		require.NoError(t, err)
 		require.NotNil(t, watcher)
@@ -106,10 +104,11 @@ func TestLoadAndWatch_AllMode_AllEventType(t *testing.T) {
 
 	// Create watcher
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.AllWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.AllWatchEventType).
+		WithWatchMode(etcdwatcher.AllMode).
+		Build()
 	require.NoError(t, err)
 
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
@@ -184,10 +183,11 @@ func TestLoadAndWatch_AllMode_PutEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.PutWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.PutWatchEventType).
+		WithWatchMode(etcdwatcher.AllMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -261,10 +261,11 @@ func TestLoadAndWatch_AllMode_DeleteEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.DeleteWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.DeleteWatchEventType).
+		WithWatchMode(etcdwatcher.AllMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -336,10 +337,11 @@ func TestLoadAndWatch_OnceMode_AllEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.AllWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.AllWatchEventType).
+		WithWatchMode(etcdwatcher.OnceMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -455,10 +457,11 @@ func TestLoadAndWatch_OnceMode_PutEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.PutWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.PutWatchEventType).
+		WithWatchMode(etcdwatcher.OnceMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -549,10 +552,11 @@ func TestLoadAndWatch_OnceMode_DeleteEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.DeleteWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.DeleteWatchEventType).
+		WithWatchMode(etcdwatcher.OnceMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -667,10 +671,11 @@ func TestLoadAndWatch_NoneMode_AllEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.AllWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.AllWatchEventType).
+		WithWatchMode(etcdwatcher.NoneMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -737,10 +742,11 @@ func TestLoadAndWatch_NoneMode_PutEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.PutWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.PutWatchEventType).
+		WithWatchMode(etcdwatcher.NoneMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -807,10 +813,11 @@ func TestLoadAndWatch_NoneMode_DeleteEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.DeleteWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.DeleteWatchEventType).
+		WithWatchMode(etcdwatcher.NoneMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -872,10 +879,11 @@ func TestWatch_AllMode_AllEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.AllWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.AllWatchEventType).
+		WithWatchMode(etcdwatcher.AllMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -959,10 +967,11 @@ func TestWatch_AllMode_PutEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.PutWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.PutWatchEventType).
+		WithWatchMode(etcdwatcher.AllMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -1044,10 +1053,11 @@ func TestWatch_AllMode_DeleteEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.DeleteWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.DeleteWatchEventType).
+		WithWatchMode(etcdwatcher.AllMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -1143,10 +1153,11 @@ func TestWatch_OnceMode_AllEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.AllWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.AllWatchEventType).
+		WithWatchMode(etcdwatcher.OnceMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -1236,10 +1247,11 @@ func TestWatch_OnceMode_PutEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.PutWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.PutWatchEventType).
+		WithWatchMode(etcdwatcher.OnceMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -1338,10 +1350,11 @@ func TestWatch_OnceMode_DeleteEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.DeleteWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.DeleteWatchEventType).
+		WithWatchMode(etcdwatcher.OnceMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -1452,10 +1465,11 @@ func TestWatch_NoneMode_AllEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.AllWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.AllWatchEventType).
+		WithWatchMode(etcdwatcher.NoneMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -1526,10 +1540,11 @@ func TestWatch_NoneMode_PutEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.PutWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.PutWatchEventType).
+		WithWatchMode(etcdwatcher.NoneMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -1595,10 +1610,11 @@ func TestWatch_NoneMode_DeleteEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.DeleteWatchEventType),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithWatchEventType(etcdwatcher.DeleteWatchEventType).
+		WithWatchMode(etcdwatcher.NoneMode).
+		Build()
 	require.NoError(t, err)
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
@@ -1647,7 +1663,7 @@ func TestValueTypes(t *testing.T) {
 		_, err = resource.Client.Put(ctx, "/test/bytes", string(byteData))
 		require.NoError(t, err)
 
-		watcher, err := etcdwatcher.New[[]byte](resource.Client, "/test/bytes")
+		watcher, err := etcdwatcher.NewBuilder[[]byte](resource.Client, "/test/bytes").Build()
 		require.NoError(t, err)
 
 		initialEvents, _, cancelWatch := watcher.LoadAndWatch(ctx)
@@ -1662,7 +1678,7 @@ func TestValueTypes(t *testing.T) {
 		_, err = resource.Client.Put(ctx, "/test/string", stringData)
 		require.NoError(t, err)
 
-		watcherString, err := etcdwatcher.New[string](resource.Client, "/test/string")
+		watcherString, err := etcdwatcher.NewBuilder[string](resource.Client, "/test/string").Build()
 		require.NoError(t, err)
 
 		initialEventsStr, _, cancelWatchStr := watcherString.LoadAndWatch(ctx)
@@ -1680,7 +1696,7 @@ func TestValueTypes(t *testing.T) {
 		_, err = resource.Client.Put(ctx, "/test/struct", string(customDataBytes))
 		require.NoError(t, err)
 
-		watcherStruct, err := etcdwatcher.New[TestData](resource.Client, "/test/struct")
+		watcherStruct, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/struct").Build()
 		require.NoError(t, err)
 
 		initialEventsStruct, _, cancelWatchStruct := watcherStruct.LoadAndWatch(ctx)
@@ -1709,7 +1725,7 @@ func TestUnmarshallingErrors(t *testing.T) {
 	_, err = resource.Client.Put(ctx, "/test/invalid", string(invalidJSON))
 	require.NoError(t, err)
 
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/invalid")
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/invalid").Build()
 	require.NoError(t, err)
 
 	initialEvents, _, cancelWatch := watcher.LoadAndWatch(ctx)
@@ -1727,7 +1743,7 @@ func TestUnmarshallingErrors(t *testing.T) {
 	_, err = resource.Client.Put(ctx, "/test/watch", string(validDataBytes))
 	require.NoError(t, err)
 
-	watcher2, err := etcdwatcher.New[TestData](resource.Client, "/test/watch")
+	watcher2, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/watch").Build()
 	require.NoError(t, err)
 
 	initialEvents2, eventCh2, cancelWatch2 := watcher2.LoadAndWatch(ctx)
@@ -1779,7 +1795,7 @@ func TestCustomUnmarshaller(t *testing.T) {
 	_, err = resource.Client.Put(ctx, "/test/custom", testData)
 	require.NoError(t, err)
 
-	watcher, err := etcdwatcher.New[string](resource.Client, "/test/custom", etcdwatcher.WithValueUnmarshaller(customUnmarshaller))
+	watcher, err := etcdwatcher.NewBuilder[string](resource.Client, "/test/custom").WithValueUnmarshaller(customUnmarshaller).Build()
 	require.NoError(t, err)
 
 	initialEvents, _, cancelWatch := watcher.LoadAndWatch(ctx)
@@ -1797,7 +1813,7 @@ func TestCustomUnmarshaller(t *testing.T) {
 	_, err = resource.Client.Put(ctx, "/test/custom_error", "some data")
 	require.NoError(t, err)
 
-	watcherError, err := etcdwatcher.New[string](resource.Client, "/test/custom_error", etcdwatcher.WithValueUnmarshaller(erroringUnmarshaller))
+	watcherError, err := etcdwatcher.NewBuilder[string](resource.Client, "/test/custom_error").WithValueUnmarshaller(erroringUnmarshaller).Build()
 	require.NoError(t, err)
 
 	initialEventsError, _, cancelWatchError := watcherError.LoadAndWatch(ctx)
@@ -1811,7 +1827,7 @@ func TestCustomUnmarshaller(t *testing.T) {
 	_, err = resource.Client.Put(ctx, "/test/custom_watch", validData)
 	require.NoError(t, err)
 
-	watcherWatch, err := etcdwatcher.New[string](resource.Client, "/test/custom_watch", etcdwatcher.WithValueUnmarshaller(erroringUnmarshaller))
+	watcherWatch, err := etcdwatcher.NewBuilder[string](resource.Client, "/test/custom_watch").WithValueUnmarshaller(erroringUnmarshaller).Build()
 	require.NoError(t, err)
 
 	initialEventsWatch, _, cancelWatchWatch := watcherWatch.LoadAndWatch(ctx)
@@ -1845,7 +1861,7 @@ func TestClientEarlyCancellation(t *testing.T) {
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/early")
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/early").Build()
 	require.NoError(t, err)
 
 	// This should handle cancellation gracefully
@@ -1860,7 +1876,7 @@ func TestClientEarlyCancellation(t *testing.T) {
 	earlyCtx2, earlyCancel2 := context.WithCancel(ctx)
 	earlyCancel2() // Cancel immediately
 
-	watcher2, err := etcdwatcher.New[TestData](resource.Client, "/test/early")
+	watcher2, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/early").Build()
 	require.NoError(t, err)
 
 	eventCh2, cancelWatch2 := watcher2.Watch(earlyCtx2)
@@ -1908,7 +1924,7 @@ func TestErrorChannelClosure(t *testing.T) {
 	_, err = resource.Client.Put(ctx, "/test/error_closure", string(invalidJSON))
 	require.NoError(t, err)
 
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/error_closure")
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/error_closure").Build()
 	require.NoError(t, err)
 
 	// Use Watch method to see the behavior with errors
@@ -1945,7 +1961,7 @@ func TestErrorChannelClosure(t *testing.T) {
 	_, err = resource.Client.Put(ctx, "/test/error_closure2", string(invalidJSON))
 	require.NoError(t, err)
 
-	watcher2, err := etcdwatcher.New[TestData](resource.Client, "/test/error_closure2")
+	watcher2, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/error_closure2").Build()
 	require.NoError(t, err)
 
 	initialEvents, eventCh2, cancelWatch2 := watcher2.LoadAndWatch(ctx)
@@ -2007,9 +2023,10 @@ func TestFilterFunction(t *testing.T) {
 		return event.Key == "/test/user_data"
 	}
 
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithFilter[TestData](filter))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithFilter(filter).
+		Build()
 	require.NoError(t, err)
 
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
@@ -2102,10 +2119,11 @@ func TestFilterFunctionWithOnceMode(t *testing.T) {
 
 	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithFilter[TestData](filter),
-		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithFilter(filter).
+		WithWatchMode(etcdwatcher.OnceMode).
+		Build()
 	require.NoError(t, err)
 
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
@@ -2178,10 +2196,10 @@ func TestFilterFunctionWithEventTypes(t *testing.T) {
 		return event.Value.Name == "test_data"
 	}
 
-	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
-		etcdwatcher.WithPrefix[TestData](),
-		etcdwatcher.WithFilter[TestData](filter),
-		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.PutWatchEventType))
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/").
+		WithPrefix().
+		WithFilter(filter).
+		WithWatchEventType(etcdwatcher.PutWatchEventType).Build()
 	require.NoError(t, err)
 
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)

@@ -89,76 +89,11 @@ type config[T any] struct {
 	isPrefix bool
 }
 
-type Opt[T any] func(*Watcher[T])
-
-// WithPrefix configures the watcher to watch a prefix. By default, the watcher watches a single key.
-func WithPrefix[T any]() Opt[T] {
-	return func(w *Watcher[T]) {
-		w.config.isPrefix = true
-	}
-}
-
-// WithWatchEventType configures the watcher to watch specific event types (PUT, DELETE, or ALL). By default, it watches for ALL event types.
-func WithWatchEventType[T any](eventType WatchEventType) Opt[T] {
-	return func(w *Watcher[T]) {
-		w.config.eventTypes = eventType
-	}
-}
-
-// WithWatchMode configures the watcher to use a specific watch mode (ALL, ONCE, or NONE). By default, it uses ALL mode.
-func WithWatchMode[T any](mode WatchMode) Opt[T] {
-	return func(w *Watcher[T]) {
-		w.config.mode = mode
-	}
-}
-
-// WithFilter configures the watcher to use a filter function to filter events.
-// Only events for which the filter function returns false will be filtered.
-func WithFilter[T any](filter func(*Event[T]) bool) Opt[T] {
-	return func(w *Watcher[T]) {
-		w.config.filter = filter
-	}
-}
-
-// WithValueUnmarshaller configures the watcher to use a custom unmarshaller function for values.
-func WithValueUnmarshaller[T any](unmarshalFunc func([]byte, *T) error) Opt[T] {
-	return func(w *Watcher[T]) {
-		w.config.unmarshalValue = func(data []byte) (T, error) {
-			var target T
-			err := unmarshalFunc(data, &target)
-			return target, err
-		}
-	}
-}
-
 // Watcher provides methods for watching etcd keys.
 type Watcher[T any] struct {
 	client etcdClient
 	config config[T]
 	key    string
-}
-
-// New creates a new Watcher instance.
-func New[T any](client etcdClient, key string, opts ...Opt[T]) (*Watcher[T], error) {
-	w := &Watcher[T]{
-		client: client,
-		config: config[T]{
-			eventTypes:     AllWatchEventType,
-			mode:           AllMode,
-			unmarshalValue: defaultUnmarshalValue[T],
-		},
-		key: key,
-	}
-
-	for _, opt := range opts {
-		opt(w)
-	}
-
-	if w.config.mode == OnceMode && !w.config.isPrefix {
-		return nil, fmt.Errorf("once mode can only be used with prefix watches")
-	}
-
-	return w, nil
 }
 
 // LoadAndWatch loads initial data and then starts watching for changes.
@@ -365,4 +300,72 @@ func defaultUnmarshalValue[T any](data []byte) (T, error) {
 		err := jsonrs.Unmarshal(data, &target)
 		return target, err
 	}
+}
+
+// NewBuilder creates a new fluent builder for Watcher[T].
+func NewBuilder[T any](client etcdClient, key string) *Builder[T] {
+	return &Builder[T]{
+		client: client,
+		key:    key,
+		config: config[T]{
+			eventTypes:     AllWatchEventType,
+			mode:           AllMode,
+			unmarshalValue: defaultUnmarshalValue[T],
+		},
+	}
+}
+
+// Builder is a fluent builder for Watcher[T].
+type Builder[T any] struct {
+	client etcdClient
+	key    string
+	config config[T]
+}
+
+// WithPrefix configures the watcher to watch a prefix. By default, the watcher watches a single key.
+func (b *Builder[T]) WithPrefix() *Builder[T] {
+	b.config.isPrefix = true
+	return b
+}
+
+// WithWatchEventType configures the watcher to watch specific event types (PUT, DELETE, or ALL). By default, it watches for ALL event types.
+func (b *Builder[T]) WithWatchEventType(eventType WatchEventType) *Builder[T] {
+	b.config.eventTypes = eventType
+	return b
+}
+
+// WithWatchMode configures the watcher to use a specific watch mode (ALL, ONCE, or NONE). By default, it uses ALL mode.
+func (b *Builder[T]) WithWatchMode(mode WatchMode) *Builder[T] {
+	b.config.mode = mode
+	return b
+}
+
+// WithFilter configures the watcher to use a filter function to filter events.
+// Only events for which the filter function returns false will be filtered.
+func (b *Builder[T]) WithFilter(filter func(*Event[T]) bool) *Builder[T] {
+	b.config.filter = filter
+	return b
+}
+
+// WithValueUnmarshaller configures the watcher to use a custom unmarshaller function for values.
+func (b *Builder[T]) WithValueUnmarshaller(unmarshalFunc func([]byte, *T) error) *Builder[T] {
+	b.config.unmarshalValue = func(data []byte) (T, error) {
+		var target T
+		err := unmarshalFunc(data, &target)
+		return target, err
+	}
+	return b
+}
+
+// Build creates a new Watcher instance with the configured options.
+func (b *Builder[T]) Build() (*Watcher[T], error) {
+	if b.config.mode == OnceMode && !b.config.isPrefix {
+		return nil, fmt.Errorf("once mode can only be used with prefix watches")
+	}
+
+	return &Watcher[T]{
+		client: b.client,
+		config: b.config,
+		key:    b.key,
+	}, nil
 }
