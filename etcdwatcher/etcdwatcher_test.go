@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
+
 	"github.com/ory/dockertest/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/etcd"
@@ -103,6 +105,7 @@ func TestLoadAndWatch_AllMode_AllEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create watcher
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
 		etcdwatcher.WithPrefix[TestData](),
 		etcdwatcher.WithWatchEventType[TestData](etcdwatcher.AllWatchEventType),
@@ -110,7 +113,15 @@ func TestLoadAndWatch_AllMode_AllEventType(t *testing.T) {
 	require.NoError(t, err)
 
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events
 	require.NoError(t, initialEvents.Error)
@@ -179,8 +190,17 @@ func TestLoadAndWatch_AllMode_PutEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events
 	require.NoError(t, initialEvents.Error)
@@ -247,8 +267,17 @@ func TestLoadAndWatch_AllMode_DeleteEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events - should not receive PUT events in initial load when watching only DELETE
 	require.NoError(t, initialEvents.Error)
@@ -313,8 +342,17 @@ func TestLoadAndWatch_OnceMode_AllEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events
 	require.NoError(t, initialEvents.Error)
@@ -423,8 +461,17 @@ func TestLoadAndWatch_OnceMode_PutEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events
 	require.NoError(t, initialEvents.Error)
@@ -508,8 +555,17 @@ func TestLoadAndWatch_OnceMode_DeleteEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events - should not receive PUT events in initial load when watching only DELETE
 	require.NoError(t, initialEvents.Error)
@@ -617,8 +673,17 @@ func TestLoadAndWatch_NoneMode_AllEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events
 	require.NoError(t, initialEvents.Error)
@@ -644,8 +709,8 @@ func TestLoadAndWatch_NoneMode_AllEventType(t *testing.T) {
 
 	// Wait to ensure no additional events are received (NoneMode)
 	select {
-	case eventOrErr := <-eventCh:
-		t.Fatalf("NoneMode should not emit any events after initial load: %v", eventOrErr)
+	case _, ok := <-eventCh:
+		require.False(t, ok, "Channel should be closed in NoneMode")
 	case <-time.After(2 * time.Second):
 		// Expected - no additional events
 	}
@@ -678,8 +743,17 @@ func TestLoadAndWatch_NoneMode_PutEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events
 	require.NoError(t, initialEvents.Error)
@@ -705,8 +779,8 @@ func TestLoadAndWatch_NoneMode_PutEventType(t *testing.T) {
 
 	// Wait to ensure no additional events are received (NoneMode)
 	select {
-	case eventOrErr := <-eventCh:
-		t.Fatalf("NoneMode should not emit any events after initial load: %v", eventOrErr)
+	case _, ok := <-eventCh:
+		require.False(t, ok, "Channel should be closed in NoneMode")
 	case <-time.After(2 * time.Second):
 		// Expected - no additional events
 	}
@@ -739,8 +813,17 @@ func TestLoadAndWatch_NoneMode_DeleteEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Check initial events - should not receive PUT events in initial load when watching only DELETE
 	require.NoError(t, initialEvents.Error)
@@ -761,8 +844,8 @@ func TestLoadAndWatch_NoneMode_DeleteEventType(t *testing.T) {
 
 	// Wait to ensure no additional events are received (NoneMode)
 	select {
-	case eventOrErr := <-eventCh:
-		t.Fatalf("NoneMode should not emit any events after initial load: %v", eventOrErr)
+	case _, ok := <-eventCh:
+		require.False(t, ok, "Channel should be closed in NoneMode")
 	case <-time.After(2 * time.Second):
 		// Expected - no additional events
 	}
@@ -795,8 +878,17 @@ func TestWatch_AllMode_AllEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Wait for the event
 	select {
@@ -873,8 +965,17 @@ func TestWatch_AllMode_PutEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Wait for the event
 	select {
@@ -949,8 +1050,17 @@ func TestWatch_AllMode_DeleteEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.AllMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Test PUT event - should not receive it since we're only watching DELETE events
 	newData := TestData{ID: 2, Name: "new"}
@@ -1039,8 +1149,17 @@ func TestWatch_OnceMode_AllEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Wait for the event
 	select {
@@ -1123,8 +1242,17 @@ func TestWatch_OnceMode_PutEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Wait for the event
 	select {
@@ -1216,8 +1344,17 @@ func TestWatch_OnceMode_DeleteEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.OnceMode))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Test PUT event - should not receive it since we're only watching DELETE events
 	newData := TestData{ID: 2, Name: "new"}
@@ -1321,11 +1458,17 @@ func TestWatch_NoneMode_AllEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
 	require.NoError(t, err)
 
-	// Note: In the implementation, Watch method doesn't respect NoneMode the same way LoadAndWatch does
-	// It will still watch for events. The NoneMode behavior is specific to LoadAndWatch.
-	// So we'll test the actual behavior of the Watch method with NoneMode
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Wait for the event - should receive it since Watch doesn't implement NoneMode restriction
 	select {
@@ -1389,11 +1532,17 @@ func TestWatch_NoneMode_PutEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
 	require.NoError(t, err)
 
-	// Note: In the implementation, Watch method doesn't respect NoneMode the same way LoadAndWatch does
-	// It will still watch for events. The NoneMode behavior is specific to LoadAndWatch.
-	// So we'll test the actual behavior of the Watch method with NoneMode
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Wait for the event
 	select {
@@ -1452,11 +1601,17 @@ func TestWatch_NoneMode_DeleteEventType(t *testing.T) {
 		etcdwatcher.WithWatchMode[TestData](etcdwatcher.NoneMode))
 	require.NoError(t, err)
 
-	// Note: In the implementation, Watch method doesn't respect NoneMode the same way LoadAndWatch does
-	// It will still watch for events. The NoneMode behavior is specific to LoadAndWatch.
-	// So we'll test the actual behavior of the Watch method with NoneMode
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Test PUT event - should not receive it since we're only watching DELETE events
 	newData := TestData{ID: 2, Name: "new"}
@@ -1688,6 +1843,8 @@ func TestClientEarlyCancellation(t *testing.T) {
 	_, err = resource.Client.Put(ctx, "/test/early", string(dataBytes))
 	require.NoError(t, err)
 
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
 	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/early")
 	require.NoError(t, err)
 
@@ -1707,7 +1864,15 @@ func TestClientEarlyCancellation(t *testing.T) {
 	require.NoError(t, err)
 
 	eventCh2, cancelWatch2 := watcher2.Watch(earlyCtx2)
-	defer cancelWatch2()
+	defer func() {
+		cancelWatch2()
+		select {
+		case _, ok := <-eventCh2:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Should receive context cancellation error
 	select {
@@ -1748,7 +1913,15 @@ func TestErrorChannelClosure(t *testing.T) {
 
 	// Use Watch method to see the behavior with errors
 	eventCh, cancelWatch := watcher.Watch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Should receive an error event
 	select {
@@ -1776,7 +1949,15 @@ func TestErrorChannelClosure(t *testing.T) {
 	require.NoError(t, err)
 
 	initialEvents, eventCh2, cancelWatch2 := watcher2.LoadAndWatch(ctx)
-	defer cancelWatch2()
+	defer func() {
+		cancelWatch2()
+		select {
+		case _, ok := <-eventCh2:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Initial load should have error
 	require.Error(t, initialEvents.Error)
@@ -1822,7 +2003,7 @@ func TestFilterFunction(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test filter that only accepts keys with "user" in the name
-	filter := func(event etcdwatcher.Event[TestData]) bool {
+	filter := func(event *etcdwatcher.Event[TestData]) bool {
 		return event.Key == "/test/user_data"
 	}
 
@@ -1832,7 +2013,15 @@ func TestFilterFunction(t *testing.T) {
 	require.NoError(t, err)
 
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Should only receive the event that matches the filter
 	require.NoError(t, initialEvents.Error)
@@ -1907,9 +2096,11 @@ func TestFilterFunctionWithOnceMode(t *testing.T) {
 	require.NoError(t, err)
 
 	// Filter that accepts events with ID > 0 (all of them)
-	filter := func(event etcdwatcher.Event[TestData]) bool {
+	filter := func(event *etcdwatcher.Event[TestData]) bool {
 		return event.Value.ID > 0
 	}
+
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
 
 	watcher, err := etcdwatcher.New[TestData](resource.Client, "/test/",
 		etcdwatcher.WithPrefix[TestData](),
@@ -1918,7 +2109,15 @@ func TestFilterFunctionWithOnceMode(t *testing.T) {
 	require.NoError(t, err)
 
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Should receive all initial events that match the filter
 	require.NoError(t, initialEvents.Error)
@@ -1975,7 +2174,7 @@ func TestFilterFunctionWithEventTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Filter that only accepts events with specific name
-	filter := func(event etcdwatcher.Event[TestData]) bool {
+	filter := func(event *etcdwatcher.Event[TestData]) bool {
 		return event.Value.Name == "test_data"
 	}
 
@@ -1986,7 +2185,15 @@ func TestFilterFunctionWithEventTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
-	defer cancelWatch()
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
 
 	// Should receive the initial event that matches both the filter and event type
 	require.NoError(t, initialEvents.Error)

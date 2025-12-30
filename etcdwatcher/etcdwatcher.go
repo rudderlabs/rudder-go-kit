@@ -59,7 +59,7 @@ type EventOrError[T any] struct {
 	Error error
 }
 type EventsOrError[T any] struct {
-	Events []Event[T]
+	Events []*Event[T]
 	Error  error
 }
 
@@ -82,9 +82,11 @@ type config[T any] struct {
 	// Mode specifies the watch mode.
 	mode WatchMode
 	// Filter is an optional function to filter events.
-	filter func(Event[T]) bool
-	// UnmarshalValue is an optional function to unmarshal the value of a key.
+	filter func(*Event[T]) bool
+	// UnmarshalValue is a function to unmarshal the value of a key.
 	unmarshalValue func([]byte) (T, error)
+	// isPrefix indicates whether the watcher is watching a prefix or a single key.
+	isPrefix bool
 }
 
 type Opt[T any] func(*Watcher[T])
@@ -92,7 +94,7 @@ type Opt[T any] func(*Watcher[T])
 // WithPrefix configures the watcher to watch a prefix. By default, the watcher watches a single key.
 func WithPrefix[T any]() Opt[T] {
 	return func(w *Watcher[T]) {
-		w.isPrefix = true
+		w.config.isPrefix = true
 	}
 }
 
@@ -112,7 +114,7 @@ func WithWatchMode[T any](mode WatchMode) Opt[T] {
 
 // WithFilter configures the watcher to use a filter function to filter events.
 // Only events for which the filter function returns false will be filtered.
-func WithFilter[T any](filter func(Event[T]) bool) Opt[T] {
+func WithFilter[T any](filter func(*Event[T]) bool) Opt[T] {
 	return func(w *Watcher[T]) {
 		w.config.filter = filter
 	}
@@ -131,10 +133,9 @@ func WithValueUnmarshaller[T any](unmarshalFunc func([]byte, *T) error) Opt[T] {
 
 // Watcher provides methods for watching etcd keys.
 type Watcher[T any] struct {
-	client   etcdClient
-	config   config[T]
-	key      string
-	isPrefix bool
+	client etcdClient
+	config config[T]
+	key    string
 }
 
 // New creates a new Watcher instance.
@@ -153,7 +154,7 @@ func New[T any](client etcdClient, key string, opts ...Opt[T]) (*Watcher[T], err
 		opt(w)
 	}
 
-	if w.config.mode == OnceMode && !w.isPrefix {
+	if w.config.mode == OnceMode && !w.config.isPrefix {
 		return nil, fmt.Errorf("once mode can only be used with prefix watches")
 	}
 
@@ -164,35 +165,35 @@ func New[T any](client etcdClient, key string, opts ...Opt[T]) (*Watcher[T], err
 // It returns the initial events, a channel for subsequent events and a function to stop watching for events.
 func (w *Watcher[T]) LoadAndWatch(ctx context.Context) (EventsOrError[T], <-chan EventOrError[T], func()) {
 	eventSender := async.SingleSender[EventOrError[T]]{}
-	ctx, watchChan, stop := eventSender.Begin(ctx)
+	ctx, watchChan, _ := eventSender.Begin(ctx)
 
 	// Channel for events
 	initialEvents := EventsOrError[T]{}
 	// Load initial data
 	events, revision, err := w.loadInitialData(ctx)
 	if err != nil {
-		stop()
+		eventSender.Close()
 		initialEvents.Error = err
-		return initialEvents, watchChan, stop
+		return initialEvents, watchChan, eventSender.Close
 	}
 	initialEvents.Events = events
 
 	// If in NoneMode, we don't need to watch for changes
 	if w.config.mode == NoneMode {
-		stop()
-		return initialEvents, watchChan, stop
+		eventSender.Close()
+		return initialEvents, watchChan, eventSender.Close
 	}
 
 	// Start watching in a separate goroutine
 	go w.watch(ctx, events, eventSender, revision)
 
-	return initialEvents, watchChan, stop
+	return initialEvents, watchChan, eventSender.Close
 }
 
 // Watch watches for changes and returns all events(including initial set of events) through a channel.
 func (w *Watcher[T]) Watch(ctx context.Context) (<-chan EventOrError[T], func()) {
 	eventSender := async.SingleSender[EventOrError[T]]{}
-	ctx, watchChan, stop := eventSender.Begin(ctx)
+	ctx, watchChan, _ := eventSender.Begin(ctx)
 
 	go func() {
 		// Load initial data
@@ -205,7 +206,7 @@ func (w *Watcher[T]) Watch(ctx context.Context) (<-chan EventOrError[T], func())
 
 		if len(initialEvents) > 0 {
 			for _, event := range initialEvents {
-				eventSender.Send(EventOrError[T]{Event: &event})
+				eventSender.Send(EventOrError[T]{Event: event})
 			}
 		}
 
@@ -217,15 +218,15 @@ func (w *Watcher[T]) Watch(ctx context.Context) (<-chan EventOrError[T], func())
 		w.watch(ctx, initialEvents, eventSender, revision)
 	}()
 
-	return watchChan, stop
+	return watchChan, eventSender.Close
 }
 
 // loadInitialData loads the initial data for the given key or prefix.
-func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]Event[T], int64, error) {
+func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]*Event[T], int64, error) {
 	var resp *clientv3.GetResponse
 	var err error
 
-	if w.isPrefix {
+	if w.config.isPrefix {
 		resp, err = w.client.Get(ctx, w.key, clientv3.WithPrefix())
 	} else {
 		resp, err = w.client.Get(ctx, w.key)
@@ -235,7 +236,7 @@ func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]Event[T], int64, er
 		return nil, 0, err
 	}
 
-	events := make([]Event[T], 0, len(resp.Kvs))
+	events := make([]*Event[T], 0, len(resp.Kvs))
 
 	// If only watching for delete events, return early as there are no delete events in initial load
 	if w.config.eventTypes == DeleteWatchEventType {
@@ -243,7 +244,7 @@ func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]Event[T], int64, er
 	}
 
 	for _, kv := range resp.Kvs {
-		event := Event[T]{
+		event := &Event[T]{
 			Key:      string(kv.Key),
 			Type:     PutEvent,
 			Revision: kv.ModRevision,
@@ -266,10 +267,7 @@ func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]Event[T], int64, er
 }
 
 // watch starts watching etcd for changes.
-func (w *Watcher[T]) watch(ctx context.Context, initialEvents []Event[T], eventSender async.SingleSender[EventOrError[T]], revision int64) {
-	defer func() {
-		eventSender.Close()
-	}()
+func (w *Watcher[T]) watch(ctx context.Context, initialEvents []*Event[T], eventSender async.SingleSender[EventOrError[T]], revision int64) {
 	// Track emitted keys for OnceMode
 	emittedKeys := make(map[string]struct{})
 
@@ -284,7 +282,7 @@ func (w *Watcher[T]) watch(ctx context.Context, initialEvents []Event[T], eventS
 	opts := []clientv3.OpOption{
 		clientv3.WithRev(revision + 1),
 	}
-	if w.isPrefix {
+	if w.config.isPrefix {
 		opts = append(opts, clientv3.WithPrefix())
 	}
 
@@ -292,74 +290,64 @@ func (w *Watcher[T]) watch(ctx context.Context, initialEvents []Event[T], eventS
 	watchCh := w.client.Watch(ctx, w.key, opts...)
 
 	// Process events
-	for {
-		select {
-		case <-ctx.Done():
+	for watchResp := range watchCh {
+		if err := watchResp.Err(); err != nil {
+			eventSender.Send(EventOrError[T]{Error: err})
 			return
-		case watchResp, ok := <-watchCh:
-			if !ok {
-				// Watch channel closed
-				return
+		}
+
+		for _, ev := range watchResp.Events {
+			eventType := PutEvent
+			if ev.Type == mvccpb.DELETE {
+				eventType = DeleteEvent
 			}
 
-			if err := watchResp.Err(); err != nil {
-				eventSender.Send(EventOrError[T]{Error: err})
-				return
+			// Check if we should process this event type
+			shouldProcess := false
+			switch w.config.eventTypes {
+			case PutWatchEventType:
+				shouldProcess = eventType == PutEvent
+			case DeleteWatchEventType:
+				shouldProcess = eventType == DeleteEvent
+			case AllWatchEventType:
+				shouldProcess = true
 			}
 
-			for _, ev := range watchResp.Events {
-				eventType := PutEvent
-				if ev.Type == mvccpb.DELETE {
-					eventType = DeleteEvent
-				}
+			if !shouldProcess {
+				continue
+			}
 
-				// Check if we should process this event type
-				shouldProcess := false
-				switch w.config.eventTypes {
-				case PutWatchEventType:
-					shouldProcess = eventType == PutEvent
-				case DeleteWatchEventType:
-					shouldProcess = eventType == DeleteEvent
-				case AllWatchEventType:
-					shouldProcess = true
-				}
+			event := &Event[T]{
+				Key:      string(ev.Kv.Key),
+				Type:     eventType,
+				Revision: ev.Kv.ModRevision,
+			}
 
-				if !shouldProcess {
+			// For PUT events, unmarshal the value
+			if eventType == PutEvent {
+				value, err := w.config.unmarshalValue(ev.Kv.Value)
+				if err != nil {
+					eventSender.Send(EventOrError[T]{Error: err})
+					return
+				}
+				event.Value = value
+			}
+
+			// Apply filter if present
+			if w.config.filter != nil && !w.config.filter(event) {
+				continue
+			}
+
+			// Handle OnceMode - skip already emitted keys
+			if w.config.mode == OnceMode {
+				if _, emitted := emittedKeys[event.Key]; emitted {
 					continue
 				}
-
-				event := Event[T]{
-					Key:      string(ev.Kv.Key),
-					Type:     eventType,
-					Revision: ev.Kv.ModRevision,
-				}
-
-				// For PUT events, unmarshal the value
-				if eventType == PutEvent {
-					value, err := w.config.unmarshalValue(ev.Kv.Value)
-					if err != nil {
-						eventSender.Send(EventOrError[T]{Error: err})
-						return
-					}
-					event.Value = value
-				}
-
-				// Apply filter if present
-				if w.config.filter != nil && !w.config.filter(event) {
-					continue
-				}
-
-				// Handle OnceMode - skip already emitted keys
-				if w.config.mode == OnceMode {
-					if _, emitted := emittedKeys[event.Key]; emitted {
-						continue
-					}
-					emittedKeys[event.Key] = struct{}{}
-				}
-
-				// Send event
-				eventSender.Send(EventOrError[T]{Event: &event})
+				emittedKeys[event.Key] = struct{}{}
 			}
+
+			// Send event
+			eventSender.Send(EventOrError[T]{Event: event})
 		}
 	}
 }
