@@ -1954,7 +1954,7 @@ func TestErrorChannelClosure(t *testing.T) {
 	case _, ok := <-eventCh:
 		require.False(t, ok, "Channel should be closed after error")
 	case <-time.After(1 * time.Second):
-		// Channel may already be closed
+		t.Fatal("Channel should be closed after error")
 	}
 
 	// Test with LoadAndWatch as well
@@ -1984,7 +1984,115 @@ func TestErrorChannelClosure(t *testing.T) {
 	case _, ok := <-eventCh2:
 		require.False(t, ok, "Channel should be closed after error")
 	case <-time.After(1 * time.Second):
-		// Channel may already be closed
+		t.Fatal("Channel should be closed after error")
+	}
+}
+
+// TestErrorChannelClosureAfterInitialEvents tests that the watch channel closes
+// after initial events are received successfully and an error occurs post that
+func TestErrorChannelClosureAfterInitialEvents(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	resource, err := etcd.Setup(pool, t)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	testData := TestData{ID: 1, Name: "test"}
+	dataBytes, err := jsonrs.Marshal(testData)
+	require.NoError(t, err)
+	_, err = resource.Client.Put(ctx, "/test/error_closure", string(dataBytes))
+	require.NoError(t, err)
+
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/error_closure").Build()
+	require.NoError(t, err)
+
+	// Use Watch method to see the behavior with errors
+	eventCh, cancelWatch := watcher.Watch(ctx)
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
+
+	select {
+	case eventOrErr := <-eventCh:
+		require.NoError(t, eventOrErr.Error)
+		require.Equal(t, testData, eventOrErr.Event.Value)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Did not receive expected event")
+	}
+
+	// Put invalid JSON data to trigger unmarshalling error
+	invalidJSON := []byte(`{"id": 1, "name":}`) // Invalid JSON
+	_, err = resource.Client.Put(ctx, "/test/error_closure", string(invalidJSON))
+	require.NoError(t, err)
+
+	// Should receive an error event
+	select {
+	case eventOrErr := <-eventCh:
+		require.Error(t, eventOrErr.Error)
+		require.Nil(t, eventOrErr.Event)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Did not receive expected unmarshalling error")
+	}
+
+	// Channel should be closed after the error
+	select {
+	case _, ok := <-eventCh:
+		require.False(t, ok, "Channel should be closed after error")
+	case <-time.After(1 * time.Second):
+		// channel should get closed
+		t.Fatal("Channel should be closed after error")
+	}
+
+	// Test with LoadAndWatch as well
+	_, err = resource.Client.Put(ctx, "/test/error_closure2", string(dataBytes))
+	require.NoError(t, err)
+
+	watcher2, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/error_closure2").Build()
+	require.NoError(t, err)
+
+	initialEvents, eventCh2, cancelWatch2 := watcher2.LoadAndWatch(ctx)
+	defer func() {
+		cancelWatch2()
+		select {
+		case _, ok := <-eventCh2:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
+
+	// Initial load should have error
+	require.NoError(t, initialEvents.Error)
+	require.Equal(t, testData, initialEvents.Events[0].Value)
+
+	// Put invalid JSON data to trigger unmarshalling error
+	_, err = resource.Client.Put(ctx, "/test/error_closure2", string(invalidJSON))
+	require.NoError(t, err)
+
+	// Should receive an error event
+	select {
+	case eventOrErr := <-eventCh2:
+		require.Error(t, eventOrErr.Error)
+		require.Nil(t, eventOrErr.Event)
+	case <-time.After(2 * time.Second):
+		t.Fatal("Did not receive expected unmarshalling error")
+	}
+
+	// Channel should be closed
+	select {
+	case _, ok := <-eventCh2:
+		require.False(t, ok, "Channel should be closed after error")
+	case <-time.After(1 * time.Second):
+		t.Fatal("Channel should be closed after error")
 	}
 }
 

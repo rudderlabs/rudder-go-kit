@@ -99,7 +99,7 @@ type Watcher[T any] struct {
 // LoadAndWatch loads initial data and then starts watching for changes.
 // It returns the initial events, a channel for subsequent events and a function to stop watching for events.
 func (w *Watcher[T]) LoadAndWatch(ctx context.Context) (EventsOrError[T], <-chan EventOrError[T], func()) {
-	eventSender := async.SingleSender[EventOrError[T]]{}
+	eventSender := &async.SingleSender[EventOrError[T]]{}
 	ctx, watchChan, _ := eventSender.Begin(ctx)
 
 	// Channel for events
@@ -127,7 +127,7 @@ func (w *Watcher[T]) LoadAndWatch(ctx context.Context) (EventsOrError[T], <-chan
 
 // Watch watches for changes and returns all events(including initial set of events) through a channel.
 func (w *Watcher[T]) Watch(ctx context.Context) (<-chan EventOrError[T], func()) {
-	eventSender := async.SingleSender[EventOrError[T]]{}
+	eventSender := &async.SingleSender[EventOrError[T]]{}
 	ctx, watchChan, _ := eventSender.Begin(ctx)
 
 	go func() {
@@ -202,7 +202,8 @@ func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]*Event[T], int64, e
 }
 
 // watch starts watching etcd for changes.
-func (w *Watcher[T]) watch(ctx context.Context, initialEvents []*Event[T], eventSender async.SingleSender[EventOrError[T]], revision int64) {
+func (w *Watcher[T]) watch(ctx context.Context, initialEvents []*Event[T], eventSender *async.SingleSender[EventOrError[T]], revision int64) {
+	defer eventSender.Close()
 	// Track emitted keys for OnceMode
 	emittedKeys := make(map[string]struct{})
 
