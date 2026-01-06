@@ -89,6 +89,11 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			"http://" + container.GetIPInNetwork(&dockertest.Network{Network: c.network}) + ":2379",
 		}
 	}
+	cln.Cleanup(func() {
+		if err := etcdClient.Close(); err != nil {
+			cln.Log(fmt.Errorf("could not close ETCD client: %v", err))
+		}
+	})
 
 	return &Resource{
 		Client:         etcdClient,
