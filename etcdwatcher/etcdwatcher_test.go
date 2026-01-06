@@ -2356,3 +2356,32 @@ func TestFilterFunctionWithEventTypes(t *testing.T) {
 		// Expected - no DELETE event received
 	}
 }
+
+// TestErrorChannelClosureCtxCancel tests that watch channel closes after context is canceled
+func TestErrorChannelClosureCtxCancel(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	resource, err := etcd.Setup(pool, t)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, "/test/error_closure").Build()
+	require.NoError(t, err)
+
+	// Use Watch method to see the behavior with errors
+	_, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
+	defer func() {
+		cancelWatch()
+		select {
+		case _, ok := <-eventCh:
+			require.False(t, ok, "Expected channel to be closed")
+		case <-time.After(2 * time.Second):
+			t.Fatal("Channel did not close in time")
+		}
+	}()
+
+	cancel()
+}

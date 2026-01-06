@@ -2,6 +2,7 @@ package async
 
 import (
 	"context"
+	"sync"
 )
 
 // SingleSender is a helper for sending and receiving values to and from a channel between 2 separate goroutines, a sending and a receiving goroutine, while at the same time supporting the following scenarios:
@@ -15,6 +16,7 @@ type SingleSender[T any] struct {
 	sendCtx       context.Context
 	sendCtxCancel context.CancelFunc
 	ch            chan T
+	mu            sync.Mutex
 	closed        bool
 }
 
@@ -28,7 +30,9 @@ func (s *SingleSender[T]) Begin(parentCtx context.Context) (ctx context.Context,
 
 // Send tries to send a value to the channel. If the channel is closed, or the receiving goroutine has left it does nothing.
 func (s *SingleSender[T]) Send(value T) {
+	s.mu.Lock()
 	closed := s.closed
+	s.mu.Unlock()
 	if closed { // don't send to a closed channel
 		return
 	}
@@ -42,6 +46,8 @@ func (s *SingleSender[T]) Send(value T) {
 
 // Close the channel and cancel all related contexts.
 func (s *SingleSender[T]) Close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.closed {
 		return
 	}
