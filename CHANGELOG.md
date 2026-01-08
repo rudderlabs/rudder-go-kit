@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.70.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.70.0...v0.70.1) (2026-01-08)
+
+
+### Bug Fixes
+
+* race condition when both sender and receiver try to close singleSender ([#1011](https://github.com/rudderlabs/rudder-go-kit/issues/1011)) ([5405fd4](https://github.com/rudderlabs/rudder-go-kit/commit/5405fd478ff76434292caecb7b7b4e197a1bbcc4))
+
 ## [0.70.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.69.0...v0.70.0) (2026-01-06)
 
 
