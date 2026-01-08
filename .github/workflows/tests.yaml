@@ -40,7 +40,7 @@ jobs:
           DOCKER_REGISTRY_MIRROR_USERNAME: ${{ vars.DOCKER_REGISTRY_MIRROR_USERNAME }}
           DOCKER_REGISTRY_MIRROR_PASSWORD: ${{ secrets.DOCKER_REGISTRY_MIRROR_PASSWORD }}
         run: make test exclude="(kafkaclient|testhelper)"
-      - uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+      - uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
   test-package:
     name: Test package
     runs-on: ubuntu-latest
@@ -82,4 +82,4 @@ jobs:
         run: |
           name=$(echo -n "${{ matrix.package }}" | sed -e 's/[ \t:\/\\"<>|*?]/-/g' -e 's/--*/-/g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
-      - uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+      - uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
