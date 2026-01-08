@@ -219,4 +219,33 @@ func TestSingleSender(t *testing.T) {
 
 		require.Empty(t, values)
 	})
+
+	t.Run("concurrent close operations", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+		s := async.SingleSender[valueOrError]{}
+		_, ch, _ := s.Begin(context.Background())
+
+		// Start a goroutine to consume from the channel to prevent blocking
+		done := make(chan struct{})
+		go func() {
+			for range ch {
+				// consume values until channel is closed
+			}
+			close(done)
+		}()
+
+		// Multiple goroutines calling Close() simultaneously
+		g := &errgroup.Group{}
+		for i := 0; i < 10; i++ {
+			g.Go(func() error {
+				s.Close()
+				return nil
+			})
+		}
+
+		_ = g.Wait()
+
+		// Wait for the consumer goroutine to finish
+		<-done
+	})
 }
