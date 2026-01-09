@@ -14,6 +14,7 @@ import (
 )
 
 type Resource struct {
+	*dockertest.Resource
 	Client *etcd.Client
 	Hosts  []string
 	// HostsInNetwork is the list of ETCD hosts accessible from the provided Docker network (if any).
@@ -96,6 +97,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	})
 
 	return &Resource{
+		Resource:       container,
 		Client:         etcdClient,
 		Hosts:          etcdHosts,
 		HostsInNetwork: hostsInNetwork,
