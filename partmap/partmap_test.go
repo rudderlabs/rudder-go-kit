@@ -3,8 +3,6 @@ package partmap_test
 import (
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/jsonrs"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/partmap"
@@ -95,14 +93,12 @@ func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 			40000: 10, // PartitionRangeStart 40000 -> ServerIndex 10
 		}
 
-		// Marshal to JSON (compressed bytes)
-		data, err := jsonrs.Marshal(original)
+		data, err := partmap.MarshalToRawBytes(original)
 		require.NoError(t, err)
 		require.NotEmpty(t, data)
 
-		// Unmarshal back to PartitionMapping
-		var unmarshaled partmap.PartitionMapping
-		err = jsonrs.Unmarshal(data, &unmarshaled)
+		// UnmarshalToPartitionMapping back to PartitionMapping
+		unmarshaled, err := partmap.UnmarshalToPartitionMapping(data)
 		require.NoError(t, err)
 
 		// Verify the mapping is preserved
@@ -112,12 +108,11 @@ func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 	t.Run("empty mapping", func(t *testing.T) {
 		original := partmap.PartitionMapping{}
 
-		data, err := jsonrs.Marshal(original)
+		data, err := partmap.MarshalToRawBytes(original)
 		require.NoError(t, err)
 		require.NotEmpty(t, data)
 
-		var unmarshaled partmap.PartitionMapping
-		err = jsonrs.Unmarshal(data, &unmarshaled)
+		unmarshaled, err := partmap.UnmarshalToPartitionMapping(data)
 		require.NoError(t, err)
 		require.Equal(t, original, unmarshaled)
 	})
@@ -125,12 +120,11 @@ func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 	t.Run("single entry", func(t *testing.T) {
 		original := partmap.PartitionMapping{0: 0}
 
-		data, err := jsonrs.Marshal(original)
+		data, err := partmap.MarshalToRawBytes(original)
 		require.NoError(t, err)
 		require.NotEmpty(t, data)
 
-		var unmarshaled partmap.PartitionMapping
-		err = jsonrs.Unmarshal(data, &unmarshaled)
+		unmarshaled, err := partmap.UnmarshalToPartitionMapping(data)
 		require.NoError(t, err)
 		require.Equal(t, original, unmarshaled)
 	})
@@ -140,12 +134,11 @@ func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 			partmap.PartitionRangeStart(^uint32(0)): partmap.ServerIndex(^uint16(0)), // Max values
 		}
 
-		data, err := jsonrs.Marshal(original)
+		data, err := partmap.MarshalToRawBytes(original)
 		require.NoError(t, err)
 		require.NotEmpty(t, data)
 
-		var unmarshaled partmap.PartitionMapping
-		err = jsonrs.Unmarshal(data, &unmarshaled)
+		unmarshaled, err := partmap.UnmarshalToPartitionMapping(data)
 		require.NoError(t, err)
 		require.Equal(t, original, unmarshaled)
 	})
@@ -153,8 +146,7 @@ func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 	t.Run("error handling - invalid compressed data", func(t *testing.T) {
 		invalidData := []byte("invalid compressed data")
 
-		var pm partmap.PartitionMapping
-		err := jsonrs.Unmarshal(invalidData, &pm)
+		_, err := partmap.UnmarshalToPartitionMapping(invalidData)
 		require.Error(t, err)
 	})
 
@@ -163,8 +155,7 @@ func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 		// This would be a valid gzip header but corrupted content
 		corruptedData := []byte{0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0x01, 0x02, 0x03} // partial data
 
-		var pm partmap.PartitionMapping
-		err := jsonrs.Unmarshal(corruptedData, &pm)
+		_, err := partmap.UnmarshalToPartitionMapping(corruptedData)
 		require.Error(t, err)
 	})
 }

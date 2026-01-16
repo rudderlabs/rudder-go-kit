@@ -3,12 +3,10 @@ package partmap
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
 
-	"github.com/samber/lo"
 	"github.com/twmb/murmur3"
 )
 
@@ -20,26 +18,18 @@ type (
 // PartitionMapping is map of partition number(the beginning of the partition range in the 32-bit space) to server index
 type PartitionMapping map[PartitionRangeStart]ServerIndex
 
-// MarshalJSON implements the json.Marshaler interface for PartitionMapping
-func (pm PartitionMapping) MarshalJSON() ([]byte, error) {
+// MarshalToRawBytes marshalls PartitionMapping to raw bytes
+func MarshalToRawBytes(pm PartitionMapping) ([]byte, error) {
 	var compressedData bytes.Buffer
 
-	partitionServerList := lo.MapToSlice(pm, func(partition PartitionRangeStart, serverIdx ServerIndex) lo.Tuple2[PartitionRangeStart, ServerIndex] {
-		return lo.Tuple2[PartitionRangeStart, ServerIndex]{
-			A: partition,
-			B: serverIdx,
-		}
-	})
-	listLength := uint32(len(partitionServerList))
+	listLength := uint32(len(pm))
 	err := binary.Write(&compressedData, binary.BigEndian, listLength)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write list length: %w", err)
 	}
 
 	// Write each pair of integers to the compressed data buffer
-	for _, pair := range partitionServerList {
-		partition := uint32(pair.A)
-		serverIdx := uint16(pair.B)
+	for partition, serverIdx := range pm {
 		err := binary.Write(&compressedData, binary.BigEndian, partition)
 		if err != nil {
 			return nil, fmt.Errorf("failed to write partition range start: %w", err)
@@ -63,37 +53,22 @@ func (pm PartitionMapping) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
 	}
 
-	// Encode the compressed data as base64 to make it JSON-compatible
-	encoded := base64.StdEncoding.EncodeToString(compressedBuffer.Bytes())
-	// Return as a JSON string
-	return []byte(fmt.Sprintf(`"%s"`, encoded)), nil
+	return compressedBuffer.Bytes(), nil
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface for PartitionMapping
-func (pm *PartitionMapping) UnmarshalJSON(data []byte) error {
-	// Remove quotes around the base64 string
-	if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-		return fmt.Errorf("invalid JSON string format")
-	}
-	encodedStr := string(data[1 : len(data)-1]) // Remove leading and trailing quotes
-
-	// Decode the base64 string
-	compressedData, err := base64.StdEncoding.DecodeString(encodedStr)
+// UnmarshalToPartitionMapping unmarshalls raw bytes to PartitionMapping
+func UnmarshalToPartitionMapping(data []byte) (PartitionMapping, error) {
+	decompressed, err := decompressGzip(data)
 	if err != nil {
-		return fmt.Errorf("failed to decode base64 data: %w", err)
-	}
-	decompressed, err := decompressGzip(compressedData)
-	if err != nil {
-		return fmt.Errorf("failed to decompress data: %w", err)
+		return nil, fmt.Errorf("failed to decompress data: %w", err)
 	}
 
 	mapping, err := parseBinaryFormat(decompressed)
 	if err != nil {
-		return fmt.Errorf("failed to parse binary format: %w", err)
+		return nil, fmt.Errorf("failed to parse binary format: %w", err)
 	}
 
-	*pm = mapping
-	return nil
+	return mapping, nil
 }
 
 // Clone creates a copy of the PartitionMapping
