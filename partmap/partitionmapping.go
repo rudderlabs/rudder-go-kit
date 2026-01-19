@@ -48,6 +48,9 @@ func (pm *PartitionMapping) Unmarshal(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("creating gzip reader: %w", err)
 	}
+	defer func() {
+		_ = reader.Close()
+	}()
 	var listLength uint32
 	err = binary.Read(reader, binary.BigEndian, &listLength)
 	if err != nil {
