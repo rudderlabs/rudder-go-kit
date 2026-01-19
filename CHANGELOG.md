@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.70.1...v0.71.0) (2026-01-19)
+
+
+### Features
+
+* implement PartitionMapping type to use across services ([#1015](https://github.com/rudderlabs/rudder-go-kit/issues/1015)) ([e40b6a2](https://github.com/rudderlabs/rudder-go-kit/commit/e40b6a23140dc0f726834d1f7231ea45aa34e4cb))
+
 ## [0.70.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.70.0...v0.70.1) (2026-01-08)
 
 
