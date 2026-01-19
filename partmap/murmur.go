@@ -1,8 +1,6 @@
 package partmap
 
-import (
-	"github.com/twmb/murmur3"
-)
+import "github.com/twmb/murmur3"
 
 // Murmur3Partition32 computes the partition index and beginning of the partition range in a 32-bit space for a given key and number of partitions.
 //
