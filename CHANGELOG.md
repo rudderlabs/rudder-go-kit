@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.71.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.71.0...v0.71.1) (2026-02-04)
+
+
+### Miscellaneous
+
+* **deps:** bump actions/checkout from 4.3.0 to 6.0.1 ([#1006](https://github.com/rudderlabs/rudder-go-kit/issues/1006)) ([fad5455](https://github.com/rudderlabs/rudder-go-kit/commit/fad5455b743cc0e503a4fa5815a8f77817d297e7))
+* **deps:** bump actions/create-github-app-token from 2.1.4 to 2.2.1 ([#1017](https://github.com/rudderlabs/rudder-go-kit/issues/1017)) ([90e95df](https://github.com/rudderlabs/rudder-go-kit/commit/90e95dfefc6335991bdde7af2d9a9d41274c1947))
+* **deps:** bump actions/setup-go from 6.0.0 to 6.2.0 ([#1023](https://github.com/rudderlabs/rudder-go-kit/issues/1023)) ([1e4b224](https://github.com/rudderlabs/rudder-go-kit/commit/1e4b224ecf1f7d4886c22ee2ba5669fc5e2dd1aa))
+* **deps:** bump actions/stale from 10.1.0 to 10.1.1 ([#1009](https://github.com/rudderlabs/rudder-go-kit/issues/1009)) ([13df76e](https://github.com/rudderlabs/rudder-go-kit/commit/13df76e7ee1b8a1f8fa0be288955e6de43b5d755))
+* **deps:** bump codecov/codecov-action from 5.5.1 to 5.5.2 ([#1005](https://github.com/rudderlabs/rudder-go-kit/issues/1005)) ([f1d96a2](https://github.com/rudderlabs/rudder-go-kit/commit/f1d96a254c37fa397d87a7b89429cda34a949d25))
+* **deps:** bump golangci/golangci-lint-action from 8.0.0 to 9.2.0 ([#1007](https://github.com/rudderlabs/rudder-go-kit/issues/1007)) ([dfa821f](https://github.com/rudderlabs/rudder-go-kit/commit/dfa821f4275444928893256544fbd02402035535))
+* **deps:** bump google.golang.org/api from 0.264.0 to 0.265.0 in the frequent group ([#1021](https://github.com/rudderlabs/rudder-go-kit/issues/1021)) ([cb9fca7](https://github.com/rudderlabs/rudder-go-kit/commit/cb9fca7c9e907ece9804ca6768467bca57b1f0e8))
+* **deps:** bump step-security/harden-runner from 2.13.2 to 2.14.1 ([#1022](https://github.com/rudderlabs/rudder-go-kit/issues/1022)) ([24f77cf](https://github.com/rudderlabs/rudder-go-kit/commit/24f77cffb3b0109d52fcfc338b0049e4eb4e58d7))
+* **deps:** bump the all group across 1 directory with 32 updates ([#1018](https://github.com/rudderlabs/rudder-go-kit/issues/1018)) ([64b484d](https://github.com/rudderlabs/rudder-go-kit/commit/64b484d95166f99115d4e3fb8e25d2e9863fc791))
+* **deps:** bump the all group with 2 updates ([#1024](https://github.com/rudderlabs/rudder-go-kit/issues/1024)) ([f8e7cc3](https://github.com/rudderlabs/rudder-go-kit/commit/f8e7cc33508c27eb25f58490e8ce0b4298642059))
+* **deps:** bump the frequent group across 1 directory with 2 updates ([#970](https://github.com/rudderlabs/rudder-go-kit/issues/970)) ([6109e90](https://github.com/rudderlabs/rudder-go-kit/commit/6109e901ad08bf86c5f1de64769c35545ccbae60))
+* **deps:** bump the opentelemetry group with 9 updates ([#1019](https://github.com/rudderlabs/rudder-go-kit/issues/1019)) ([3a101ed](https://github.com/rudderlabs/rudder-go-kit/commit/3a101edc6935eebd37cab04a8f7f7e04a3a02cbe))
+
 ## [0.71.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.70.1...v0.71.0) (2026-01-19)
 
 
