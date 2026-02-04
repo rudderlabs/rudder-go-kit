@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -53,14 +53,18 @@ func TestSpanFromContext(t *testing.T) {
 	)
 	span.End()
 
+	var foundTrace *jaeger.Trace
+	var foundSpan *jaeger.Span
 	require.Eventually(t, func() bool {
 		traces, err := jaegerContainer.GetTraces(t.Name())
 		if err != nil || len(traces) == 0 {
 			return false
 		}
-		for _, tr := range traces {
-			for _, sp := range tr.Spans {
-				if sp.OperationName == "my-span-01" {
+		for i := range traces {
+			for j := range traces[i].Spans {
+				if traces[i].Spans[j].OperationName == "my-span-01" {
+					foundTrace = &traces[i]
+					foundSpan = &traces[i].Spans[j]
 					return true
 				}
 			}
@@ -68,35 +72,38 @@ func TestSpanFromContext(t *testing.T) {
 		return false
 	}, 10*time.Second, 100*time.Millisecond, "expected span 'my-span-01' not found in Jaeger")
 
-	// Verify the trace structure
-	traces, err := jaegerContainer.GetTraces(t.Name())
-	require.NoError(t, err)
-	require.NotEmpty(t, traces)
-
-	var foundSpan *jaeger.Span
-	for _, tr := range traces {
-		for i := range tr.Spans {
-			if tr.Spans[i].OperationName == "my-span-01" {
-				foundSpan = &tr.Spans[i]
-				break
-			}
-		}
-	}
 	require.NotNil(t, foundSpan, "span 'my-span-01' not found")
+	require.NotNil(t, foundTrace, "trace not found")
 
-	// Build tag map for easier checking
+	// Build tag map for easier checking of span-level attributes
 	tagMap := make(map[string]any)
 	for _, tag := range foundSpan.Tags {
 		tagMap[tag.Key] = tag.Value
 	}
 
-	spew.Dump(span)
-
-	// Verify span-level attributes (not resource attributes which are at process level)
+	// Verify span-level attributes
 	require.Equal(t, "value1", tagMap["key1"])
 	require.Equal(t, "ERROR", tagMap["otel.status_code"])
 	require.Equal(t, "some bad error", tagMap["otel.status_description"])
 	require.Equal(t, "my-tracer", tagMap["otel.scope.name"])
+	require.Equal(t, "1.2.3", tagMap["otel.scope.version"])
+
+	// Verify resource attributes from process info
+	process, ok := foundTrace.Processes[foundSpan.ProcessID]
+	require.True(t, ok, "process not found for span")
+	require.Equal(t, t.Name(), process.ServiceName)
+
+	// Build process tag map for resource attributes
+	// Note: service.name is in process.ServiceName (already checked above), not in tags
+	processTagMap := make(map[string]any)
+	for _, tag := range process.Tags {
+		processTagMap[tag.Key] = tag.Value
+	}
+	require.Equal(t, t.Name(), processTagMap["instanceName"])
+	require.Equal(t, "1.2.3", processTagMap["service.version"])
+	require.Equal(t, "go", processTagMap["telemetry.sdk.language"])
+	require.Equal(t, "opentelemetry", processTagMap["telemetry.sdk.name"])
+	require.Equal(t, otel.Version(), processTagMap["telemetry.sdk.version"])
 
 	// Check for the event/log
 	require.NotEmpty(t, foundSpan.Logs, "expected at least one log/event")

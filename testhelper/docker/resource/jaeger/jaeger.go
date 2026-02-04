@@ -85,8 +85,15 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner) (*Resource, error) {
 
 // Trace represents a Jaeger trace from the query API
 type Trace struct {
-	TraceID string `json:"traceID"`
-	Spans   []Span `json:"spans"`
+	TraceID   string             `json:"traceID"`
+	Spans     []Span             `json:"spans"`
+	Processes map[string]Process `json:"processes"`
+}
+
+// Process represents process info (resource attributes) in a Jaeger trace
+type Process struct {
+	ServiceName string `json:"serviceName"`
+	Tags        []Tag  `json:"tags"`
 }
 
 // Span represents a span in a Jaeger trace
@@ -94,6 +101,7 @@ type Span struct {
 	TraceID       string    `json:"traceID"`
 	SpanID        string    `json:"spanID"`
 	OperationName string    `json:"operationName"`
+	ProcessID     string    `json:"processID"`
 	References    []SpanRef `json:"references"`
 	Tags          []Tag     `json:"tags"`
 	Logs          []Log     `json:"logs"`
