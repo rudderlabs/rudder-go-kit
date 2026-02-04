@@ -187,13 +187,13 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 	// pulls an image first to make sure we don't have an old cached version locally,
 	// then it creates a container based on it and runs it
 	conf := &config{
-		secretsRepository: "rudderstack/secrets",
+		secretsRepository: "422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/secrets",
 		secretsTag:        "develop",
 
-		authRepository: "rudderstack/rudder-auth",
+		authRepository: "422074288268.dkr.ecr.us-east-1.amazonaws.com/rudderstack/rudder-auth",
 		authTag:        "develop",
 
-		configBackendRepository: "rudderstack/rudder-config-backend",
+		configBackendRepository: "rudderstack/rudder-config-backend", // TODO: push latest tag to ECR and use it here
 		configBackendTag:        "master",
 	}
 
