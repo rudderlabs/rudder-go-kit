@@ -3,6 +3,7 @@ package registry
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	dc "github.com/ory/dockertest/v3/docker"
 )
@@ -10,7 +11,7 @@ import (
 // ImagePath returns the full image path based on whether a registry mirror is configured
 func ImagePath(image string) string {
 	mirrorURL := os.Getenv("DOCKER_REGISTRY_MIRROR")
-	if mirrorURL != "" {
+	if mirrorURL != "" && len(strings.Split(image, "/")) != 3 {
 		return fmt.Sprintf("%s/%s", mirrorURL, image)
 	}
 	return image
