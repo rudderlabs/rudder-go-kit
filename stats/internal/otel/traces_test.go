@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"net/http"
 	"testing"
 	"time"
 
@@ -17,8 +16,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/zipkin"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/jaeger"
 )
 
 func TestTraces(t *testing.T) {
@@ -70,11 +68,11 @@ func TestTraces(t *testing.T) {
 	require.InDelta(t, 123, data.EndTime.Sub(data.StartTime).Milliseconds(), 50)
 }
 
-func TestZipkinIntegration(t *testing.T) {
+func TestOTLPHTTPIntegration(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkinContainer, err := zipkin.Setup(pool, t)
+	jaegerContainer, err := jaeger.Setup(pool, t)
 	require.NoError(t, err)
 
 	res, err := NewResource(t.Name(), "v1.2.3",
@@ -83,16 +81,16 @@ func TestZipkinIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		om        Manager
-		ctx       = context.Background()
-		zipkinURL = zipkinContainer.URL + "/api/v2/spans"
+		om  Manager
+		ctx = context.Background()
 	)
 	tp, _, err := om.Setup(ctx, res,
-		WithTracerProvider(zipkinURL,
+		WithTracerProvider(jaegerContainer.OTLPEndpoint,
 			WithTracingSamplingRate(1.0),
 			WithTracingSyncer(),
-			WithZipkin(),
+			WithOTLPHTTP(),
 		),
+		WithInsecure(),
 		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 			propagation.TraceContext{}, propagation.Baggage{},
 		)),
@@ -104,10 +102,18 @@ func TestZipkinIntegration(t *testing.T) {
 	time.Sleep(123 * time.Millisecond)
 	span.End()
 
-	zipkinSpansURL := zipkinURL + "?serviceName=" + t.Name()
-	getSpansReq, err := http.NewRequest(http.MethodGet, zipkinSpansURL, nil)
-	require.NoError(t, err)
-
-	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getSpansReq)
-	require.Equal(t, `["my-span"]`, spansBody)
+	require.Eventually(t, func() bool {
+		traces, err := jaegerContainer.GetTraces(t.Name())
+		if err != nil || len(traces) == 0 {
+			return false
+		}
+		for _, tr := range traces {
+			for _, sp := range tr.Spans {
+				if sp.OperationName == "my-span" {
+					return true
+				}
+			}
+		}
+		return false
+	}, 10*time.Second, 100*time.Millisecond, "expected span 'my-span' not found in Jaeger")
 }

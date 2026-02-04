@@ -84,11 +84,11 @@ func WithTracingSyncer() TracerProviderOption {
 	}
 }
 
-// WithZipkin allows to set the tracer provider to use Zipkin
-// This means that the SDK will send the data to Zipkin directly instead of using the collector.
-func WithZipkin() TracerProviderOption {
+// WithOTLPHTTP configures the tracer provider to use OTLP over HTTP instead of gRPC.
+// The endpoint should be in the format "host:port" (without scheme).
+func WithOTLPHTTP() TracerProviderOption {
 	return func(c *tracerProviderConfig) {
-		c.withZipkin = true
+		c.withOTLPHTTP = true
 	}
 }
 
