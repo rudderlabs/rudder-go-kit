@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	noopMetric "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
@@ -101,8 +101,8 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		if s.otelConfig.withTracingSyncer {
 			tpOpts = append(tpOpts, otel.WithTracingSyncer())
 		}
-		if s.otelConfig.withZipkin {
-			tpOpts = append(tpOpts, otel.WithZipkin())
+		if s.otelConfig.withOTLPHTTP {
+			tpOpts = append(tpOpts, otel.WithOTLPHTTP())
 		}
 		options = append(options,
 			otel.WithTracerProvider(s.otelConfig.tracesEndpoint, tpOpts...),
@@ -494,7 +494,7 @@ type otelStatsConfig struct {
 	tracesEndpoint           string
 	tracingSamplingRate      float64
 	withTracingSyncer        bool
-	withZipkin               bool
+	withOTLPHTTP             bool
 	metricsEndpoint          string
 	metricsExportInterval    time.Duration
 	enablePrometheusExporter bool

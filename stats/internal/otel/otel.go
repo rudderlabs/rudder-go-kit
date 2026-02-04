@@ -10,12 +10,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/exporters/zipkin"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel/prometheus"
@@ -62,10 +62,16 @@ func (m *Manager) Setup(
 			m.tp = sdktrace.NewTracerProvider(m.buildTracerProviderOptions(
 				&c, res, c.tracerProviderConfig.customSpanExporter)...,
 			)
-		} else if c.tracerProviderConfig.withZipkin {
-			traceExporter, err := zipkin.New(c.tracesEndpoint)
+		} else if c.tracerProviderConfig.withOTLPHTTP {
+			opts := []otlptracehttp.Option{
+				otlptracehttp.WithEndpoint(c.tracesEndpoint),
+			}
+			if c.withInsecure {
+				opts = append(opts, otlptracehttp.WithInsecure())
+			}
+			traceExporter, err := otlptracehttp.New(ctx, opts...)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to create zipkin trace exporter: %w", err)
+				return nil, nil, fmt.Errorf("creating otlp http trace exporter: %w", err)
 			}
 
 			m.tp = sdktrace.NewTracerProvider(m.buildTracerProviderOptions(&c, res, traceExporter)...)
@@ -286,7 +292,7 @@ type tracerProviderConfig struct {
 	textMapPropagator  propagation.TextMapPropagator
 	customSpanExporter SpanExporter
 	withSyncer         bool
-	withZipkin         bool
+	withOTLPHTTP       bool
 }
 
 type meterProviderConfig struct {

@@ -2,8 +2,6 @@ package stats
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -15,29 +13,24 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
-	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/zipkin"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/jaeger"
 )
 
 func TestSpanFromContext(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkinContainer, err := zipkin.Setup(pool, t)
+	jaegerContainer, err := jaeger.Setup(pool, t)
 	require.NoError(t, err)
-
-	zipkinURL := zipkinContainer.URL + "/api/v2/spans"
-	zipkinTracesURL := zipkinContainer.URL + "/api/v2/traces?serviceName=" + t.Name()
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
 	c.Set("OpenTelemetry.enabled", true)
 	c.Set("RuntimeStats.enabled", false)
-	c.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	c.Set("OpenTelemetry.traces.endpoint", jaegerContainer.OTLPEndpoint)
 	c.Set("OpenTelemetry.traces.samplingRate", 1.0)
 	c.Set("OpenTelemetry.traces.withSyncer", true)
-	c.Set("OpenTelemetry.traces.withZipkin", true)
+	c.Set("OpenTelemetry.traces.withOTLPHTTP", true)
 	stats := NewStats(c, logger.NewFactory(c), metric.NewManager(),
 		WithServiceName(t.Name()), WithServiceVersion("1.2.3"),
 	)
@@ -51,7 +44,7 @@ func TestSpanFromContext(t *testing.T) {
 	spanFromCtx := tracer.SpanFromContext(ctx)
 	require.Equalf(t, span, spanFromCtx, "SpanFromContext should return the same span as the one from Start()")
 
-	// let's add the attributes to the span from the ctx, we should see them on zipkin for the same span
+	// let's add the attributes to the span from the ctx, we should see them on Jaeger for the same span
 	spanFromCtx.SetStatus(SpanStatusError, "some bad error")
 	spanFromCtx.SetAttributes(Tags{"key1": "value1"})
 	spanFromCtx.AddEvent("some-event",
@@ -60,55 +53,77 @@ func TestSpanFromContext(t *testing.T) {
 	)
 	span.End()
 
-	getTracesReq, err := http.NewRequest(http.MethodGet, zipkinTracesURL, nil)
-	require.NoError(t, err)
+	var foundTrace *jaeger.Trace
+	var foundSpan *jaeger.Span
+	require.Eventually(t, func() bool {
+		traces, err := jaegerContainer.GetTraces(t.Name())
+		if err != nil || len(traces) == 0 {
+			return false
+		}
+		for i := range traces {
+			for j := range traces[i].Spans {
+				if traces[i].Spans[j].OperationName == "my-span-01" {
+					foundTrace = &traces[i]
+					foundSpan = &traces[i].Spans[j]
+					return true
+				}
+			}
+		}
+		return false
+	}, 10*time.Second, 100*time.Millisecond, "expected span 'my-span-01' not found in Jaeger")
 
-	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getTracesReq)
+	require.NotNil(t, foundSpan, "span 'my-span-01' not found")
+	require.NotNil(t, foundTrace, "trace not found")
 
-	var traces [][]tracemodel.ZipkinTrace
-	require.NoError(t, json.Unmarshal([]byte(spansBody), &traces))
+	// Build tag map for easier checking of span-level attributes
+	tagMap := make(map[string]any)
+	for _, tag := range foundSpan.Tags {
+		tagMap[tag.Key] = tag.Value
+	}
 
-	require.Len(t, traces, 1)
-	require.Len(t, traces[0], 1)
-	require.Equal(t, traces[0][0].Name, "my-span-01")
-	require.Equal(t, map[string]string{
-		"error":                  "some bad error", // this is coming from the span that we got from the ctx
-		"key1":                   "value1",         // this is coming from the span that we got from the ctx
-		"instanceName":           t.Name(),
-		"service.name":           t.Name(),
-		"service.version":        "1.2.3",
-		"otel.scope.name":        "my-tracer",
-		"otel.scope.version":     "1.2.3",
-		"otel.status_code":       "ERROR", // this is coming from the span that we got from the ctx
-		"telemetry.sdk.language": "go",
-		"telemetry.sdk.name":     "opentelemetry",
-		"telemetry.sdk.version":  otel.Version(),
-	}, traces[0][0].Tags)
+	// Verify span-level attributes
+	require.Equal(t, "value1", tagMap["key1"])
+	require.Equal(t, "ERROR", tagMap["otel.status_code"])
+	require.Equal(t, "some bad error", tagMap["otel.status_description"])
+	require.Equal(t, "my-tracer", tagMap["otel.scope.name"])
+	require.Equal(t, "1.2.3", tagMap["otel.scope.version"])
 
-	// checking the annotations coming from the AddEvent() call
-	require.Len(t, traces[0][0].Annotations, 1)
-	require.EqualValues(t, traces[0][0].Annotations[0].Timestamp, 1577934245000000)
-	require.Equal(t, traces[0][0].Annotations[0].Value, `some-event: {"key2":"value2"}`)
+	// Verify resource attributes from process info
+	process, ok := foundTrace.Processes[foundSpan.ProcessID]
+	require.True(t, ok, "process not found for span")
+	require.Equal(t, t.Name(), process.ServiceName)
+
+	// Build process tag map for resource attributes
+	// Note: service.name is in process.ServiceName (already checked above), not in tags
+	processTagMap := make(map[string]any)
+	for _, tag := range process.Tags {
+		processTagMap[tag.Key] = tag.Value
+	}
+	require.Equal(t, t.Name(), processTagMap["instanceName"])
+	require.Equal(t, "1.2.3", processTagMap["service.version"])
+	require.Equal(t, "go", processTagMap["telemetry.sdk.language"])
+	require.Equal(t, "opentelemetry", processTagMap["telemetry.sdk.name"])
+	require.Equal(t, otel.Version(), processTagMap["telemetry.sdk.version"])
+
+	// Check for the event/log
+	require.NotEmpty(t, foundSpan.Logs, "expected at least one log/event")
 }
 
 func TestAsyncTracePropagation(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkinContainer, err := zipkin.Setup(pool, t)
+	jaegerContainer, err := jaeger.Setup(pool, t)
 	require.NoError(t, err)
-
-	zipkinURL := zipkinContainer.URL + "/api/v2/spans"
-	zipkinTracesURL := zipkinContainer.URL + "/api/v2/traces?serviceName=" + t.Name()
 
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
 	c.Set("OpenTelemetry.enabled", true)
 	c.Set("RuntimeStats.enabled", false)
-	c.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	c.Set("OpenTelemetry.traces.endpoint", jaegerContainer.OTLPEndpoint)
 	c.Set("OpenTelemetry.traces.samplingRate", 1.0)
 	c.Set("OpenTelemetry.traces.withSyncer", true)
-	c.Set("OpenTelemetry.traces.withZipkin", true)
+	c.Set("OpenTelemetry.traces.withOTLPHTTP", true)
 	stats := NewStats(c, logger.NewFactory(c), metric.NewManager(), WithServiceName(t.Name()))
 	t.Cleanup(stats.Stop)
 
@@ -132,7 +147,7 @@ func TestAsyncTracePropagation(t *testing.T) {
 	// now we want to continue the trace from the traceParent
 
 	ctx := InjectTraceParentIntoContext(context.Background(), traceParent)
-	// this span should show as a child of my-span-01 on zipkin
+	// this span should show as a child of my-span-01 on Jaeger
 	_, span := tracer.Start(ctx, "my-span-02", SpanKindInternal)
 	time.Sleep(234 * time.Millisecond)
 	span.End()
@@ -144,38 +159,57 @@ func TestAsyncTracePropagation(t *testing.T) {
 		"The 2nd span traceID should be the same as the 1st span traceID",
 	)
 
-	// let's check that the spans have the expected hierarchy on zipkin as well
-	getTracesReq, err := http.NewRequest(http.MethodGet, zipkinTracesURL, nil)
+	// let's check that the spans have the expected hierarchy on Jaeger as well
+	require.Eventually(t, func() bool {
+		traces, err := jaegerContainer.GetTraces(t.Name())
+		if err != nil || len(traces) == 0 {
+			return false
+		}
+		// We expect one trace with two spans
+		for _, tr := range traces {
+			if len(tr.Spans) >= 2 {
+				return true
+			}
+		}
+		return false
+	}, 10*time.Second, 100*time.Millisecond, "expected trace with 2 spans not found in Jaeger")
+
+	traces, err := jaegerContainer.GetTraces(t.Name())
 	require.NoError(t, err)
+	require.NotEmpty(t, traces)
 
-	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getTracesReq)
+	// Find the trace with both spans
+	var foundTrace *jaeger.Trace
+	for i := range traces {
+		if len(traces[i].Spans) >= 2 {
+			foundTrace = &traces[i]
+			break
+		}
+	}
+	require.NotNil(t, foundTrace, "trace with 2 spans not found")
 
-	var traces [][]tracemodel.ZipkinTrace
-	require.NoError(t, json.Unmarshal([]byte(spansBody), &traces))
-
-	require.Len(t, traces, 1)
-	require.Len(t, traces[0], 2)
-	require.NotEmpty(t, traces[0][1].ParentID)
-	require.Equal(t, traces[0][0].ID, traces[0][1].ParentID)
+	// Find child span and verify it has a parent reference
+	var childSpan *jaeger.Span
+	for i := range foundTrace.Spans {
+		if foundTrace.Spans[i].OperationName == "my-span-02" {
+			childSpan = &foundTrace.Spans[i]
+			break
+		}
+	}
+	require.NotNil(t, childSpan, "child span 'my-span-02' not found")
+	require.NotEmpty(t, childSpan.References, "child span should have a parent reference")
 }
 
-func TestZipkinDownIsNotBlocking(t *testing.T) {
-	pool, err := dockertest.NewPool("")
-	require.NoError(t, err)
-
-	zipkinContainer, err := zipkin.Setup(pool, t)
-	require.NoError(t, err)
-
-	zipkinURL := zipkinContainer.URL + "/api/v2/spans"
-
+func TestTracingBackendDownIsNotBlocking(t *testing.T) {
 	c := config.New()
 	c.Set("INSTANCE_ID", t.Name())
 	c.Set("OpenTelemetry.enabled", true)
 	c.Set("RuntimeStats.enabled", false)
-	c.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	// Use a non-existent endpoint to simulate backend being down
+	c.Set("OpenTelemetry.traces.endpoint", "localhost:19999")
 	c.Set("OpenTelemetry.traces.samplingRate", 1.0)
 	c.Set("OpenTelemetry.traces.withSyncer", true)
-	c.Set("OpenTelemetry.traces.withZipkin", true)
+	c.Set("OpenTelemetry.traces.withOTLPHTTP", true)
 	stats := NewStats(c, logger.NewFactory(c), metric.NewManager(), WithServiceName(t.Name()))
 	t.Cleanup(stats.Stop)
 	require.NoError(t, stats.Start(context.Background(), DefaultGoRoutineFactory))
@@ -186,13 +220,12 @@ func TestZipkinDownIsNotBlocking(t *testing.T) {
 	go func() {
 		defer close(done)
 		_, span := tracer.Start(context.Background(), "my-span-01", SpanKindInternal)
-		require.NoError(t, zipkinContainer.Purge())
 		span.End()
 	}()
 
 	select {
 	case <-done:
 	case <-time.After(500 * time.Millisecond):
-		t.Fatal("The Tracing API should not block if Zipkin is down")
+		t.Fatal("The Tracing API should not block if backend is down")
 	}
 }

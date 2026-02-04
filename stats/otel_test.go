@@ -34,9 +34,8 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
 	statsTest "github.com/rudderlabs/rudder-go-kit/stats/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/assert"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/zipkin"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/jaeger"
 )
 
 const (
@@ -1039,23 +1038,21 @@ func TestNoopTracingNoPanics(t *testing.T) {
 	span.End()
 }
 
-func TestZipkin(t *testing.T) {
+func TestOTLPHTTP(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	zipkinContainer, err := zipkin.Setup(pool, t)
+	jaegerContainer, err := jaeger.Setup(pool, t)
 	require.NoError(t, err)
-
-	zipkinURL := zipkinContainer.URL + "/api/v2/spans"
 
 	conf := config.New()
 	conf.Set("INSTANCE_ID", t.Name())
 	conf.Set("OpenTelemetry.enabled", true)
 	conf.Set("RuntimeStats.enabled", false)
-	conf.Set("OpenTelemetry.traces.endpoint", zipkinURL)
+	conf.Set("OpenTelemetry.traces.endpoint", jaegerContainer.OTLPEndpoint)
 	conf.Set("OpenTelemetry.traces.samplingRate", 1.0)
 	conf.Set("OpenTelemetry.traces.withSyncer", true)
-	conf.Set("OpenTelemetry.traces.withZipkin", true)
+	conf.Set("OpenTelemetry.traces.withOTLPHTTP", true)
 	l := logger.NewFactory(conf)
 	m := metric.NewManager()
 	s := NewStats(conf, l, m, WithServiceName(t.Name()))
@@ -1074,12 +1071,20 @@ func TestZipkin(t *testing.T) {
 	time.Sleep(123 * time.Millisecond)
 	span.End()
 
-	zipkinSpansURL := zipkinURL + "?serviceName=" + t.Name()
-	getSpansReq, err := http.NewRequest(http.MethodGet, zipkinSpansURL, nil)
-	require.NoError(t, err)
-
-	spansBody := assert.RequireEventuallyStatusCode(t, http.StatusOK, getSpansReq)
-	require.Equal(t, `["my-span"]`, spansBody)
+	require.Eventually(t, func() bool {
+		traces, err := jaegerContainer.GetTraces(t.Name())
+		if err != nil || len(traces) == 0 {
+			return false
+		}
+		for _, tr := range traces {
+			for _, sp := range tr.Spans {
+				if sp.OperationName == "my-span" {
+					return true
+				}
+			}
+		}
+		return false
+	}, 10*time.Second, 100*time.Millisecond, "expected span 'my-span' not found in Jaeger")
 }
 
 func TestInvalidInstrument(t *testing.T) {
