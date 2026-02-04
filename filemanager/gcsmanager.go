@@ -185,7 +185,8 @@ func (m *GcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 		if err := googleutil.CompatibleGoogleCredentialsJSON([]byte(m.config.Credentials)); err != nil {
 			return m.client, err
 		}
-		options = append(options, option.WithCredentialsJSON([]byte(m.config.Credentials)))
+		// TODO: switch to WithAuthCredentialsJSON once we figure out a way to resolve the credentials type
+		options = append(options, option.WithCredentialsJSON([]byte(m.config.Credentials))) // nolint: staticcheck
 	}
 	if m.config.JSONReads {
 		options = append(options, storage.WithJSONReads())
