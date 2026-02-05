@@ -1,0 +1,35 @@
+package sync
+
+import (
+	"fmt"
+	"time"
+)
+
+// DoWithTimeout runs the given task function and enforces a timeout.
+// If the task does not complete within the specified duration, it returns an error. Dangling goroutines are not killed.
+// If the task completes in time, it returns nil.
+func DoWithTimeout(task func(), timeout time.Duration) error {
+	return DoErrWithTimeout(func() error {
+		task()
+		return nil
+	}, timeout)
+}
+
+// DoErrWithTimeout runs the given task function and enforces a timeout.
+// If the task does not complete within the specified duration, it returns an error. Dangling goroutines are not killed.
+// If the task completes in time, it returns the error returned by the task function (which may be nil).
+func DoErrWithTimeout(task func() error, timeout time.Duration) error {
+	done := make(chan struct{})
+	var taskErr error
+	go func() {
+		taskErr = task()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return taskErr
+	case <-time.After(timeout):
+		return fmt.Errorf("task timed out after %s", timeout)
+	}
+}
