@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -20,8 +21,7 @@ func TestDoWithTimeout(t *testing.T) {
 		err := DoWithTimeout(func() {
 			time.Sleep(time.Second)
 		}, 10*time.Millisecond)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "task timed out after")
+		require.ErrorIs(t, err, ErrTimeout)
 	})
 }
 
@@ -47,7 +47,15 @@ func TestDoErrWithTimeout(t *testing.T) {
 			time.Sleep(time.Second)
 			return nil
 		}, 10*time.Millisecond)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "task timed out after")
+		require.ErrorIs(t, err, ErrTimeout)
+	})
+
+	t.Run("task error is not a timeout", func(t *testing.T) {
+		taskErr := fmt.Errorf("task failed")
+		err := DoErrWithTimeout(func() error {
+			return taskErr
+		}, time.Second)
+		require.ErrorIs(t, err, taskErr)
+		require.False(t, errors.Is(err, ErrTimeout))
 	})
 }
