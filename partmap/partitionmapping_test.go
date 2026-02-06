@@ -1,6 +1,7 @@
 package partmap_test
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,10 +12,10 @@ import (
 func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 	t.Run("basic marshal/unmarshal roundtrip", func(t *testing.T) {
 		original := partmap.PartitionMapping{
-			0:     0,  // PartitionRangeStart 0 -> ServerIndex 0
-			100:   1,  // PartitionRangeStart 100 -> ServerIndex 1
-			2000:  5,  // PartitionRangeStart 2000 -> ServerIndex 5
-			40000: 10, // PartitionRangeStart 40000 -> ServerIndex 10
+			0:     0,  // PartitionRangeStart 0 -> NodeIndex 0
+			100:   1,  // PartitionRangeStart 100 -> NodeIndex 1
+			2000:  5,  // PartitionRangeStart 2000 -> NodeIndex 5
+			40000: 10, // PartitionRangeStart 40000 -> NodeIndex 10
 		}
 
 		data, err := original.Marshal()
@@ -58,7 +59,7 @@ func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 
 	t.Run("large numbers", func(t *testing.T) {
 		original := partmap.PartitionMapping{
-			partmap.PartitionRangeStart(^uint32(0)): partmap.ServerIndex(^uint16(0)), // Max values
+			partmap.PartitionRangeStart(^uint32(0)): partmap.NodeIndex(^uint16(0)), // Max values
 		}
 
 		data, err := original.Marshal()
@@ -117,5 +118,113 @@ func TestPartitionMappingMarshalUnmarshalJSON(t *testing.T) {
 		}
 
 		require.Equal(t, expected, unmarshaled)
+	})
+}
+
+func TestPartitionMappingToPartitionIndexMapping(t *testing.T) {
+	for _, numPartitions := range []uint32{1, 2, 4, 8, 16} {
+		t.Run("numPartitions="+strconv.Itoa(int(numPartitions)), func(t *testing.T) {
+			window := uint32((1 << 32) / int(numPartitions))
+			partitionMapping := partmap.PartitionMapping{}
+			for partitionIdx := range numPartitions {
+				partitionRangeStart := partitionIdx * window
+				partitionMapping[partmap.PartitionRangeStart(partitionRangeStart)] = partmap.NodeIndex(partitionIdx)
+			}
+			partitionIndexMapping, err := partitionMapping.ToPartitionIndexMapping()
+			require.NoError(t, err)
+			require.Len(t, partitionIndexMapping, int(numPartitions))
+			for partitionIdx := range numPartitions {
+				nodeIdx, exists := partitionIndexMapping[partmap.PartitionIndex(partitionIdx)]
+				require.True(t, exists, "partition index %d should exist in the mapping", partitionIdx)
+				require.Equal(t, partmap.NodeIndex(partitionIdx), nodeIdx, "node index for partition index %d should be %d", partitionIdx, partitionIdx)
+			}
+		})
+	}
+
+	t.Run("invalid ranges", func(t *testing.T) {
+		// prepare a map with invalid ranges
+		partitionMapping := partmap.PartitionMapping{
+			0:   0,
+			100: 1,
+		}
+		_, err := partitionMapping.ToPartitionIndexMapping()
+		require.Error(t, err)
+	})
+
+	t.Run("invalid number of partitions", func(t *testing.T) {
+		partitionMapping := partmap.PartitionMapping{
+			0: 0,
+			1: 1,
+		}
+		_, err := partitionMapping.ToPartitionIndexMappingWithNumPartitions(0)
+		require.Error(t, err)
+		_, err = partitionMapping.ToPartitionIndexMappingWithNumPartitions(1)
+		require.Error(t, err)
+	})
+}
+
+func TestPartitionIndexMappingToPartitionMapping(t *testing.T) {
+	for _, numPartitions := range []uint32{1, 2, 4, 8, 16} {
+		t.Run("numPartitions="+strconv.Itoa(int(numPartitions)), func(t *testing.T) {
+			window := uint32((1 << 32) / int(numPartitions))
+			partitionIndexMapping := partmap.PartitionIndexMapping{}
+			for partitionIdx := range numPartitions {
+				partitionIndexMapping[partmap.PartitionIndex(partitionIdx)] = partmap.NodeIndex(partitionIdx)
+			}
+			partitionMapping, err := partitionIndexMapping.ToPartitionMappingWithNumPartitions(numPartitions)
+			require.NoError(t, err)
+			require.Len(t, partitionMapping, int(numPartitions))
+			for partitionIdx := range numPartitions {
+				rangeStart := partmap.PartitionRangeStart(partitionIdx * window)
+				nodeIdx, exists := partitionMapping[rangeStart]
+				require.True(t, exists, "partition range start %d should exist in the mapping", rangeStart)
+				require.Equal(t, partmap.NodeIndex(partitionIdx), nodeIdx, "node index for partition range start %d should be %d", rangeStart, partitionIdx)
+			}
+		})
+	}
+
+	t.Run("roundtrip with ToPartitionIndexMappingWithNumPartitions", func(t *testing.T) {
+		for _, numPartitions := range []uint32{2, 4, 8, 16} {
+			t.Run("numPartitions="+strconv.Itoa(int(numPartitions)), func(t *testing.T) {
+				original := partmap.PartitionIndexMapping{}
+				for partitionIdx := range numPartitions {
+					original[partmap.PartitionIndex(partitionIdx)] = partmap.NodeIndex(partitionIdx % 3)
+				}
+				partitionMapping, err := original.ToPartitionMappingWithNumPartitions(numPartitions)
+				require.NoError(t, err)
+
+				result, err := partitionMapping.ToPartitionIndexMappingWithNumPartitions(numPartitions)
+				require.NoError(t, err)
+				require.Equal(t, original, result)
+			})
+		}
+	})
+
+	t.Run("invalid number of partitions", func(t *testing.T) {
+		partitionIndexMapping := partmap.PartitionIndexMapping{
+			0: 0,
+			1: 1,
+		}
+		_, err := partitionIndexMapping.ToPartitionMappingWithNumPartitions(0)
+		require.Error(t, err)
+	})
+
+	t.Run("numPartitions=1 with multiple entries", func(t *testing.T) {
+		partitionIndexMapping := partmap.PartitionIndexMapping{
+			0: 0,
+			1: 1,
+		}
+		_, err := partitionIndexMapping.ToPartitionMappingWithNumPartitions(1)
+		require.Error(t, err)
+	})
+
+	t.Run("numPartitions=1 with single entry", func(t *testing.T) {
+		partitionIndexMapping := partmap.PartitionIndexMapping{
+			0: 5,
+		}
+		partitionMapping, err := partitionIndexMapping.ToPartitionMappingWithNumPartitions(1)
+		require.NoError(t, err)
+		require.Len(t, partitionMapping, 1)
+		require.Equal(t, partmap.NodeIndex(5), partitionMapping[0])
 	})
 }
