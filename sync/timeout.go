@@ -9,8 +9,14 @@ import (
 var ErrTimeout = errors.New("task timed out")
 
 // DoWithTimeout runs the given task function and enforces a timeout.
-// If the task does not complete within the specified duration, it returns an error. Dangling goroutines are not killed.
+// If the task does not complete within the specified duration, it returns [ErrTimeout].
 // If the task completes in time, it returns nil.
+//
+// # Warning
+//
+// On timeout the goroutine running the task is not cancelled or killed;
+// callers must ensure the task eventually returns to avoid goroutine leaks.
+
 func DoWithTimeout(task func(), timeout time.Duration) error {
 	return DoErrWithTimeout(func() error {
 		task()
