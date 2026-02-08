@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/goleak"
 
+	"github.com/google/uuid"
 	"github.com/ory/dockertest/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/etcd"
@@ -40,6 +41,10 @@ func (m *MockEtcdClient) Get(_ context.Context, _ string, _ ...clientv3.OpOption
 
 func (m *MockEtcdClient) Watch(_ context.Context, key string, _ ...clientv3.OpOption) clientv3.WatchChan {
 	return m.watchChans[key]
+}
+
+func (m *MockEtcdClient) Txn(_ context.Context) clientv3.Txn {
+	return nil
 }
 
 // Constructor tests
@@ -2384,4 +2389,277 @@ func TestErrorChannelClosureCtxCancel(t *testing.T) {
 	}()
 
 	cancel()
+}
+
+func TestTxnGate(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	resource, err := etcd.Setup(pool, t)
+	require.NoError(t, err)
+
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	t.Run("success", func(t *testing.T) {
+		prefix := "/" + uuid.New().String() + "/"
+		gateKey := "/" + uuid.New().String()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		_, err := resource.Client.Put(ctx, gateKey, "true")
+		require.NoError(t, err)
+
+		watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, prefix).
+			WithPrefix().
+			WithTxnGate(func(TestData) []clientv3.Cmp {
+				return []clientv3.Cmp{clientv3.Compare(clientv3.Version(gateKey), ">", 0)}
+			}).
+			Build()
+		require.NoError(t, err)
+
+		initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
+		defer func() {
+			cancelWatch()
+			select {
+			case _, ok := <-eventCh:
+				require.False(t, ok, "Expected channel to be closed")
+			case <-time.After(2 * time.Second):
+				t.Fatal("Channel did not close in time")
+			}
+		}()
+
+		require.NoError(t, initialEvents.Error)
+
+		testData := TestData{ID: 1, Name: "gated"}
+		dataBytes, err := jsonrs.Marshal(testData)
+		require.NoError(t, err)
+
+		_, err = resource.Client.Put(ctx, prefix+"key1", string(dataBytes))
+		require.NoError(t, err)
+
+		select {
+		case eventOrErr := <-eventCh:
+			require.NoError(t, eventOrErr.Error)
+			require.NotNil(t, eventOrErr.Event)
+			require.Equal(t, prefix+"key1", eventOrErr.Event.Key)
+			require.Equal(t, testData, eventOrErr.Event.Value)
+			require.Equal(t, etcdwatcher.PutEvent, eventOrErr.Event.Type)
+		case <-time.After(5 * time.Second):
+			t.Fatal("Did not receive expected PUT event")
+		}
+	})
+
+	t.Run("condition not met", func(t *testing.T) {
+		prefix := "/" + uuid.New().String() + "/"
+		gateKey := "/" + uuid.New().String()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Do NOT create the gate key - txn condition will fail
+
+		watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, prefix).
+			WithPrefix().
+			WithTxnGate(func(TestData) []clientv3.Cmp {
+				return []clientv3.Cmp{clientv3.Compare(clientv3.Version(gateKey), ">", 0)}
+			}).
+			Build()
+		require.NoError(t, err)
+
+		initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
+		defer func() {
+			cancelWatch()
+			select {
+			case _, ok := <-eventCh:
+				require.False(t, ok, "Expected channel to be closed")
+			case <-time.After(2 * time.Second):
+				t.Fatal("Channel did not close in time")
+			}
+		}()
+
+		require.NoError(t, initialEvents.Error)
+
+		testData := TestData{ID: 1, Name: "should-be-filtered"}
+		dataBytes, err := jsonrs.Marshal(testData)
+		require.NoError(t, err)
+
+		_, err = resource.Client.Put(ctx, prefix+"key1", string(dataBytes))
+		require.NoError(t, err)
+
+		// Verify no event arrives (gate key doesn't exist, so txn gate filters it)
+		select {
+		case eventOrErr := <-eventCh:
+			t.Fatalf("unexpected event: key=%s err=%v", eventOrErr.Event.Key, eventOrErr.Error)
+		case <-time.After(1 * time.Second):
+			// Expected - no event because gate key doesn't exist
+		}
+
+		// Now create the gate key and put key2 that should pass
+		_, err = resource.Client.Put(ctx, gateKey, "true")
+		require.NoError(t, err)
+
+		testData2 := TestData{ID: 2, Name: "should-pass"}
+		dataBytes2, err := jsonrs.Marshal(testData2)
+		require.NoError(t, err)
+
+		_, err = resource.Client.Put(ctx, prefix+"key2", string(dataBytes2))
+		require.NoError(t, err)
+
+		select {
+		case eventOrErr := <-eventCh:
+			require.NoError(t, eventOrErr.Error)
+			require.NotNil(t, eventOrErr.Event)
+			require.Equal(t, prefix+"key2", eventOrErr.Event.Key)
+			require.Equal(t, testData2, eventOrErr.Event.Value)
+		case <-time.After(5 * time.Second):
+			t.Fatal("Did not receive expected PUT event for key2")
+		}
+	})
+
+	t.Run("key deleted after event", func(t *testing.T) {
+		prefix := "/" + uuid.New().String() + "/"
+		gateKey := "/" + uuid.New().String()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		_, err := resource.Client.Put(ctx, gateKey, "true")
+		require.NoError(t, err)
+
+		// Use a filter that deletes key1 on its first invocation, ensuring the key
+		// is gone by the time the txn gate re-fetches it.
+		deleteErr := make(chan error, 1)
+		deleted := false
+		key1 := prefix + "key1"
+		watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, prefix).
+			WithPrefix().
+			WithWatchEventType(etcdwatcher.PutWatchEventType).
+			WithFilter(func(e *etcdwatcher.Event[TestData]) bool {
+				if !deleted && e.Key == key1 {
+					deleted = true
+					_, delErr := resource.Client.Delete(context.Background(), key1)
+					deleteErr <- delErr
+				}
+				return true
+			}).
+			WithTxnGate(func(TestData) []clientv3.Cmp {
+				return []clientv3.Cmp{clientv3.Compare(clientv3.Version(gateKey), ">", 0)}
+			}).
+			Build()
+		require.NoError(t, err)
+
+		initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
+		defer func() {
+			cancelWatch()
+			select {
+			case _, ok := <-eventCh:
+				require.False(t, ok, "Expected channel to be closed")
+			case <-time.After(2 * time.Second):
+				t.Fatal("Channel did not close in time")
+			}
+		}()
+
+		require.NoError(t, initialEvents.Error)
+
+		testData := TestData{ID: 1, Name: "ephemeral"}
+		dataBytes, err := jsonrs.Marshal(testData)
+		require.NoError(t, err)
+
+		_, err = resource.Client.Put(ctx, key1, string(dataBytes))
+		require.NoError(t, err)
+
+		// Wait for the filter to delete key1 and verify the delete succeeded
+		select {
+		case delErr := <-deleteErr:
+			require.NoError(t, delErr, "delete of key1 in filter should succeed")
+		case <-time.After(5 * time.Second):
+			t.Fatal("filter did not process key1")
+		}
+
+		// Put key2 which should pass through normally
+		testData2 := TestData{ID: 2, Name: "persistent"}
+		dataBytes2, err := jsonrs.Marshal(testData2)
+		require.NoError(t, err)
+
+		_, err = resource.Client.Put(ctx, prefix+"key2", string(dataBytes2))
+		require.NoError(t, err)
+
+		select {
+		case eventOrErr := <-eventCh:
+			require.NoError(t, eventOrErr.Error)
+			require.NotNil(t, eventOrErr.Event)
+			require.Equal(t, prefix+"key2", eventOrErr.Event.Key)
+			require.Equal(t, testData2, eventOrErr.Event.Value)
+		case <-time.After(5 * time.Second):
+			t.Fatal("Did not receive expected PUT event for key2")
+		}
+	})
+
+	t.Run("re-applies filter with updated value", func(t *testing.T) {
+		prefix := "/" + uuid.New().String() + "/"
+		gateKey := "/" + uuid.New().String()
+		key1 := prefix + "key1"
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		_, err := resource.Client.Put(ctx, gateKey, "true")
+		require.NoError(t, err)
+
+		updatedData := TestData{ID: 20, Name: "updated-by-filter"}
+		updatedBytes, err := jsonrs.Marshal(updatedData)
+		require.NoError(t, err)
+
+		updated := false
+		watcher, err := etcdwatcher.NewBuilder[TestData](resource.Client, prefix).
+			WithPrefix().
+			WithFilter(func(e *etcdwatcher.Event[TestData]) bool {
+				if !updated && e.Key == key1 {
+					updated = true
+					// Update the value during the first filter invocation.
+					// The txn gate will re-fetch and the second filter call will see the new value.
+					_, _ = resource.Client.Put(context.Background(), key1, string(updatedBytes))
+				}
+				return e.Value.ID > 5
+			}).
+			WithTxnGate(func(TestData) []clientv3.Cmp {
+				return []clientv3.Cmp{clientv3.Compare(clientv3.Version(gateKey), ">", 0)}
+			}).
+			Build()
+		require.NoError(t, err)
+
+		initialEvents, eventCh, cancelWatch := watcher.LoadAndWatch(ctx)
+		defer func() {
+			cancelWatch()
+			select {
+			case _, ok := <-eventCh:
+				require.False(t, ok, "Expected channel to be closed")
+			case <-time.After(2 * time.Second):
+				t.Fatal("Channel did not close in time")
+			}
+		}()
+
+		require.NoError(t, initialEvents.Error)
+
+		// Put key1 with ID=10 (passes initial filter).
+		// The filter will update it to ID=20. The txn gate re-fetches and
+		// the second filter invocation should see ID=20.
+		testData := TestData{ID: 10, Name: "original"}
+		dataBytes, err := jsonrs.Marshal(testData)
+		require.NoError(t, err)
+
+		_, err = resource.Client.Put(ctx, key1, string(dataBytes))
+		require.NoError(t, err)
+
+		select {
+		case eventOrErr := <-eventCh:
+			require.NoError(t, eventOrErr.Error)
+			require.NotNil(t, eventOrErr.Event)
+			require.Equal(t, key1, eventOrErr.Event.Key)
+			require.Equal(t, updatedData, eventOrErr.Event.Value, "txn gate should re-fetch the updated value")
+		case <-time.After(5 * time.Second):
+			t.Fatal("Did not receive expected PUT event")
+		}
+	})
 }
