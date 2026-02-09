@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.72.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.71.1...v0.72.0) (2026-02-09)
+
+
+### Features
+
+* add timeout enforcement for tasks ([#1026](https://github.com/rudderlabs/rudder-go-kit/issues/1026)) ([ec74790](https://github.com/rudderlabs/rudder-go-kit/commit/ec74790297d229a435c326200f1a1fb494c7ea75))
+
+
+### Miscellaneous
+
+* etcdwatcher txn gate option ([#1030](https://github.com/rudderlabs/rudder-go-kit/issues/1030)) ([da6c908](https://github.com/rudderlabs/rudder-go-kit/commit/da6c90813f2a3bb1d090bcfc9e65074d3beea5d2))
+
 ## [0.71.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.71.0...v0.71.1) (2026-02-04)
 
 
