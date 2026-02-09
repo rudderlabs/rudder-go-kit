@@ -16,6 +16,7 @@ import (
 type etcdClient interface {
 	Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error)
 	Watch(ctx context.Context, key string, opts ...clientv3.OpOption) clientv3.WatchChan
+	Txn(ctx context.Context) clientv3.Txn
 }
 
 // EventType represents the type of event that occurred.
@@ -52,6 +53,8 @@ type Event[T any] struct {
 	Value T
 	// Revision is the etcd revision of the event.
 	Revision int64
+	// Version is the version of the key. A deletion resets the version to zero.
+	Version int64
 }
 
 type EventOrError[T any] struct {
@@ -87,6 +90,8 @@ type config[T any] struct {
 	unmarshalValue func([]byte) (T, error)
 	// isPrefix indicates whether the watcher is watching a prefix or a single key.
 	isPrefix bool
+	// txnGate is an optional function that returns conditions that must be met for a PUT event to pass through.
+	txnGate func(T) []clientv3.Cmp
 }
 
 // Watcher provides methods for watching etcd keys.
@@ -183,6 +188,7 @@ func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]*Event[T], int64, e
 			Key:      string(kv.Key),
 			Type:     PutEvent,
 			Revision: kv.ModRevision,
+			Version:  kv.Version,
 		}
 
 		event.Value, err = w.config.unmarshalValue(kv.Value)
@@ -193,6 +199,17 @@ func (w *Watcher[T]) loadInitialData(ctx context.Context) ([]*Event[T], int64, e
 		// Apply filter if present
 		if w.config.filter != nil && !w.config.filter(event) {
 			continue
+		}
+
+		// Apply txn gate if configured
+		if w.config.txnGate != nil {
+			event, err = w.applyTxnGate(ctx, event)
+			if err != nil {
+				return nil, 0, err
+			}
+			if event == nil {
+				continue
+			}
 		}
 
 		events = append(events, event)
@@ -257,6 +274,7 @@ func (w *Watcher[T]) watch(ctx context.Context, initialEvents []*Event[T], event
 				Key:      string(ev.Kv.Key),
 				Type:     eventType,
 				Revision: ev.Kv.ModRevision,
+				Version:  ev.Kv.Version,
 			}
 
 			// For PUT events, unmarshal the value
@@ -274,6 +292,19 @@ func (w *Watcher[T]) watch(ctx context.Context, initialEvents []*Event[T], event
 				continue
 			}
 
+			// Apply txn gate if configured (only for PUT events)
+			if eventType == PutEvent && w.config.txnGate != nil {
+				var err error
+				event, err = w.applyTxnGate(ctx, event)
+				if err != nil {
+					eventSender.Send(EventOrError[T]{Error: err})
+					return
+				}
+				if event == nil {
+					continue
+				}
+			}
+
 			// Handle OnceMode - skip already emitted keys
 			if w.config.mode == OnceMode {
 				if _, emitted := emittedKeys[event.Key]; emitted {
@@ -286,6 +317,53 @@ func (w *Watcher[T]) watch(ctx context.Context, initialEvents []*Event[T], event
 			eventSender.Send(EventOrError[T]{Event: event})
 		}
 	}
+}
+
+// applyTxnGate executes the transactional gate for a PUT event.
+// It returns the updated event if the transaction succeeds and the event passes filtering,
+// nil if the event should be skipped, or an error if something went wrong.
+func (w *Watcher[T]) applyTxnGate(ctx context.Context, event *Event[T]) (*Event[T], error) {
+	cmps := w.config.txnGate(event.Value)
+	if len(cmps) == 0 {
+		return event, nil
+	}
+
+	txnResp, err := w.client.Txn(ctx).
+		If(cmps...).
+		Then(clientv3.OpGet(event.Key)).
+		Commit()
+	if err != nil {
+		return nil, fmt.Errorf("executing txn gate: %w", err)
+	}
+
+	if !txnResp.Succeeded { // Transaction conditions not met, skip this event
+		return nil, nil // nolint: nilnil
+	}
+
+	rangeResp := txnResp.Responses[0].GetResponseRange()
+	if len(rangeResp.Kvs) == 0 {
+		return nil, nil // nolint: nilnil
+	}
+
+	kv := rangeResp.Kvs[0]
+	value, err := w.config.unmarshalValue(kv.Value)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshalling txn gate value: %w", err)
+	}
+
+	event = &Event[T]{
+		Key:      string(kv.Key),
+		Type:     PutEvent,
+		Value:    value,
+		Revision: kv.ModRevision,
+		Version:  kv.Version,
+	}
+
+	if w.config.filter != nil && !w.config.filter(event) {
+		return nil, nil // nolint: nilnil
+	}
+
+	return event, nil
 }
 
 func defaultUnmarshalValue[T any](data []byte) (T, error) {
@@ -345,6 +423,16 @@ func (b *Builder[T]) WithWatchMode(mode WatchMode) *Builder[T] {
 // Only events for which the filter function returns false will be filtered.
 func (b *Builder[T]) WithFilter(filter func(*Event[T]) bool) *Builder[T] {
 	b.config.filter = filter
+	return b
+}
+
+// WithTxnGate configures the watcher to use a transactional gate for PUT events.
+// After a PUT event passes filtering, the watcher calls the provided function with the event's
+// value to obtain If conditions, then executes an etcd Txn with those conditions (if any) and a Then
+// that re-fetches the key. If the transaction's conditions aren't met, the event is silently
+// filtered out. If successful, the re-fetched value is unmarshalled and re-filtered.
+func (b *Builder[T]) WithTxnGate(txnGate func(T) []clientv3.Cmp) *Builder[T] {
+	b.config.txnGate = txnGate
 	return b
 }
 
