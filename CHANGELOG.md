@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.72.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.0...v0.72.1) (2026-02-10)
+
+
+### Miscellaneous
+
+* **deps:** bump step-security/harden-runner from 2.14.1 to 2.14.2 ([#1033](https://github.com/rudderlabs/rudder-go-kit/issues/1033)) ([0393a70](https://github.com/rudderlabs/rudder-go-kit/commit/0393a70a1b7574665db90cb2e7dd02c565cea160))
+* use ecr registry as registry mirror ([#1025](https://github.com/rudderlabs/rudder-go-kit/issues/1025)) ([0eec980](https://github.com/rudderlabs/rudder-go-kit/commit/0eec98018108b9c2de6918b78b557cc97673c320))
+
 ## [0.72.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.71.1...v0.72.0) (2026-02-09)
 
 
