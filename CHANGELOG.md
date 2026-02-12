@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.72.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.1...v0.72.2) (2026-02-12)
+
+
+### Miscellaneous
+
+* **deps:** bump aws-actions/configure-aws-credentials from 5.0.0 to 6.0.0 ([#1038](https://github.com/rudderlabs/rudder-go-kit/issues/1038)) ([50ad2f8](https://github.com/rudderlabs/rudder-go-kit/commit/50ad2f8d138f4bba517d441a42193c081102a683))
+* partition mapping to partition index mapping ([#1028](https://github.com/rudderlabs/rudder-go-kit/issues/1028)) ([0ebb8bf](https://github.com/rudderlabs/rudder-go-kit/commit/0ebb8bf14a07499df2e9c6b7669c0796fe7cb5ba))
+
 ## [0.72.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.0...v0.72.1) (2026-02-10)
 
 
