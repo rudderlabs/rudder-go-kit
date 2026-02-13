@@ -75,14 +75,12 @@ func TestOnceEvery(t *testing.T) {
 
 		// Launch multiple goroutines that try to call Do simultaneously
 		numGoroutines := 10
-		for i := 0; i < numGoroutines; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range numGoroutines {
+			wg.Go(func() {
 				every.Do(func() {
 					atomic.AddInt64(&callCount, 1)
 				})
-			}()
+			})
 		}
 
 		wg.Wait()
@@ -98,13 +96,11 @@ func TestOnceEvery(t *testing.T) {
 
 		// First batch of goroutines
 		for range 5 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				every.Do(func() {
 					atomic.AddInt64(&callCount, 1)
 				})
-			}()
+			})
 		}
 
 		// Wait for interval to pass
@@ -112,13 +108,11 @@ func TestOnceEvery(t *testing.T) {
 
 		// Second batch of goroutines
 		for range 5 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				every.Do(func() {
 					atomic.AddInt64(&callCount, 1)
 				})
-			}()
+			})
 		}
 
 		wg.Wait()

@@ -936,10 +936,10 @@ func publishMessages(ctx context.Context, t *testing.T, p *Producer, noOfMessage
 	})
 
 	messages := make([]Message, noOfMessages)
-	for i := 0; i < noOfMessages; i++ {
+	for i := range noOfMessages {
 		messages[i] = Message{
-			Key:   []byte(fmt.Sprintf("key-%d", i)),
-			Value: []byte(fmt.Sprintf("value-%d", i)),
+			Key:   fmt.Appendf(nil, "key-%d", i),
+			Value: fmt.Appendf(nil, "value-%d", i),
 			Topic: t.Name(),
 		}
 	}
@@ -961,16 +961,16 @@ func publishMessages(ctx context.Context, t *testing.T, p *Producer, noOfMessage
 
 type testLogger struct{ *testing.T }
 
-func (l *testLogger) Printf(format string, args ...interface{}) {
+func (l *testLogger) Printf(format string, args ...any) {
 	l.Helper()
 	l.Logf(format, args...)
 }
 
-func (l *testLogger) Infof(format string, args ...interface{}) {
+func (l *testLogger) Infof(format string, args ...any) {
 	l.Printf("[INFO] "+format, args...)
 }
 
-func (l *testLogger) Errorf(format string, args ...interface{}) {
+func (l *testLogger) Errorf(format string, args ...any) {
 	l.Printf("[ERROR] "+format, args...)
 }
 

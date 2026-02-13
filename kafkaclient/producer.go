@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"syscall"
 	"time"
 
@@ -181,13 +182,7 @@ func isErrTemporary(err error) bool {
 func IsProducerErrTemporary(err error) bool {
 	var we kafka.WriteErrors
 	if errors.As(err, &we) {
-		for _, err := range we {
-			// if at least one was temporary then we treat the whole batch as such
-			if isErrTemporary(err) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(we, isErrTemporary)
 	}
 	return isErrTemporary(err)
 }

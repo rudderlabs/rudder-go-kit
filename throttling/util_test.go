@@ -12,9 +12,9 @@ import (
 
 type tester interface {
 	Helper()
-	Log(...interface{})
+	Log(...any)
 	Logf(string, ...any)
-	Errorf(format string, args ...interface{})
+	Errorf(format string, args ...any)
 	Fatalf(format string, args ...any)
 	Failed() bool
 	FailNow()

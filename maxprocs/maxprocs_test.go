@@ -125,10 +125,7 @@ func TestSetWithConfig_WithMinProcs(t *testing.T) {
 
 	// Expected result: min(max(ceil(0.1 * 1.5), 5), numCPU) = min(5, numCPU)
 	numCPU := runtime.NumCPU()
-	expectedResult := 5
-	if numCPU < 5 {
-		expectedResult = numCPU
-	}
+	expectedResult := min(numCPU, 5)
 	mockLog := requireLoggerInfo(t, 0.1, 5, 1.5, int64(numCPU), int64(expectedResult))
 	setWithConfig(cfg, withLogger(mockLog))
 
@@ -266,20 +263,14 @@ func TestEnvironmentVariables(t *testing.T) {
 
 	// Expected: min(max(ceil(1.1 * 1.5), 5), numCPU) = min(5, numCPU)
 	numCPU := runtime.NumCPU()
-	expectedProcs := 5
-	if numCPU < 5 {
-		expectedProcs = numCPU
-	}
+	expectedProcs := min(numCPU, 5)
 	require.Equal(t, expectedProcs, runtime.GOMAXPROCS(0))
 
 	t.Setenv("MAXPROCS_REQUESTS_MULTIPLIER", "6")
 	setDefault()
 
 	// Expected: min(max(ceil(1.1 * 6), 5), numCPU) = min(7, numCPU)
-	expectedProcs = 7
-	if numCPU < 7 {
-		expectedProcs = numCPU
-	}
+	expectedProcs = min(numCPU, 7)
 	require.Equal(t, expectedProcs, runtime.GOMAXPROCS(0))
 }
 
@@ -297,10 +288,7 @@ func TestSetWithConfig_ReadFromFile(t *testing.T) {
 
 	// Expected: min(ceil(1.5 * 1.5), numCPU) = min(3, numCPU)
 	numCPU := runtime.NumCPU()
-	expectedResult := 3
-	if numCPU < 3 {
-		expectedResult = numCPU
-	}
+	expectedResult := min(numCPU, 3)
 	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, int64(numCPU), int64(expectedResult))
 	mockLog.EXPECT().Infon("Using CPU requests from file",
 		logger.NewStringField("requests", "1500m"),
@@ -343,10 +331,7 @@ func TestSetWithConfig_NonExistentFile(t *testing.T) {
 
 	// Expected: min(ceil(2.0 * 1.5), numCPU) = min(3, numCPU)
 	numCPU := runtime.NumCPU()
-	expectedResult := 3
-	if numCPU < 3 {
-		expectedResult = numCPU
-	}
+	expectedResult := min(numCPU, 3)
 	mockLog := requireLoggerInfo(t, 2.0, 1, 1.5, int64(numCPU), int64(expectedResult))
 	setWithConfig(cfg, withLogger(mockLog))
 
@@ -392,10 +377,7 @@ func TestSetWithConfig_FileWatcherWithChanges(t *testing.T) {
 
 	// Expected after file update: min(ceil(2.0 * 1.5), numCPU) = min(3, numCPU)
 	numCPU := runtime.NumCPU()
-	expectedAfterUpdate := 3
-	if numCPU < 3 {
-		expectedAfterUpdate = numCPU
-	}
+	expectedAfterUpdate := min(numCPU, 3)
 
 	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
 	mockLog.EXPECT().Infon("Using CPU requests from file",

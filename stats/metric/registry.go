@@ -9,7 +9,7 @@ type (
 	Tags          map[string]string
 	TagsWithValue struct {
 		Tags  Tags
-		Value interface{}
+		Value any
 	}
 )
 
@@ -68,7 +68,7 @@ type Registry interface {
 	MustGetVarMovingAvg(m Measurement, age float64) MovingAverage
 
 	// Range scans across all metrics
-	Range(f func(key, value interface{}) bool)
+	Range(f func(key, value any) bool)
 
 	// GetMetricsByName gets all metrics with this name
 	GetMetricsByName(name string) []TagsWithValue
@@ -81,19 +81,19 @@ type mutexWithMap struct {
 }
 
 func NewRegistry() Registry {
-	counterGenerator := func() interface{} {
+	counterGenerator := func() any {
 		return NewCounter()
 	}
-	gaugeGenerator := func() interface{} {
+	gaugeGenerator := func() any {
 		return NewGauge()
 	}
-	varEwmaGenerator := func() interface{} {
+	varEwmaGenerator := func() any {
 		return &VariableEWMA{}
 	}
-	simpleEwmaGenerator := func() interface{} {
+	simpleEwmaGenerator := func() any {
 		return &SimpleEWMA{}
 	}
-	indexGenerator := func() interface{} {
+	indexGenerator := func() any {
 		var lock sync.RWMutex
 		v := &mutexWithMap{&lock, map[Measurement]TagsWithValue{}}
 		return v
@@ -200,7 +200,7 @@ func (r *registry) MustGetVarMovingAvg(m Measurement, age float64) MovingAverage
 	return ma
 }
 
-func (r *registry) Range(f func(key, value interface{}) bool) {
+func (r *registry) Range(f func(key, value any) bool) {
 	r.store.Range(f)
 }
 
@@ -220,7 +220,7 @@ func (r *registry) GetMetricsByName(name string) []TagsWithValue {
 	return values
 }
 
-func (r *registry) updateIndex(m Measurement, metric interface{}) {
+func (r *registry) updateIndex(m Measurement, metric any) {
 	name := m.GetName()
 	newSet := r.sets.Get()
 	res, putBack := r.nameIndex.LoadOrStore(name, newSet)
@@ -234,7 +234,7 @@ func (r *registry) updateIndex(m Measurement, metric interface{}) {
 	lock.Unlock()
 }
 
-func (r *registry) get(m Measurement, pool *sync.Pool) interface{} {
+func (r *registry) get(m Measurement, pool *sync.Pool) any {
 	res, ok := r.store.Load(m)
 	if !ok {
 		newValue := pool.Get()

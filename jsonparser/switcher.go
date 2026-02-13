@@ -48,7 +48,7 @@ func (s *switcher) GetString(data []byte, path ...string) (string, error) {
 }
 
 // SetValue delegates to the configured Setter implementation
-func (s *switcher) SetValue(data []byte, value interface{}, path ...string) ([]byte, error) {
+func (s *switcher) SetValue(data []byte, value any, path ...string) ([]byte, error) {
 	return s.setter().SetValue(data, value, path...)
 }
 

@@ -144,7 +144,7 @@ func (l *Limiter) redisSortedSet(ctx context.Context, cost, rate, window int64, 
 		return 0, false, 0, nil, fmt.Errorf("could not run SortedSet Redis script: %v", err)
 	}
 
-	result, ok := res.([]interface{})
+	result, ok := res.([]any)
 	if !ok {
 		return 0, false, 0, nil, fmt.Errorf("unexpected result from SortedSet Redis script of type %T: %v", res, res)
 	}

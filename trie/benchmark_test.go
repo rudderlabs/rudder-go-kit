@@ -108,7 +108,7 @@ func BenchmarkTrie(b *testing.B) {
 			keysToSearch := make([]string, numSearchOps)
 			numHits := int(float64(numSearchOps) * tc.hitRatio)
 			var err error
-			for i := 0; i < numSearchOps; i++ {
+			for i := range numSearchOps {
 				if i < numHits {
 					// Pick a random existing key
 					keysToSearch[i] = dataToInsert[mathrand.Intn(len(dataToInsert))]
@@ -146,7 +146,7 @@ func generateRandomString(n int) (string, error) {
 
 func generateData(numItems, keyLength int) []string {
 	data := make([]string, numItems)
-	for i := 0; i < numItems; i++ {
+	for i := range numItems {
 		key, err := generateRandomString(keyLength)
 		if err != nil {
 			panic(err)

@@ -14,7 +14,7 @@ type ProviderConfigOpts struct {
 	ExternalIDSupplier func() string
 }
 
-func GetProviderConfigFromEnv(opts ProviderConfigOpts) map[string]interface{} {
+func GetProviderConfigFromEnv(opts ProviderConfigOpts) map[string]any {
 	if opts.Config == nil {
 		opts.Config = config.Default
 	}
@@ -22,7 +22,7 @@ func GetProviderConfigFromEnv(opts ProviderConfigOpts) map[string]interface{} {
 		opts.ExternalIDSupplier = func() string { return "" }
 	}
 	config := opts.Config
-	providerConfig := make(map[string]interface{})
+	providerConfig := make(map[string]any)
 	switch opts.Provider {
 	case "S3":
 		providerConfig["bucketName"] = opts.Bucket

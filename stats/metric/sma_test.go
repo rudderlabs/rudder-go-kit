@@ -108,7 +108,7 @@ func TestSimpleMovingAverage(t *testing.T) {
 			var wg sync.WaitGroup
 
 			// Start multiple goroutines observing values
-			for i := 0; i < 50; i++ {
+			for i := range 50 {
 				wg.Add(1)
 				go func(val float64) {
 					defer wg.Done()
@@ -117,12 +117,10 @@ func TestSimpleMovingAverage(t *testing.T) {
 			}
 
 			// Start multiple goroutines reading values
-			for i := 0; i < 50; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+			for range 50 {
+				wg.Go(func() {
 					_ = sa.Load() // Just ensure it doesn't panic
-				}()
+				})
 			}
 
 			wg.Wait()

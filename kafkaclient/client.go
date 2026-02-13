@@ -12,7 +12,7 @@ import (
 
 // Logger specifies a logger used to report internal changes within the consumer
 type Logger interface {
-	Printf(format string, args ...interface{})
+	Printf(format string, args ...any)
 }
 
 // MessageHeader is a key/value pair type representing headers set on records

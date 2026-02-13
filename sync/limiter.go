@@ -114,9 +114,7 @@ func NewReloadableLimiter(ctx context.Context, wg *sync.WaitGroup, name string, 
 	l.stats.activeGauge = statsf.NewTaggedStat(name+"_limiter_active_routines", stats.GaugeType, l.tags)
 	l.stats.availabilityGauge = statsf.NewTaggedStat(name+"_limiter_availability", stats.GaugeType, l.tags)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -131,7 +129,7 @@ func NewReloadableLimiter(ctx context.Context, wg *sync.WaitGroup, name string, 
 			l.stats.availabilityGauge.Gauge(availability)
 			l.mu.Unlock()
 		}
-	}()
+	})
 	return l
 }
 

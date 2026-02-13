@@ -13,9 +13,7 @@ func NotifyContextWithCallback(fn func(), signals ...os.Signal) (ctx context.Con
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), signals...)
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		select {
 		case <-signalCtx.Done():
 			// If the signal context is done, we log an event and cancel our context.
@@ -24,7 +22,7 @@ func NotifyContextWithCallback(fn func(), signals ...os.Signal) (ctx context.Con
 		case <-ctx.Done():
 			signalCancel() // If our context is done, we cancel the signal context.
 		}
-	}()
+	})
 	// If the signal context is not done, we can just wait for it to be done.
 
 	return ctx, func() {

@@ -13,7 +13,7 @@ type Counter interface {
 
 // Gauge represents a gauge metric
 type Gauge interface {
-	Gauge(value interface{})
+	Gauge(value any)
 }
 
 // Histogram represents a histogram metric
@@ -52,7 +52,7 @@ func (m *genericMeasurement) Increment() {
 }
 
 // Gauge default behavior is to panic as not supported operation
-func (m *genericMeasurement) Gauge(_ interface{}) {
+func (m *genericMeasurement) Gauge(_ any) {
 	panic(fmt.Errorf("operation Gauge not supported for measurement type:%s", m.statType))
 }
 

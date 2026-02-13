@@ -128,7 +128,7 @@ func (m *Measurement) Increment() {
 }
 
 // Gauge implements stats.Measurement
-func (m *Measurement) Gauge(value interface{}) {
+func (m *Measurement) Gauge(value any) {
 	if m.mType != stats.GaugeType {
 		panic("operation Gauge not supported for measurement type:" + m.mType)
 	}

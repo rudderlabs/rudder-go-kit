@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"maps"
 	"os"
 	"testing"
 	"time"
@@ -26,7 +27,7 @@ func TestNewS3ManagerWithNil(t *testing.T) {
 }
 
 func TestNewS3ManagerWithAccessKeys(t *testing.T) {
-	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]any{
 		"bucketName":  "someBucket",
 		"region":      "someRegion",
 		"accessKeyID": "someAccessKeyId",
@@ -42,7 +43,7 @@ func TestNewS3ManagerWithAccessKeys(t *testing.T) {
 }
 
 func TestNewS3ManagerWithRole(t *testing.T) {
-	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]any{
 		"bucketName": "someBucket",
 		"region":     "someRegion",
 		"iamRoleARN": "someIAMRole",
@@ -58,7 +59,7 @@ func TestNewS3ManagerWithRole(t *testing.T) {
 }
 
 func TestNewS3ManagerWithBothAccessKeysAndRole(t *testing.T) {
-	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]any{
 		"bucketName":  "someBucket",
 		"region":      "someRegion",
 		"iamRoleARN":  "someIAMRole",
@@ -78,7 +79,7 @@ func TestNewS3ManagerWithBothAccessKeysAndRole(t *testing.T) {
 }
 
 func TestNewS3ManagerWithBothAccessKeysAndRoleButRoleBasedAuthFalse(t *testing.T) {
-	s3Manager, err := NewS3Manager(config.Default, map[string]interface{}{
+	s3Manager, err := NewS3Manager(config.Default, map[string]any{
 		"bucketName":    "someBucket",
 		"region":        "someRegion",
 		"iamRoleARN":    "someIAMRole",
@@ -121,15 +122,13 @@ func TestEmptyRegion(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	createFileManager := func(configModifications map[string]interface{}) (FileManager, error) {
+	createFileManager := func(configModifications map[string]any) (FileManager, error) {
 		c := minioResource.ToFileManagerConfig(prefix)
 		c["region"] = ""
 		c["endPoint"] = "https://" + c["endPoint"].(string)
 
 		// Apply any config modifications
-		for key, value := range configModifications {
-			c[key] = value
-		}
+		maps.Copy(c, configModifications)
 
 		config := config.New()
 
@@ -164,7 +163,7 @@ func TestEmptyRegion(t *testing.T) {
 	})
 
 	t.Run("should try to download even if fetching region fails", func(t *testing.T) {
-		fm, err := createFileManager(map[string]interface{}{
+		fm, err := createFileManager(map[string]any{
 			"bucketName": "wrong-bucket-name",
 		})
 		require.NoError(t, err)

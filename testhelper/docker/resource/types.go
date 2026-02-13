@@ -1,8 +1,8 @@
 package resource
 
 type Logger interface {
-	Log(...interface{})
-	Logf(string, ...interface{})
+	Log(...any)
+	Logf(string, ...any)
 }
 
 type FailIndicator interface {
@@ -18,4 +18,4 @@ type Cleaner interface {
 type NOPLogger struct{}
 
 // Log for the NOP Logger does nothing.
-func (*NOPLogger) Log(...interface{}) {}
+func (*NOPLogger) Log(...any) {}

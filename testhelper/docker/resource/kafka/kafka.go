@@ -133,7 +133,6 @@ type Resource struct {
 func (k *Resource) Destroy() error {
 	g := errgroup.Group{}
 	for i := range k.containers {
-		i := i
 		g.Go(func() error {
 			return k.pool.Purge(k.containers[i])
 		})
@@ -364,7 +363,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		pool:              pool,
 		containers:        containers,
 	}
-	for i := 0; i < len(containers); i++ {
+	for i := range containers {
 		if containers[i].GetBoundIP(kafkaClientPort+"/tcp") == "" {
 			return nil, fmt.Errorf("could not find kafka broker port")
 		}

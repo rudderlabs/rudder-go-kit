@@ -42,14 +42,14 @@ type otelGauge struct {
 }
 
 // Gauge records an absolute value for this stat. Only applies to GaugeType stats
-func (g *otelGauge) Gauge(value interface{}) {
+func (g *otelGauge) Gauge(value any) {
 	if g.disabled {
 		return
 	}
 	g.value.Store(value)
 }
 
-func (g *otelGauge) getValue() interface{} {
+func (g *otelGauge) getValue() any {
 	if g.disabled {
 		return nil
 	}

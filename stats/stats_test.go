@@ -18,7 +18,7 @@ func TestTagsType(t *testing.T) {
 	}
 
 	t.Run("strings method", func(t *testing.T) {
-		for i := 0; i < 100; i++ { // just making sure we are not just lucky with the order
+		for range 100 { // just making sure we are not just lucky with the order
 			require.Equal(t, []string{"a", "value2", "b", "value1"}, tags.Strings())
 		}
 	})

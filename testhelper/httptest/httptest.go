@@ -296,7 +296,7 @@ func (s *Server) CloseClientConnections() {
 	// in tests.
 	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
-	for i := 0; i < nconn; i++ {
+	for range nconn {
 		select {
 		case <-ch:
 		case <-timer.C:
@@ -320,11 +320,9 @@ func (s *Server) Client() *http.Client {
 }
 
 func (s *Server) goServe() {
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 		_ = s.Config.Serve(s.Listener)
-	}()
+	})
 }
 
 // wrap installs the connection state-tracking hook to know which
@@ -431,8 +429,8 @@ func generateCert(host string) (cert, key []byte) {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 	}
-	hosts := strings.Split(host, ",")
-	for _, h := range hosts {
+	hosts := strings.SplitSeq(host, ",")
+	for h := range hosts {
 		if ip := net.ParseIP(h); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {

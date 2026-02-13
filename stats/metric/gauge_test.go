@@ -53,14 +53,14 @@ func TestGaugeAddSubConcurrently(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(concurrency)
 
-	for i := 0; i < concurrency/2; i++ {
+	for range concurrency / 2 {
 		go func() {
 			gauge.Add(addAmt)
 			gauge.Dec() // for every dec we do an equivalent sub below (*)
 			wg.Done()
 		}()
 	}
-	for i := 0; i < concurrency/2; i++ {
+	for range concurrency / 2 {
 		go func() {
 			gauge.Inc()
 			gauge.Sub(subAmt) // (*)

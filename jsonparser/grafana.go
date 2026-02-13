@@ -284,7 +284,7 @@ func (p *grafanaJSONParser) GetStringOrEmpty(data []byte, path ...string) string
 }
 
 // SetValue sets the value for a given key in JSON bytes using jsonparser
-func (p *grafanaJSONParser) SetValue(data []byte, value interface{}, path ...string) ([]byte, error) {
+func (p *grafanaJSONParser) SetValue(data []byte, value any, path ...string) ([]byte, error) {
 	if len(data) == 0 {
 		// if data is empty, create a new JSON object
 		data = []byte("{}")

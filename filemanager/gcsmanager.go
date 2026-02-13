@@ -34,7 +34,7 @@ type GCSConfig struct {
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
 func NewGCSManager(
-	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+	config map[string]any, log logger.Logger, defaultTimeout func() time.Duration,
 ) (*GcsManager, error) {
 	conf := gcsConfig(config)
 	return &GcsManager{
@@ -208,7 +208,7 @@ type GcsManager struct {
 	clientMu sync.Mutex
 }
 
-func gcsConfig(config map[string]interface{}) *GCSConfig {
+func gcsConfig(config map[string]any) *GCSConfig {
 	var bucketName, prefix, credentials string
 	var endPoint *string
 	var forcePathStyle, disableSSL *bool

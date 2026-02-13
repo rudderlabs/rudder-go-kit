@@ -13,7 +13,7 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 		name     string
 		jsonData string
 		keys     []string
-		want     interface{}
+		want     any
 		wantErr  bool
 	}{
 		{
@@ -145,8 +145,8 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 		name     string
 		jsonData string
 		keys     []string
-		value    interface{}
-		want     map[string]interface{}
+		value    any
+		want     map[string]any
 		wantErr  bool
 	}{
 		{
@@ -154,7 +154,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"name": "John", "age": 30}`,
 			keys:     []string{"name"},
 			value:    "Jane",
-			want:     map[string]interface{}{"name": "Jane", "age": float64(30)},
+			want:     map[string]any{"name": "Jane", "age": float64(30)},
 			wantErr:  false,
 		},
 		{
@@ -162,7 +162,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"user": {"name": "John", "age": 30}}`,
 			keys:     []string{"user", "name"},
 			value:    "Jane",
-			want:     map[string]interface{}{"user": map[string]interface{}{"name": "Jane", "age": float64(30)}},
+			want:     map[string]any{"user": map[string]any{"name": "Jane", "age": float64(30)}},
 			wantErr:  false,
 		},
 		{
@@ -170,7 +170,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"name": "John"}`,
 			keys:     []string{"age"},
 			value:    30,
-			want:     map[string]interface{}{"name": "John", "age": float64(30)},
+			want:     map[string]any{"name": "John", "age": float64(30)},
 			wantErr:  false,
 		},
 		{
@@ -178,7 +178,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"user": {"name": "John"}}`,
 			keys:     []string{"user", "age"},
 			value:    30,
-			want:     map[string]interface{}{"user": map[string]interface{}{"name": "John", "age": float64(30)}},
+			want:     map[string]any{"user": map[string]any{"name": "John", "age": float64(30)}},
 			wantErr:  false,
 		},
 		{
@@ -186,7 +186,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{}`,
 			keys:     []string{"user", "name"},
 			value:    "John",
-			want:     map[string]interface{}{"user": map[string]interface{}{"name": "John"}},
+			want:     map[string]any{"user": map[string]any{"name": "John"}},
 			wantErr:  false,
 		},
 		{
@@ -194,7 +194,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"users": ["John", "Jane"]}`,
 			keys:     []string{"users", "[1]"},
 			value:    "Bob",
-			want:     map[string]interface{}{"users": []interface{}{"John", "Bob"}},
+			want:     map[string]any{"users": []any{"John", "Bob"}},
 			wantErr:  false,
 		},
 		{
@@ -202,7 +202,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			jsonData: ``,
 			keys:     []string{"name"},
 			value:    "John",
-			want:     map[string]interface{}{"name": "John"},
+			want:     map[string]any{"name": "John"},
 			wantErr:  false,
 		},
 		{
@@ -238,7 +238,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 				return
 			}
 			require.NoError(t, err)
-			var gotMap map[string]interface{}
+			var gotMap map[string]any
 			err = jsonrs.Unmarshal(got, &gotMap)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, gotMap)
@@ -681,7 +681,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 		jsonData string
 		keys     []string
 		value    bool
-		want     map[string]interface{}
+		want     map[string]any
 		wantErr  bool
 	}{
 		{
@@ -689,7 +689,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"active": false}`,
 			keys:     []string{"active"},
 			value:    true,
-			want:     map[string]interface{}{"active": true},
+			want:     map[string]any{"active": true},
 			wantErr:  false,
 		},
 		{
@@ -697,7 +697,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"active": true}`,
 			keys:     []string{"active"},
 			value:    false,
-			want:     map[string]interface{}{"active": false},
+			want:     map[string]any{"active": false},
 			wantErr:  false,
 		},
 		{
@@ -705,7 +705,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"user": {"active": false}}`,
 			keys:     []string{"user", "active"},
 			value:    true,
-			want:     map[string]interface{}{"user": map[string]interface{}{"active": true}},
+			want:     map[string]any{"user": map[string]any{"active": true}},
 			wantErr:  false,
 		},
 		{
@@ -713,7 +713,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"name": "John"}`,
 			keys:     []string{"active"},
 			value:    true,
-			want:     map[string]interface{}{"name": "John", "active": true},
+			want:     map[string]any{"name": "John", "active": true},
 			wantErr:  false,
 		},
 		{
@@ -721,7 +721,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"settings": [false, false]}`,
 			keys:     []string{"settings", "[0]"},
 			value:    true,
-			want:     map[string]interface{}{"settings": []interface{}{true, false}},
+			want:     map[string]any{"settings": []any{true, false}},
 			wantErr:  false,
 		},
 		{
@@ -729,7 +729,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			jsonData: ``,
 			keys:     []string{"active"},
 			value:    true,
-			want:     map[string]interface{}{"active": true},
+			want:     map[string]any{"active": true},
 			wantErr:  false,
 		},
 		{
@@ -762,7 +762,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 				return
 			}
 			require.NoError(t, err)
-			var gotMap map[string]interface{}
+			var gotMap map[string]any
 			err = jsonrs.Unmarshal(got, &gotMap)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, gotMap)
@@ -776,7 +776,7 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 		jsonData string
 		keys     []string
 		value    int64
-		want     map[string]interface{}
+		want     map[string]any
 		wantErr  bool
 	}{
 		{
@@ -784,7 +784,7 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"age": 25}`,
 			keys:     []string{"age"},
 			value:    30,
-			want:     map[string]interface{}{"age": float64(30)},
+			want:     map[string]any{"age": float64(30)},
 			wantErr:  false,
 		},
 		{
@@ -792,7 +792,7 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"user": {"age": 25}}`,
 			keys:     []string{"user", "age"},
 			value:    30,
-			want:     map[string]interface{}{"user": map[string]interface{}{"age": float64(30)}},
+			want:     map[string]any{"user": map[string]any{"age": float64(30)}},
 			wantErr:  false,
 		},
 		{
@@ -800,7 +800,7 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"name": "John"}`,
 			keys:     []string{"age"},
 			value:    30,
-			want:     map[string]interface{}{"name": "John", "age": float64(30)},
+			want:     map[string]any{"name": "John", "age": float64(30)},
 			wantErr:  false,
 		},
 		{
@@ -808,7 +808,7 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"ages": [10, 20]}`,
 			keys:     []string{"ages", "[1]"},
 			value:    30,
-			want:     map[string]interface{}{"ages": []interface{}{float64(10), float64(30)}},
+			want:     map[string]any{"ages": []any{float64(10), float64(30)}},
 			wantErr:  false,
 		},
 		{
@@ -816,7 +816,7 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 			jsonData: ``,
 			keys:     []string{"age"},
 			value:    30,
-			want:     map[string]interface{}{"age": float64(30)},
+			want:     map[string]any{"age": float64(30)},
 			wantErr:  false,
 		},
 		{
@@ -843,7 +843,7 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 				return
 			}
 			require.NoError(t, err)
-			var gotMap map[string]interface{}
+			var gotMap map[string]any
 			err = jsonrs.Unmarshal(got, &gotMap)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, gotMap)
@@ -857,7 +857,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 		jsonData string
 		keys     []string
 		value    float64
-		want     map[string]interface{}
+		want     map[string]any
 		wantErr  bool
 	}{
 		{
@@ -865,7 +865,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"price": 19.99}`,
 			keys:     []string{"price"},
 			value:    29.99,
-			want:     map[string]interface{}{"price": 29.99},
+			want:     map[string]any{"price": 29.99},
 			wantErr:  false,
 		},
 		{
@@ -873,7 +873,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"product": {"price": 19.99}}`,
 			keys:     []string{"product", "price"},
 			value:    29.99,
-			want:     map[string]interface{}{"product": map[string]interface{}{"price": 29.99}},
+			want:     map[string]any{"product": map[string]any{"price": 29.99}},
 			wantErr:  false,
 		},
 		{
@@ -881,7 +881,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"name": "Product"}`,
 			keys:     []string{"price"},
 			value:    29.99,
-			want:     map[string]interface{}{"name": "Product", "price": 29.99},
+			want:     map[string]any{"name": "Product", "price": 29.99},
 			wantErr:  false,
 		},
 		{
@@ -889,7 +889,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"prices": [10.5, 20.75]}`,
 			keys:     []string{"prices", "[1]"},
 			value:    29.99,
-			want:     map[string]interface{}{"prices": []interface{}{10.5, 29.99}},
+			want:     map[string]any{"prices": []any{10.5, 29.99}},
 			wantErr:  false,
 		},
 		{
@@ -897,7 +897,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			jsonData: ``,
 			keys:     []string{"price"},
 			value:    29.99,
-			want:     map[string]interface{}{"price": 29.99},
+			want:     map[string]any{"price": 29.99},
 			wantErr:  false,
 		},
 		{
@@ -925,7 +925,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 				return
 			}
 			require.NoError(t, err)
-			var gotMap map[string]interface{}
+			var gotMap map[string]any
 			err = jsonrs.Unmarshal(got, &gotMap)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, gotMap)
@@ -939,7 +939,7 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 		jsonData string
 		keys     []string
 		value    string
-		want     map[string]interface{}
+		want     map[string]any
 		wantErr  bool
 	}{
 		{
@@ -947,7 +947,7 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"name": "John"}`,
 			keys:     []string{"name"},
 			value:    "Jane",
-			want:     map[string]interface{}{"name": "Jane"},
+			want:     map[string]any{"name": "Jane"},
 			wantErr:  false,
 		},
 		{
@@ -955,7 +955,7 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"user": {"name": "John"}}`,
 			keys:     []string{"user", "name"},
 			value:    "Jane",
-			want:     map[string]interface{}{"user": map[string]interface{}{"name": "Jane"}},
+			want:     map[string]any{"user": map[string]any{"name": "Jane"}},
 			wantErr:  false,
 		},
 		{
@@ -963,7 +963,7 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"age": 30}`,
 			keys:     []string{"name"},
 			value:    "John",
-			want:     map[string]interface{}{"age": float64(30), "name": "John"},
+			want:     map[string]any{"age": float64(30), "name": "John"},
 			wantErr:  false,
 		},
 		{
@@ -971,7 +971,7 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			jsonData: `{"names": ["John", "Bob"]}`,
 			keys:     []string{"names", "[1]"},
 			value:    "Jane",
-			want:     map[string]interface{}{"names": []interface{}{"John", "Jane"}},
+			want:     map[string]any{"names": []any{"John", "Jane"}},
 			wantErr:  false,
 		},
 		{
@@ -979,7 +979,7 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			jsonData: ``,
 			keys:     []string{"name"},
 			value:    "John",
-			want:     map[string]interface{}{"name": "John"},
+			want:     map[string]any{"name": "John"},
 			wantErr:  false,
 		},
 		{
@@ -1006,7 +1006,7 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 				return
 			}
 			require.NoError(t, err)
-			var gotMap map[string]interface{}
+			var gotMap map[string]any
 			err = jsonrs.Unmarshal(got, &gotMap)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, gotMap)
@@ -1019,35 +1019,35 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 		name     string
 		jsonData string
 		keys     []string
-		want     map[string]interface{}
+		want     map[string]any
 		wantErr  bool
 	}{
 		{
 			name:     "simple key",
 			jsonData: `{"name": "John", "age": 30}`,
 			keys:     []string{"name"},
-			want:     map[string]interface{}{"age": float64(30)},
+			want:     map[string]any{"age": float64(30)},
 			wantErr:  false,
 		},
 		{
 			name:     "nested key",
 			jsonData: `{"user": {"name": "John", "age": 30}}`,
 			keys:     []string{"user", "name"},
-			want:     map[string]interface{}{"user": map[string]interface{}{"age": float64(30)}},
+			want:     map[string]any{"user": map[string]any{"age": float64(30)}},
 			wantErr:  false,
 		},
 		{
 			name:     "array element",
 			jsonData: `{"users": ["John", "Jane", "Bob"]}`,
 			keys:     []string{"users", "[1]"},
-			want:     map[string]interface{}{"users": []interface{}{"John", "Bob"}},
+			want:     map[string]any{"users": []any{"John", "Bob"}},
 			wantErr:  false,
 		},
 		{
 			name:     "key not found",
 			jsonData: `{"name": "John"}`,
 			keys:     []string{"age"},
-			want:     map[string]interface{}{"name": "John"},
+			want:     map[string]any{"name": "John"},
 			wantErr:  false,
 		},
 		{
@@ -1074,7 +1074,7 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 			name:     "null",
 			jsonData: `{"user": {"name": "John", "age": null}}`,
 			keys:     []string{"user", "age"},
-			want:     map[string]interface{}{"user": map[string]interface{}{"name": "John"}},
+			want:     map[string]any{"user": map[string]any{"name": "John"}},
 			wantErr:  false,
 		},
 	}
@@ -1087,7 +1087,7 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 				return
 			}
 			require.NoError(t, err)
-			var gotMap map[string]interface{}
+			var gotMap map[string]any
 			err = jsonrs.Unmarshal(got, &gotMap)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, gotMap)

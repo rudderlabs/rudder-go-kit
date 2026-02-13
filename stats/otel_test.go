@@ -486,8 +486,7 @@ func TestOTelExcludedTags(t *testing.T) {
 	s := NewStats(c, l, m, WithServiceName(t.Name()), WithServiceVersion("v1.2.3"))
 
 	// start stats
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
 	defer s.Stop()
 
@@ -617,8 +616,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			s, metricsEndpoint := scenario.setupMeterProvider(t)
 
 			// start stats
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 			require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
 			defer s.Stop()
 
@@ -965,7 +963,7 @@ func TestExponentialHistogram(t *testing.T) {
 
 		// Record some histogram observations
 		histogram := s.NewStat(histogramName, HistogramType)
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			histogram.Observe(float64(i * 10))
 		}
 
@@ -1026,8 +1024,7 @@ func TestNoopTracingNoPanics(t *testing.T) {
 	m := metric.NewManager()
 	s := NewStats(conf, l, m, WithServiceName(t.Name()))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
 	t.Cleanup(s.Stop)
 
@@ -1057,8 +1054,7 @@ func TestOTLPHTTP(t *testing.T) {
 	m := metric.NewManager()
 	s := NewStats(conf, l, m, WithServiceName(t.Name()))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	require.NoError(t, s.Start(ctx, DefaultGoRoutineFactory))
 	t.Cleanup(s.Stop)
 

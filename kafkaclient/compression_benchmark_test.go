@@ -77,7 +77,7 @@ func BenchmarkCompression(b *testing.B) {
 				noOfErrors int
 				messages   = make([]Message, 0, batchSize)
 			)
-			for i := 0; i < batchSize; i++ {
+			for range batchSize {
 				messages = append(messages, Message{
 					Key:   []byte("my-key"),
 					Value: []byte(value),

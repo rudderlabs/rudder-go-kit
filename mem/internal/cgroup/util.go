@@ -45,8 +45,8 @@ func getFileContents(statName, sysfsPrefix, cgroupPath, cgroupGrepLine string) (
 
 // grepFirstMatch searches match line at data and returns item from it by index with given delimiter.
 func grepFirstMatch(data, match string, index int, delimiter string) (string, error) {
-	lines := strings.Split(data, "\n")
-	for _, s := range lines {
+	lines := strings.SplitSeq(data, "\n")
+	for s := range lines {
 		if !strings.Contains(s, match) {
 			continue
 		}

@@ -24,7 +24,7 @@ package maputil
 //
 // Returns:
 //   - The value at the end of the key path if found, or nil otherwise.
-func MapLookup(mapToLookup map[string]interface{}, keys ...string) interface{} {
+func MapLookup(mapToLookup map[string]any, keys ...string) any {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -32,7 +32,7 @@ func MapLookup(mapToLookup map[string]interface{}, keys ...string) interface{} {
 		if len(keys) == 1 {
 			return val
 		}
-		nextMap, ok := val.(map[string]interface{})
+		nextMap, ok := val.(map[string]any)
 		if !ok {
 			return nil
 		}

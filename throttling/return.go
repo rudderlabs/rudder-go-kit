@@ -12,7 +12,7 @@ type unsupportedReturn struct{}
 func (*unsupportedReturn) Return(_ context.Context) error { return nil }
 
 type redisSortedSetRemover interface {
-	ZRem(ctx context.Context, key string, members ...interface{}) *redis.IntCmd
+	ZRem(ctx context.Context, key string, members ...any) *redis.IntCmd
 }
 
 type sortedSetRedisReturn struct {
@@ -27,7 +27,7 @@ type sortedSetRedisReturn struct {
 func (r *sortedSetRedisReturn) Return(ctx context.Context) error {
 	var (
 		length = len(r.members)
-		slice  = make([]interface{}, length)
+		slice  = make([]any, length)
 	)
 	for i, v := range r.members {
 		slice[i] = v

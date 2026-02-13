@@ -145,7 +145,7 @@ func TestUploadWithRetry(t *testing.T) {
 	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).Return(&nopReadWriteCloser{remoteBuf}, nil)
 	mockSFTPClient.EXPECT().Reset().Return(nil)
 	callCounter := 0
-	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).DoAndReturn(func(_ interface{}) error {
+	mockSFTPClient.EXPECT().MkdirAll(gomock.Any()).DoAndReturn(func(_ any) error {
 		callCounter++
 		if callCounter == 1 {
 			return sftp.ErrSshFxConnectionLost
@@ -176,7 +176,7 @@ func TestDownloadWithRetry(t *testing.T) {
 
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
 	callCounter := 0
-	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).DoAndReturn(func(_, _ interface{}) (io.ReadWriteCloser, error) {
+	mockSFTPClient.EXPECT().OpenFile(gomock.Any(), gomock.Any()).DoAndReturn(func(_, _ any) (io.ReadWriteCloser, error) {
 		callCounter++
 		if callCounter == 1 {
 			return nil, sftp.ErrSSHFxConnectionLost
@@ -201,7 +201,7 @@ func TestDeleteWithRetry(t *testing.T) {
 	remoteFilePath := "someRemoteFilePath"
 	mockSFTPClient := mock_sftp.NewMockClient(ctrl)
 	callCounter := 0
-	mockSFTPClient.EXPECT().Remove(gomock.Any()).DoAndReturn(func(_ interface{}) error {
+	mockSFTPClient.EXPECT().Remove(gomock.Any()).DoAndReturn(func(_ any) error {
 		callCounter++
 		if callCounter == 1 {
 			return sftp.ErrSSHFxConnectionLost

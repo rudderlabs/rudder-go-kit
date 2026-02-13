@@ -1,7 +1,6 @@
 package filemanager
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -16,8 +15,7 @@ import (
 )
 
 func TestGCSManager(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// testcases:Add commentMore actions
 	tcs := []struct {
@@ -61,7 +59,7 @@ func TestGCSManager(t *testing.T) {
 			gcsURL := fmt.Sprintf("%s/storage/v1/", server.URL())
 			t.Log("GCS URL:", gcsURL)
 
-			conf := map[string]interface{}{
+			conf := map[string]any{
 				"bucketName":       "test-bucket",
 				"prefix":           "test-prefix",
 				"endPoint":         gcsURL,

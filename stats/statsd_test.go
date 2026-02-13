@@ -126,8 +126,7 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 		stats.WithServiceVersion("1.0.0"),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// start stats
 	require.NoError(t, s.Start(ctx, stats.DefaultGoRoutineFactory))
@@ -514,8 +513,7 @@ func TestStatsdExcludedTags(t *testing.T) {
 	m := metric.NewManager()
 	s := stats.NewStats(c, l, m)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// start stats
 	require.NoError(t, s.Start(ctx, stats.DefaultGoRoutineFactory))

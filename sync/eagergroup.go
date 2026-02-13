@@ -71,8 +71,7 @@ func (g *EagerGroup) Go(f func() error) {
 		}
 	}
 
-	g.wg.Add(1)
-	go func() {
+	g.wg.Go(func() {
 		err := g.ctx.Err()
 		if err == nil {
 			err = f()
@@ -86,8 +85,7 @@ func (g *EagerGroup) Go(f func() error) {
 		if g.sem != nil {
 			<-g.sem
 		}
-		g.wg.Done()
-	}()
+	})
 }
 
 // Wait blocks until all function calls from the Go method have returned, then
