@@ -109,7 +109,7 @@ type ListSession interface {
 // Settings for file manager
 type Settings struct {
 	Provider string
-	Config   map[string]interface{}
+	Config   map[string]any
 	Logger   logger.Logger
 	Conf     *config.Config
 }

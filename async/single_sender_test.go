@@ -20,7 +20,7 @@ func TestSingleSender(t *testing.T) {
 
 	send := func(ctx context.Context, s *async.SingleSender[valueOrError], times int) (sendCalls int) {
 		defer s.Close()
-		for i := 0; i < times; i++ {
+		for i := range times {
 			if ctx.Err() != nil {
 				s.Send(valueOrError{err: ctx.Err()})
 				return sendCalls
@@ -144,7 +144,7 @@ func TestSingleSender(t *testing.T) {
 		g := &errgroup.Group{}
 
 		g.Go(func() error {
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				s.Send(valueOrError{value: i})
 			}
 			s.Close()
@@ -236,7 +236,7 @@ func TestSingleSender(t *testing.T) {
 
 		// Multiple goroutines calling Close() simultaneously
 		g := &errgroup.Group{}
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			g.Go(func() error {
 				s.Close()
 				return nil

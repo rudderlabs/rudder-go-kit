@@ -10,37 +10,37 @@ func TestMapLookup(t *testing.T) {
 	t.Run("simple lookups and edge cases", func(t *testing.T) {
 		tests := []struct {
 			name     string
-			m        map[string]interface{}
+			m        map[string]any
 			keys     []string
-			expected interface{}
+			expected any
 		}{
 			{
 				name:     "returns value if key is present",
-				m:        map[string]interface{}{"hello": "world"},
+				m:        map[string]any{"hello": "world"},
 				keys:     []string{"hello"},
 				expected: "world",
 			},
 			{
 				name:     "returns nil if key is not present",
-				m:        map[string]interface{}{"foo": "bar"},
+				m:        map[string]any{"foo": "bar"},
 				keys:     []string{"baz"},
 				expected: nil,
 			},
 			{
 				name:     "returns nil for empty map",
-				m:        map[string]interface{}{},
+				m:        map[string]any{},
 				keys:     []string{"foo"},
 				expected: nil,
 			},
 			{
 				name:     "returns value for empty string key",
-				m:        map[string]interface{}{"": "empty"},
+				m:        map[string]any{"": "empty"},
 				keys:     []string{""},
 				expected: "empty",
 			},
 			{
 				name:     "returns nil if no keys are provided",
-				m:        map[string]interface{}{"foo": "bar"},
+				m:        map[string]any{"foo": "bar"},
 				keys:     []string{},
 				expected: nil,
 			},
@@ -58,7 +58,6 @@ func TestMapLookup(t *testing.T) {
 			},
 		}
 		for _, tt := range tests {
-			tt := tt
 			t.Run(tt.name, func(t *testing.T) {
 				require.Equal(t, tt.expected, MapLookup(tt.m, tt.keys...))
 			})
@@ -66,8 +65,8 @@ func TestMapLookup(t *testing.T) {
 	})
 
 	t.Run("nested map lookups", func(t *testing.T) {
-		m := map[string]interface{}{
-			"outer": map[string]interface{}{
+		m := map[string]any{
+			"outer": map[string]any{
 				"inner": "value",
 			},
 		}
@@ -77,10 +76,10 @@ func TestMapLookup(t *testing.T) {
 	})
 
 	t.Run("deeply nested and non-ascii keys", func(t *testing.T) {
-		m := map[string]interface{}{
-			"héllo": map[string]interface{}{
-				"nested": map[string]interface{}{
-					"más": map[string]interface{}{
+		m := map[string]any{
+			"héllo": map[string]any{
+				"nested": map[string]any{
+					"más": map[string]any{
 						"föö":     "bår",
 						"emoji":   "😀",
 						"русский": "язык",
@@ -96,8 +95,8 @@ func TestMapLookup(t *testing.T) {
 	})
 
 	t.Run("non-ascii characters in keys", func(t *testing.T) {
-		m := map[string]interface{}{
-			"héllo": map[string]interface{}{
+		m := map[string]any{
+			"héllo": map[string]any{
 				"föö":   "bår",
 				"emoji": "😀",
 				"中文":    "汉字",
@@ -109,17 +108,17 @@ func TestMapLookup(t *testing.T) {
 	})
 
 	t.Run("nil and non-map intermediate values", func(t *testing.T) {
-		m1 := map[string]interface{}{"foo": nil}
+		m1 := map[string]any{"foo": nil}
 		require.Nil(t, MapLookup(m1, "foo"))
-		m2 := map[string]interface{}{"foo": "bar"}
+		m2 := map[string]any{"foo": "bar"}
 		require.Nil(t, MapLookup(m2, "foo", "baz"))
-		m3 := map[string]interface{}{"foo": map[string]interface{}{"bar": nil}}
+		m3 := map[string]any{"foo": map[string]any{"bar": nil}}
 		require.Nil(t, MapLookup(m3, "foo", "bar"))
 	})
 
 	t.Run("intermediate key missing", func(t *testing.T) {
-		m := map[string]interface{}{
-			"foo": map[string]interface{}{
+		m := map[string]any{
+			"foo": map[string]any{
 				"bar": "baz",
 			},
 		}
@@ -127,8 +126,8 @@ func TestMapLookup(t *testing.T) {
 	})
 
 	t.Run("nested map with non-string keys", func(t *testing.T) {
-		m := map[string]interface{}{
-			"nested": map[interface{}]interface{}{
+		m := map[string]any{
+			"nested": map[any]any{
 				1:     "one",
 				"foo": "bar",
 			},
@@ -137,16 +136,16 @@ func TestMapLookup(t *testing.T) {
 	})
 
 	t.Run("value is an empty interface nil", func(t *testing.T) {
-		var nilValue interface{} = nil
-		m := map[string]interface{}{
+		var nilValue any = nil
+		m := map[string]any{
 			"foo": nilValue,
 		}
 		require.Nil(t, MapLookup(m, "foo"))
 	})
 
 	t.Run("multiple keys, first key missing", func(t *testing.T) {
-		m := map[string]interface{}{
-			"foo": map[string]interface{}{
+		m := map[string]any{
+			"foo": map[string]any{
 				"bar": "baz",
 			},
 		}
@@ -154,8 +153,8 @@ func TestMapLookup(t *testing.T) {
 	})
 
 	t.Run("nested nil value", func(t *testing.T) {
-		m := map[string]interface{}{
-			"foo": map[string]interface{}{
+		m := map[string]any{
+			"foo": map[string]any{
 				"bar": nil,
 			},
 		}
@@ -163,7 +162,7 @@ func TestMapLookup(t *testing.T) {
 	})
 
 	t.Run("nested non-map value", func(t *testing.T) {
-		m := map[string]interface{}{
+		m := map[string]any{
 			"foo": "not a map",
 		}
 		require.Nil(t, MapLookup(m, "foo", "bar"))

@@ -478,7 +478,7 @@ func BenchmarkSetValue(b *testing.B) {
 		parser   JSONParser
 		jsonData []byte
 		keys     []string
-		value    interface{}
+		value    any
 	}{
 		{"Tidwall_Simple", NewWithLibrary(TidwallLib), simpleJSON, []string{"name"}, "Jane"},
 		{"Grafana_Simple", NewWithLibrary(GrafanaLib), simpleJSON, []string{"name"}, "Jane"},

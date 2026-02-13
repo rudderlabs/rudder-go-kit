@@ -31,12 +31,10 @@ func (p *Proxy) Start(t testing.TB) {
 	listener, err := net.Listen("tcp", p.LocalAddr)
 	require.NoError(t, err)
 
-	p.wg.Add(1)
-	go func() {
+	p.wg.Go(func() {
 		<-p.stop
 		_ = listener.Close()
-		p.wg.Done()
-	}()
+	})
 
 	for {
 		select {
@@ -49,9 +47,7 @@ func (p *Proxy) Start(t testing.TB) {
 				continue // error accepting connection
 			}
 
-			p.wg.Add(1)
-			go func() {
-				defer p.wg.Done()
+			p.wg.Go(func() {
 				defer func() { _ = connRcv.Close() }()
 
 				connSend, err := net.Dial("tcp", p.RemoteAddr)
@@ -70,7 +66,7 @@ func (p *Proxy) Start(t testing.TB) {
 				case <-done: // one of the connections got terminated
 				case <-p.stop: // TCP proxy stopped
 				}
-			}()
+			})
 		}
 	}
 }

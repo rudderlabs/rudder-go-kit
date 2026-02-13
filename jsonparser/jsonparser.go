@@ -62,7 +62,7 @@ type Setter interface {
 	// SetValue sets the value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
 	// Returns the modified JSON bytes, and an error if no/empty key is passed, or if there is a JSON parsing error.
-	SetValue(data []byte, value interface{}, path ...string) ([]byte, error)
+	SetValue(data []byte, value any, path ...string) ([]byte, error)
 
 	// SetBoolean sets a boolean value for a given key in JSON bytes.
 	// The key can be a dot-separated path to access nested values.
@@ -145,7 +145,7 @@ type JSONParser interface {
 var Default = NewWithConfig(config.Default)
 
 // GetValue is a convenience function that uses the default JSONParser.
-func GetValue(data []byte, path ...string) (interface{}, error) {
+func GetValue(data []byte, path ...string) (any, error) {
 	return Default.GetValue(data, path...)
 }
 
@@ -170,7 +170,7 @@ func GetString(data []byte, path ...string) (string, error) {
 }
 
 // SetValue is a convenience function that uses the default JSONParser.
-func SetValue(data []byte, value interface{}, path ...string) ([]byte, error) {
+func SetValue(data []byte, value any, path ...string) ([]byte, error) {
 	return Default.SetValue(data, value, path...)
 }
 

@@ -28,7 +28,7 @@ type MinioConfig struct {
 }
 
 // NewMinioManager creates a new file manager for minio
-func NewMinioManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*MinioManager, error) {
+func NewMinioManager(config map[string]any, log logger.Logger, defaultTimeout func() time.Duration) (*MinioManager, error) {
 	return &MinioManager{
 		baseManager: &baseManager{
 			logger:         log,
@@ -212,7 +212,7 @@ type MinioManager struct {
 	clientOnce sync.Once
 }
 
-func minioConfig(config map[string]interface{}) *MinioConfig {
+func minioConfig(config map[string]any) *MinioConfig {
 	var bucketName, prefix, endPoint, accessKeyID, secretAccessKey string
 	var useSSL, ok bool
 	if config["bucketName"] != nil {

@@ -40,7 +40,6 @@ func BenchmarkLimiters(b *testing.B) {
 	)
 
 	for name, l := range limiters {
-		l := l
 		b.Run(name, func(b *testing.B) {
 			key := rand.UniqueString(10)
 
@@ -58,8 +57,7 @@ cpu: 12th Gen Intel(R) Core(TM) i9-12900K
 BenchmarkRedisSortedSetRemover/sortedSetRedisReturn-24		74870		14740 ns/op
 */
 func BenchmarkRedisSortedSetRemover(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 
 	pool, err := dockertest.NewPool("")
 	require.NoError(b, err)

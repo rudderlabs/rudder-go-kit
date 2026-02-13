@@ -35,10 +35,8 @@ func TestPartitionRWLocker(t *testing.T) {
 		var wg gsync.WaitGroup
 		var counter int
 		goroutines := 1000
-		for i := 0; i < goroutines; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+		for range goroutines {
+			wg.Go(func() {
 				mu.Lock()
 				counter = counter + 1
 				time.Sleep(1 * time.Millisecond)
@@ -46,7 +44,7 @@ func TestPartitionRWLocker(t *testing.T) {
 				mu.RLock()
 				time.Sleep(1 * time.Millisecond)
 				mu.RUnlock()
-			}()
+			})
 		}
 		wg.Wait()
 		require.Equalf(t, goroutines, counter, "it should have incremented the counter %d times", goroutines)

@@ -37,7 +37,7 @@ func (pq PriorityQueue[T]) Swap(i, j int) {
 }
 
 // Push adds elements to the priority queue
-func (pq *PriorityQueue[T]) Push(x interface{}) {
+func (pq *PriorityQueue[T]) Push(x any) {
 	n := len(*pq)
 	item := x.(*Item[T])
 	item.index = n
@@ -46,7 +46,7 @@ func (pq *PriorityQueue[T]) Push(x interface{}) {
 }
 
 // Pop removes elements from the priority queue
-func (pq *PriorityQueue[T]) Pop() interface{} {
+func (pq *PriorityQueue[T]) Pop() any {
 	old := *pq
 	n := len(old)
 	if n == 0 {
@@ -60,7 +60,7 @@ func (pq *PriorityQueue[T]) Pop() interface{} {
 }
 
 // Top returns the topmost element in the priority queue
-func (pq *PriorityQueue[T]) Top() interface{} {
+func (pq *PriorityQueue[T]) Top() any {
 	if len(*pq) == 0 {
 		return nil
 	}
@@ -69,7 +69,7 @@ func (pq *PriorityQueue[T]) Top() interface{} {
 }
 
 // GetIndex returns the index of the corresponding element.
-func (pq *PriorityQueue[T]) GetIndex(x interface{}) int {
+func (pq *PriorityQueue[T]) GetIndex(x any) int {
 	item := x.(*Item[T])
 	return item.index
 }

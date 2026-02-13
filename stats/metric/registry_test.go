@@ -104,7 +104,7 @@ func TestRegistryGetConcurrently(t *testing.T) {
 	key := testMeasurement{name: "key"}
 	var wg sync.WaitGroup
 	wg.Add(concurrency)
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		go func() {
 			registry.MustGetCounter(key).Inc()
 			wg.Done()
@@ -156,10 +156,10 @@ func benchmarkRegistryGetCounterAndInc(b *testing.B, concurrency int) {
 	registry := NewRegistry()
 	key := testMeasurement{name: "key"}
 	end.Add(concurrency)
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		go func() {
 			start.Wait()
-			for i := 0; i < n; i++ {
+			for range n {
 				counter := registry.MustGetCounter(key)
 				counter.Inc()
 			}
@@ -192,9 +192,9 @@ func benchmarkMutexMapGetIntAndInc(b *testing.B, concurrency int) {
 	n := b.N / concurrency
 	registry := map[string]int{"key": 0}
 	end.Add(concurrency)
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		go func() {
-			for i := 0; i < n; i++ {
+			for range n {
 				mutex.Lock()
 				registry["key"] += 1
 				mutex.Unlock()

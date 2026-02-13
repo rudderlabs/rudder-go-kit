@@ -49,7 +49,7 @@ type digitalOceanManager struct {
 }
 
 func NewDigitalOceanManager(
-	config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration,
+	config map[string]any, log logger.Logger, defaultTimeout func() time.Duration,
 ) (*digitalOceanManager, error) {
 	var doConfig DigitalOceanConfig
 	if err := mapstructure.Decode(config, &doConfig); err != nil {

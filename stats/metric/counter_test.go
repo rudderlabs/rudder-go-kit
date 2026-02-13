@@ -32,7 +32,7 @@ func TestCounterAddConcurrently(t *testing.T) {
 	counter := NewCounter()
 	var wg sync.WaitGroup
 	wg.Add(concurrency)
-	for i := 0; i < concurrency; i++ {
+	for range concurrency {
 		go func() {
 			counter.Inc()
 			wg.Done()

@@ -36,15 +36,15 @@ const (
 
 var (
 	globalDefaultAttrs = []*promClient.LabelPair{
-		{Name: ptr("service_version"), Value: ptr("v1.2.3")},
-		{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
-		{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-		{Name: ptr("telemetry_sdk_version"), Value: ptr(otel.Version())},
-		{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
+		{Name: new("service_version"), Value: new("v1.2.3")},
+		{Name: new("telemetry_sdk_language"), Value: new("go")},
+		{Name: new("telemetry_sdk_name"), Value: new("opentelemetry")},
+		{Name: new("telemetry_sdk_version"), Value: new(otel.Version())},
+		{Name: new("instanceName"), Value: new("my-instance-id")},
 	}
 	globalGRPCDefaultAttrs = append(globalDefaultAttrs,
 		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-		&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
+		&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
 	)
 )
 
@@ -152,56 +152,56 @@ func TestMetrics(t *testing.T) {
 			barName := "bar" + scenario.counterSuffix
 			metrics := requireMetrics(t, metricsEndpoint, fooName, barName, "baz", "qux")
 
-			require.EqualValues(t, ptr(fooName), metrics[fooName].Name)
+			require.EqualValues(t, new(fooName), metrics[fooName].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[fooName].Type)
 			require.Len(t, metrics[fooName].Metric, 1)
-			require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics[fooName].Metric[0].Counter)
+			require.EqualValues(t, &promClient.Counter{Value: new(1.0)}, metrics[fooName].Metric[0].Counter)
 			require.ElementsMatch(t, append(
 				scenario.additionalLabels,
-				&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
-				&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-				&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+				&promClient.LabelPair{Name: new("hello"), Value: new("world")},
+				&promClient.LabelPair{Name: new("job"), Value: &svcName},
+				&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 			), metrics[fooName].Metric[0].Label)
 
-			require.EqualValues(t, ptr(barName), metrics[barName].Name)
+			require.EqualValues(t, new(barName), metrics[barName].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[barName].Type)
 			require.Len(t, metrics[barName].Metric, 1)
-			require.EqualValues(t, &promClient.Counter{Value: ptr(5.0)}, metrics[barName].Metric[0].Counter)
+			require.EqualValues(t, &promClient.Counter{Value: new(5.0)}, metrics[barName].Metric[0].Counter)
 			require.ElementsMatch(t, append(
 				scenario.additionalLabels,
-				&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-				&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+				&promClient.LabelPair{Name: new("job"), Value: &svcName},
+				&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 			), metrics[barName].Metric[0].Label)
 
 			requireHistogramEqual(t, metrics["baz"], histogram{
 				name: "baz", count: 1, sum: 20,
 				buckets: []*promClient.Bucket{
-					{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
-					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+					{CumulativeCount: new(uint64(0)), UpperBound: new(10.0)},
+					{CumulativeCount: new(uint64(1)), UpperBound: new(20.0)},
+					{CumulativeCount: new(uint64(1)), UpperBound: new(30.0)},
+					{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 				},
 				labels: append(
 					scenario.additionalLabels,
-					&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
-					&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-					&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+					&promClient.LabelPair{Name: new("a"), Value: new("b")},
+					&promClient.LabelPair{Name: new("job"), Value: &svcName},
+					&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 				),
 			})
 
 			requireHistogramEqual(t, metrics["qux"], histogram{
 				name: "qux", count: 1, sum: 2,
 				buckets: []*promClient.Bucket{
-					{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(1.0)},
-					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(2.0)},
-					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(3.0)},
-					{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+					{CumulativeCount: new(uint64(0)), UpperBound: new(1.0)},
+					{CumulativeCount: new(uint64(1)), UpperBound: new(2.0)},
+					{CumulativeCount: new(uint64(1)), UpperBound: new(3.0)},
+					{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 				},
 				labels: append(
 					scenario.additionalLabels,
-					&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
-					&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-					&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+					&promClient.LabelPair{Name: new("c"), Value: new("d")},
+					&promClient.LabelPair{Name: new("job"), Value: &svcName},
+					&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 				),
 			})
 		})
@@ -295,32 +295,32 @@ func TestHistogramBuckets(t *testing.T) {
 				requireHistogramEqual(t, metrics["foo"], histogram{
 					name: "foo", count: 1, sum: 20,
 					buckets: []*promClient.Bucket{
-						{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+						{CumulativeCount: new(uint64(0)), UpperBound: new(10.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(20.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(30.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 					},
 					labels: append(
 						scenario.additionalLabels,
-						&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
-						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+						&promClient.LabelPair{Name: new("a"), Value: new("b")},
+						&promClient.LabelPair{Name: new("job"), Value: &svcName},
+						&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 					),
 				})
 
 				requireHistogramEqual(t, metrics["bar"], histogram{
 					name: "bar", count: 1, sum: 30,
 					buckets: []*promClient.Bucket{
-						{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-						{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(20.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+						{CumulativeCount: new(uint64(0)), UpperBound: new(10.0)},
+						{CumulativeCount: new(uint64(0)), UpperBound: new(20.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(30.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 					},
 					labels: append(
 						scenario.additionalLabels,
-						&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
-						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+						&promClient.LabelPair{Name: new("c"), Value: new("d")},
+						&promClient.LabelPair{Name: new("job"), Value: &svcName},
+						&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 					),
 				})
 			})
@@ -352,48 +352,48 @@ func TestHistogramBuckets(t *testing.T) {
 				requireHistogramEqual(t, metrics["foo"], histogram{
 					name: "foo", count: 1, sum: 20,
 					buckets: []*promClient.Bucket{
-						{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+						{CumulativeCount: new(uint64(0)), UpperBound: new(10.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(20.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(30.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 					},
 					labels: append(
 						scenario.additionalLabels,
-						&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
-						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+						&promClient.LabelPair{Name: new("a"), Value: new("b")},
+						&promClient.LabelPair{Name: new("job"), Value: &svcName},
+						&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 					),
 				})
 
 				requireHistogramEqual(t, metrics["bar"], histogram{
 					name: "bar", count: 1, sum: 50,
 					buckets: []*promClient.Bucket{
-						{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(40.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(50.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+						{CumulativeCount: new(uint64(0)), UpperBound: new(40.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(50.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(60.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 					},
 					labels: append(
 						scenario.additionalLabels,
-						&promClient.LabelPair{Name: ptr("c"), Value: ptr("d")},
-						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+						&promClient.LabelPair{Name: new("c"), Value: new("d")},
+						&promClient.LabelPair{Name: new("job"), Value: &svcName},
+						&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 					),
 				})
 
 				requireHistogramEqual(t, metrics["baz"], histogram{
 					name: "baz", count: 1, sum: 80,
 					buckets: []*promClient.Bucket{
-						{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(70.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(80.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(90.0)},
-						{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+						{CumulativeCount: new(uint64(0)), UpperBound: new(70.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(80.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(90.0)},
+						{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 					},
 					labels: append(
 						scenario.additionalLabels,
-						&promClient.LabelPair{Name: ptr("e"), Value: ptr("f")},
-						&promClient.LabelPair{Name: ptr("job"), Value: &svcName},
-						&promClient.LabelPair{Name: ptr("service_name"), Value: &svcName},
+						&promClient.LabelPair{Name: new("e"), Value: new("f")},
+						&promClient.LabelPair{Name: new("job"), Value: &svcName},
+						&promClient.LabelPair{Name: new("service_name"), Value: &svcName},
 					),
 				})
 			})
@@ -496,22 +496,22 @@ func TestNonBlockingConnection(t *testing.T) {
 	metrics := requireMetrics(t, metricsEndpoint, "foo_total", "bar_total")
 
 	defaultAttrs := append(globalGRPCDefaultAttrs,
-		&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestNonBlockingConnection")},
-		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestNonBlockingConnection")},
+		&promClient.LabelPair{Name: new("job"), Value: new("TestNonBlockingConnection")},
+		&promClient.LabelPair{Name: new("service_name"), Value: new("TestNonBlockingConnection")},
 	)
 
-	require.EqualValues(t, ptr("foo_total"), metrics["foo_total"].Name)
+	require.EqualValues(t, new("foo_total"), metrics["foo_total"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo_total"].Type)
 	require.Len(t, metrics["foo_total"].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(123.0)}, metrics["foo_total"].Metric[0].Counter)
+	require.EqualValues(t, &promClient.Counter{Value: new(123.0)}, metrics["foo_total"].Metric[0].Counter)
 	require.ElementsMatch(t, append(defaultAttrs,
-		&promClient.LabelPair{Name: ptr("hello"), Value: ptr("world")},
+		&promClient.LabelPair{Name: new("hello"), Value: new("world")},
 	), metrics["foo_total"].Metric[0].Label)
 
-	require.EqualValues(t, ptr("bar_total"), metrics["bar_total"].Name)
+	require.EqualValues(t, new("bar_total"), metrics["bar_total"].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["bar_total"].Type)
 	require.Len(t, metrics["bar_total"].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(456.0)}, metrics["bar_total"].Metric[0].Counter)
+	require.EqualValues(t, &promClient.Counter{Value: new(456.0)}, metrics["bar_total"].Metric[0].Counter)
 	require.ElementsMatch(t, defaultAttrs, metrics["bar_total"].Metric[0].Label)
 }
 
@@ -561,8 +561,9 @@ func requireHistogramEqual(t *testing.T, mf *promClient.MetricFamily, h histogra
 	require.ElementsMatch(t, h.labels, mf.Metric[0].Label)
 }
 
+//go:fix inline
 func ptr[T any](v T) *T {
-	return &v
+	return new(v)
 }
 
 type testCase struct {

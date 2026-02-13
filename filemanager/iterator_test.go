@@ -9,9 +9,9 @@ import (
 func TestObjectIterator(t *testing.T) {
 	newMockListSession := func(pages, itemsPerPage int) ListSession {
 		pagesArray := make([][]*FileInfo, pages)
-		for i := 0; i < pages; i++ {
+		for i := range pages {
 			page := make([]*FileInfo, itemsPerPage)
-			for j := 0; j < itemsPerPage; j++ {
+			for j := range itemsPerPage {
 				page[j] = &FileInfo{}
 			}
 			pagesArray[i] = page

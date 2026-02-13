@@ -51,7 +51,7 @@ type statsdGauge struct {
 }
 
 // Gauge records an absolute value for this stat. Only applies to GaugeType stats
-func (g *statsdGauge) Gauge(value interface{}) {
+func (g *statsdGauge) Gauge(value any) {
 	g.client.statsdMu.RLock()
 	defer g.client.statsdMu.RUnlock()
 	if g.skip() {

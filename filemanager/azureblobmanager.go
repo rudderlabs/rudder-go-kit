@@ -29,7 +29,7 @@ type AzureBlobConfig struct {
 }
 
 // NewAzureBlobManager creates a new file manager for Azure Blob Storage
-func NewAzureBlobManager(config map[string]interface{}, log logger.Logger, defaultTimeout func() time.Duration) (*AzureBlobManager, error) {
+func NewAzureBlobManager(config map[string]any, log logger.Logger, defaultTimeout func() time.Duration) (*AzureBlobManager, error) {
 	return &AzureBlobManager{
 		baseManager: &baseManager{
 			logger:         log,
@@ -259,7 +259,7 @@ type AzureBlobManager struct {
 	config *AzureBlobConfig
 }
 
-func azureBlobConfig(config map[string]interface{}) *AzureBlobConfig {
+func azureBlobConfig(config map[string]any) *AzureBlobConfig {
 	var containerName, accountName, accountKey, sasToken, prefix string
 	var endPoint *string
 	var forcePathStyle, disableSSL *bool

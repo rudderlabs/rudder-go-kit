@@ -11,7 +11,7 @@ func TestPriorityQueue(t *testing.T) {
 	t.Run("different priorities", func(t *testing.T) {
 		pq := make(PriorityQueue[any], 0)
 		heap.Init(&pq)
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			item := &Item[any]{
 				Priority: i * 2,
 			}
@@ -31,7 +31,7 @@ func TestPriorityQueue(t *testing.T) {
 	t.Run("same priorities", func(t *testing.T) {
 		pq := make(PriorityQueue[any], 3)
 
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			pq[i] = &Item[any]{
 				Priority:  1,
 				timeStamp: int64(i),
@@ -58,7 +58,7 @@ func TestPriorityQueue(t *testing.T) {
 	t.Run("pop then try to update", func(t *testing.T) {
 		pq := make(PriorityQueue[any], 3)
 
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			pq[i] = &Item[any]{
 				Priority:  1,
 				timeStamp: int64(i),

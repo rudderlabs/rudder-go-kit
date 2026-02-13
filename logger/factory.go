@@ -107,8 +107,8 @@ func newConfig(config *config.Config) *factoryConfig {
 	// Example: "router.GA=DEBUG:warehouse.REDSHIFT=DEBUG"
 	levelConfigStr := strings.TrimSpace(config.GetString("Logger.moduleLevels", ""))
 	if levelConfigStr != "" {
-		moduleLevelKVs := strings.Split(levelConfigStr, ":")
-		for _, moduleLevelKV := range moduleLevelKVs {
+		moduleLevelKVs := strings.SplitSeq(levelConfigStr, ":")
+		for moduleLevelKV := range moduleLevelKVs {
 			pair := strings.SplitN(moduleLevelKV, "=", 2)
 			if len(pair) < 2 {
 				continue

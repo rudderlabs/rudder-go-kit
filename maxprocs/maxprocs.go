@@ -82,8 +82,8 @@ func set(raw string, opts ...option) {
 	}
 
 	cpuRequests := 0.0
-	if strings.HasSuffix(raw, "m") {
-		value, err := strconv.Atoi(strings.TrimSuffix(raw, "m"))
+	if before, ok := strings.CutSuffix(raw, "m"); ok {
+		value, err := strconv.Atoi(before)
 		if err == nil {
 			cpuRequests = float64(value) / 1000
 		} else {
@@ -105,10 +105,7 @@ func set(raw string, opts ...option) {
 	}
 
 	// Calculate GOMAXPROCS
-	gomaxprocs := conf.roundQuotaFunc(cpuRequests * conf.cpuRequestsMultiplier)
-	if gomaxprocs < conf.minProcs {
-		gomaxprocs = conf.minProcs
-	}
+	gomaxprocs := max(conf.roundQuotaFunc(cpuRequests*conf.cpuRequestsMultiplier), conf.minProcs)
 	if conf.maxProcs > 0 && gomaxprocs > conf.maxProcs {
 		gomaxprocs = conf.maxProcs
 	}

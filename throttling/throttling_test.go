@@ -52,7 +52,7 @@ func TestThrottling(t *testing.T) {
 	)
 
 	flakinessRate := 1 // increase to run the tests multiple times in a row to debug flaky tests
-	for i := 0; i < flakinessRate; i++ {
+	for range flakinessRate {
 		for _, tc := range []testCase{
 			// avoid rates that are too small (e.g. 10), that's where there is the most flakiness
 			{rate: 500, window: 1},
@@ -115,9 +115,7 @@ loop:
 			// is measured in the Lua scripts.
 			break loop
 		case maxRoutines <- struct{}{}:
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				defer func() { <-maxRoutines }()
 
 				allowed, redisTime, err := run()
@@ -146,7 +144,7 @@ loop:
 				if allowed {
 					atomic.AddInt64(&passed, cost)
 				}
-			}()
+			})
 		}
 	}
 
@@ -350,7 +348,7 @@ func TestRetryAfter(t *testing.T) {
 	)
 
 	flakinessRate := 1 // increase to run the tests multiple times in a row to debug flaky tests
-	for i := 0; i < flakinessRate; i++ {
+	for range flakinessRate {
 		for _, tc := range testCases {
 			t.Run(testName(tc.name, tc.rate, tc.window), func(t *testing.T) {
 				timeout := time.NewTimer(tc.runFor)

@@ -1,8 +1,8 @@
 package client
 
 type logger interface {
-	Infof(format string, args ...interface{})
-	Errorf(format string, args ...interface{})
+	Infof(format string, args ...any)
+	Errorf(format string, args ...any)
 }
 
 type KafkaLogger struct {
@@ -10,7 +10,7 @@ type KafkaLogger struct {
 	IsErrorLogger bool
 }
 
-func (l *KafkaLogger) Printf(format string, args ...interface{}) {
+func (l *KafkaLogger) Printf(format string, args ...any) {
 	if l.IsErrorLogger {
 		l.Logger.Errorf(format, args...)
 	} else {

@@ -65,10 +65,7 @@ func (c *collector) Get() (*Stat, error) {
 	cgroupLimit := cgroup.GetMemoryLimit(c.basePath, int(mem.Total))
 	if cgroupLimit < int(mem.Total) { // if cgroup limit is set read memory statistics from cgroup
 		stat.Total = uint64(cgroupLimit)
-		stat.Used = uint64(cgroup.GetMemoryUsage(c.basePath))
-		if stat.Used > stat.Total {
-			stat.Used = stat.Total
-		}
+		stat.Used = min(uint64(cgroup.GetMemoryUsage(c.basePath)), stat.Total)
 		stat.RSS = uint64(cgroup.GetMemoryRSS(c.basePath))
 		if stat.RSS == 0 || stat.RSS > stat.Used {
 			stat.RSS = stat.Used

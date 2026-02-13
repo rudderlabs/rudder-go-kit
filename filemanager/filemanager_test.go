@@ -87,7 +87,7 @@ func TestFileManager(t *testing.T) {
 		name          string
 		skip          string
 		destName      string
-		config        func(t *testing.T) map[string]interface{}
+		config        func(t *testing.T) map[string]any
 		otherPrefixes []string
 		appConf       *config.Config
 	}{
@@ -95,9 +95,9 @@ func TestFileManager(t *testing.T) {
 			name:          "testing s3manager functionality",
 			destName:      "S3",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: func(t *testing.T) map[string]interface{} {
+			config: func(t *testing.T) map[string]any {
 				_, s3Endpoint := startMinioContainer(t)
-				return map[string]interface{}{
+				return map[string]any{
 					"bucketName":       bucket,
 					"accessKeyID":      accessKeyId,
 					"accessKey":        secretAccessKey,
@@ -114,9 +114,9 @@ func TestFileManager(t *testing.T) {
 			name:          "testing s3manager functionality with / in prefix",
 			destName:      "S3",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: func(t *testing.T) map[string]interface{} {
+			config: func(t *testing.T) map[string]any {
 				_, s3Endpoint := startMinioContainer(t)
-				return map[string]interface{}{
+				return map[string]any{
 					"bucketName":       bucket + "///",
 					"accessKeyID":      accessKeyId,
 					"accessKey":        secretAccessKey,
@@ -137,9 +137,9 @@ func TestFileManager(t *testing.T) {
 			name:          "testing minio functionality",
 			destName:      "MINIO",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: func(t *testing.T) map[string]interface{} {
+			config: func(t *testing.T) map[string]any {
 				minioHostPort, _ := startMinioContainer(t)
-				return map[string]interface{}{
+				return map[string]any{
 					"bucketName":       bucket,
 					"accessKeyID":      accessKeyId,
 					"secretAccessKey":  secretAccessKey,
@@ -156,9 +156,9 @@ func TestFileManager(t *testing.T) {
 			name:          "testing digital ocean functionality",
 			destName:      "DIGITAL_OCEAN_SPACES",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: func(t *testing.T) map[string]interface{} {
+			config: func(t *testing.T) map[string]any {
 				_, s3Endpoint := startMinioContainer(t)
-				return map[string]interface{}{
+				return map[string]any{
 					"bucketName":       bucket,
 					"accessKeyID":      accessKeyId,
 					"accessKey":        secretAccessKey,
@@ -175,9 +175,9 @@ func TestFileManager(t *testing.T) {
 			name:          "testing Azure blob storage filemanager functionality with account keys configured",
 			destName:      "AZURE_BLOB",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: func(t *testing.T) map[string]interface{} {
+			config: func(t *testing.T) map[string]any {
 				AzuriteEndpoint, _ := startAzuriteContainer(t)
-				return map[string]interface{}{
+				return map[string]any{
 					"containerName":  bucket,
 					"prefix":         "some-prefix",
 					"accountName":    accessKeyId,
@@ -192,9 +192,9 @@ func TestFileManager(t *testing.T) {
 			name:          "testing Azure blob storage filemanager functionality with sas tokens configured",
 			destName:      "AZURE_BLOB",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: func(t *testing.T) map[string]interface{} {
+			config: func(t *testing.T) map[string]any {
 				AzuriteEndpoint, azureSASTokens := startAzuriteContainer(t)
-				return map[string]interface{}{
+				return map[string]any{
 					"containerName":  bucket,
 					"prefix":         "some-prefix",
 					"accountName":    accessKeyId,
@@ -210,9 +210,9 @@ func TestFileManager(t *testing.T) {
 			name:          "testing GCS filemanager functionality",
 			destName:      "GCS",
 			otherPrefixes: []string{"other-prefix-1", "other-prefix-2"},
-			config: func(t *testing.T) map[string]interface{} {
+			config: func(t *testing.T) map[string]any {
 				gcsURL := startGCSContainer(t)
-				return map[string]interface{}{
+				return map[string]any{
 					"bucketName": bucket,
 					"prefix":     "some-prefix",
 					"endPoint":   gcsURL,
@@ -689,7 +689,7 @@ func TestFileManager_S3(t *testing.T) {
 
 func TestS3Manager_SelectObjects(t *testing.T) {
 	_, s3Endpoint := startMinioContainer(t)
-	minioConfig := map[string]interface{}{
+	minioConfig := map[string]any{
 		"bucketName":       bucket,
 		"accessKeyID":      accessKeyId,
 		"accessKey":        secretAccessKey,
@@ -761,7 +761,7 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 					continue
 				}
 				if outputFormat == "json" {
-					var js map[string]interface{}
+					var js map[string]any
 					if err := jsoniter.Unmarshal(line, &js); err != nil {
 						t.Errorf("received line is not valid JSON: %v\ndata: %s", err, string(line))
 					}

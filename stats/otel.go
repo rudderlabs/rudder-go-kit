@@ -463,7 +463,7 @@ func buildOTelInstrument[T any](
 
 	if !ok {
 		var err error
-		var value interface{}
+		var value any
 		switch any(m).(type) {
 		case map[string]metric.Int64Counter:
 			if value, err = meter.Int64Counter(name); err != nil {

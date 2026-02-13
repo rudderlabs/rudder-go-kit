@@ -312,11 +312,11 @@ type meterProviderConfig struct {
 }
 
 type logger interface {
-	Info(...interface{})
-	Error(...interface{})
+	Info(...any)
+	Error(...any)
 }
 
 type nopLogger struct{}
 
-func (nopLogger) Info(...interface{})  {}
-func (nopLogger) Error(...interface{}) {}
+func (nopLogger) Info(...any)  {}
+func (nopLogger) Error(...any) {}

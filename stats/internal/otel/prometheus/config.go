@@ -8,8 +8,8 @@ import (
 )
 
 type logger interface {
-	Info(args ...interface{})
-	Error(args ...interface{})
+	Info(args ...any)
+	Error(args ...any)
 }
 
 // config contains options for the exporter.
@@ -131,5 +131,5 @@ func WithLogger(l logger) Option {
 
 type nopLogger struct{}
 
-func (nopLogger) Info(...interface{})  {}
-func (nopLogger) Error(...interface{}) {}
+func (nopLogger) Info(...any)  {}
+func (nopLogger) Error(...any) {}

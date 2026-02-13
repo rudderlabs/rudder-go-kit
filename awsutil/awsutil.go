@@ -160,7 +160,7 @@ func createRoleSessionName(serviceName string) string {
 }
 
 // NewSimpleSessionConfig creates a new session config using the provided config map
-func NewSimpleSessionConfig(config map[string]interface{}, serviceName string) (*SessionConfig, error) {
+func NewSimpleSessionConfig(config map[string]any, serviceName string) (*SessionConfig, error) {
 	if config == nil {
 		return nil, errors.New("config should not be nil")
 	}
@@ -195,7 +195,7 @@ func GetRegionFromBucket(ctx context.Context, bucket, regionHint string) (string
 	return region, nil
 }
 
-func isRoleBasedAuthFieldExist(config map[string]interface{}) bool {
+func isRoleBasedAuthFieldExist(config map[string]any) bool {
 	_, ok := config["roleBasedAuth"].(bool)
 	return ok
 }

@@ -214,7 +214,7 @@ func (c metricStatsCollector) outputStats() {
 	if c.metricManager == nil {
 		return
 	}
-	c.metricManager.GetRegistry(metric.PublishedMetrics).Range(func(key, value interface{}) bool {
+	c.metricManager.GetRegistry(metric.PublishedMetrics).Range(func(key, value any) bool {
 		m := key.(metric.Measurement)
 		switch value := value.(type) {
 		case metric.Gauge:
