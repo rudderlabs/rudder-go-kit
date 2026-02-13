@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.72.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.2...v0.72.3) (2026-02-13)
+
+
+### Bug Fixes
+
+* invalid zookeeper portbinding ([#1042](https://github.com/rudderlabs/rudder-go-kit/issues/1042)) ([2b5ea38](https://github.com/rudderlabs/rudder-go-kit/commit/2b5ea3899c389fe48cb7114d13857ad2c3653505))
+
+
+### Miscellaneous
+
+* **deps:** bump the all group across 1 directory with 6 updates ([#1036](https://github.com/rudderlabs/rudder-go-kit/issues/1036)) ([fe8441e](https://github.com/rudderlabs/rudder-go-kit/commit/fe8441ebdf812b044c6ff7a619d2e6cb581e135b))
+* **deps:** bump the frequent group with 2 updates ([#1037](https://github.com/rudderlabs/rudder-go-kit/issues/1037)) ([5e29f87](https://github.com/rudderlabs/rudder-go-kit/commit/5e29f8700b748e45369b1649f6bc74066001b317))
+* enable gosec security linter ([#1040](https://github.com/rudderlabs/rudder-go-kit/issues/1040)) ([f39ec2a](https://github.com/rudderlabs/rudder-go-kit/commit/f39ec2a198f045f50667cd1dc87533fc919cf392))
+
 ## [0.72.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.1...v0.72.2) (2026-02-12)
 
 
