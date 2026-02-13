@@ -162,14 +162,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	if err != nil {
 		return nil, err
 	}
-	zookeeperPort := fmt.Sprintf("%d/tcp", zookeeperPortInt)
+	zookeeperPort := strconv.Itoa(zookeeperPortInt)
 	zookeeperContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: registry.ImagePath("bitnamilegacy/zookeeper"),
 		Tag:        "3.9-debian-11",
 		NetworkID:  network.ID,
 		Hostname:   "zookeeper",
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			"2181/tcp": {{HostIP: "zookeeper", HostPort: zookeeperPort}},
+			"2181/tcp": {{HostIP: internal.BindHostIP, HostPort: zookeeperPort}},
 		},
 		Auth: registry.AuthConfiguration(),
 		Env:  []string{"ALLOW_ANONYMOUS_LOGIN=yes"},
