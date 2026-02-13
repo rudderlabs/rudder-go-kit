@@ -15,6 +15,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 	dt "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const healthPort = "13133"
@@ -49,7 +50,7 @@ func StartOTelCollector(t testing.TB, metricsPort, configPath string, opts ...St
 	require.NoError(t, err)
 
 	collector, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   "otel/opentelemetry-collector",
+		Repository:   registry.ImagePath("otel/opentelemetry-collector"),
 		Tag:          "0.115.0",
 		ExposedPorts: []string{healthPort + "/tcp", metricsPort + "/tcp", "4317/tcp"},
 		PortBindings: map[docker.Port][]docker.PortBinding{
@@ -58,6 +59,7 @@ func StartOTelCollector(t testing.TB, metricsPort, configPath string, opts ...St
 			docker.Port(metricsPort + "/tcp"): {{}},
 		},
 		Mounts: []string{configPath + ":/etc/otelcol/config.yaml:z"},
+		Auth:   registry.AuthConfiguration(),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {

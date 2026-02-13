@@ -11,6 +11,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 type Resource struct {
@@ -43,13 +44,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		networkID = c.network.ID
 	}
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "bitnamilegacy/etcd",
+		Repository: registry.ImagePath("bitnamilegacy/etcd"),
 		Tag:        "3.5",
 		NetworkID:  networkID,
 		Env: []string{
 			"ALLOW_NONE_AUTHENTICATION=yes",
 		},
 		PortBindings: internal.IPv4PortBindings([]string{"2379"}),
+		Auth:         registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {

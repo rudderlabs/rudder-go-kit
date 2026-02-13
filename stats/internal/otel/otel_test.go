@@ -27,6 +27,7 @@ import (
 	statsTest "github.com/rudderlabs/rudder-go-kit/stats/testhelper"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 	dt "github.com/rudderlabs/rudder-go-kit/testhelper/docker"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const (
@@ -408,11 +409,12 @@ func TestCollectorGlobals(t *testing.T) {
 	require.NoError(t, err)
 
 	collector, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "otel/opentelemetry-collector",
+		Repository: registry.ImagePath("otel/opentelemetry-collector"),
 		Tag:        "0.115.0",
 		PortBindings: map[docker.Port][]docker.PortBinding{
 			"4317/tcp": {{HostPort: strconv.Itoa(grpcPort)}},
 		},
+		Auth: registry.AuthConfiguration(),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {
