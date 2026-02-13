@@ -40,7 +40,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	semconv "go.opentelemetry.io/otel/semconv/v1.39.0"
-	"google.golang.org/protobuf/proto"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -551,8 +550,8 @@ func validateMetrics(
 	emf, exist := mfs[name]
 	if !exist {
 		mfs[name] = &dto.MetricFamily{
-			Name: proto.String(name),
-			Help: proto.String(description),
+			Name: new(name),
+			Help: new(description),
 			Type: metricType,
 		}
 		return false, ""

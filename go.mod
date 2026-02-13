@@ -1,6 +1,6 @@
 module github.com/rudderlabs/rudder-go-kit
 
-go 1.25.7
+go 1.26.0
 
 require (
 	cloud.google.com/go/storage v1.60.0
@@ -71,7 +71,6 @@ require (
 	golang.org/x/sync v0.19.0
 	golang.org/x/text v0.34.0
 	google.golang.org/api v0.266.0
-	google.golang.org/protobuf v1.36.11
 	gopkg.in/alexcesaro/statsd.v2 v2.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
@@ -229,6 +228,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20260203192932-546029d2fa20 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260203192932-546029d2fa20 // indirect
 	google.golang.org/grpc v1.78.0 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.2 // indirect

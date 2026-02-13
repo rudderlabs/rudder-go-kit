@@ -43,11 +43,11 @@ const (
 )
 
 var globalDefaultAttrs = []*promClient.LabelPair{
-	{Name: ptr("instanceName"), Value: ptr("my-instance-id")},
-	{Name: ptr("service_version"), Value: ptr("v1.2.3")},
-	{Name: ptr("telemetry_sdk_language"), Value: ptr("go")},
-	{Name: ptr("telemetry_sdk_name"), Value: ptr("opentelemetry")},
-	{Name: ptr("telemetry_sdk_version"), Value: ptr(otel.Version())},
+	{Name: new("instanceName"), Value: new("my-instance-id")},
+	{Name: new("service_version"), Value: new("v1.2.3")},
+	{Name: new("telemetry_sdk_language"), Value: new("go")},
+	{Name: new("telemetry_sdk_name"), Value: new("opentelemetry")},
+	{Name: new("telemetry_sdk_version"), Value: new(otel.Version())},
 }
 
 func TestOTelMeasurementInvalidOperations(t *testing.T) {
@@ -363,9 +363,9 @@ func TestOTelPeriodicStats(t *testing.T) {
 
 			expectedLabels := append(globalDefaultAttrs,
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-				&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
-				&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestOTelPeriodicStats")},
-				&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestOTelPeriodicStats")},
+				&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
+				&promClient.LabelPair{Name: new("job"), Value: new("TestOTelPeriodicStats")},
+				&promClient.LabelPair{Name: new("service_name"), Value: new("TestOTelPeriodicStats")},
 			)
 			if exp.tags != nil {
 				expectedLabels = append(expectedLabels, exp.tags...)
@@ -460,8 +460,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 			).Set(1.0)
 		}, []expectation{
 			{name: "test_measurement_table", tags: []*promClient.LabelPair{
-				{Name: ptr("destType"), Value: ptr("destType")},
-				{Name: ptr("workspaceId"), Value: ptr("workspace")},
+				{Name: new("destType"), Value: new("destType")},
+				{Name: new("workspaceId"), Value: new("workspace")},
 			}},
 		})
 	})
@@ -504,13 +504,13 @@ func TestOTelExcludedTags(t *testing.T) {
 	require.EqualValues(t, &expectedMetricName, metrics[expectedMetricName].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[expectedMetricName].Type)
 	require.Len(t, metrics[expectedMetricName].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(1.0)}, metrics[expectedMetricName].Metric[0].Counter)
+	require.EqualValues(t, &promClient.Counter{Value: new(1.0)}, metrics[expectedMetricName].Metric[0].Counter)
 	require.ElementsMatchf(t, append(globalDefaultAttrs,
 		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-		&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
-		&promClient.LabelPair{Name: ptr("should_not_be_filtered"), Value: ptr("fancy-value")},
-		&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestOTelExcludedTags")},
-		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestOTelExcludedTags")},
+		&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
+		&promClient.LabelPair{Name: new("should_not_be_filtered"), Value: new("fancy-value")},
+		&promClient.LabelPair{Name: new("job"), Value: new("TestOTelExcludedTags")},
+		&promClient.LabelPair{Name: new("service_name"), Value: new("TestOTelExcludedTags")},
 	), metrics[expectedMetricName].Metric[0].Label, "Got %+v", metrics[expectedMetricName].Metric[0].Label)
 }
 
@@ -552,7 +552,7 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			name: "grpc",
 			additionalLabels: append(globalDefaultAttrs,
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
-				&promClient.LabelPair{Name: ptr("label1"), Value: ptr("value1")},
+				&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
 			),
 			counterSuffix: "_total", // OTel Collector Prometheus exporter adds _total suffix
 			setupMeterProvider: func(t testing.TB) (Stats, string) {
@@ -630,73 +630,73 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			bazName := "baz" + scenario.counterSuffix
 			metrics := requireMetrics(t, metricsEndpoint, "foo", "bar", bazName, "qux", "asd")
 
-			require.EqualValues(t, ptr("foo"), metrics["foo"].Name)
+			require.EqualValues(t, new("foo"), metrics["foo"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["foo"].Type)
 			require.Len(t, metrics["foo"].Metric, 1)
-			require.EqualValues(t, ptr(uint64(1)), metrics["foo"].Metric[0].Histogram.SampleCount)
-			require.EqualValues(t, ptr(20.0), metrics["foo"].Metric[0].Histogram.SampleSum)
+			require.EqualValues(t, new(uint64(1)), metrics["foo"].Metric[0].Histogram.SampleCount)
+			require.EqualValues(t, new(20.0), metrics["foo"].Metric[0].Histogram.SampleSum)
 			require.EqualValues(t, []*promClient.Bucket{
-				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+				{CumulativeCount: new(uint64(0)), UpperBound: new(10.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(20.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(30.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 			}, metrics["foo"].Metric[0].Histogram.Bucket)
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("a"), Value: ptr("b")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: new("a"), Value: new("b")},
+				{Name: new("job"), Value: new("TestOTelHistogramBuckets")},
+				{Name: new("service_name"), Value: new("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["foo"].Metric[0].Label, "Got %+v", metrics["foo"].Metric[0].Label)
 
-			require.EqualValues(t, ptr("bar"), metrics["bar"].Name)
+			require.EqualValues(t, new("bar"), metrics["bar"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["bar"].Type)
 			require.Len(t, metrics["bar"].Metric, 1)
-			require.EqualValues(t, ptr(uint64(1)), metrics["bar"].Metric[0].Histogram.SampleCount)
-			require.EqualValues(t, ptr(50.0), metrics["bar"].Metric[0].Histogram.SampleSum)
+			require.EqualValues(t, new(uint64(1)), metrics["bar"].Metric[0].Histogram.SampleCount)
+			require.EqualValues(t, new(50.0), metrics["bar"].Metric[0].Histogram.SampleSum)
 			require.EqualValues(t, []*promClient.Bucket{
-				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(40.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(50.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(60.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+				{CumulativeCount: new(uint64(0)), UpperBound: new(40.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(50.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(60.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 			}, metrics["bar"].Metric[0].Histogram.Bucket)
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("c"), Value: ptr("d")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: new("c"), Value: new("d")},
+				{Name: new("job"), Value: new("TestOTelHistogramBuckets")},
+				{Name: new("service_name"), Value: new("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["bar"].Metric[0].Label, "Got %+v", metrics["bar"].Metric[0].Label)
 
-			require.EqualValues(t, ptr(bazName), metrics[bazName].Name)
+			require.EqualValues(t, new(bazName), metrics[bazName].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[bazName].Type)
 			require.Len(t, metrics[bazName].Metric, 1)
-			require.EqualValues(t, ptr(7.0), metrics[bazName].Metric[0].Counter.Value)
+			require.EqualValues(t, new(7.0), metrics[bazName].Metric[0].Counter.Value)
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("e"), Value: ptr("f")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: new("e"), Value: new("f")},
+				{Name: new("job"), Value: new("TestOTelHistogramBuckets")},
+				{Name: new("service_name"), Value: new("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics[bazName].Metric[0].Label, "Got %+v", metrics[bazName].Metric[0].Label)
 
-			require.EqualValues(t, ptr("qux"), metrics["qux"].Name)
+			require.EqualValues(t, new("qux"), metrics["qux"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_GAUGE), metrics["qux"].Type)
 			require.Len(t, metrics["qux"].Metric, 1)
-			require.EqualValues(t, ptr(13.0), metrics["qux"].Metric[0].Gauge.Value)
+			require.EqualValues(t, new(13.0), metrics["qux"].Metric[0].Gauge.Value)
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("g"), Value: ptr("h")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: new("g"), Value: new("h")},
+				{Name: new("job"), Value: new("TestOTelHistogramBuckets")},
+				{Name: new("service_name"), Value: new("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["qux"].Metric[0].Label, "Got %+v", metrics["qux"].Metric[0].Label)
 
-			require.EqualValues(t, ptr("asd"), metrics["asd"].Name)
+			require.EqualValues(t, new("asd"), metrics["asd"].Name)
 			require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), metrics["asd"].Type)
 			require.Len(t, metrics["asd"].Metric, 1)
 			require.EqualValues(t, []*promClient.Bucket{
-				{CumulativeCount: ptr(uint64(0)), UpperBound: ptr(10.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(20.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(30.0)},
-				{CumulativeCount: ptr(uint64(1)), UpperBound: ptr(math.Inf(1))},
+				{CumulativeCount: new(uint64(0)), UpperBound: new(10.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(20.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(30.0)},
+				{CumulativeCount: new(uint64(1)), UpperBound: new(math.Inf(1))},
 			}, metrics["asd"].Metric[0].Histogram.Bucket)
 			require.ElementsMatchf(t, append([]*promClient.LabelPair{
-				{Name: ptr("i"), Value: ptr("l")},
-				{Name: ptr("job"), Value: ptr("TestOTelHistogramBuckets")},
-				{Name: ptr("service_name"), Value: ptr("TestOTelHistogramBuckets")},
+				{Name: new("i"), Value: new("l")},
+				{Name: new("job"), Value: new("TestOTelHistogramBuckets")},
+				{Name: new("service_name"), Value: new("TestOTelHistogramBuckets")},
 			}, scenario.additionalLabels...), metrics["asd"].Metric[0].Label, "Got %+v", metrics["asd"].Metric[0].Label)
 		})
 	}
@@ -758,11 +758,11 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		require.EqualValues(t, &metricName, metrics[metricName].Name)
 		require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
 		require.Len(t, metrics[metricName].Metric, 1)
-		require.EqualValues(t, &promClient.Counter{Value: ptr(7.0)}, metrics[metricName].Metric[0].Counter)
+		require.EqualValues(t, &promClient.Counter{Value: new(7.0)}, metrics[metricName].Metric[0].Counter)
 		require.ElementsMatchf(t, append(globalDefaultAttrs,
-			&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
-			&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
-			&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestPrometheusCustomRegistry")},
+			&promClient.LabelPair{Name: new("a"), Value: new("b")},
+			&promClient.LabelPair{Name: new("job"), Value: new("TestPrometheusCustomRegistry")},
+			&promClient.LabelPair{Name: new("service_name"), Value: new("TestPrometheusCustomRegistry")},
 		), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 	})
 
@@ -783,11 +783,11 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		require.EqualValues(t, promClient.MetricType_COUNTER, mf.GetType())
 		require.Len(t, mf.GetMetric(), 1)
 		require.ElementsMatch(t, append(globalDefaultAttrs,
-			&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
-			&promClient.LabelPair{Name: ptr("job"), Value: ptr("TestPrometheusCustomRegistry")},
-			&promClient.LabelPair{Name: ptr("service_name"), Value: ptr("TestPrometheusCustomRegistry")},
+			&promClient.LabelPair{Name: new("a"), Value: new("b")},
+			&promClient.LabelPair{Name: new("job"), Value: new("TestPrometheusCustomRegistry")},
+			&promClient.LabelPair{Name: new("service_name"), Value: new("TestPrometheusCustomRegistry")},
 		), mf.GetMetric()[0].GetLabel())
-		require.EqualValues(t, ptr(7.0), mf.GetMetric()[0].GetCounter().Value)
+		require.EqualValues(t, new(7.0), mf.GetMetric()[0].GetCounter().Value)
 	})
 }
 
@@ -850,11 +850,11 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	require.EqualValues(t, &metricName, metrics[metricName].Name)
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
 	require.Len(t, metrics[metricName].Metric, 1)
-	require.EqualValues(t, &promClient.Counter{Value: ptr(7.0)}, metrics[metricName].Metric[0].Counter)
+	require.EqualValues(t, &promClient.Counter{Value: new(7.0)}, metrics[metricName].Metric[0].Counter)
 	require.ElementsMatchf(t, append(globalDefaultAttrs,
-		&promClient.LabelPair{Name: ptr("a"), Value: ptr("b")},
-		&promClient.LabelPair{Name: ptr("job"), Value: ptr(t.Name())},
-		&promClient.LabelPair{Name: ptr("service_name"), Value: ptr(t.Name())},
+		&promClient.LabelPair{Name: new("a"), Value: new("b")},
+		&promClient.LabelPair{Name: new("job"), Value: new(t.Name())},
+		&promClient.LabelPair{Name: new("service_name"), Value: new(t.Name())},
 	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 }
 
@@ -1199,8 +1199,9 @@ func requireMetrics(
 	return metrics
 }
 
+//go:fix inline
 func ptr[T any](v T) *T {
-	return &v
+	return new(v)
 }
 
 func atomicBool(b bool) *atomic.Bool { // nolint:unparam
