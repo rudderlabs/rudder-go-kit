@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.72.4](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.3...v0.72.4) (2026-02-13)
+
+
+### Miscellaneous
+
+* upgrade to go 1.26 and include go fix in fmt makefile target ([#1043](https://github.com/rudderlabs/rudder-go-kit/issues/1043)) ([e2e1177](https://github.com/rudderlabs/rudder-go-kit/commit/e2e1177a0acf00d241df738944f7e6359b1f1c91))
+
 ## [0.72.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.2...v0.72.3) (2026-02-13)
 
 
