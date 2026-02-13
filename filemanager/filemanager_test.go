@@ -35,6 +35,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/filemanager"
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 var (
@@ -794,7 +795,7 @@ func startMinioContainer(t *testing.T) (minioHostPort, s3Endpoint string) {
 
 	// running minio container on docker
 	minioResource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "minio/minio",
+		Repository: registry.ImagePath("minio/minio"),
 		Tag:        "latest",
 		Cmd:        []string{"server", "/data"},
 		Env: []string{
@@ -803,6 +804,7 @@ func startMinioContainer(t *testing.T) (minioHostPort, s3Endpoint string) {
 			fmt.Sprintf("MINIO_SITE_REGION=%s", region),
 			"MINIO_API_SELECT_PARQUET=on",
 		},
+		Auth: registry.AuthConfiguration(),
 	})
 	require.NoError(t, err, "could not start minio container")
 	t.Cleanup(func() {
@@ -915,9 +917,10 @@ func startGCSContainer(t *testing.T) (url string) {
 
 	// Running GCS emulator
 	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: "fsouza/fake-gcs-server",
+		Repository: registry.ImagePath("fsouza/fake-gcs-server"),
 		Tag:        "1.49.0",
 		Cmd:        []string{"-scheme", "http", "-backend", "memory", "-location", "us-east-1"},
+		Auth:       registry.AuthConfiguration(),
 	})
 	require.NoError(t, err, "could not start resource")
 	t.Cleanup(func() {
