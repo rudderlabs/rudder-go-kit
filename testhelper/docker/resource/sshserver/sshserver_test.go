@@ -3,13 +3,13 @@ package sshserver
 import (
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/testhelper/keygen"
-
 	"github.com/melbahja/goph"
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/rudderlabs/rudder-go-kit/testhelper/keygen"
 )
 
 func TestCredentials(t *testing.T) {

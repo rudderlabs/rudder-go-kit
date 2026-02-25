@@ -10,11 +10,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
 	kitconfig "github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
-	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 func main() {

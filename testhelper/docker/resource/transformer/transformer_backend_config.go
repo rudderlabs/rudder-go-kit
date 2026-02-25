@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	kithttptest "github.com/rudderlabs/rudder-go-kit/testhelper/httptest"
-
 	"github.com/google/uuid"
+
+	kithttptest "github.com/rudderlabs/rudder-go-kit/testhelper/httptest"
 )
 
 const (

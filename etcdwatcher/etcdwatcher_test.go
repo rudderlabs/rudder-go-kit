@@ -6,20 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/goleak"
-
 	"github.com/google/uuid"
 	"github.com/ory/dockertest/v3"
-
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/etcd"
-
 	"github.com/stretchr/testify/require"
-
-	"github.com/rudderlabs/rudder-go-kit/jsonrs"
-
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/goleak"
 
 	"github.com/rudderlabs/rudder-go-kit/etcdwatcher"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/etcd"
 )
 
 // TestData represents the structure of data stored in etcd for testing

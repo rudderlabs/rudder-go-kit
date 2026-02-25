@@ -6,9 +6,10 @@ import (
 	"sync"
 	"time"
 
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
-	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 // SetMemoryLimit sets the GOMEMLIMIT based on the configured percentage of total system memory.

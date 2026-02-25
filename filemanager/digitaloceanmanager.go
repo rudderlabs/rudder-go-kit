@@ -14,8 +14,6 @@ import (
 	"sync"
 	"time"
 
-	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -23,6 +21,8 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
+
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 
 	"github.com/rudderlabs/rudder-go-kit/awsutil"
 	"github.com/rudderlabs/rudder-go-kit/logger"

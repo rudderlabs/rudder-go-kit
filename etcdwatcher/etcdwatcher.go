@@ -5,12 +5,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rudderlabs/rudder-go-kit/async"
-
-	"github.com/rudderlabs/rudder-go-kit/jsonrs"
-
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
+
+	"github.com/rudderlabs/rudder-go-kit/async"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 )
 
 type etcdClient interface {

@@ -12,8 +12,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/alexcesaro/statsd.v2"
 
-	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
+	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 // statsdStats is the statsd-specific implementation of Stats

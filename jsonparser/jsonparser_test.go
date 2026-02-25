@@ -3,9 +3,9 @@ package jsonparser
 import (
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/jsonrs"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 )
 
 func suiteGetValue(t *testing.T, jsonParser JSONParser) {
