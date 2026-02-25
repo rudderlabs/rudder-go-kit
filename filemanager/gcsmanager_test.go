@@ -5,13 +5,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/fsouza/fake-gcs-server/fakestorage"
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
-
-	"github.com/fsouza/fake-gcs-server/fakestorage"
 )
 
 func TestGCSManager(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	kitctx "github.com/rudderlabs/rudder-go-kit/context"
-
 	"github.com/stretchr/testify/require"
+
+	kitctx "github.com/rudderlabs/rudder-go-kit/context"
 )
 
 func TestNotifyContextWithCallback(t *testing.T) {

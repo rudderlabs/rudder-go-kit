@@ -5,10 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/jsonrs"
-
 	"github.com/stretchr/testify/require"
 
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 	trand "github.com/rudderlabs/rudder-go-kit/testhelper/rand"
 )
 

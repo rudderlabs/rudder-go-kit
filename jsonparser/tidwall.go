@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )

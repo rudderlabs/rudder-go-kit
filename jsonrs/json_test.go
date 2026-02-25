@@ -7,11 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rudderlabs/rudder-go-kit/jsonrs"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 )
 
 func TestJSONCommonFunctionality(t *testing.T) {

@@ -6,11 +6,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/grafana/jsonparser"
 	"github.com/samber/lo"
 
 	"github.com/rudderlabs/rudder-go-kit/jsonrs"
-
-	"github.com/grafana/jsonparser"
 )
 
 // grafanaJSONParser is the implementation of JSONParser using jsonparser library
