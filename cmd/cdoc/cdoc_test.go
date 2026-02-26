@@ -546,6 +546,41 @@ func f(conf *config.Config, wsID string) {
 			wantDesc: []string{"d"},
 		},
 		{
+			name: "directive/varkey variadic keys with comma-separated directive",
+			src: `package test
+import (
+	"fmt"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config, wsID string) {
+	keys := []string{fmt.Sprintf("workspace.%s.timeout", wsID), "workspace.timeout"}
+	//cdoc:desc d
+	//cdoc:key workspace.<id>.timeout, workspace.timeout
+	conf.GetStringVar("30s", keys...)
+}`,
+			wantKeys: []string{"workspace.<id>.timeout,workspace.timeout"},
+			wantDefs: []string{"30s"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "directive/varkey variadic keys with two key directives",
+			src: `package test
+import (
+	"fmt"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config, wsID string) {
+	keys := []string{fmt.Sprintf("workspace.%s.timeout", wsID), fmt.Sprintf("WORKSPACE_%s_TIMEOUT", wsID)}
+	//cdoc:desc d
+	//cdoc:key workspace.<id>.timeout
+	//cdoc:key WORKSPACE_<id>_TIMEOUT
+	conf.GetStringVar("30s", keys...)
+}`,
+			wantKeys: []string{"workspace.<id>.timeout,WORKSPACE_<id>_TIMEOUT"},
+			wantDefs: []string{"30s"},
+			wantDesc: []string{"d"},
+		},
+		{
 			name: "directive/multiple varkeys for multiple dynamic args",
 			src: `package test
 import (

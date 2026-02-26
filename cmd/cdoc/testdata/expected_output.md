@@ -32,6 +32,7 @@ All configuration is read via environment variables with the `PREFIX_` prefix, o
 
 | Config variable | Env variable | Default | Description |
 |---|---|---|---|
+| `dynamic.<id>.key`<br>`static.key` | `PREFIX_DYNAMIC_<ID>_KEY`<br>`PREFIX_STATIC_KEY` | `default` | Example with multiple dynamic keys |
 | `missingDescription` | `PREFIX_MISSING_DESCRIPTION` | `true` |  |
 | `nonLiteralDefaultValue.withoutVardefault` | `PREFIX_NON_LITERAL_DEFAULT_VALUE_WITHOUT_VARDEFAULT` | `${computedTimeout}` | Worker pool size |
 

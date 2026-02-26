@@ -8,7 +8,7 @@
 //
 //	//cdoc:group [N] <Group Name> — sets the group (and optional sort order) for subsequent config entries
 //	//cdoc:desc <text>   — sets the description for the next config entry (same line or up to 3 lines above)
-//	//cdoc:key <key>         — provides a key for a non-literal (dynamic) config key argument (up to 10 lines above)
+//	//cdoc:key <key>[, <key>...] — provides key override(s) for non-literal (dynamic) config key arguments (up to 10 lines above)
 //	//cdoc:default <value>   — provides a default value for a non-literal (dynamic) default argument (up to 10 lines above)
 //	//cdoc:ignore               — excludes the config entry from output (same line or 1 line above)
 package main
@@ -263,7 +263,7 @@ func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]co
 				continue
 			}
 			if d, ok := lineDirectives[checkLine]; ok && d.kind == "key" {
-				varKeys = append(varKeys, d.value)
+				varKeys = append(varKeys, parseVarKeyDirective(d.value)...)
 				varKeyLines = append(varKeyLines, checkLine)
 			}
 			if d, ok := lineDirectives[checkLine]; ok && d.kind == "default" {
@@ -354,7 +354,8 @@ func extractEntry(fset *token.FileSet, spec methodSpec, call *ast.CallExpr, file
 		entry.Default = "${" + entry.Default + "}"
 	}
 
-	allKeys, warnings := classifyKeys(&entry, keyArgs, varKeys, filePath, line)
+	keyArgsVariadic := call.Ellipsis != token.NoPos && len(keyArgs) > 0
+	allKeys, warnings := classifyKeys(&entry, keyArgs, varKeys, keyArgsVariadic, filePath, line)
 	entry.PrimaryKey = strings.Join(allKeys, ",")
 
 	return entry, warnings, nil
@@ -364,21 +365,15 @@ func extractEntry(fset *token.FileSet, spec methodSpec, call *ast.CallExpr, file
 // and returns all resolved keys in their original argument order.
 // Non-literal arguments are filled from varKeys (in order). If there are
 // non-literal arguments without matching key directives, a warning is emitted.
-func classifyKeys(entry *configEntry, args []ast.Expr, varKeys []string, filePath string, line int) ([]string, []string) {
+func classifyKeys(entry *configEntry, args []ast.Expr, varKeys []string, variadicLastArg bool, filePath string, line int) ([]string, []string) {
 	var warnings []string
 	var allKeys []string
 	varKeyIdx := 0
-	for _, arg := range args {
-		key := renderStringLit(arg)
+
+	addKey := func(key string) {
+		key = strings.TrimSpace(key)
 		if key == "" {
-			// Non-literal key argument — try to fill from //cdoc:key directives.
-			if varKeyIdx < len(varKeys) {
-				key = varKeys[varKeyIdx]
-				varKeyIdx++
-			} else {
-				warnings = append(warnings, fmt.Sprintf("warning: %s:%d: non-literal config key argument without //cdoc:key directive", filePath, line))
-				continue
-			}
+			return
 		}
 		allKeys = append(allKeys, key)
 		if isEnvVarStyle(key) {
@@ -387,7 +382,43 @@ func classifyKeys(entry *configEntry, args []ast.Expr, varKeys []string, filePat
 			entry.ConfigKeys = append(entry.ConfigKeys, key)
 		}
 	}
+
+	for i, arg := range args {
+		key := renderStringLit(arg)
+		if key == "" {
+			// Non-literal key argument — try to fill from //cdoc:key directives.
+			if varKeyIdx < len(varKeys) {
+				if variadicLastArg && i == len(args)-1 {
+					// For a variadic keys... argument, allow one or more overrides.
+					for ; varKeyIdx < len(varKeys); varKeyIdx++ {
+						addKey(varKeys[varKeyIdx])
+					}
+					continue
+				}
+				addKey(varKeys[varKeyIdx])
+				varKeyIdx++
+				continue
+			} else {
+				warnings = append(warnings, fmt.Sprintf("warning: %s:%d: non-literal config key argument without //cdoc:key directive", filePath, line))
+				continue
+			}
+		}
+		addKey(key)
+	}
 	return allKeys, warnings
+}
+
+// parseVarKeyDirective parses one //cdoc:key value and supports comma-separated keys.
+func parseVarKeyDirective(value string) []string {
+	parts := strings.Split(value, ",")
+	keys := make([]string, 0, len(parts))
+	for _, part := range parts {
+		key := strings.TrimSpace(part)
+		if key != "" {
+			keys = append(keys, key)
+		}
+	}
+	return keys
 }
 
 // isLiteralDefault returns true if the expression is a compile-time literal
