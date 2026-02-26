@@ -19,11 +19,11 @@ func TestExtractFromFile(t *testing.T) {
 	tests := []struct {
 		name           string
 		src            string
-		wantKeys       []string // expected primary keys
-		wantDefs       []string // expected defaults (parallel to wantKeys)
-		wantDesc       []string // expected descriptions
-		wantGrps       []string // expected groups
-		wantReloadable []bool   // expected reloadable flags (nil = all false)
+		wantKeys       []string // expected primary keys (comma-joined)
+		wantDefs       []string   // expected defaults (parallel to wantKeys)
+		wantDesc       []string   // expected descriptions
+		wantGrps       []string   // expected groups
+		wantReloadable []bool     // expected reloadable flags (nil = all false)
 	}{
 		{
 			name: "GetStringVar/literal default",
@@ -58,7 +58,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetStringVar("localhost:2379", "etcd.hosts", "ETCD_HOSTS")
 }`,
-			wantKeys: []string{"etcd.hosts"},
+			wantKeys: []string{"etcd.hosts,ETCD_HOSTS"},
 			wantDefs: []string{"localhost:2379"},
 			wantDesc: []string{"d"},
 		},
@@ -336,7 +336,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetReloadableIntVar(100, 1, "key")
 }`,
-			wantKeys:       []string{"key"},
+			wantKeys: []string{"key"},
 			wantDefs:       []string{"100"},
 			wantDesc:       []string{"d"},
 			wantReloadable: []bool{true},
@@ -352,7 +352,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetReloadableDurationVar(30, time.Second, "key")
 }`,
-			wantKeys:       []string{"key"},
+			wantKeys: []string{"key"},
 			wantDefs:       []string{"30s"},
 			wantDesc:       []string{"d"},
 			wantReloadable: []bool{true},
@@ -365,7 +365,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetReloadableStringVar("val", "key")
 }`,
-			wantKeys:       []string{"key"},
+			wantKeys: []string{"key"},
 			wantDefs:       []string{"val"},
 			wantDesc:       []string{"d"},
 			wantReloadable: []bool{true},
@@ -378,7 +378,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetReloadableFloat64Var(0.5, "key")
 }`,
-			wantKeys:       []string{"key"},
+			wantKeys: []string{"key"},
 			wantDefs:       []string{"0.5"},
 			wantDesc:       []string{"d"},
 			wantReloadable: []bool{true},
@@ -426,7 +426,7 @@ import "github.com/rudderlabs/rudder-go-kit/config"
 //cdoc:desc Number of partitions
 var x = config.GetIntVar(64, 1, "partitionCount", "PARTITION_COUNT")
 `,
-			wantKeys: []string{"partitionCount"},
+			wantKeys: []string{"partitionCount,PARTITION_COUNT"},
 			wantDefs: []string{"64"},
 			wantDesc: []string{"Number of partitions"},
 			wantGrps: []string{"General"},
@@ -459,7 +459,7 @@ func f(conf *config.Config, wsID string) {
 	//cdoc:key WORKSPACE_<id>_TIMEOUT
 	conf.GetStringVar("30s", "workspace.timeout", fmt.Sprintf("WORKSPACE_%s_TIMEOUT", wsID))
 }`,
-			wantKeys: []string{"workspace.timeout"},
+			wantKeys: []string{"workspace.timeout,WORKSPACE_<id>_TIMEOUT"},
 			wantDefs: []string{"30s"},
 			wantDesc: []string{"d"},
 		},
@@ -476,7 +476,7 @@ func f(conf *config.Config, wsID string) {
 	//cdoc:key WORKSPACE_<id>_TIMEOUT
 	conf.GetStringVar("30s", fmt.Sprintf("workspace.%s.timeout", wsID), fmt.Sprintf("WORKSPACE_%s_TIMEOUT", wsID))
 }`,
-			wantKeys: []string{"workspace.<id>.timeout"},
+			wantKeys: []string{"workspace.<id>.timeout,WORKSPACE_<id>_TIMEOUT"},
 			wantDefs: []string{"30s"},
 			wantDesc: []string{"d"},
 		},
