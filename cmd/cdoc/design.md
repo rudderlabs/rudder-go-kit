@@ -85,7 +85,8 @@ go run ./cmd/cdoc [flags]
   -root string     Project root directory (default ".")
   -output string   Output file path (default: stdout)
   -prefix string   Environment variable prefix (default "PREFIX")
-  -warn            Print warnings for missing descriptions/groups to stderr
+  -extrawarn       Include extra warnings for missing descriptions/groups
+  -fail-on-warning Exit with non-zero status if any warnings are emitted
 ```
 
 ## Limitations
@@ -103,6 +104,9 @@ make cdoc
 # Run tests
 go test ./cmd/cdoc/...
 
-# Check for warnings (missing descriptions/groups)
-go run ./cmd/cdoc -root . -prefix PREFIX -warn
+# Check warnings (including missing descriptions/groups)
+go run ./cmd/cdoc -root . -prefix PREFIX -extrawarn
+
+# Fail CI if warnings are present
+go run ./cmd/cdoc -root . -prefix PREFIX -extrawarn -fail-on-warning
 ```

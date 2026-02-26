@@ -805,13 +805,13 @@ func generateWarnings(entries []configEntry) []string {
 	return warnings
 }
 
-func run(rootDir, output, envPrefix string, warn bool) error {
+func run(rootDir, output, envPrefix string, extraWarn, failOnWarning bool) error {
 	entries, warnings, err := parseProject(rootDir)
 	if err != nil {
 		return err
 	}
 
-	if warn {
+	if extraWarn {
 		missingWarnings := generateWarnings(entries)
 		warnings = append(warnings, missingWarnings...)
 	}
@@ -832,5 +832,10 @@ func run(rootDir, output, envPrefix string, warn bool) error {
 			return fmt.Errorf("writing output: %w", err)
 		}
 	}
+
+	if failOnWarning && len(warnings) > 0 {
+		return fmt.Errorf("found %d warning(s)", len(warnings))
+	}
+
 	return nil
 }
