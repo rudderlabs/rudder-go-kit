@@ -112,6 +112,43 @@ func f(conf *config.Config) {
 			wantDesc: []string{"d"},
 		},
 		{
+			name: "GetIntVar/negative default",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetIntVar(-1, 1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"-1"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetIntVar/type-converted default",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetIntVar(int(100), 1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"100"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetStringVar/selector default",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+var defaults struct { Name string }
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetStringVar(defaults.Name, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"${defaults.Name}"},
+			wantDesc: []string{"d"},
+		},
+		{
 			name: "GetIntVar/literal default unit=1",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
