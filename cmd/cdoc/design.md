@@ -48,6 +48,23 @@ conf.GetStringVar(computeDefault(), "retry.interval")
 - **default**: Overrides the extracted default value. Useful when the default argument is a non-literal expression (e.g. a function call or variable).
 - **deduplication**: The same config key can appear in multiple files. Only one occurrence needs annotations — the tool merges desc, group, group order, and env keys across occurrences. Conflicting defaults or groups produce warnings.
 
+## CLI flags
+
+```
+go run ./cmd/cdoc [flags]
+  -root string     Project root directory (default ".")
+  -output string   Output file path (default: stdout)
+  -prefix string   Environment variable prefix (default "PREFIX")
+  -extrawarn       Include extra warnings for missing descriptions/groups
+  -fail-on-warning Exit with non-zero status if any warnings are emitted
+```
+
+## Limitations
+
+- **static analysis only**: The tool uses `go/ast` (no type checker). It can only extract string literal key arguments. Non-literal keys (e.g. `fmt.Sprintf(...)`) are skipped unless a `//cdoc:key` directive is provided.
+- **external constants**: Default values that reference external package constants (e.g. `backoff.DefaultInitialInterval`) are rendered as the Go expression, not as their resolved value.
+- **single-file group scope**: Group inheritance is per-file. A `//cdoc:group` in one file does not affect another file.
+
 ## Config getter method families
 
 The tool handles these `rudderlabs/rudder-go-kit/config` method signatures:
@@ -78,22 +95,7 @@ The prefix is configurable via the `-prefix` CLI flag (default: `PREFIX`).
 - **external constants**: rendered as the Go expression (e.g. `backoff.DefaultInitialInterval`)
 - **non-literal expressions**: rendered as Go source text
 
-## CLI flags
 
-```
-go run ./cmd/cdoc [flags]
-  -root string     Project root directory (default ".")
-  -output string   Output file path (default: stdout)
-  -prefix string   Environment variable prefix (default "PREFIX")
-  -extrawarn       Include extra warnings for missing descriptions/groups
-  -fail-on-warning Exit with non-zero status if any warnings are emitted
-```
-
-## Limitations
-
-- **static analysis only**: The tool uses `go/ast` (no type checker). It can only extract string literal key arguments. Non-literal keys (e.g. `fmt.Sprintf(...)`) are skipped unless a `//cdoc:key` directive is provided.
-- **external constants**: Default values that reference external package constants (e.g. `backoff.DefaultInitialInterval`) are rendered as the Go expression, not as their resolved value.
-- **single-file group scope**: Group inheritance is per-file. A `//cdoc:group` in one file does not affect another file.
 
 ## Verification
 
