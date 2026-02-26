@@ -5,6 +5,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -20,10 +21,10 @@ func TestExtractFromFile(t *testing.T) {
 		name           string
 		src            string
 		wantKeys       []string // expected primary keys (comma-joined)
-		wantDefs       []string   // expected defaults (parallel to wantKeys)
-		wantDesc       []string   // expected descriptions
-		wantGrps       []string   // expected groups
-		wantReloadable []bool     // expected reloadable flags (nil = all false)
+		wantDefs       []string // expected defaults (parallel to wantKeys)
+		wantDesc       []string // expected descriptions
+		wantGrps       []string // expected groups
+		wantReloadable []bool   // expected reloadable flags (nil = all false)
 	}{
 		{
 			name: "GetStringVar/literal default",
@@ -336,7 +337,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetReloadableIntVar(100, 1, "key")
 }`,
-			wantKeys: []string{"key"},
+			wantKeys:       []string{"key"},
 			wantDefs:       []string{"100"},
 			wantDesc:       []string{"d"},
 			wantReloadable: []bool{true},
@@ -352,7 +353,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetReloadableDurationVar(30, time.Second, "key")
 }`,
-			wantKeys: []string{"key"},
+			wantKeys:       []string{"key"},
 			wantDefs:       []string{"30s"},
 			wantDesc:       []string{"d"},
 			wantReloadable: []bool{true},
@@ -365,7 +366,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetReloadableStringVar("val", "key")
 }`,
-			wantKeys: []string{"key"},
+			wantKeys:       []string{"key"},
 			wantDefs:       []string{"val"},
 			wantDesc:       []string{"d"},
 			wantReloadable: []bool{true},
@@ -378,7 +379,7 @@ func f(conf *config.Config) {
 	//cdoc:desc d
 	conf.GetReloadableFloat64Var(0.5, "key")
 }`,
-			wantKeys: []string{"key"},
+			wantKeys:       []string{"key"},
 			wantDefs:       []string{"0.5"},
 			wantDesc:       []string{"d"},
 			wantReloadable: []bool{true},
@@ -721,48 +722,18 @@ func TestFormatMarkdown(t *testing.T) {
 	require.NotContains(t, md, "🔄 HTTP server port")
 }
 
-func TestGoldenOutput(t *testing.T) {
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "testdata/example.go", nil, parser.ParseComments)
-	require.NoError(t, err, "parse error")
-
-	rawEntries, warnings := extractFromFile(fset, file, "testdata/example.go")
+func TestParseProject(t *testing.T) {
+	entries, warnings, err := parseProject("testdata")
+	require.NoError(t, err)
 
 	// Verify expected warnings from extraction.
-	wantWarningSubstrings := []string{
-		"non-literal config key argument without //cdoc:key directive",
-	}
-	for _, want := range wantWarningSubstrings {
-		found := false
-		for _, w := range warnings {
-			if strings.Contains(w, want) {
-				found = true
-				break
-			}
-		}
-		require.True(t, found, "expected warning containing %q, got: %v", want, warnings)
-	}
-
-	// Run deduplication (mirrors the real pipeline, filters entries with no keys).
-	entries, _ := deduplicateEntries(rawEntries)
-
-	md := formatMarkdown(entries, "PREFIX")
+	requireWarningContains(t, warnings, "non-literal config key argument without //cdoc:key directive")
 
 	// Verify that -warn would produce missing-description warnings.
 	missingWarnings := generateWarnings(entries)
-	wantMissingSubstrings := []string{
-		`"missingDescription" has no //cdoc:desc`,
-	}
-	for _, want := range wantMissingSubstrings {
-		found := false
-		for _, w := range missingWarnings {
-			if strings.Contains(w, want) {
-				found = true
-				break
-			}
-		}
-		require.True(t, found, "expected missing-description warning containing %q, got: %v", want, missingWarnings)
-	}
+	requireWarningContains(t, missingWarnings, `"missingDescription" has no //cdoc:desc`)
+
+	md := formatMarkdown(entries, "PREFIX")
 
 	goldenPath := "testdata/expected_output.md"
 	if *update {
@@ -774,6 +745,28 @@ func TestGoldenOutput(t *testing.T) {
 
 	expected, err := os.ReadFile(goldenPath)
 	require.NoError(t, err, "reading golden file (run with -update to generate)")
-
 	require.Equal(t, string(expected), md, "output does not match golden file")
+}
+
+func TestRun(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "output.md")
+	err := run("testdata", output, "PREFIX", true)
+	require.NoError(t, err)
+
+	got, err := os.ReadFile(output)
+	require.NoError(t, err)
+
+	expected, err := os.ReadFile("testdata/expected_output.md")
+	require.NoError(t, err, "reading golden file (run with -update to generate)")
+	require.Equal(t, string(expected), string(got), "run output does not match golden file")
+}
+
+func requireWarningContains(t *testing.T, warnings []string, substr string) {
+	t.Helper()
+	for _, w := range warnings {
+		if strings.Contains(w, substr) {
+			return
+		}
+	}
+	t.Errorf("expected warning containing %q, got: %v", substr, warnings)
 }
