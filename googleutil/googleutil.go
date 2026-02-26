@@ -41,6 +41,6 @@ func isCredentialsStringEmpty(credentials string) bool {
 IsGKEEnabledWorkload  checks against rudder-server configuration to find if workload identity for google destinations is enabled
 */
 func isGKEEnabledWorkload() bool {
-	workloadType := config.GetString(fmt.Sprintf("%s.type", WI_CONFIG_KEY), "")
+	workloadType := config.GetStringVar("", fmt.Sprintf("%s.type", WI_CONFIG_KEY))
 	return workloadType == "GKE"
 }
