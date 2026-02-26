@@ -405,6 +405,12 @@ func classifyKeys(entry *configEntry, args []ast.Expr, varKeys []string, variadi
 		}
 		addKey(key)
 	}
+
+	if varKeyIdx < len(varKeys) {
+		unused := strings.Join(varKeys[varKeyIdx:], ", ")
+		warnings = append(warnings, fmt.Sprintf("warning: %s:%d: unused //cdoc:key override(s): %s", filePath, line, unused))
+	}
+
 	return allKeys, warnings
 }
 
