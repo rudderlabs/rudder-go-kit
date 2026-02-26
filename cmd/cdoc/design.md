@@ -54,7 +54,7 @@ conf.GetStringVar(computeDefault(), "retry.interval")
 go run ./cmd/cdoc [flags]
   -root string     Project root directory (default ".")
   -output string   Output file path (default: stdout)
-  -prefix string   Environment variable prefix (default "PREFIX")
+  -prefix string   Environment variable prefix (default "RSERVER")
   -extrawarn       Include extra warnings for missing descriptions/groups
   -fail-on-warning Exit with non-zero status if any warnings are emitted
 ```
@@ -85,7 +85,7 @@ Env variables are derived from config keys using the same algorithm as `ConfigKe
 - A configurable prefix is prepended: `HTTP_PORT` → `PREFIX_HTTP_PORT`
 - Keys already in UPPERCASE_STYLE (e.g. `RELEASE_NAME`, `ETCD_HOSTS`) are displayed as-is without the prefix
 
-The prefix is configurable via the `-prefix` CLI flag (default: `PREFIX`).
+The prefix is configurable via the `-prefix` CLI flag (default: `RSERVER`).
 
 ## Default value rendering
 
