@@ -2,15 +2,15 @@
 // and generates a markdown documentation table.
 //
 // It parses Go files using go/ast to find calls to the rudder-go-kit/config package,
-// extracts config keys, default values, and descriptions from //configdoc: annotations.
+// extracts config keys, default values, and descriptions from //cdoc: annotations.
 //
 // Supported annotations:
 //
-//	//configdoc:group [N] <Group Name> — sets the group (and optional sort order) for subsequent config entries
-//	//configdoc:description <text>   — sets the description for the next config entry (same line or up to 3 lines above)
-//	//configdoc:varkey <key>         — provides a key for a non-literal (dynamic) config key argument (up to 10 lines above)
-//	//configdoc:vardefault <value>   — provides a default value for a non-literal (dynamic) default argument (up to 10 lines above)
-//	//configdoc:ignore               — excludes the config entry from output (same line or 1 line above)
+//	//cdoc:group [N] <Group Name> — sets the group (and optional sort order) for subsequent config entries
+//	//cdoc:desc <text>   — sets the description for the next config entry (same line or up to 3 lines above)
+//	//cdoc:key <key>         — provides a key for a non-literal (dynamic) config key argument (up to 10 lines above)
+//	//cdoc:default <value>   — provides a default value for a non-literal (dynamic) default argument (up to 10 lines above)
+//	//cdoc:ignore               — excludes the config entry from output (same line or 1 line above)
 package main
 
 import (
@@ -114,9 +114,9 @@ func parseProject(rootDir string) ([]configEntry, []string, error) {
 			if base == "vendor" || base == ".git" || base == "node_modules" {
 				return filepath.SkipDir
 			}
-			// Skip the configdoc tool itself
+			// Skip the cdoc tool itself
 			rel, _ := filepath.Rel(rootDir, path)
-			if rel == filepath.Join("cmd", "configdoc") {
+			if rel == filepath.Join("cmd", "cdoc") {
 				return filepath.SkipDir
 			}
 			return nil
@@ -151,9 +151,9 @@ func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]co
 	var warnings []string
 
 	// Build a map of line number → comment text for quick lookup.
-	// Also track configdoc directives.
+	// Also track cdoc directives.
 	type directive struct {
-		kind  string // "group", "description", "ignore", "varkey"
+		kind  string // "group", "desc", "ignore", "key"
 		value string
 	}
 	lineDirectives := make(map[int]directive) // line → directive
@@ -166,16 +166,16 @@ func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]co
 			text = strings.TrimSpace(text)
 			lineComments[line] = text
 
-			if v, ok := strings.CutPrefix(text, "configdoc:group "); ok {
+			if v, ok := strings.CutPrefix(text, "cdoc:group "); ok {
 				lineDirectives[line] = directive{kind: "group", value: v}
-			} else if v, ok := strings.CutPrefix(text, "configdoc:description "); ok {
-				lineDirectives[line] = directive{kind: "description", value: v}
-			} else if text == "configdoc:ignore" {
+			} else if v, ok := strings.CutPrefix(text, "cdoc:desc "); ok {
+				lineDirectives[line] = directive{kind: "desc", value: v}
+			} else if text == "cdoc:ignore" {
 				lineDirectives[line] = directive{kind: "ignore"}
-			} else if v, ok := strings.CutPrefix(text, "configdoc:varkey "); ok {
-				lineDirectives[line] = directive{kind: "varkey", value: v}
-			} else if v, ok := strings.CutPrefix(text, "configdoc:vardefault "); ok {
-				lineDirectives[line] = directive{kind: "vardefault", value: v}
+			} else if v, ok := strings.CutPrefix(text, "cdoc:key "); ok {
+				lineDirectives[line] = directive{kind: "key", value: v}
+			} else if v, ok := strings.CutPrefix(text, "cdoc:default "); ok {
+				lineDirectives[line] = directive{kind: "default", value: v}
 			}
 		}
 	}
@@ -248,7 +248,7 @@ func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]co
 		methodName := selectorMethodName(call.Fun)
 		spec := methodSpecs[methodName]
 
-		// Collect varkey and vardefault directives above this call (up to 10 lines above, in order).
+		// Collect key and default directives above this call (up to 10 lines above, in order).
 		var varKeys []string
 		var varDefault string
 		var varKeyLines []int
@@ -257,11 +257,11 @@ func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]co
 			if consumed[checkLine] {
 				continue
 			}
-			if d, ok := lineDirectives[checkLine]; ok && d.kind == "varkey" {
+			if d, ok := lineDirectives[checkLine]; ok && d.kind == "key" {
 				varKeys = append(varKeys, d.value)
 				varKeyLines = append(varKeyLines, checkLine)
 			}
-			if d, ok := lineDirectives[checkLine]; ok && d.kind == "vardefault" {
+			if d, ok := lineDirectives[checkLine]; ok && d.kind == "default" {
 				varDefault = d.value
 				consumed[checkLine] = true
 			}
@@ -276,18 +276,18 @@ func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]co
 
 		entry.Reloadable = strings.HasPrefix(methodName, "GetReloadable")
 
-		// Mark consumed varkey lines.
+		// Mark consumed key lines.
 		for _, vkl := range varKeyLines {
 			consumed[vkl] = true
 		}
 
-		// Look for description directive on same line or lines above (up to 3 lines above).
+		// Look for desc directive on same line or lines above (up to 3 lines above).
 		for offset := 0; offset <= 3; offset++ {
 			checkLine := line - offset
 			if consumed[checkLine] {
 				continue
 			}
-			if d, ok := lineDirectives[checkLine]; ok && d.kind == "description" {
+			if d, ok := lineDirectives[checkLine]; ok && d.kind == "desc" {
 				entry.Description = d.value
 				consumed[checkLine] = true
 				break
@@ -371,19 +371,19 @@ func extractEntry(fset *token.FileSet, spec methodSpec, call *ast.CallExpr, file
 
 // classifyKeys separates key arguments into config keys and env var keys.
 // Non-literal arguments are filled from varKeys (in order). If there are
-// non-literal arguments without matching varkey directives, a warning is emitted.
+// non-literal arguments without matching key directives, a warning is emitted.
 func classifyKeys(entry *configEntry, args []ast.Expr, varKeys []string, filePath string, line int) []string {
 	var warnings []string
 	varKeyIdx := 0
 	for _, arg := range args {
 		key := renderStringLit(arg)
 		if key == "" {
-			// Non-literal key argument — try to fill from //configdoc:varkey directives.
+			// Non-literal key argument — try to fill from //cdoc:key directives.
 			if varKeyIdx < len(varKeys) {
 				key = varKeys[varKeyIdx]
 				varKeyIdx++
 			} else {
-				warnings = append(warnings, fmt.Sprintf("warning: %s:%d: non-literal config key argument without //configdoc:varkey directive", filePath, line))
+				warnings = append(warnings, fmt.Sprintf("warning: %s:%d: non-literal config key argument without //cdoc:key directive", filePath, line))
 				continue
 			}
 		}
@@ -557,7 +557,7 @@ func deduplicateEntries(entries []configEntry) ([]configEntry, []string) {
 		}
 		if idx, ok := seen[e.PrimaryKey]; ok {
 			existing := &result[idx]
-			// Merge description.
+			// Merge desc.
 			if existing.Description == "" && e.Description != "" {
 				existing.Description = e.Description
 			}
@@ -644,7 +644,7 @@ func formatMarkdown(entries []configEntry, envPrefix string) string {
 	var sb strings.Builder
 	sb.WriteString("# Configuration\n\n")
 	fmt.Fprintf(&sb, "All configuration is read via environment variables with the `%s_` prefix, or via a configuration file.\n\n", envPrefix)
-	sb.WriteString("<!-- This file is auto-generated by configdoc. Do not edit manually. -->\n\n")
+	sb.WriteString("<!-- This file is auto-generated by cdoc. Do not edit manually. -->\n\n")
 
 	// If all entries are ungrouped, skip group headers entirely.
 	singleUngrouped := len(groupNames) == 1 && groupNames[0] == "Ungrouped"
@@ -724,10 +724,10 @@ func generateWarnings(entries []configEntry) []string {
 	var warnings []string
 	for _, e := range entries {
 		if e.Description == "" {
-			warnings = append(warnings, fmt.Sprintf("warning: %s:%d: config key %q has no //configdoc:description", e.File, e.Line, e.PrimaryKey))
+			warnings = append(warnings, fmt.Sprintf("warning: %s:%d: config key %q has no //cdoc:desc", e.File, e.Line, e.PrimaryKey))
 		}
 		if e.Group == "" {
-			warnings = append(warnings, fmt.Sprintf("warning: %s:%d: config key %q has no //configdoc:group", e.File, e.Line, e.PrimaryKey))
+			warnings = append(warnings, fmt.Sprintf("warning: %s:%d: config key %q has no //cdoc:group", e.File, e.Line, e.PrimaryKey))
 		}
 	}
 	return warnings
