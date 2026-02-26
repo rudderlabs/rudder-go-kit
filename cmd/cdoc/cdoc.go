@@ -35,10 +35,9 @@ import (
 type methodFamily int
 
 const (
-	familySimple   methodFamily = iota // (default, keys...)
-	familyInt                          // (default, min, keys...)
-	familyDuration                     // (quantity, unit, keys...)
-	familyInt64                        // (default, multiplier, keys...)
+	familySimple         methodFamily = iota // (default, keys...)
+	familyDuration                           // (quantity, unit, keys...)
+	familyWithMultiplier                     // (default, unit, keys...)
 )
 
 type methodSpec struct {
@@ -52,11 +51,11 @@ var methodSpecs = map[string]methodSpec{
 	"GetStringSliceVar":        {family: familySimple},
 	"GetReloadableStringVar":   {family: familySimple},
 	"GetReloadableFloat64Var":  {family: familySimple},
-	"GetIntVar":                {family: familyInt},
-	"GetReloadableIntVar":      {family: familyInt},
+	"GetIntVar":                {family: familyWithMultiplier},
+	"GetReloadableIntVar":      {family: familyWithMultiplier},
 	"GetDurationVar":           {family: familyDuration},
 	"GetReloadableDurationVar": {family: familyDuration},
-	"GetInt64Var":              {family: familyInt64},
+	"GetInt64Var":              {family: familyWithMultiplier},
 }
 
 // configEntry represents a single extracted configuration option.
@@ -90,13 +89,19 @@ var durationUnits = map[string]string{
 	"Hour":        "h",
 }
 
-// bytesizeMultipliers maps bytesize selectors to abbreviations.
-var bytesizeMultipliers = map[string]string{
-	"B":  "B",
-	"KB": "KB",
-	"MB": "MB",
-	"GB": "GB",
-	"TB": "TB",
+// unitAbbreviations maps time and bytesize selectors to abbreviations for the unit family.
+var unitAbbreviations = map[string]string{
+	"Nanosecond":  "ns",
+	"Microsecond": "µs",
+	"Millisecond": "ms",
+	"Second":      "sec",
+	"Minute":      "min",
+	"Hour":        "h",
+	"B":           "B",
+	"KB":          "KB",
+	"MB":          "MB",
+	"GB":          "GB",
+	"TB":          "TB",
 }
 
 // parseProject walks the project directory and extracts all config entries.
@@ -322,15 +327,6 @@ func extractEntry(fset *token.FileSet, spec methodSpec, call *ast.CallExpr, file
 		entry.Default = renderExpr(fset, args[0])
 		keyArgs = args[1:]
 
-	case familyInt:
-		// (default, min, keys...)
-		if len(args) < 3 {
-			return entry, nil, fmt.Errorf("expected at least 3 args, got %d", len(args))
-		}
-		defaultExpr = args[0]
-		entry.Default = renderExpr(fset, args[0])
-		keyArgs = args[2:]
-
 	case familyDuration:
 		// (quantity, unit, keys...)
 		if len(args) < 3 {
@@ -340,13 +336,14 @@ func extractEntry(fset *token.FileSet, spec methodSpec, call *ast.CallExpr, file
 		entry.Default = renderDuration(fset, args[0], args[1])
 		keyArgs = args[2:]
 
-	case familyInt64:
-		// (default, multiplier, keys...)
+	case familyWithMultiplier:
+		// (default, unit, keys...)
 		if len(args) < 3 {
 			return entry, nil, fmt.Errorf("expected at least 3 args, got %d", len(args))
 		}
-		defaultExpr = args[0]
-		entry.Default = renderInt64WithMultiplier(fset, args[0], args[1])
+		entry.Default = renderWithUnit(fset, args[0], args[1])
+		// renderWithUnit handles ${} wrapping internally, so skip the generic check below.
+		defaultExpr = nil
 		keyArgs = args[2:]
 
 	}
@@ -503,16 +500,56 @@ func durationUnitAbbrev(_ *token.FileSet, expr ast.Expr) string {
 	return ""
 }
 
-// renderInt64WithMultiplier renders an int64 default with a bytesize multiplier.
-func renderInt64WithMultiplier(fset *token.FileSet, defaultExpr, multiplierExpr ast.Expr) string {
+// renderWithUnit renders a default value with a unit/multiplier expression.
+// It handles: literal 1 (hidden), numeric * numeric, known selectors (abbreviated),
+// and non-literal expressions (wrapped with ${}).
+func renderWithUnit(fset *token.FileSet, defaultExpr, unitExpr ast.Expr) string {
 	def := renderExpr(fset, defaultExpr)
-	sel, ok := multiplierExpr.(*ast.SelectorExpr)
-	if ok {
-		if abbrev, ok := bytesizeMultipliers[sel.Sel.Name]; ok {
-			return def + abbrev
+	defWrapped := def
+	if !isLiteralDefault(defaultExpr) {
+		defWrapped = "${" + def + "}"
+	}
+
+	// Unwrap type conversions like int(time.Second) or int64(bytesize.KB).
+	innerUnit := unitExpr
+	if call, ok := unitExpr.(*ast.CallExpr); ok && len(call.Args) == 1 {
+		innerUnit = call.Args[0]
+	}
+
+	// Check if unit is literal 1 — hide it.
+	if lit, ok := innerUnit.(*ast.BasicLit); ok && lit.Kind == token.INT && lit.Value == "1" {
+		return defWrapped
+	}
+
+	// Check if unit is a known selector (time.Second, bytesize.KB, etc.).
+	if sel, ok := innerUnit.(*ast.SelectorExpr); ok {
+		if abbrev, ok := unitAbbreviations[sel.Sel.Name]; ok {
+			return defWrapped + abbrev
 		}
 	}
-	return def + " " + exprToString(fset, multiplierExpr)
+
+	// Both are numeric literals → show multiplication.
+	if isNumericLiteral(innerUnit) && isNumericLiteral(defaultExpr) {
+		return def + " * " + renderExpr(fset, innerUnit)
+	}
+
+	// Non-literal unit → wrap with ${}.
+	unitStr := renderExpr(fset, innerUnit)
+	if !isLiteralDefault(innerUnit) {
+		unitStr = "${" + unitStr + "}"
+	}
+	return defWrapped + " " + unitStr
+}
+
+// isNumericLiteral returns true if the expression is a numeric literal (possibly with unary minus).
+func isNumericLiteral(expr ast.Expr) bool {
+	switch e := expr.(type) {
+	case *ast.BasicLit:
+		return e.Kind == token.INT || e.Kind == token.FLOAT
+	case *ast.UnaryExpr:
+		return isNumericLiteral(e.X)
+	}
+	return false
 }
 
 // exprToString renders an AST expression back to Go source code.

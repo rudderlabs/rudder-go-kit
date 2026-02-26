@@ -26,66 +26,365 @@ func TestExtractFromFile(t *testing.T) {
 		wantReloadable []bool   // expected reloadable flags (nil = all false)
 	}{
 		{
-			name: "simple string var",
+			name: "GetStringVar/literal default",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//cdoc:group General
-	//cdoc:desc Comma-separated etcd endpoints
+	//cdoc:desc d
+	conf.GetStringVar("literal", "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"literal"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetStringVar/non-literal default",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	defaultString := "default"
+	//cdoc:desc d
+	conf.GetStringVar(defaultString, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"${defaultString}"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetStringVar/multiple keys and env key",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
 	conf.GetStringVar("localhost:2379", "etcd.hosts", "ETCD_HOSTS")
 }`,
 			wantKeys: []string{"etcd.hosts"},
 			wantDefs: []string{"localhost:2379"},
-			wantDesc: []string{"Comma-separated etcd endpoints"},
-			wantGrps: []string{"General"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "int var with min",
+			name: "GetBoolVar/true",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//cdoc:group HTTP
-	//cdoc:desc HTTP server port
-	conf.GetIntVar(8080, 1, "http.port")
+	//cdoc:desc d
+	conf.GetBoolVar(true, "key")
 }`,
-			wantKeys: []string{"http.port"},
-			wantDefs: []string{"8080"},
-			wantDesc: []string{"HTTP server port"},
-			wantGrps: []string{"HTTP"},
+			wantKeys: []string{"key"},
+			wantDefs: []string{"true"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "duration var",
+			name: "GetBoolVar/false",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetBoolVar(false, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"false"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetFloat64Var/literal",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetFloat64Var(1.1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"1.1"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetStringSliceVar/empty slice",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetStringSliceVar([]string{}, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"[]"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetIntVar/literal default unit=1",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetIntVar(8080, 1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"8080"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetIntVar/non-literal default unit=1",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	defaultInt := 8080
+	//cdoc:desc d
+	conf.GetIntVar(defaultInt, 1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"${defaultInt}"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetIntVar/non-literal default with cdoc:default override",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	defaultInt := 8080
+	//cdoc:desc d
+	//cdoc:default 12
+	conf.GetIntVar(defaultInt, 1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"12"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetIntVar/two numeric literals",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetIntVar(10, 10, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"10 * 10"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetIntVar/int(time.Second)",
 			src: `package test
 import (
 	"time"
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config) {
-	//cdoc:group HTTP
-	//cdoc:desc Read header timeout
-	conf.GetDurationVar(10, time.Second, "http.timeout")
+	//cdoc:desc d
+	conf.GetIntVar(1, int(time.Second), "key")
 }`,
-			wantKeys: []string{"http.timeout"},
-			wantDefs: []string{"10s"},
-			wantDesc: []string{"Read header timeout"},
-			wantGrps: []string{"HTTP"},
+			wantKeys: []string{"key"},
+			wantDefs: []string{"1sec"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "bool var",
+			name: "GetIntVar/int(bytesize.KB)",
+			src: `package test
+import (
+	"github.com/rudderlabs/rudder-go-kit/bytesize"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetIntVar(1, int(bytesize.KB), "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"1KB"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetIntVar/non-literal unit",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//cdoc:group Migration
-	//cdoc:desc Whether gateway runs as separate service
-	conf.GetBoolVar(true, "gatewaySeparateService")
+	intScale := 10
+	//cdoc:desc d
+	conf.GetIntVar(1, intScale, "key")
 }`,
-			wantKeys: []string{"gatewaySeparateService"},
-			wantDefs: []string{"true"},
-			wantDesc: []string{"Whether gateway runs as separate service"},
-			wantGrps: []string{"Migration"},
+			wantKeys: []string{"key"},
+			wantDefs: []string{"1 ${intScale}"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "ignore directive",
+			name: "GetInt64Var/literal default unit=1",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetInt64Var(8080, 1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"8080"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetInt64Var/non-literal default unit=1",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	defaultInt64 := int64(8080)
+	//cdoc:desc d
+	conf.GetInt64Var(defaultInt64, 1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"${defaultInt64}"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetInt64Var/non-literal default with cdoc:default override",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	defaultInt64 := int64(8080)
+	//cdoc:desc d
+	//cdoc:default 12
+	conf.GetInt64Var(defaultInt64, 1, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"12"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetInt64Var/two numeric literals",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetInt64Var(10, 10, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"10 * 10"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetInt64Var/int64(time.Second)",
+			src: `package test
+import (
+	"time"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetInt64Var(1, int64(time.Second), "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"1sec"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetInt64Var/bytesize.KB",
+			src: `package test
+import (
+	"github.com/rudderlabs/rudder-go-kit/bytesize"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetInt64Var(1, bytesize.KB, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"1KB"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetInt64Var/non-literal unit",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	int64Scale := int64(10)
+	//cdoc:desc d
+	conf.GetInt64Var(1, int64Scale, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"1 ${int64Scale}"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetDurationVar/time.Second",
+			src: `package test
+import (
+	"time"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetDurationVar(10, time.Second, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"10s"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetDurationVar/time.Millisecond",
+			src: `package test
+import (
+	"time"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetDurationVar(200, time.Millisecond, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"200ms"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetReloadableIntVar/unit=1",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableIntVar(100, 1, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"100"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "GetReloadableDurationVar/time.Second",
+			src: `package test
+import (
+	"time"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableDurationVar(30, time.Second, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"30s"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "GetReloadableStringVar/literal",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableStringVar("val", "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"val"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "GetReloadableFloat64Var/literal",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableFloat64Var(0.5, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"0.5"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "directive/ignore",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
@@ -101,7 +400,7 @@ func f(conf *config.Config) {
 			wantGrps: []string{"General"},
 		},
 		{
-			name: "group inheritance",
+			name: "directive/group inheritance",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
@@ -120,21 +419,7 @@ func f(conf *config.Config) {
 			wantGrps: []string{"GroupA", "GroupA", "GroupB"},
 		},
 		{
-			name: "float64 var",
-			src: `package test
-import "github.com/rudderlabs/rudder-go-kit/config"
-func f(conf *config.Config) {
-	//cdoc:group Retry
-	//cdoc:desc Randomization factor
-	conf.GetFloat64Var(0.5, "k8s.client.retry.randomizationFactor")
-}`,
-			wantKeys: []string{"k8s.client.retry.randomizationFactor"},
-			wantDefs: []string{"0.5"},
-			wantDesc: []string{"Randomization factor"},
-			wantGrps: []string{"Retry"},
-		},
-		{
-			name: "package-level config call",
+			name: "directive/package-level config call",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 //cdoc:group General
@@ -147,109 +432,82 @@ var x = config.GetIntVar(64, 1, "partitionCount", "PARTITION_COUNT")
 			wantGrps: []string{"General"},
 		},
 		{
-			name: "duration with milliseconds",
-			src: `package test
-import (
-	"time"
-	"github.com/rudderlabs/rudder-go-kit/config"
-)
-func f(conf *config.Config) {
-	//cdoc:group K8s
-	//cdoc:desc Initial retry interval
-	conf.GetDurationVar(200, time.Millisecond, "k8s.client.retry.initialInterval")
-}`,
-			wantKeys: []string{"k8s.client.retry.initialInterval"},
-			wantDefs: []string{"200ms"},
-			wantDesc: []string{"Initial retry interval"},
-			wantGrps: []string{"K8s"},
-		},
-		{
-			name: "varkey for dynamic key",
+			name: "directive/varkey for dynamic key",
 			src: `package test
 import (
 	"fmt"
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config, wsID string) {
-	//cdoc:group Workspace
-	//cdoc:desc Per-workspace timeout
+	//cdoc:desc d
 	//cdoc:key workspace.<id>.timeout
 	conf.GetStringVar("30s", fmt.Sprintf("workspace.%s.timeout", wsID))
 }`,
 			wantKeys: []string{"workspace.<id>.timeout"},
 			wantDefs: []string{"30s"},
-			wantDesc: []string{"Per-workspace timeout"},
-			wantGrps: []string{"Workspace"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "varkey mixed with static keys",
+			name: "directive/varkey mixed with static keys",
 			src: `package test
 import (
 	"fmt"
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config, wsID string) {
-	//cdoc:group Workspace
-	//cdoc:desc Workspace timeout
+	//cdoc:desc d
 	//cdoc:key WORKSPACE_<id>_TIMEOUT
 	conf.GetStringVar("30s", "workspace.timeout", fmt.Sprintf("WORKSPACE_%s_TIMEOUT", wsID))
 }`,
 			wantKeys: []string{"workspace.timeout"},
 			wantDefs: []string{"30s"},
-			wantDesc: []string{"Workspace timeout"},
-			wantGrps: []string{"Workspace"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "multiple varkeys for multiple dynamic args",
+			name: "directive/multiple varkeys for multiple dynamic args",
 			src: `package test
 import (
 	"fmt"
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config, wsID string) {
-	//cdoc:group Workspace
-	//cdoc:desc Workspace timeout
+	//cdoc:desc d
 	//cdoc:key workspace.<id>.timeout
 	//cdoc:key WORKSPACE_<id>_TIMEOUT
 	conf.GetStringVar("30s", fmt.Sprintf("workspace.%s.timeout", wsID), fmt.Sprintf("WORKSPACE_%s_TIMEOUT", wsID))
 }`,
 			wantKeys: []string{"workspace.<id>.timeout"},
 			wantDefs: []string{"30s"},
-			wantDesc: []string{"Workspace timeout"},
-			wantGrps: []string{"Workspace"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "vardefault for dynamic default",
+			name: "directive/vardefault for dynamic default",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config, defaultVal string) {
-	//cdoc:group General
-	//cdoc:desc Retry interval
+	//cdoc:desc d
 	//cdoc:default 5s
-	conf.GetStringVar(defaultVal, "retry.interval")
+	conf.GetStringVar(defaultVal, "key")
 }`,
-			wantKeys: []string{"retry.interval"},
+			wantKeys: []string{"key"},
 			wantDefs: []string{"5s"},
-			wantDesc: []string{"Retry interval"},
-			wantGrps: []string{"General"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "vardefault not applied when default is literal",
+			name: "directive/vardefault overrides literal default",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//cdoc:group General
-	//cdoc:desc Retry interval
+	//cdoc:desc d
 	//cdoc:default 10s
-	conf.GetStringVar("5s", "retry.interval")
+	conf.GetStringVar("5s", "key")
 }`,
-			wantKeys: []string{"retry.interval"},
+			wantKeys: []string{"key"},
 			wantDefs: []string{"10s"},
-			wantDesc: []string{"Retry interval"},
-			wantGrps: []string{"General"},
+			wantDesc: []string{"d"},
 		},
 		{
-			name: "deprecated non-Var methods are ignored",
+			name: "directive/deprecated non-Var methods are ignored",
 			src: `package test
 import (
 	"time"
@@ -270,22 +528,7 @@ func f(conf *config.Config) {
 			wantGrps: []string{"General"},
 		},
 		{
-			name: "reloadable var",
-			src: `package test
-import "github.com/rudderlabs/rudder-go-kit/config"
-func f(conf *config.Config) {
-	//cdoc:group HTTP
-	//cdoc:desc Maximum connections
-	conf.GetReloadableIntVar(100, 1, "http.maxConns")
-}`,
-			wantKeys:       []string{"http.maxConns"},
-			wantDefs:       []string{"100"},
-			wantDesc:       []string{"Maximum connections"},
-			wantGrps:       []string{"HTTP"},
-			wantReloadable: []bool{true},
-		},
-		{
-			name: "non-reloadable and reloadable mixed",
+			name: "directive/non-reloadable and reloadable mixed",
 			src: `package test
 import (
 	"time"
@@ -305,7 +548,7 @@ func f(conf *config.Config) {
 			wantReloadable: []bool{false, true},
 		},
 		{
-			name: "no description warns but still extracts",
+			name: "directive/no description warns but still extracts",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
@@ -336,7 +579,9 @@ func f(conf *config.Config) {
 				require.Equal(t, tt.wantKeys[i], e.PrimaryKey, "entry[%d] primary key", i)
 				require.Equal(t, tt.wantDefs[i], e.Default, "entry[%d] default", i)
 				require.Equal(t, tt.wantDesc[i], e.Description, "entry[%d] description", i)
-				require.Equal(t, tt.wantGrps[i], e.Group, "entry[%d] group", i)
+				if tt.wantGrps != nil {
+					require.Equal(t, tt.wantGrps[i], e.Group, "entry[%d] group", i)
+				}
 				if tt.wantReloadable != nil {
 					require.Equal(t, tt.wantReloadable[i], e.Reloadable, "entry[%d] reloadable", i)
 				}
