@@ -30,8 +30,8 @@ func TestExtractFromFile(t *testing.T) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group General
-	//configdoc:description Comma-separated etcd endpoints
+	//cdoc:group General
+	//cdoc:desc Comma-separated etcd endpoints
 	conf.GetStringVar("localhost:2379", "etcd.hosts", "ETCD_HOSTS")
 }`,
 			wantKeys: []string{"etcd.hosts"},
@@ -44,8 +44,8 @@ func f(conf *config.Config) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group HTTP
-	//configdoc:description HTTP server port
+	//cdoc:group HTTP
+	//cdoc:desc HTTP server port
 	conf.GetIntVar(8080, 1, "http.port")
 }`,
 			wantKeys: []string{"http.port"},
@@ -61,8 +61,8 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config) {
-	//configdoc:group HTTP
-	//configdoc:description Read header timeout
+	//cdoc:group HTTP
+	//cdoc:desc Read header timeout
 	conf.GetDurationVar(10, time.Second, "http.timeout")
 }`,
 			wantKeys: []string{"http.timeout"},
@@ -75,8 +75,8 @@ func f(conf *config.Config) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group Migration
-	//configdoc:description Whether gateway runs as separate service
+	//cdoc:group Migration
+	//cdoc:desc Whether gateway runs as separate service
 	conf.GetBoolVar(true, "gatewaySeparateService")
 }`,
 			wantKeys: []string{"gatewaySeparateService"},
@@ -89,10 +89,10 @@ func f(conf *config.Config) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:ignore
+	//cdoc:ignore
 	conf.GetStringVar("", "k8s.client.key")
-	//configdoc:group General
-	//configdoc:description Some config
+	//cdoc:group General
+	//cdoc:desc Some config
 	conf.GetStringVar("val", "some.key")
 }`,
 			wantKeys: []string{"some.key"},
@@ -105,13 +105,13 @@ func f(conf *config.Config) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group GroupA
-	//configdoc:description First
+	//cdoc:group GroupA
+	//cdoc:desc First
 	conf.GetStringVar("a", "key.a")
-	//configdoc:description Second
+	//cdoc:desc Second
 	conf.GetStringVar("b", "key.b")
-	//configdoc:group GroupB
-	//configdoc:description Third
+	//cdoc:group GroupB
+	//cdoc:desc Third
 	conf.GetStringVar("c", "key.c")
 }`,
 			wantKeys: []string{"key.a", "key.b", "key.c"},
@@ -124,8 +124,8 @@ func f(conf *config.Config) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group Retry
-	//configdoc:description Randomization factor
+	//cdoc:group Retry
+	//cdoc:desc Randomization factor
 	conf.GetFloat64Var(0.5, "k8s.client.retry.randomizationFactor")
 }`,
 			wantKeys: []string{"k8s.client.retry.randomizationFactor"},
@@ -137,8 +137,8 @@ func f(conf *config.Config) {
 			name: "package-level config call",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
-//configdoc:group General
-//configdoc:description Number of partitions
+//cdoc:group General
+//cdoc:desc Number of partitions
 var x = config.GetIntVar(64, 1, "partitionCount", "PARTITION_COUNT")
 `,
 			wantKeys: []string{"partitionCount"},
@@ -154,8 +154,8 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config) {
-	//configdoc:group K8s
-	//configdoc:description Initial retry interval
+	//cdoc:group K8s
+	//cdoc:desc Initial retry interval
 	conf.GetDurationVar(200, time.Millisecond, "k8s.client.retry.initialInterval")
 }`,
 			wantKeys: []string{"k8s.client.retry.initialInterval"},
@@ -171,9 +171,9 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config, wsID string) {
-	//configdoc:group Workspace
-	//configdoc:description Per-workspace timeout
-	//configdoc:varkey workspace.<id>.timeout
+	//cdoc:group Workspace
+	//cdoc:desc Per-workspace timeout
+	//cdoc:key workspace.<id>.timeout
 	conf.GetStringVar("30s", fmt.Sprintf("workspace.%s.timeout", wsID))
 }`,
 			wantKeys: []string{"workspace.<id>.timeout"},
@@ -189,9 +189,9 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config, wsID string) {
-	//configdoc:group Workspace
-	//configdoc:description Workspace timeout
-	//configdoc:varkey WORKSPACE_<id>_TIMEOUT
+	//cdoc:group Workspace
+	//cdoc:desc Workspace timeout
+	//cdoc:key WORKSPACE_<id>_TIMEOUT
 	conf.GetStringVar("30s", "workspace.timeout", fmt.Sprintf("WORKSPACE_%s_TIMEOUT", wsID))
 }`,
 			wantKeys: []string{"workspace.timeout"},
@@ -207,10 +207,10 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config, wsID string) {
-	//configdoc:group Workspace
-	//configdoc:description Workspace timeout
-	//configdoc:varkey workspace.<id>.timeout
-	//configdoc:varkey WORKSPACE_<id>_TIMEOUT
+	//cdoc:group Workspace
+	//cdoc:desc Workspace timeout
+	//cdoc:key workspace.<id>.timeout
+	//cdoc:key WORKSPACE_<id>_TIMEOUT
 	conf.GetStringVar("30s", fmt.Sprintf("workspace.%s.timeout", wsID), fmt.Sprintf("WORKSPACE_%s_TIMEOUT", wsID))
 }`,
 			wantKeys: []string{"workspace.<id>.timeout"},
@@ -223,9 +223,9 @@ func f(conf *config.Config, wsID string) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config, defaultVal string) {
-	//configdoc:group General
-	//configdoc:description Retry interval
-	//configdoc:vardefault 5s
+	//cdoc:group General
+	//cdoc:desc Retry interval
+	//cdoc:default 5s
 	conf.GetStringVar(defaultVal, "retry.interval")
 }`,
 			wantKeys: []string{"retry.interval"},
@@ -238,9 +238,9 @@ func f(conf *config.Config, defaultVal string) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group General
-	//configdoc:description Retry interval
-	//configdoc:vardefault 10s
+	//cdoc:group General
+	//cdoc:desc Retry interval
+	//cdoc:default 10s
 	conf.GetStringVar("5s", "retry.interval")
 }`,
 			wantKeys: []string{"retry.interval"},
@@ -256,12 +256,12 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config) {
-	//configdoc:group General
-	//configdoc:description Ignored bool
+	//cdoc:group General
+	//cdoc:desc Ignored bool
 	conf.GetBool("feature.enabled", false)
-	//configdoc:description Ignored duration
+	//cdoc:desc Ignored duration
 	conf.GetDuration("shutdown.timeout", 10, time.Second)
-	//configdoc:description Kept entry
+	//cdoc:desc Kept entry
 	conf.GetStringVar("val", "kept.key")
 }`,
 			wantKeys: []string{"kept.key"},
@@ -274,8 +274,8 @@ func f(conf *config.Config) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group HTTP
-	//configdoc:description Maximum connections
+	//cdoc:group HTTP
+	//cdoc:desc Maximum connections
 	conf.GetReloadableIntVar(100, 1, "http.maxConns")
 }`,
 			wantKeys:       []string{"http.maxConns"},
@@ -292,10 +292,10 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 func f(conf *config.Config) {
-	//configdoc:group HTTP
-	//configdoc:description HTTP port
+	//cdoc:group HTTP
+	//cdoc:desc HTTP port
 	conf.GetIntVar(8080, 1, "http.port")
-	//configdoc:description Read timeout
+	//cdoc:desc Read timeout
 	conf.GetReloadableDurationVar(30, time.Second, "http.readTimeout")
 }`,
 			wantKeys:       []string{"http.port", "http.readTimeout"},
@@ -309,7 +309,7 @@ func f(conf *config.Config) {
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group General
+	//cdoc:group General
 	conf.GetStringVar("default", "some.key")
 }`,
 			wantKeys: []string{"some.key"},
@@ -437,11 +437,11 @@ func TestGroupOrderExtraction(t *testing.T) {
 	src := `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
 func f(conf *config.Config) {
-	//configdoc:group 2 HTTP
-	//configdoc:description Port
+	//cdoc:group 2 HTTP
+	//cdoc:desc Port
 	conf.GetStringVar("8080", "http.port")
-	//configdoc:group 1 General
-	//configdoc:description Name
+	//cdoc:group 1 General
+	//cdoc:desc Name
 	conf.GetStringVar("app", "app.name")
 }`
 	fset := token.NewFileSet()
@@ -485,7 +485,7 @@ func TestGoldenOutput(t *testing.T) {
 
 	// Verify expected warnings from extraction.
 	wantWarningSubstrings := []string{
-		"non-literal config key argument without //configdoc:varkey directive",
+		"non-literal config key argument without //cdoc:key directive",
 	}
 	for _, want := range wantWarningSubstrings {
 		found := false
@@ -506,7 +506,7 @@ func TestGoldenOutput(t *testing.T) {
 	// Verify that -warn would produce missing-description warnings.
 	missingWarnings := generateWarnings(entries)
 	wantMissingSubstrings := []string{
-		`"missingDescription" has no //configdoc:description`,
+		`"missingDescription" has no //cdoc:desc`,
 	}
 	for _, want := range wantMissingSubstrings {
 		found := false
