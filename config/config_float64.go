@@ -1,11 +1,19 @@
 package config
 
 // GetFloat64 gets float64 value from config
+//
+// Deprecated: Use GetFloat64Var(defaultValue, key) instead.
+//
+//go:fix inline
 func GetFloat64(key string, defaultValue float64) (value float64) {
-	return Default.GetFloat64(key, defaultValue)
+	return GetFloat64Var(defaultValue, key)
 }
 
 // GetFloat64 gets float64 value from config
+//
+// Deprecated: Use (*Config).GetFloat64Var(defaultValue, key) instead.
+//
+//go:fix inline
 func (c *Config) GetFloat64(key string, defaultValue float64) (value float64) {
 	return c.GetFloat64Var(defaultValue, key)
 }
