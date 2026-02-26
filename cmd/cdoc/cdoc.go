@@ -60,7 +60,7 @@ var methodSpecs = map[string]methodSpec{
 
 // configEntry represents a single extracted configuration option.
 type configEntry struct {
-	PrimaryKey  string   // first key argument, used for dedup/sorting
+	PrimaryKey  string   // all key arguments joined with ",", used for dedup/sorting
 	ConfigKeys  []string // dotted/camelCase config-file keys
 	EnvKeys     []string // UPPERCASE_STYLE env var keys (explicit)
 	Default     string
@@ -354,23 +354,19 @@ func extractEntry(fset *token.FileSet, spec methodSpec, call *ast.CallExpr, file
 		entry.Default = "${" + entry.Default + "}"
 	}
 
-	warnings := classifyKeys(&entry, keyArgs, varKeys, filePath, line)
-
-	// Set primary key.
-	if len(entry.ConfigKeys) > 0 {
-		entry.PrimaryKey = entry.ConfigKeys[0]
-	} else if len(entry.EnvKeys) > 0 {
-		entry.PrimaryKey = entry.EnvKeys[0]
-	}
+	allKeys, warnings := classifyKeys(&entry, keyArgs, varKeys, filePath, line)
+	entry.PrimaryKey = strings.Join(allKeys, ",")
 
 	return entry, warnings, nil
 }
 
-// classifyKeys separates key arguments into config keys and env var keys.
+// classifyKeys separates key arguments into config keys and env var keys,
+// and returns all resolved keys in their original argument order.
 // Non-literal arguments are filled from varKeys (in order). If there are
 // non-literal arguments without matching key directives, a warning is emitted.
-func classifyKeys(entry *configEntry, args []ast.Expr, varKeys []string, filePath string, line int) []string {
+func classifyKeys(entry *configEntry, args []ast.Expr, varKeys []string, filePath string, line int) ([]string, []string) {
 	var warnings []string
+	var allKeys []string
 	varKeyIdx := 0
 	for _, arg := range args {
 		key := renderStringLit(arg)
@@ -384,13 +380,14 @@ func classifyKeys(entry *configEntry, args []ast.Expr, varKeys []string, filePat
 				continue
 			}
 		}
+		allKeys = append(allKeys, key)
 		if isEnvVarStyle(key) {
 			entry.EnvKeys = append(entry.EnvKeys, key)
 		} else {
 			entry.ConfigKeys = append(entry.ConfigKeys, key)
 		}
 	}
-	return warnings
+	return allKeys, warnings
 }
 
 // isLiteralDefault returns true if the expression is a compile-time literal
@@ -760,11 +757,12 @@ func formatDefault(def string) string {
 func generateWarnings(entries []configEntry) []string {
 	var warnings []string
 	for _, e := range entries {
+		pk := e.PrimaryKey
 		if e.Description == "" {
-			warnings = append(warnings, fmt.Sprintf("warning: %s:%d: config key %q has no //cdoc:desc", e.File, e.Line, e.PrimaryKey))
+			warnings = append(warnings, fmt.Sprintf("warning: %s:%d: config key %q has no //cdoc:desc", e.File, e.Line, pk))
 		}
 		if e.Group == "" {
-			warnings = append(warnings, fmt.Sprintf("warning: %s:%d: config key %q has no //cdoc:group", e.File, e.Line, e.PrimaryKey))
+			warnings = append(warnings, fmt.Sprintf("warning: %s:%d: config key %q has no //cdoc:group", e.File, e.Line, pk))
 		}
 	}
 	return warnings
