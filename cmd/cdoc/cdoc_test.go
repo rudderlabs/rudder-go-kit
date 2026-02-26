@@ -367,6 +367,50 @@ func f(conf *config.Config) {
 			wantDesc: []string{"d"},
 		},
 		{
+			name: "GetDurationVar/non-literal quantity with known unit",
+			src: `package test
+import (
+	"time"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	defaultTimeout := baseTimeout
+	//cdoc:desc d
+	conf.GetDurationVar(defaultTimeout, time.Second, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"${defaultTimeout}"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetDurationVar/zero quantity with known unit",
+			src: `package test
+import (
+	"time"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetDurationVar(0, time.Second, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"0"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetDurationVar/unknown unit expression",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	customUnit := scale
+	//cdoc:desc d
+	conf.GetDurationVar(5, customUnit, "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"5 customUnit"},
+			wantDesc: []string{"d"},
+		},
+		{
 			name: "GetReloadableIntVar/unit=1",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
