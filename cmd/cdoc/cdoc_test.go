@@ -1030,7 +1030,7 @@ func TestParseProject(t *testing.T) {
 	// Verify expected warnings from extraction.
 	requireWarningContains(t, warnings, "non-literal config key argument without //cdoc:key directive")
 
-	// Verify that -warn would produce missing-description warnings.
+	// Verify that -extrawarn would produce missing-description warnings.
 	missingWarnings := generateWarnings(entries)
 	requireWarningContains(t, missingWarnings, `"missingDescription" has no //cdoc:desc`)
 	requireWarningContains(t, missingWarnings, `"deploymentName,RELEASE_NAME" has no //cdoc:group`)
@@ -1065,7 +1065,7 @@ func TestParseProjectParseWarning(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	output := filepath.Join(t.TempDir(), "output.md")
-	err := run("testdata", output, "PREFIX", true)
+	err := run("testdata", output, "PREFIX", true, false)
 	require.NoError(t, err)
 
 	got, err := os.ReadFile(output)
@@ -1074,6 +1074,41 @@ func TestRun(t *testing.T) {
 	expected, err := os.ReadFile("testdata/expected_output.md")
 	require.NoError(t, err, "reading golden file (run with -update to generate)")
 	require.Equal(t, string(expected), string(got), "run output does not match golden file")
+}
+
+func TestRunFailOnWarning(t *testing.T) {
+	output := filepath.Join(t.TempDir(), "output.md")
+	err := run("testdata", output, "PREFIX", true, true)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "found")
+	require.Contains(t, err.Error(), "warning")
+
+	got, readErr := os.ReadFile(output)
+	require.NoError(t, readErr)
+	expected, readExpectedErr := os.ReadFile("testdata/expected_output.md")
+	require.NoError(t, readExpectedErr)
+	require.Equal(t, string(expected), string(got), "run output should still be generated")
+}
+
+func TestRunFailOnWarningNoWarnings(t *testing.T) {
+	rootDir := t.TempDir()
+	src := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:group General
+	//cdoc:desc d
+	conf.GetStringVar("value", "some.key")
+}`
+	err := os.WriteFile(filepath.Join(rootDir, "example.go"), []byte(src), 0o644)
+	require.NoError(t, err)
+
+	output := filepath.Join(t.TempDir(), "output.md")
+	err = run(rootDir, output, "PREFIX", true, true)
+	require.NoError(t, err)
+
+	got, readErr := os.ReadFile(output)
+	require.NoError(t, readErr)
+	require.Contains(t, string(got), "`some.key`")
 }
 
 func requireWarningContains(t *testing.T, warnings []string, substr string) {
