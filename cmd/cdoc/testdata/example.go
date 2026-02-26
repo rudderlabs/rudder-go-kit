@@ -54,7 +54,7 @@ func setup(conf *config.Config, tenantID string, computedTimeout int) {
 
 	// Reloadable int
 	//cdoc:desc Maximum request body size
-	conf.GetReloadableIntVar(1048576, 0, "server.http.maxRequestBodySize")
+	conf.GetReloadableIntVar(1048576, 1, "server.http.maxRequestBodySize")
 
 	// ── Tenant (order 2) — dynamic keys and defaults ─────────────────
 
