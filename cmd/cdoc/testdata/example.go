@@ -95,4 +95,10 @@ func setup(conf *config.Config, tenantID string, computedTimeout int) {
 	// Deprecated non-*Var methods — silently skipped by the tool
 	conf.GetBool("legacy.enabled", true)
 	conf.GetDuration("legacy.timeout", 30, time.Second)
+
+	keys := []string{fmt.Sprintf("dynamic.%s.key", tenantID), "static.key"}
+	// Multiple dynamic keys via key with multiple args
+	//cdoc:desc Example with multiple dynamic keys
+	//cdoc:key dynamic.<id>.key, static.key
+	conf.GetStringVar("default", keys...)
 }

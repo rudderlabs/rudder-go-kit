@@ -16,7 +16,7 @@ All annotations use the `//cdoc:` prefix. Place them on the line(s) above or on 
 |---|---|---|
 | `//cdoc:group [N] <Name>` | Sticky (applies to all subsequent calls in the file until overridden) | Sets the group for config entries, with an optional numeric prefix for sort order. Ordered groups appear first (ascending), unordered groups appear last (alphabetically) |
 | `//cdoc:desc <text>` | Per-call (applies to the next config getter call) | Sets the description for a config entry |
-| `//cdoc:key <key>` | Per-call (multiple allowed, consumed in order) | Provides a key for non-literal (dynamic) config key arguments |
+| `//cdoc:key <key>[, <key>...]` | Per-call (multiple allowed, consumed in order) | Provides key override(s) for non-literal (dynamic) config key arguments |
 | `//cdoc:default <value>` | Per-call | Provides a default value for non-literal (dynamic) default arguments |
 | `//cdoc:ignore` | Per-call | Excludes the config entry from output |
 
