@@ -25,6 +25,9 @@ func TestExtractFromFile(t *testing.T) {
 		wantDesc       []string // expected descriptions
 		wantGrps       []string // expected groups
 		wantReloadable []bool   // expected reloadable flags (nil = all false)
+		wantConfigKeys [][]string
+		wantEnvKeys    [][]string // nil row means: no env keys expected for that entry
+		wantWarnings   []string   // expected warning substrings
 	}{
 		{
 			name: "GetStringVar/literal default",
@@ -62,6 +65,12 @@ func f(conf *config.Config) {
 			wantKeys: []string{"etcd.hosts,ETCD_HOSTS"},
 			wantDefs: []string{"localhost:2379"},
 			wantDesc: []string{"d"},
+			wantConfigKeys: [][]string{
+				{"etcd.hosts"},
+			},
+			wantEnvKeys: [][]string{
+				{"ETCD_HOSTS"},
+			},
 		},
 		{
 			name: "GetBoolVar/true",
@@ -528,6 +537,12 @@ func f(conf *config.Config, wsID string) {
 			wantKeys: []string{"workspace.<id>.timeout"},
 			wantDefs: []string{"30s"},
 			wantDesc: []string{"d"},
+			wantConfigKeys: [][]string{
+				{"workspace.<id>.timeout"},
+			},
+			wantEnvKeys: [][]string{
+				nil,
+			},
 		},
 		{
 			name: "directive/varkey mixed with static keys",
@@ -544,6 +559,12 @@ func f(conf *config.Config, wsID string) {
 			wantKeys: []string{"workspace.timeout,WORKSPACE_<id>_TIMEOUT"},
 			wantDefs: []string{"30s"},
 			wantDesc: []string{"d"},
+			wantConfigKeys: [][]string{
+				{"workspace.timeout", "WORKSPACE_<id>_TIMEOUT"},
+			},
+			wantEnvKeys: [][]string{
+				nil,
+			},
 		},
 		{
 			name: "directive/varkey variadic keys with comma-separated directive",
@@ -561,6 +582,12 @@ func f(conf *config.Config, wsID string) {
 			wantKeys: []string{"workspace.<id>.timeout,workspace.timeout"},
 			wantDefs: []string{"30s"},
 			wantDesc: []string{"d"},
+			wantConfigKeys: [][]string{
+				{"workspace.<id>.timeout", "workspace.timeout"},
+			},
+			wantEnvKeys: [][]string{
+				nil,
+			},
 		},
 		{
 			name: "directive/varkey variadic keys with two key directives",
@@ -579,6 +606,12 @@ func f(conf *config.Config, wsID string) {
 			wantKeys: []string{"workspace.<id>.timeout,WORKSPACE_<id>_TIMEOUT"},
 			wantDefs: []string{"30s"},
 			wantDesc: []string{"d"},
+			wantConfigKeys: [][]string{
+				{"workspace.<id>.timeout", "WORKSPACE_<id>_TIMEOUT"},
+			},
+			wantEnvKeys: [][]string{
+				nil,
+			},
 		},
 		{
 			name: "directive/multiple varkeys for multiple dynamic args",
@@ -596,6 +629,113 @@ func f(conf *config.Config, wsID string) {
 			wantKeys: []string{"workspace.<id>.timeout,WORKSPACE_<id>_TIMEOUT"},
 			wantDefs: []string{"30s"},
 			wantDesc: []string{"d"},
+			wantConfigKeys: [][]string{
+				{"workspace.<id>.timeout", "WORKSPACE_<id>_TIMEOUT"},
+			},
+			wantEnvKeys: [][]string{
+				nil,
+			},
+		},
+		{
+			name: "directive/varkey unused override warns",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	//cdoc:key workspace.<id>.timeout
+	conf.GetStringVar("30s", "workspace.timeout")
+}`,
+			wantKeys: []string{"workspace.timeout"},
+			wantDefs: []string{"30s"},
+			wantDesc: []string{"d"},
+			wantWarnings: []string{
+				"unused //cdoc:key override(s): workspace.<id>.timeout",
+			},
+		},
+		{
+			name: "directive/varkey extra override warns",
+			src: `package test
+import (
+	"fmt"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config, wsID string) {
+	//cdoc:desc d
+	//cdoc:key workspace.<id>.timeout, workspace.timeout
+	conf.GetStringVar("30s", fmt.Sprintf("workspace.%s.timeout", wsID))
+}`,
+			wantKeys: []string{"workspace.<id>.timeout"},
+			wantDefs: []string{"30s"},
+			wantDesc: []string{"d"},
+			wantWarnings: []string{
+				"unused //cdoc:key override(s): workspace.timeout",
+			},
+		},
+		{
+			name: "warning/non-literal key without cdoc:key directive",
+			src: `package test
+import (
+	"fmt"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config, wsID string) {
+	//cdoc:desc d
+	conf.GetStringVar("30s", "workspace.timeout", fmt.Sprintf("workspace.%s.timeout", wsID))
+}`,
+			wantKeys: []string{"workspace.timeout"},
+			wantDefs: []string{"30s"},
+			wantDesc: []string{"d"},
+			wantWarnings: []string{
+				"non-literal config key argument without //cdoc:key directive",
+			},
+		},
+		{
+			name: "warning/simple family with too few args",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetStringVar("default")
+}`,
+			wantKeys: []string{},
+			wantDefs: []string{},
+			wantDesc: []string{},
+			wantWarnings: []string{
+				"expected at least 2 args, got 1",
+			},
+		},
+		{
+			name: "warning/duration family with too few args",
+			src: `package test
+import (
+	"time"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetDurationVar(10, time.Second)
+}`,
+			wantKeys: []string{},
+			wantDefs: []string{},
+			wantDesc: []string{},
+			wantWarnings: []string{
+				"expected at least 3 args, got 2",
+			},
+		},
+		{
+			name: "warning/with-multiplier family with too few args",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetIntVar(10, 1)
+}`,
+			wantKeys: []string{},
+			wantDefs: []string{},
+			wantDesc: []string{},
+			wantWarnings: []string{
+				"expected at least 3 args, got 2",
+			},
 		},
 		{
 			name: "directive/vardefault for dynamic default",
@@ -679,6 +819,21 @@ func f(conf *config.Config) {
 		},
 	}
 
+	for i := range tests {
+		if tests[i].wantConfigKeys == nil || tests[i].wantEnvKeys == nil {
+			derivedConfigKeys, derivedEnvKeys := deriveKeyClassification(tests[i].wantKeys)
+			if tests[i].wantConfigKeys == nil {
+				tests[i].wantConfigKeys = derivedConfigKeys
+			}
+			if tests[i].wantEnvKeys == nil {
+				tests[i].wantEnvKeys = derivedEnvKeys
+			}
+		}
+		if tests[i].wantWarnings == nil {
+			tests[i].wantWarnings = []string{}
+		}
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fset := token.NewFileSet()
@@ -686,11 +841,14 @@ func f(conf *config.Config) {
 			require.NoError(t, err, "parse error")
 
 			entries, warnings := extractFromFile(fset, file, "test.go")
-			for _, w := range warnings {
-				t.Logf("warning: %s", w)
+			require.Len(t, warnings, len(tt.wantWarnings), "warning count")
+			for _, wantWarning := range tt.wantWarnings {
+				requireWarningContains(t, warnings, wantWarning)
 			}
 
 			require.Len(t, entries, len(tt.wantKeys))
+			require.Len(t, tt.wantConfigKeys, len(entries), "wantConfigKeys length")
+			require.Len(t, tt.wantEnvKeys, len(entries), "wantEnvKeys length")
 
 			for i, e := range entries {
 				require.Equal(t, tt.wantKeys[i], e.PrimaryKey, "entry[%d] primary key", i)
@@ -702,9 +860,34 @@ func f(conf *config.Config) {
 				if tt.wantReloadable != nil {
 					require.Equal(t, tt.wantReloadable[i], e.Reloadable, "entry[%d] reloadable", i)
 				}
+				require.Equal(t, tt.wantConfigKeys[i], e.ConfigKeys, "entry[%d] config keys", i)
+				require.Equal(t, tt.wantEnvKeys[i], e.EnvKeys, "entry[%d] env keys", i)
 			}
 		})
 	}
+}
+
+func deriveKeyClassification(primaryKeys []string) ([][]string, [][]string) {
+	configKeys := make([][]string, 0, len(primaryKeys))
+	envKeys := make([][]string, 0, len(primaryKeys))
+	for _, primary := range primaryKeys {
+		var cfg []string
+		var env []string
+		for part := range strings.SplitSeq(primary, ",") {
+			key := strings.TrimSpace(part)
+			if key == "" {
+				continue
+			}
+			if isEnvVarStyle(key) {
+				env = append(env, key)
+			} else {
+				cfg = append(cfg, key)
+			}
+		}
+		configKeys = append(configKeys, cfg)
+		envKeys = append(envKeys, env)
+	}
+	return configKeys, envKeys
 }
 
 func TestKeyClassification(t *testing.T) {
@@ -769,6 +952,8 @@ func TestDeduplicationConflictWarnings(t *testing.T) {
 
 	_, warnings := deduplicateEntries(entries)
 	require.Len(t, warnings, 2, "expected default + group conflict warnings")
+	requireWarningContains(t, warnings, `conflicting defaults for "key"`)
+	requireWarningContains(t, warnings, `conflicting groups for "key"`)
 }
 
 func TestGroupOrder(t *testing.T) {
@@ -848,6 +1033,7 @@ func TestParseProject(t *testing.T) {
 	// Verify that -warn would produce missing-description warnings.
 	missingWarnings := generateWarnings(entries)
 	requireWarningContains(t, missingWarnings, `"missingDescription" has no //cdoc:desc`)
+	requireWarningContains(t, missingWarnings, `"deploymentName,RELEASE_NAME" has no //cdoc:group`)
 
 	md := formatMarkdown(entries, "PREFIX")
 
@@ -862,6 +1048,19 @@ func TestParseProject(t *testing.T) {
 	expected, err := os.ReadFile(goldenPath)
 	require.NoError(t, err, "reading golden file (run with -update to generate)")
 	require.Equal(t, string(expected), md, "output does not match golden file")
+}
+
+func TestParseProjectParseWarning(t *testing.T) {
+	rootDir := t.TempDir()
+	badFile := filepath.Join(rootDir, "bad.go")
+	err := os.WriteFile(badFile, []byte("package bad\nfunc broken("), 0o644)
+	require.NoError(t, err)
+
+	entries, warnings, err := parseProject(rootDir)
+	require.NoError(t, err)
+	require.Empty(t, entries)
+	requireWarningContains(t, warnings, "failed to parse")
+	requireWarningContains(t, warnings, "bad.go")
 }
 
 func TestRun(t *testing.T) {
