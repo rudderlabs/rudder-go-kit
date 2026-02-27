@@ -1,11 +1,19 @@
 package config
 
 // GetStringSlice gets string slice value from config
+//
+// Deprecated: Use GetStringSliceVar(defaultValue, key) instead.
+//
+//go:fix inline
 func GetStringSlice(key string, defaultValue []string) (value []string) {
-	return Default.GetStringSlice(key, defaultValue)
+	return GetStringSliceVar(defaultValue, key)
 }
 
 // GetStringSlice gets string slice value from config
+//
+// Deprecated: Use (*Config).GetStringSliceVar(defaultValue, key) instead.
+//
+//go:fix inline
 func (c *Config) GetStringSlice(key string, defaultValue []string) (value []string) {
 	return c.GetStringSliceVar(defaultValue, key)
 }

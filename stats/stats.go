@@ -73,24 +73,24 @@ func NewStats(
 	config *config.Config, loggerFactory loggerFactory, metricManager svcMetric.Manager, opts ...Option,
 ) Stats {
 	excludedTags := make(map[string]struct{})
-	excludedTagsSlice := config.GetStringSlice("statsExcludedTags", nil)
+	excludedTagsSlice := config.GetStringSliceVar(nil, "statsExcludedTags")
 	for _, tag := range excludedTagsSlice {
 		excludedTags[tag] = struct{}{}
 	}
 
 	enabled := atomic.Bool{}
-	enabled.Store(config.GetBool("enableStats", true))
+	enabled.Store(config.GetBoolVar(true, "enableStats"))
 	statsConfig := statsConfig{
 		excludedTags:        excludedTags,
 		enabled:             &enabled,
-		instanceName:        config.GetString("INSTANCE_ID", ""),
+		instanceName:        config.GetStringVar("", "INSTANCE_ID"),
 		namespaceIdentifier: os.Getenv("KUBE_NAMESPACE"),
 		periodicStatsConfig: periodicStatsConfig{
-			enabled:                 config.GetBool("RuntimeStats.enabled", true),
-			statsCollectionInterval: config.GetInt64("RuntimeStats.statsCollectionInterval", 10),
-			enableCPUStats:          config.GetBool("RuntimeStats.enableCPUStats", true),
-			enableMemStats:          config.GetBool("RuntimeStats.enabledMemStats", true),
-			enableGCStats:           config.GetBool("RuntimeStats.enableGCStats", true),
+			enabled:                 config.GetBoolVar(true, "RuntimeStats.enabled"),
+			statsCollectionInterval: config.GetInt64Var(10, 1, "RuntimeStats.statsCollectionInterval"),
+			enableCPUStats:          config.GetBoolVar(true, "RuntimeStats.enableCPUStats"),
+			enableMemStats:          config.GetBoolVar(true, "RuntimeStats.enabledMemStats"),
+			enableGCStats:           config.GetBoolVar(true, "RuntimeStats.enableGCStats"),
 			metricManager:           metricManager,
 		},
 	}
@@ -98,7 +98,7 @@ func NewStats(
 		opt(&statsConfig)
 	}
 
-	if config.GetBool("OpenTelemetry.enabled", false) {
+	if config.GetBoolVar(false, "OpenTelemetry.enabled") {
 		registerer := prometheus.DefaultRegisterer
 		gatherer := prometheus.DefaultGatherer
 		if statsConfig.prometheusRegisterer != nil {
@@ -116,14 +116,14 @@ func NewStats(
 			prometheusGatherer:       gatherer,
 			tracerProvider:           noop.NewTracerProvider(),
 			otelConfig: otelStatsConfig{
-				tracesEndpoint:           config.GetString("OpenTelemetry.traces.endpoint", ""),
-				tracingSamplingRate:      config.GetFloat64("OpenTelemetry.traces.samplingRate", 0.1),
-				withTracingSyncer:        config.GetBool("OpenTelemetry.traces.withSyncer", false),
-				withOTLPHTTP:             config.GetBool("OpenTelemetry.traces.withOTLPHTTP", false),
-				metricsEndpoint:          config.GetString("OpenTelemetry.metrics.endpoint", ""),
-				metricsExportInterval:    config.GetDuration("OpenTelemetry.metrics.exportInterval", 5, time.Second),
-				enablePrometheusExporter: config.GetBool("OpenTelemetry.metrics.prometheus.enabled", false),
-				prometheusMetricsPort:    config.GetInt("OpenTelemetry.metrics.prometheus.port", 0),
+				tracesEndpoint:           config.GetStringVar("", "OpenTelemetry.traces.endpoint"),
+				tracingSamplingRate:      config.GetFloat64Var(0.1, "OpenTelemetry.traces.samplingRate"),
+				withTracingSyncer:        config.GetBoolVar(false, "OpenTelemetry.traces.withSyncer"),
+				withOTLPHTTP:             config.GetBoolVar(false, "OpenTelemetry.traces.withOTLPHTTP"),
+				metricsEndpoint:          config.GetStringVar("", "OpenTelemetry.metrics.endpoint"),
+				metricsExportInterval:    config.GetDurationVar(5, time.Second, "OpenTelemetry.metrics.exportInterval"),
+				enablePrometheusExporter: config.GetBoolVar(false, "OpenTelemetry.metrics.prometheus.enabled"),
+				prometheusMetricsPort:    config.GetIntVar(0, 1, "OpenTelemetry.metrics.prometheus.port"),
 			},
 			collectorAggregator: &aggregatedCollector{},
 		}
@@ -138,9 +138,9 @@ func NewStats(
 		backgroundCollectionCancel: backgroundCollectionCancel,
 		tracer:                     noop.NewTracerProvider().Tracer(""),
 		statsdConfig: statsdConfig{
-			tagsFormat:          config.GetString("statsTagsFormat", "influxdb"),
-			statsdServerURL:     config.GetString("STATSD_SERVER_URL", "localhost:8125"),
-			samplingRate:        float32(config.GetFloat64("statsSamplingRate", 1)),
+			tagsFormat:          config.GetStringVar("influxdb", "statsTagsFormat"),
+			statsdServerURL:     config.GetStringVar("localhost:8125", "STATSD_SERVER_URL"),
+			samplingRate:        float32(config.GetFloat64Var(1, "statsSamplingRate")),
 			instanceName:        statsConfig.instanceName,
 			namespaceIdentifier: statsConfig.namespaceIdentifier,
 			serviceName:         statsConfig.serviceName,

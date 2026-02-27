@@ -1,11 +1,19 @@
 package config
 
 // GetBool gets bool value from config
+//
+// Deprecated: Use GetBoolVar(defaultValue, key) instead.
+//
+//go:fix inline
 func GetBool(key string, defaultValue bool) (value bool) {
-	return Default.GetBool(key, defaultValue)
+	return GetBoolVar(defaultValue, key)
 }
 
 // GetBool gets bool value from config
+//
+// Deprecated: Use (*Config).GetBoolVar(defaultValue, key) instead.
+//
+//go:fix inline
 func (c *Config) GetBool(key string, defaultValue bool) (value bool) {
 	return c.GetBoolVar(defaultValue, key)
 }
