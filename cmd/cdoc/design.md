@@ -42,7 +42,8 @@ conf.GetStringVar(computeDefault(), "retry.interval")
 
 ### Annotation semantics
 
-- **group inheritance**: `//cdoc:group` is sticky — it applies to all subsequent config calls in the same file until another `//cdoc:group` overrides it. An optional numeric prefix sets the sort order (e.g. `//cdoc:group 1 Server`). Only one ordered occurrence per group is needed across the codebase.
+- **group inheritance**: `//cdoc:group` is sticky — it applies to all subsequent config calls in the same file until another `//cdoc:group` overrides it.
+- **project-level group ordering**: Numeric `//cdoc:group [n] <name>` directives are also collected project-wide, even from files without config getters, and applied by group name. This allows keeping group order declarations in a dedicated file.
 - **desc**: Applies to the immediately following config call only (up to 10 lines above).
 - **key**: Consumed in order for non-literal key arguments. Static string literal keys are extracted normally and don't consume key directives. If there are non-literal args without matching keys, a warning is emitted.
 - **default**: Overrides the extracted default value. Useful when the default argument is a non-literal expression (e.g. a function call or variable).
@@ -63,7 +64,7 @@ go run ./cmd/cdoc [flags]
 
 - **static analysis only**: The tool uses `go/ast` (no type checker). It can only extract string literal key arguments. Non-literal keys (e.g. `fmt.Sprintf(...)`) are skipped unless a `//cdoc:key` directive is provided.
 - **external constants**: Default values that reference external package constants (e.g. `backoff.DefaultInitialInterval`) are rendered as the Go expression, not as their resolved value.
-- **single-file group scope**: Group inheritance is per-file. A `//cdoc:group` in one file does not affect another file.
+- **single-file group scope for assignment**: Group assignment (which group a config call belongs to) is still per-file. A `//cdoc:group` in one file does not assign groups in another file. Numeric group ordering, however, is applied project-wide by group name.
 
 ## Config getter method families
 
