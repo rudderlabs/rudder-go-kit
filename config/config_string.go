@@ -3,11 +3,19 @@ package config
 import "fmt"
 
 // GetString gets string value from config
+//
+// Deprecated: Use GetStringVar(defaultValue, key) instead.
+//
+//go:fix inline
 func GetString(key, defaultValue string) (value string) {
-	return Default.GetString(key, defaultValue)
+	return GetStringVar(defaultValue, key)
 }
 
 // GetString gets string value from config
+//
+// Deprecated: Use (*Config).GetStringVar(defaultValue, key) instead.
+//
+//go:fix inline
 func (c *Config) GetString(key, defaultValue string) (value string) {
 	return c.GetStringVar(defaultValue, key)
 }

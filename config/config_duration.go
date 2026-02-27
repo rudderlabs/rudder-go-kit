@@ -6,11 +6,19 @@ import (
 )
 
 // GetDuration gets duration value from config
+//
+// Deprecated: Use GetDurationVar(defaultValueInTimescaleUnits, timeScale, key) instead.
+//
+//go:fix inline
 func GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
-	return Default.GetDuration(key, defaultValueInTimescaleUnits, timeScale)
+	return GetDurationVar(defaultValueInTimescaleUnits, timeScale, key)
 }
 
 // GetDuration gets duration value from config
+//
+// Deprecated: Use (*Config).GetDurationVar(defaultValueInTimescaleUnits, timeScale, key) instead.
+//
+//go:fix inline
 func (c *Config) GetDuration(key string, defaultValueInTimescaleUnits int64, timeScale time.Duration) (value time.Duration) {
 	return c.GetDurationVar(defaultValueInTimescaleUnits, timeScale, key)
 }

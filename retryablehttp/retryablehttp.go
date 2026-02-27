@@ -73,11 +73,11 @@ func WithCustomRetryStrategy(retryStrategy retryStrategy) Option {
 //	Multiplier: Backoff multiplier for retry intervals (default: 1.5)
 func NewDefaultConfig() *Config {
 	return &Config{
-		MaxRetry:        conf.GetInt("retryablehttp.maxRetry", 5),
-		InitialInterval: conf.GetDuration("retryablehttp.initialInterval", 100, time.Millisecond),
-		MaxInterval:     conf.GetDuration("retryablehttp.maxInterval", 1000, time.Millisecond),
-		MaxElapsedTime:  conf.GetDuration("retryablehttp.maxElapsedTime", 10, time.Second),
-		Multiplier:      conf.GetFloat64("retryablehttp.multiplier", 1.5),
+		MaxRetry:        conf.GetIntVar(5, 1, "retryablehttp.maxRetry"),
+		InitialInterval: conf.GetDurationVar(100, time.Millisecond, "retryablehttp.initialInterval"),
+		MaxInterval:     conf.GetDurationVar(1000, time.Millisecond, "retryablehttp.maxInterval"),
+		MaxElapsedTime:  conf.GetDurationVar(10, time.Second, "retryablehttp.maxElapsedTime"),
+		Multiplier:      conf.GetFloat64Var(1.5, "retryablehttp.multiplier"),
 	}
 }
 

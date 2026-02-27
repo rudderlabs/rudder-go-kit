@@ -1,11 +1,19 @@
 package config
 
 // GetInt64 gets int64 value from config
+//
+// Deprecated: Use GetInt64Var(defaultValue, 1, key) instead.
+//
+//go:fix inline
 func GetInt64(key string, defaultValue int64) (value int64) {
-	return Default.GetInt64(key, defaultValue)
+	return GetInt64Var(defaultValue, 1, key)
 }
 
 // GetInt64 gets int64 value from config
+//
+// Deprecated: Use (*Config).GetInt64Var(defaultValue, 1, key) instead.
+//
+//go:fix inline
 func (c *Config) GetInt64(key string, defaultValue int64) (value int64) {
 	return c.GetInt64Var(defaultValue, 1, key)
 }

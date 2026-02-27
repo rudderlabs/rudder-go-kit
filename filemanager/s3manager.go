@@ -66,7 +66,7 @@ func NewS3Manager(
 		return nil, fmt.Errorf("failed to create AWS session config: %w", err)
 	}
 
-	s3Config.RegionHint = kitconfig.GetString("AWS_S3_REGION_HINT", "us-east-1")
+	s3Config.RegionHint = kitconfig.GetStringVar("us-east-1", "AWS_S3_REGION_HINT")
 
 	if s3Config.Prefix != "" && s3Config.Prefix[0] == '/' {
 		s3Config.Prefix = sanitizeKey(s3Config.Prefix)

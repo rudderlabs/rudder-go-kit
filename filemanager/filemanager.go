@@ -146,17 +146,17 @@ func getDefaultTimeout(config *config.Config, destType string) func() time.Durat
 		defaultValueInTimescaleUnits := int64(120)
 		timeScale := time.Second
 		if config.IsSet("FileManager." + destType + "." + key) {
-			return config.GetDuration("FileManager."+destType+"."+key, defaultValueInTimescaleUnits, timeScale)
+			return config.GetDurationVar(defaultValueInTimescaleUnits, timeScale, "FileManager."+destType+"."+key)
 		}
 		if config.IsSet("FileManager." + key) {
-			return config.GetDuration("FileManager."+key, defaultValueInTimescaleUnits, timeScale)
+			return config.GetDurationVar(defaultValueInTimescaleUnits, timeScale, "FileManager."+key)
 		}
 		return func() time.Duration { // legacy keys used in rudder-server
 			destOverrideFound := config.IsSet("BatchRouter." + destType + "." + key)
 			if destOverrideFound {
-				return config.GetDuration("BatchRouter."+destType+"."+key, defaultValueInTimescaleUnits, timeScale)
+				return config.GetDurationVar(defaultValueInTimescaleUnits, timeScale, "BatchRouter."+destType+"."+key)
 			} else {
-				return config.GetDuration("BatchRouter."+key, defaultValueInTimescaleUnits, timeScale)
+				return config.GetDurationVar(defaultValueInTimescaleUnits, timeScale, "BatchRouter."+key)
 			}
 		}()
 	}

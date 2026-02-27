@@ -98,14 +98,13 @@ func newConfig(config *config.Config) *factoryConfig {
 		levelConfig:      &syncMap[string, int]{m: make(map[string]int)},
 		levelConfigCache: &syncMap[string, int]{m: make(map[string]int)},
 	}
-	fc.rootLevel = levelMap[config.GetString("LOG_LEVEL", "INFO")]
-	fc.enableNameInLog = config.GetBool("Logger.enableLoggerNameInLog", true)
+	fc.rootLevel = levelMap[config.GetStringVar("INFO", "LOG_LEVEL")]
+	fc.enableNameInLog = config.GetBoolVar(true, "Logger.enableLoggerNameInLog")
 	fc.enableStackTrace = config.GetReloadableBoolVar(false, "Logger.enableStackTrace")
-	config.GetBool("Logger.enableLoggerNameInLog", true)
 
 	// colon separated key value pairs
 	// Example: "router.GA=DEBUG:warehouse.REDSHIFT=DEBUG"
-	levelConfigStr := strings.TrimSpace(config.GetString("Logger.moduleLevels", ""))
+	levelConfigStr := strings.TrimSpace(config.GetStringVar("", "Logger.moduleLevels"))
 	if levelConfigStr != "" {
 		moduleLevelKVs := strings.SplitSeq(levelConfigStr, ":")
 		for moduleLevelKV := range moduleLevelKVs {
@@ -131,31 +130,31 @@ func newConfig(config *config.Config) *factoryConfig {
 // newZapLogger configures the zap logger based on the config provide in config.toml
 func newZapLogger(config *config.Config, fc *factoryConfig) *zap.Logger {
 	var cores []zapcore.Core
-	if config.GetBool("Logger.enableConsole", true) {
+	if config.GetBoolVar(true, "Logger.enableConsole") {
 		var writeSyncer zapcore.WriteSyncer = os.Stdout
-		if config.GetBool("Logger.discardConsole", false) {
+		if config.GetBoolVar(false, "Logger.discardConsole") {
 			writeSyncer = &discarder{}
 		}
 		writer := zapcore.Lock(writeSyncer)
-		core := zapcore.NewCore(zapEncoder(config, config.GetBool("Logger.consoleJsonFormat", false)), writer, zapcore.DebugLevel)
+		core := zapcore.NewCore(zapEncoder(config, config.GetBoolVar(false, "Logger.consoleJsonFormat")), writer, zapcore.DebugLevel)
 		cores = append(cores, core)
 	}
-	if config.GetBool("Logger.enableFile", false) {
+	if config.GetBoolVar(false, "Logger.enableFile") {
 		writer := zapcore.AddSync(&lumberjack.Logger{
-			Filename:  config.GetString("Logger.logFileLocation", "/tmp/rudder_log.log"),
-			MaxSize:   config.GetInt("Logger.logFileSize", 100),
+			Filename:  config.GetStringVar("/tmp/rudder_log.log", "Logger.logFileLocation"),
+			MaxSize:   config.GetIntVar(100, 1, "Logger.logFileSize"),
 			Compress:  true,
 			LocalTime: true,
 		})
-		core := zapcore.NewCore(zapEncoder(config, config.GetBool("Logger.fileJsonFormat", false)), writer, zapcore.DebugLevel)
+		core := zapcore.NewCore(zapEncoder(config, config.GetBoolVar(false, "Logger.fileJsonFormat")), writer, zapcore.DebugLevel)
 		cores = append(cores, core)
 	}
 	combinedCore := zapcore.NewTee(cores...)
 	var options []zap.Option
-	if config.GetBool("Logger.enableFileNameInLog", true) {
+	if config.GetBoolVar(true, "Logger.enableFileNameInLog") {
 		options = append(options, zap.AddCaller(), zap.AddCallerSkip(1))
 	}
-	if config.GetBool("Logger.enableStackTrace", false) {
+	if config.GetBoolVar(false, "Logger.enableStackTrace") {
 		// enables stack track for log level error
 		options = append(options, zap.AddStacktrace(zap.ErrorLevel))
 	}
@@ -171,7 +170,7 @@ func newZapLogger(config *config.Config, fc *factoryConfig) *zap.Logger {
 func zapEncoder(config *config.Config, json bool) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	if config.GetBool("Logger.enableTimestamp", true) {
+	if config.GetBoolVar(true, "Logger.enableTimestamp") {
 		encoderConfig.TimeKey = "ts"
 		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	} else {

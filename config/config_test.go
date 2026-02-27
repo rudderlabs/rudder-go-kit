@@ -17,34 +17,34 @@ import (
 func Test_Getters_Existing_and_Default(t *testing.T) {
 	tc := New()
 	tc.Set("string", "string")
-	require.Equal(t, "string", tc.GetString("string", "default"), "it should return the key value")
-	require.Equal(t, "default", tc.GetString("other", "default"), "it should return the default value")
+	require.Equal(t, "string", tc.GetStringVar("default", "string"), "it should return the key value")
+	require.Equal(t, "default", tc.GetStringVar("default", "other"), "it should return the default value")
 
 	tc.Set("bool", false)
-	require.Equal(t, false, tc.GetBool("bool", true), "it should return the key value")
-	require.Equal(t, true, tc.GetBool("other", true), "it should return the default value")
+	require.Equal(t, false, tc.GetBoolVar(true, "bool"), "it should return the key value")
+	require.Equal(t, true, tc.GetBoolVar(true, "other"), "it should return the default value")
 
 	tc.Set("int", 0)
-	require.Equal(t, 0, tc.GetInt("int", 1), "it should return the key value")
-	require.Equal(t, 1, tc.GetInt("other", 1), "it should return the default value")
-	require.EqualValues(t, 0, tc.GetInt64("int", 1), "it should return the key value")
-	require.EqualValues(t, 1, tc.GetInt64("other", 1), "it should return the default value")
+	require.Equal(t, 0, tc.GetIntVar(1, 1, "int"), "it should return the key value")
+	require.Equal(t, 1, tc.GetIntVar(1, 1, "other"), "it should return the default value")
+	require.EqualValues(t, 0, tc.GetInt64Var(1, 1, "int"), "it should return the key value")
+	require.EqualValues(t, 1, tc.GetInt64Var(1, 1, "other"), "it should return the default value")
 
 	tc.Set("float", 0.0)
-	require.EqualValues(t, 0, tc.GetFloat64("float", 1), "it should return the key value")
-	require.EqualValues(t, 1, tc.GetFloat64("other", 1), "it should return the default value")
+	require.EqualValues(t, 0, tc.GetFloat64Var(1, "float"), "it should return the key value")
+	require.EqualValues(t, 1, tc.GetFloat64Var(1, "other"), "it should return the default value")
 
 	tc.Set("stringslice", []string{"string", "string"})
-	require.Equal(t, []string{"string", "string"}, tc.GetStringSlice("stringslice", []string{"default"}), "it should return the key value")
-	require.Equal(t, []string{"default"}, tc.GetStringSlice("other", []string{"default"}), "it should return the default value")
+	require.Equal(t, []string{"string", "string"}, tc.GetStringSliceVar([]string{"default"}, "stringslice"), "it should return the key value")
+	require.Equal(t, []string{"default"}, tc.GetStringSliceVar([]string{"default"}, "other"), "it should return the default value")
 
 	tc.Set("duration", "2ms")
-	require.Equal(t, 2*time.Millisecond, tc.GetDuration("duration", 1, time.Second), "it should return the key value")
-	require.Equal(t, time.Second, tc.GetDuration("other", 1, time.Second), "it should return the default value")
+	require.Equal(t, 2*time.Millisecond, tc.GetDurationVar(1, time.Second, "duration"), "it should return the key value")
+	require.Equal(t, time.Second, tc.GetDurationVar(1, time.Second, "other"), "it should return the default value")
 
 	tc.Set("duration", "2")
-	require.Equal(t, 2*time.Second, tc.GetDuration("duration", 1, time.Second), "it should return the key value")
-	require.Equal(t, time.Second, tc.GetDuration("other", 1, time.Second), "it should return the default value")
+	require.Equal(t, 2*time.Second, tc.GetDurationVar(1, time.Second, "duration"), "it should return the key value")
+	require.Equal(t, time.Second, tc.GetDurationVar(1, time.Second, "other"), "it should return the default value")
 
 	tc.Set("stringmap", map[string]any{"string": "any"})
 	require.Equal(t, map[string]any{"string": "any"}, tc.GetStringMap("stringmap", map[string]any{"default": "value"}), "it should return the key value")
@@ -485,19 +485,19 @@ func TestGetEnvThroughViper(t *testing.T) {
 	t.Run("detects dots", func(t *testing.T) {
 		t.Setenv("RSERVER_KEY_VAR1_VAR2", expectedValue)
 		tc := New()
-		require.Equal(t, expectedValue, tc.GetString("Key.Var1.Var2", ""))
+		require.Equal(t, expectedValue, tc.GetStringVar("", "Key.Var1.Var2"))
 	})
 
 	t.Run("detects camelcase", func(t *testing.T) {
 		t.Setenv("RSERVER_KEY_VAR1_VAR2", expectedValue)
 		tc := New()
-		require.Equal(t, expectedValue, tc.GetString("KeyVar1Var2", ""))
+		require.Equal(t, expectedValue, tc.GetStringVar("", "KeyVar1Var2"))
 	})
 
 	t.Run("detects dots with camelcase", func(t *testing.T) {
 		t.Setenv("RSERVER_KEY_VAR1_VAR_VAR", expectedValue)
 		tc := New()
-		require.Equal(t, expectedValue, tc.GetString("Key.Var1VarVar", ""))
+		require.Equal(t, expectedValue, tc.GetStringVar("", "Key.Var1VarVar"))
 	})
 
 	t.Run("with env prefix", func(t *testing.T) {
@@ -506,31 +506,31 @@ func TestGetEnvThroughViper(t *testing.T) {
 		tc := New(WithEnvPrefix(envPrefix))
 		t.Setenv(envPrefix+"_KEY_VAR1_VAR_VAR", expectedValue)
 
-		require.Equal(t, expectedValue, tc.GetString("Key.Var1VarVar", ""))
+		require.Equal(t, expectedValue, tc.GetStringVar("", "Key.Var1VarVar"))
 	})
 
 	t.Run("detects uppercase env variables", func(t *testing.T) {
 		t.Setenv("SOMEENVVARIABLE", expectedValue)
 		tc := New()
-		require.Equal(t, expectedValue, tc.GetString("SOMEENVVARIABLE", ""))
+		require.Equal(t, expectedValue, tc.GetStringVar("", "SOMEENVVARIABLE"))
 
 		t.Setenv("SOME_ENV_VARIABLE", expectedValue)
-		require.Equal(t, expectedValue, tc.GetString("SOME_ENV_VARIABLE", ""))
+		require.Equal(t, expectedValue, tc.GetStringVar("", "SOME_ENV_VARIABLE"))
 
 		t.Setenv("SOME_ENV_VARIABLE12", expectedValue)
-		require.Equal(t, expectedValue, tc.GetString("SOME_ENV_VARIABLE12", ""))
+		require.Equal(t, expectedValue, tc.GetStringVar("", "SOME_ENV_VARIABLE12"))
 	})
 
 	t.Run("doesn't use viper's default env var matcher (uppercase)", func(t *testing.T) {
 		t.Setenv("KEYVAR1VARVAR", expectedValue)
 		tc := New()
-		require.Equal(t, "", tc.GetString("KeyVar1VarVar", ""))
+		require.Equal(t, "", tc.GetStringVar("", "KeyVar1VarVar"))
 	})
 
 	t.Run("can retrieve legacy env", func(t *testing.T) {
 		t.Setenv("JOBS_DB_HOST", expectedValue)
 		tc := New()
-		require.Equal(t, expectedValue, tc.GetString("DB.host", ""))
+		require.Equal(t, expectedValue, tc.GetStringVar("", "DB.host"))
 	})
 }
 
@@ -562,7 +562,7 @@ func TestRegisterEnvThroughViper(t *testing.T) {
 func Test_Set_CaseInsensitive(t *testing.T) {
 	tc := New()
 	tc.Set("sTrIng.One", "string")
-	require.Equal(t, "string", tc.GetString("String.one", "default"), "it should return the key value")
+	require.Equal(t, "string", tc.GetStringVar("default", "String.one"), "it should return the key value")
 }
 
 func Test_Misc(t *testing.T) {
@@ -653,7 +653,7 @@ func testConfigLocking(t *testing.T) {
 	}
 
 	startOperation("set the config value", func() { c.Set(configKey, "value1") })
-	startOperation("try to read the config value using GetString", func() { _ = c.GetString(configKey, "") })
+	startOperation("try to read the config value using GetString", func() { _ = c.GetStringVar("", configKey) })
 	startOperation("try to read the config value using GetStringVar", func() { _ = c.GetStringVar("", configKey) })
 	startOperation("try to read the config value using GetReloadableStringVar", func() {
 		r := c.GetReloadableStringVar("", configKey)
@@ -890,19 +890,19 @@ newKey: value
 			c, observer, filename := setupConfig(t, false)
 
 			// Get non-reloadable values from config
-			stringValue := c.GetString("stringKey", "default")
+			stringValue := c.GetStringVar("default", "stringKey")
 			require.Equal(t, "initialValue", stringValue)
-			intValue := c.GetInt("intKey", 0)
+			intValue := c.GetIntVar(0, 1, "intKey")
 			require.Equal(t, 1, intValue)
-			int64Value := c.GetInt64("int64Key", 0)
+			int64Value := c.GetInt64Var(0, 1, "int64Key")
 			require.EqualValues(t, 1, int64Value)
-			float64Value := c.GetFloat64("float64Key", 0.0)
+			float64Value := c.GetFloat64Var(0.0, "float64Key")
 			require.Equal(t, 1.0, float64Value)
-			boolValue := c.GetBool("boolKey", false)
+			boolValue := c.GetBoolVar(false, "boolKey")
 			require.True(t, boolValue)
-			durationValue := c.GetDuration("durationKey", 0, time.Second)
+			durationValue := c.GetDurationVar(0, time.Second, "durationKey")
 			require.Equal(t, 1*time.Second, durationValue)
-			stringSliceValue := c.GetStringSlice("stringSliceKey", []string{"default"})
+			stringSliceValue := c.GetStringSliceVar([]string{"default"}, "stringSliceKey")
 			require.Equal(t, []string{"1"}, stringSliceValue)
 			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
 			require.Equal(t, map[string]any{"key": "value"}, stringMapValue)
@@ -923,13 +923,13 @@ stringMapKey: '{"key": "value2"}'
 			require.Eventually(t, func() bool {
 				time.Sleep(100 * time.Millisecond) // give some time for the observer to detect changes (viper is not thread-safe)
 				// Verify that the values have changed
-				return c.GetString("stringKey", "default") == "otherValue" &&
-					c.GetInt("intKey", 0) == 2 &&
-					c.GetInt64("int64Key", 0) == 2 &&
-					c.GetFloat64("float64Key", 0.0) == 2.0 &&
-					c.GetBool("boolKey", false) == false &&
-					c.GetDuration("durationKey", 0, time.Second) == 2*time.Second &&
-					reflect.DeepEqual(c.GetStringSlice("stringSliceKey", []string{"default"}), []string{"2"}) &&
+				return c.GetStringVar("default", "stringKey") == "otherValue" &&
+					c.GetIntVar(0, 1, "intKey") == 2 &&
+					c.GetInt64Var(0, 1, "int64Key") == 2 &&
+					c.GetFloat64Var(0.0, "float64Key") == 2.0 &&
+					c.GetBoolVar(false, "boolKey") == false &&
+					c.GetDurationVar(0, time.Second, "durationKey") == 2*time.Second &&
+					reflect.DeepEqual(c.GetStringSliceVar([]string{"default"}, "stringSliceKey"), []string{"2"}) &&
 					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"key": "value2"})
 			}, 2*time.Second, 1*time.Millisecond)
 
@@ -964,19 +964,19 @@ stringMapKey: '{"key": "value2"}'
 			c, observer, filename := setupConfig(t, false)
 
 			// Get non-reloadable values from config
-			stringValue := c.GetString("stringKey", "default")
+			stringValue := c.GetStringVar("default", "stringKey")
 			require.Equal(t, "initialValue", stringValue)
-			intValue := c.GetInt("intKey", 0)
+			intValue := c.GetIntVar(0, 1, "intKey")
 			require.Equal(t, 1, intValue)
-			int64Value := c.GetInt64("int64Key", 0)
+			int64Value := c.GetInt64Var(0, 1, "int64Key")
 			require.EqualValues(t, 1, int64Value)
-			float64Value := c.GetFloat64("float64Key", 0.0)
+			float64Value := c.GetFloat64Var(0.0, "float64Key")
 			require.Equal(t, 1.0, float64Value)
-			boolValue := c.GetBool("boolKey", false)
+			boolValue := c.GetBoolVar(false, "boolKey")
 			require.True(t, boolValue)
-			durationValue := c.GetDuration("durationKey", 0, time.Second)
+			durationValue := c.GetDurationVar(0, time.Second, "durationKey")
 			require.Equal(t, 1*time.Second, durationValue)
-			stringSliceValue := c.GetStringSlice("stringSliceKey", []string{"default"})
+			stringSliceValue := c.GetStringSliceVar([]string{"default"}, "stringSliceKey")
 			require.Equal(t, []string{"1"}, stringSliceValue)
 			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
 			require.Equal(t, map[string]any{"key": "value"}, stringMapValue)
@@ -989,13 +989,13 @@ stringMapKey: '{"key": "value2"}'
 			require.Eventually(t, func() bool {
 				time.Sleep(100 * time.Millisecond) // give some time for the observer to detect changes (viper is not thread-safe)
 				// Verify that the values have changed
-				return c.GetString("stringKey", "default") == "default" &&
-					c.GetInt("intKey", 0) == 0 &&
-					c.GetInt64("int64Key", 0) == 0 &&
-					c.GetFloat64("float64Key", 0.0) == 0.0 &&
-					c.GetBool("boolKey", false) == false &&
-					c.GetDuration("durationKey", 0, time.Second) == 0*time.Second &&
-					reflect.DeepEqual(c.GetStringSlice("stringSliceKey", []string{"default"}), []string{"default"}) &&
+				return c.GetStringVar("default", "stringKey") == "default" &&
+					c.GetIntVar(0, 1, "intKey") == 0 &&
+					c.GetInt64Var(0, 1, "int64Key") == 0 &&
+					c.GetFloat64Var(0.0, "float64Key") == 0.0 &&
+					c.GetBoolVar(false, "boolKey") == false &&
+					c.GetDurationVar(0, time.Second, "durationKey") == 0*time.Second &&
+					reflect.DeepEqual(c.GetStringSliceVar([]string{"default"}, "stringSliceKey"), []string{"default"}) &&
 					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"default": "value"})
 			}, 2*time.Second, 1*time.Millisecond)
 
@@ -1030,19 +1030,19 @@ stringMapKey: '{"key": "value2"}'
 			c, observer, filename := setupConfig(t, true)
 
 			// Get non-reloadable values from config
-			stringValue := c.GetString("stringKey", "default")
+			stringValue := c.GetStringVar("default", "stringKey")
 			require.Equal(t, "default", stringValue)
-			intValue := c.GetInt("intKey", 0)
+			intValue := c.GetIntVar(0, 1, "intKey")
 			require.Equal(t, 0, intValue)
-			int64Value := c.GetInt64("int64Key", 0)
+			int64Value := c.GetInt64Var(0, 1, "int64Key")
 			require.EqualValues(t, 0, int64Value)
-			float64Value := c.GetFloat64("float64Key", 0.0)
+			float64Value := c.GetFloat64Var(0.0, "float64Key")
 			require.Equal(t, 0.0, float64Value)
-			boolValue := c.GetBool("boolKey", false)
+			boolValue := c.GetBoolVar(false, "boolKey")
 			require.False(t, boolValue)
-			durationValue := c.GetDuration("durationKey", 0, time.Second)
+			durationValue := c.GetDurationVar(0, time.Second, "durationKey")
 			require.Equal(t, 0*time.Second, durationValue)
-			stringSliceValue := c.GetStringSlice("stringSliceKey", []string{"default"})
+			stringSliceValue := c.GetStringSliceVar([]string{"default"}, "stringSliceKey")
 			require.Equal(t, []string{"default"}, stringSliceValue)
 			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
 			require.Equal(t, map[string]any{"default": "value"}, stringMapValue)
@@ -1063,13 +1063,13 @@ stringMapKey: '{"key": "value"}'
 			require.Eventually(t, func() bool {
 				time.Sleep(100 * time.Millisecond) // give some time for the observer to detect changes (viper is not thread-safe)
 				// Verify that the values have changed
-				return c.GetString("stringKey", "default") == "initialValue" &&
-					c.GetInt("intKey", 0) == 1 &&
-					c.GetInt64("int64Key", 0) == 1 &&
-					c.GetFloat64("float64Key", 0.0) == 1.0 &&
-					c.GetBool("boolKey", false) == true &&
-					c.GetDuration("durationKey", 0, time.Second) == 1*time.Second &&
-					reflect.DeepEqual(c.GetStringSlice("stringSliceKey", []string{"default"}), []string{"1"}) &&
+				return c.GetStringVar("default", "stringKey") == "initialValue" &&
+					c.GetIntVar(0, 1, "intKey") == 1 &&
+					c.GetInt64Var(0, 1, "int64Key") == 1 &&
+					c.GetFloat64Var(0.0, "float64Key") == 1.0 &&
+					c.GetBoolVar(false, "boolKey") == true &&
+					c.GetDurationVar(0, time.Second, "durationKey") == 1*time.Second &&
+					reflect.DeepEqual(c.GetStringSliceVar([]string{"default"}, "stringSliceKey"), []string{"1"}) &&
 					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"key": "value"})
 			}, 2*time.Second, 1*time.Millisecond)
 
@@ -1105,14 +1105,14 @@ stringMapKey: '{"key": "value"}'
 
 			t.Run("key exists", func(t *testing.T) {
 				// Get non-reloadable values from config
-				stringValue := c.GetString("stringKey", "default")
+				stringValue := c.GetStringVar("default", "stringKey")
 				require.Equal(t, "initialValue", stringValue)
 
 				// Set a new value for the key
 				c.Set("stringKey", "newValue")
 
 				// Verify that the value has changed
-				require.Equal(t, "newValue", c.GetString("stringKey", "default"))
+				require.Equal(t, "newValue", c.GetStringVar("default", "stringKey"))
 
 				// Verify that the observer was notified of the modification
 				stringOperations := observer.getNonReloadableChanges("stringKey")
@@ -1121,14 +1121,14 @@ stringMapKey: '{"key": "value"}'
 
 			t.Run("key does not exist", func(t *testing.T) {
 				// Try to get a non-reloadable value for a key that does not exist
-				stringValue := c.GetString("nonExistentKey", "default")
+				stringValue := c.GetStringVar("default", "nonExistentKey")
 				require.Equal(t, "default", stringValue)
 
 				// Set a new value for the key
 				c.Set("nonExistentKey", "newValue")
 
 				// Verify that the value has changed
-				require.Equal(t, "newValue", c.GetString("nonExistentKey", "default"))
+				require.Equal(t, "newValue", c.GetStringVar("default", "nonExistentKey"))
 
 				// Verify that the observer was notified of the addition
 				stringOperations := observer.getNonReloadableChanges("nonExistentKey")
@@ -1152,19 +1152,19 @@ stringMapKey: '{"key": "value"}'
 			c, observer, filename := setupConfig(t, true)
 
 			// Get non-reloadable values from config
-			stringValue := c.GetString("stringKey", "default")
+			stringValue := c.GetStringVar("default", "stringKey")
 			require.Equal(t, "default", stringValue)
-			intValue := c.GetInt("intKey", 0)
+			intValue := c.GetIntVar(0, 1, "intKey")
 			require.Equal(t, 0, intValue)
-			int64Value := c.GetInt64("int64Key", 0)
+			int64Value := c.GetInt64Var(0, 1, "int64Key")
 			require.EqualValues(t, 0, int64Value)
-			float64Value := c.GetFloat64("float64Key", 0.0)
+			float64Value := c.GetFloat64Var(0.0, "float64Key")
 			require.Equal(t, 0.0, float64Value)
-			boolValue := c.GetBool("boolKey", false)
+			boolValue := c.GetBoolVar(false, "boolKey")
 			require.False(t, boolValue)
-			durationValue := c.GetDuration("durationKey", 0, time.Second)
+			durationValue := c.GetDurationVar(0, time.Second, "durationKey")
 			require.Equal(t, 0*time.Second, durationValue)
-			stringSliceValue := c.GetStringSlice("stringSliceKey", []string{"default"})
+			stringSliceValue := c.GetStringSliceVar([]string{"default"}, "stringSliceKey")
 			require.Equal(t, []string{"default"}, stringSliceValue)
 			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
 			require.Equal(t, map[string]any{"default": "value"}, stringMapValue)
@@ -1186,14 +1186,14 @@ newKey: newValue
 			require.Eventually(t, func() bool {
 				time.Sleep(100 * time.Millisecond) // give some time for the observer to detect changes (viper is not thread-safe)
 				// Verify that the values have changed
-				return c.GetString("newKey", "default") == "newValue" &&
-					c.GetString("stringKey", "default") == "default" &&
-					c.GetInt("intKey", 0) == 0 &&
-					c.GetInt64("int64Key", 0) == 0 &&
-					c.GetFloat64("float64Key", 0.0) == 0.0 &&
-					c.GetBool("boolKey", false) == false &&
-					c.GetDuration("durationKey", 0, time.Second) == 0*time.Second &&
-					reflect.DeepEqual(c.GetStringSlice("stringSliceKey", []string{"default"}), []string{"default"}) &&
+				return c.GetStringVar("default", "newKey") == "newValue" &&
+					c.GetStringVar("default", "stringKey") == "default" &&
+					c.GetIntVar(0, 1, "intKey") == 0 &&
+					c.GetInt64Var(0, 1, "int64Key") == 0 &&
+					c.GetFloat64Var(0.0, "float64Key") == 0.0 &&
+					c.GetBoolVar(false, "boolKey") == false &&
+					c.GetDurationVar(0, time.Second, "durationKey") == 0*time.Second &&
+					reflect.DeepEqual(c.GetStringSliceVar([]string{"default"}, "stringSliceKey"), []string{"default"}) &&
 					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"default": "value"})
 			}, 2*time.Second, 1*time.Millisecond)
 
@@ -1229,7 +1229,7 @@ newKey: newValue
 		c, observer, filename := setupConfig(t, false)
 
 		// First, get a value to ensure the key is tracked
-		stringValue := c.GetString("stringKey", "default")
+		stringValue := c.GetStringVar("default", "stringKey")
 		require.Equal(t, "initialValue", stringValue)
 
 		// Modify the config file to trigger a notification
@@ -1261,7 +1261,7 @@ stringKey: anotherValue
 
 		require.Eventually(t, func() bool {
 			time.Sleep(100 * time.Millisecond) // give some time for the observer to detect changes (viper is not thread-safe)
-			return c.GetString("stringKey", "default") == "anotherValue"
+			return c.GetStringVar("default", "stringKey") == "anotherValue"
 		}, 2*time.Second, 1*time.Millisecond)
 
 		// Verify the observer was not notified after unregistering

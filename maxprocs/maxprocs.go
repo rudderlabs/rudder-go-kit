@@ -128,9 +128,9 @@ func set(raw string, opts ...option) {
 func setWithConfig(c *config.Config, opts ...option) {
 	conf := &conf{
 		logger:                logger.NOP,
-		minProcs:              c.GetInt("MinProcs", defaultMinProcs),
-		maxProcs:              c.GetInt("MaxProcs", defaultMaxProcs()),
-		cpuRequestsMultiplier: c.GetFloat64("RequestsMultiplier", defaultCPURequestsMultiplier),
+		minProcs:              c.GetIntVar(defaultMinProcs, 1, "MinProcs"),
+		maxProcs:              c.GetIntVar(defaultMaxProcs(), 1, "MaxProcs"),
+		cpuRequestsMultiplier: c.GetFloat64Var(defaultCPURequestsMultiplier, "RequestsMultiplier"),
 		roundQuotaFunc:        roundQuotaCeil,
 		stop:                  make(chan os.Signal, 1),
 	}
@@ -140,8 +140,8 @@ func setWithConfig(c *config.Config, opts ...option) {
 
 	var (
 		fileMode     bool
-		requests     = c.GetString("Requests", "0")
-		requestsFile = c.GetString("RequestsFile", "/etc/podinfo/cpu_requests")
+		requests     = c.GetStringVar("0", "Requests")
+		requestsFile = c.GetStringVar("/etc/podinfo/cpu_requests", "RequestsFile")
 	)
 	if data, err := os.ReadFile(requestsFile); err == nil && len(data) > 0 {
 		fileMode = true
@@ -160,7 +160,7 @@ func setWithConfig(c *config.Config, opts ...option) {
 		withRoundQuotaFunc(conf.roundQuotaFunc),
 	)
 
-	if fileMode && c.GetBool("Watch", true) {
+	if fileMode && c.GetBoolVar(true, "Watch") {
 		conf.logger.Infon("Starting file watcher to monitor CPU requests changes",
 			logger.NewStringField("file", requestsFile),
 		)
