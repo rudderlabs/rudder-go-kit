@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/model"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
@@ -148,6 +148,9 @@ func formatCodeCell(value string) string {
 }
 
 func formatInlineCode(value string) string {
+	if value == "" {
+		return ""
+	}
 	maxBackticks := 0
 	currentRun := 0
 	for _, ch := range value {

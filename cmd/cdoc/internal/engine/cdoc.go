@@ -1,4 +1,4 @@
-package cdoc
+package engine
 
 import (
 	"fmt"
@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/model"
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/render"
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/scanner"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/render"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/scanner"
 )
 
 // ParseProject walks a project and extracts config entries plus warnings.

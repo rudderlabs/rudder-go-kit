@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/model"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
 )
 
 // IsEnvVarStyle returns true if the key looks like an environment variable
