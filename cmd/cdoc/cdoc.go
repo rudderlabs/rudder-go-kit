@@ -638,12 +638,16 @@ func deduplicateEntries(entries []configEntry) ([]configEntry, []string) {
 		}
 		if idx, ok := seen[e.PrimaryKey]; ok {
 			existing := &result[idx]
+			// Do not backfill group metadata from a later duplicate in the same file.
+			// This keeps group directives forward-only within a file.
+			sameFileLater := existing.File != "" && e.File != "" && existing.File == e.File && e.Line > existing.Line
+			skipGroupBackfill := sameFileLater && existing.Group == "" && e.Group != ""
 			// Merge desc.
 			if existing.Description == "" && e.Description != "" {
 				existing.Description = e.Description
 			}
 			// Merge group.
-			if existing.Group == "" && e.Group != "" {
+			if existing.Group == "" && e.Group != "" && !skipGroupBackfill {
 				existing.Group = e.Group
 			} else if existing.Group != "" && e.Group != "" && existing.Group != e.Group {
 				warnings = append(warnings, fmt.Sprintf("warning: conflicting groups for %q: %q vs %q", e.PrimaryKey, existing.Group, e.Group))
@@ -669,7 +673,7 @@ func deduplicateEntries(entries []configEntry) ([]configEntry, []string) {
 				existing.Reloadable = true
 			}
 			// Merge group order.
-			if existing.GroupOrder == 0 && e.GroupOrder != 0 {
+			if existing.GroupOrder == 0 && e.GroupOrder != 0 && !skipGroupBackfill {
 				existing.GroupOrder = e.GroupOrder
 			}
 		} else {
