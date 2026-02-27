@@ -475,6 +475,87 @@ func f(conf *config.Config) {
 			wantReloadable: []bool{true},
 		},
 		{
+			name: "GetReloadableBoolVar/true",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableBoolVar(true, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"true"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "GetReloadableBoolVar/false",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableBoolVar(false, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"false"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "GetReloadableStringSliceVar/empty slice",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableStringSliceVar([]string{}, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"[]"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "GetReloadableStringSliceVar/non-empty slice",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableStringSliceVar([]string{"a", "b"}, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"[a, b]"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "GetReloadableInt64Var/unit=1",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableInt64Var(500, 1, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"500"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
+			name: "GetReloadableInt64Var/bytesize.MB",
+			src: `package test
+import (
+	"github.com/rudderlabs/rudder-go-kit/bytesize"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetReloadableInt64Var(500, bytesize.MB, "key")
+}`,
+			wantKeys:       []string{"key"},
+			wantDefs:       []string{"500MB"},
+			wantDesc:       []string{"d"},
+			wantReloadable: []bool{true},
+		},
+		{
 			name: "directive/ignore",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"

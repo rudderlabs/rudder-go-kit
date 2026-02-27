@@ -45,17 +45,20 @@ type methodSpec struct {
 }
 
 var methodSpecs = map[string]methodSpec{
-	"GetStringVar":             {family: familySimple},
-	"GetBoolVar":               {family: familySimple},
-	"GetFloat64Var":            {family: familySimple},
-	"GetStringSliceVar":        {family: familySimple},
-	"GetReloadableStringVar":   {family: familySimple},
-	"GetReloadableFloat64Var":  {family: familySimple},
-	"GetIntVar":                {family: familyWithMultiplier},
-	"GetReloadableIntVar":      {family: familyWithMultiplier},
-	"GetDurationVar":           {family: familyDuration},
-	"GetReloadableDurationVar": {family: familyDuration},
-	"GetInt64Var":              {family: familyWithMultiplier},
+	"GetStringVar":                {family: familySimple},
+	"GetReloadableStringVar":      {family: familySimple},
+	"GetBoolVar":                  {family: familySimple},
+	"GetReloadableBoolVar":        {family: familySimple},
+	"GetStringSliceVar":           {family: familySimple},
+	"GetReloadableStringSliceVar": {family: familySimple},
+	"GetFloat64Var":               {family: familySimple},
+	"GetReloadableFloat64Var":     {family: familySimple},
+	"GetIntVar":                   {family: familyWithMultiplier},
+	"GetReloadableIntVar":         {family: familyWithMultiplier},
+	"GetInt64Var":                 {family: familyWithMultiplier},
+	"GetReloadableInt64Var":       {family: familyWithMultiplier},
+	"GetDurationVar":              {family: familyDuration},
+	"GetReloadableDurationVar":    {family: familyDuration},
 }
 
 // configEntry represents a single extracted configuration option.
@@ -464,8 +467,15 @@ func renderExpr(fset *token.FileSet, expr ast.Expr) string {
 		// true, false, nil
 		return e.Name
 	case *ast.CompositeLit:
-		// []string{} → []
-		return "[]"
+		// []string{"a", "b"} → [a, b]
+		if len(e.Elts) == 0 {
+			return "[]"
+		}
+		elts := make([]string, len(e.Elts))
+		for i, elt := range e.Elts {
+			elts[i] = renderExpr(fset, elt)
+		}
+		return "[" + strings.Join(elts, ", ") + "]"
 	case *ast.UnaryExpr:
 		// -1 etc.
 		return e.Op.String() + renderExpr(fset, e.X)
@@ -501,7 +511,7 @@ func renderDuration(fset *token.FileSet, quantity, unit ast.Expr) string {
 	unitStr := durationUnitAbbrev(fset, unit)
 	if unitStr != "" {
 		// If quantity is a non-numeric expression (e.g. backoff.DefaultInitialInterval), render as-is.
-		if !isNumeric(qty) {
+		if !isNonNegativeInteger(qty) {
 			return qty
 		}
 		if qty == "0" {
@@ -512,8 +522,8 @@ func renderDuration(fset *token.FileSet, quantity, unit ast.Expr) string {
 	return qty + " " + exprToString(fset, unit)
 }
 
-// isNumeric returns true if s looks like a plain number.
-func isNumeric(s string) bool {
+// isNonNegativeInteger returns true if s represents an unsigned integer with digits 0-9.
+func isNonNegativeInteger(s string) bool {
 	for _, c := range s {
 		if c < '0' || c > '9' {
 			return false

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rudderlabs/rudder-go-kit/bytesize"
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
@@ -43,6 +44,10 @@ func setup(conf *config.Config, tenantID string, computedTimeout int) {
 	// Duration
 	//cdoc:desc Read header timeout
 	conf.GetDurationVar(10, time.Second, "server.http.readHeaderTimeout")
+
+	// Int64 with bytesize
+	//cdoc:desc max req size(body + query params)
+	config.GetReloadableInt64Var(500, bytesize.MB, "server.http.maxReqSize")
 
 	// Bool with an explicit env-var key
 	//cdoc:desc Enable TLS
