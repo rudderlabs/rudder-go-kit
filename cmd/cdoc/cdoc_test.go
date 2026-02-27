@@ -1098,6 +1098,49 @@ func f(conf *config.Config) {
 	require.Equal(t, 1, entries[1].GroupOrder)
 }
 
+func TestParseProjectGroupOrderDeclaredWithoutGetters(t *testing.T) {
+	rootDir := t.TempDir()
+
+	configSrc := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:group General
+	//cdoc:desc Name
+	conf.GetStringVar("app", "app.name")
+	//cdoc:group HTTP
+	//cdoc:desc Port
+	conf.GetIntVar(8080, 1, "http.port")
+}`
+	groupOrderSrc := `package test
+//cdoc:group 1 HTTP
+//cdoc:group 2 General
+`
+
+	err := os.WriteFile(filepath.Join(rootDir, "config.go"), []byte(configSrc), 0o644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(rootDir, "group_order.go"), []byte(groupOrderSrc), 0o644)
+	require.NoError(t, err)
+
+	entries, warnings, err := parseProject(rootDir)
+	require.NoError(t, err)
+	require.Empty(t, warnings)
+	require.Len(t, entries, 2)
+
+	ordersByKey := make(map[string]int, len(entries))
+	for _, e := range entries {
+		ordersByKey[e.PrimaryKey] = e.GroupOrder
+	}
+	require.Equal(t, 1, ordersByKey["http.port"])
+	require.Equal(t, 2, ordersByKey["app.name"])
+
+	md := formatMarkdown(entries, "PREFIX")
+	httpIdx := strings.Index(md, "## HTTP")
+	generalIdx := strings.Index(md, "## General")
+	require.GreaterOrEqual(t, httpIdx, 0)
+	require.GreaterOrEqual(t, generalIdx, 0)
+	require.Less(t, httpIdx, generalIdx)
+}
+
 func TestFormatMarkdown(t *testing.T) {
 	entries := []configEntry{
 		{PrimaryKey: "http.port", ConfigKeys: []string{"http.port"}, Default: "8080", Description: "HTTP server port", Group: "HTTP server"},

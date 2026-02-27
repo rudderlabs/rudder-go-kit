@@ -75,6 +75,13 @@ type configEntry struct {
 	Line        int
 }
 
+type groupOrderDeclaration struct {
+	Group string
+	Order int
+	File  string
+	Line  int
+}
+
 // envVarStyle returns true if the key looks like an environment variable (all uppercase + underscores).
 var envVarRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
@@ -110,6 +117,7 @@ var unitAbbreviations = map[string]string{
 // parseProject walks the project directory and extracts all config entries.
 func parseProject(rootDir string) ([]configEntry, []string, error) {
 	var entries []configEntry
+	var groupOrderDeclarations []groupOrderDeclaration
 	var warnings []string
 	fset := token.NewFileSet()
 
@@ -141,6 +149,7 @@ func parseProject(rootDir string) ([]configEntry, []string, error) {
 
 		fileEntries, fileWarnings := extractFromFile(fset, file, path)
 		entries = append(entries, fileEntries...)
+		groupOrderDeclarations = append(groupOrderDeclarations, extractGroupOrderDeclarations(fset, file, path)...)
 		warnings = append(warnings, fileWarnings...)
 		return nil
 	})
@@ -150,7 +159,75 @@ func parseProject(rootDir string) ([]configEntry, []string, error) {
 
 	merged, mergeWarnings := deduplicateEntries(entries)
 	warnings = append(warnings, mergeWarnings...)
+	groupOrderWarnings := applyProjectGroupOrders(merged, groupOrderDeclarations)
+	warnings = append(warnings, groupOrderWarnings...)
 	return merged, warnings, nil
+}
+
+// extractGroupOrderDeclarations extracts ordered group declarations from comments,
+// including files that do not contain config getter calls.
+func extractGroupOrderDeclarations(fset *token.FileSet, file *ast.File, filePath string) []groupOrderDeclaration {
+	var declarations []groupOrderDeclaration
+	for _, cg := range file.Comments {
+		for _, c := range cg.List {
+			line := fset.Position(c.Pos()).Line
+			text := strings.TrimPrefix(c.Text, "//")
+			text = strings.TrimSpace(text)
+			v, ok := strings.CutPrefix(text, "cdoc:group ")
+			if !ok {
+				continue
+			}
+			group, order := parseGroupDirective(v)
+			group = strings.TrimSpace(group)
+			if group == "" || order == 0 {
+				continue
+			}
+			declarations = append(declarations, groupOrderDeclaration{
+				Group: group,
+				Order: order,
+				File:  filePath,
+				Line:  line,
+			})
+		}
+	}
+	return declarations
+}
+
+// applyProjectGroupOrders applies globally declared group orders to all entries.
+// First declaration wins for a given group; conflicting declarations emit warnings.
+func applyProjectGroupOrders(entries []configEntry, declarations []groupOrderDeclaration) []string {
+	var warnings []string
+
+	groupOrder := make(map[string]int)
+	groupOrderOrigin := make(map[string]string)
+	for _, declaration := range declarations {
+		if existing, ok := groupOrder[declaration.Group]; ok {
+			if existing != declaration.Order {
+				warnings = append(warnings, fmt.Sprintf(
+					"warning: conflicting group orders for %q: %d (%s) vs %d (%s:%d)",
+					declaration.Group,
+					existing,
+					groupOrderOrigin[declaration.Group],
+					declaration.Order,
+					declaration.File,
+					declaration.Line,
+				))
+			}
+			continue
+		}
+		groupOrder[declaration.Group] = declaration.Order
+		groupOrderOrigin[declaration.Group] = fmt.Sprintf("%s:%d", declaration.File, declaration.Line)
+	}
+
+	for i := range entries {
+		if entries[i].Group == "" {
+			continue
+		}
+		if order, ok := groupOrder[entries[i].Group]; ok {
+			entries[i].GroupOrder = order
+		}
+	}
+	return warnings
 }
 
 // extractFromFile extracts config entries from a single parsed Go file.
