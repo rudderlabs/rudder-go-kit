@@ -7,7 +7,7 @@
 // Supported annotations:
 //
 //	//cdoc:group [N] <Group Name> — sets the group (and optional sort order) for subsequent config entries
-//	//cdoc:desc <text>   — sets the description for the next config entry (same line or up to 3 lines above)
+//	//cdoc:desc <text>   — sets the description for the next config entry (same line or up to 10 lines above)
 //	//cdoc:key <key>[, <key>...] — provides key override(s) for non-literal (dynamic) config key arguments (up to 10 lines above)
 //	//cdoc:default <value>   — provides a default value for a non-literal (dynamic) default argument (up to 10 lines above)
 //	//cdoc:ignore               — excludes the config entry from output (same line or 1 line above)
@@ -289,8 +289,8 @@ func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]co
 			consumed[vkl] = true
 		}
 
-		// Look for desc directive on same line or lines above (up to 3 lines above).
-		for offset := 0; offset <= 3; offset++ {
+		// Look for desc directive on same line or lines above (up to 10 lines above).
+		for offset := 0; offset <= 10; offset++ {
 			checkLine := line - offset
 			if consumed[checkLine] {
 				continue
