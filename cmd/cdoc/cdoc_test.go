@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -9,8 +10,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
+	cdoc "github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/model"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/render"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/scanner"
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
@@ -880,6 +886,10 @@ func f(conf *config.Config) {
 			wantDefs: []string{"val"},
 			wantDesc: []string{"Kept entry"},
 			wantGrps: []string{"General"},
+			wantWarnings: []string{
+				"unused //cdoc:desc directive",
+				"unused //cdoc:desc directive",
+			},
 		},
 		{
 			name: "directive/non-reloadable and reloadable mixed",
@@ -975,7 +985,7 @@ func deriveKeyClassification(primaryKeys []string) ([][]string, [][]string) {
 			if key == "" {
 				continue
 			}
-			if isEnvVarStyle(key) {
+			if scanner.IsEnvVarStyle(key) {
 				env = append(env, key)
 			} else {
 				cfg = append(cfg, key)
@@ -1003,7 +1013,7 @@ func TestKeyClassification(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			require.Equal(t, tt.wantEnv, isEnvVarStyle(tt.key))
+			require.Equal(t, tt.wantEnv, scanner.IsEnvVarStyle(tt.key))
 		})
 	}
 }
@@ -1062,7 +1072,7 @@ func TestGroupOrder(t *testing.T) {
 		{PrimaryKey: "v.key", ConfigKeys: []string{"v.key"}, Default: "v", Group: "Another Unordered"},
 	}
 
-	md := formatMarkdown(entries, "PREFIX")
+	md := render.FormatMarkdown(entries, "PREFIX")
 
 	alphaIdx := strings.Index(md, "## Alpha")
 	middleIdx := strings.Index(md, "## Middle")
@@ -1133,7 +1143,7 @@ func f(conf *config.Config) {
 	require.Equal(t, 1, ordersByKey["http.port"])
 	require.Equal(t, 2, ordersByKey["app.name"])
 
-	md := formatMarkdown(entries, "PREFIX")
+	md := render.FormatMarkdown(entries, "PREFIX")
 	httpIdx := strings.Index(md, "## HTTP")
 	generalIdx := strings.Index(md, "## General")
 	require.GreaterOrEqual(t, httpIdx, 0)
@@ -1148,7 +1158,7 @@ func TestFormatMarkdown(t *testing.T) {
 		{PrimaryKey: "http.maxConns", ConfigKeys: []string{"http.maxConns"}, Default: "100", Description: "Max connections", Reloadable: true, Group: "HTTP server"},
 	}
 
-	md := formatMarkdown(entries, "PREFIX")
+	md := render.FormatMarkdown(entries, "PREFIX")
 
 	require.Contains(t, md, "## HTTP server")
 	require.Contains(t, md, "## General")
@@ -1175,7 +1185,7 @@ func TestParseProject(t *testing.T) {
 	requireWarningContains(t, missingWarnings, `"missingDescription" has no //cdoc:desc`)
 	requireWarningContains(t, missingWarnings, `"deploymentName,RELEASE_NAME" has no //cdoc:group`)
 
-	md := formatMarkdown(entries, "PREFIX")
+	md := render.FormatMarkdown(entries, "PREFIX")
 
 	goldenPath := "testdata/expected_output.md"
 	if *update {
@@ -1259,4 +1269,29 @@ func requireWarningContains(t *testing.T, warnings []string, substr string) {
 		}
 	}
 	t.Errorf("expected warning containing %q, got: %v", substr, warnings)
+}
+
+type configEntry = model.Entry
+
+func parseProject(rootDir string) ([]configEntry, []string, error) {
+	entries, warnings, err := cdoc.ParseProject(rootDir)
+	return entries, warningsToStrings(warnings), err
+}
+
+func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]configEntry, []string) {
+	entries, warnings := scanner.ExtractFromFile(fset, file, filePath)
+	return entries, warningsToStrings(warnings)
+}
+
+func deduplicateEntries(entries []configEntry) ([]configEntry, []string) {
+	result, warnings := model.DeduplicateEntries(entries)
+	return result, warningsToStrings(warnings)
+}
+
+func generateWarnings(entries []configEntry) []string {
+	return warningsToStrings(cdoc.GenerateWarnings(entries))
+}
+
+func warningsToStrings(warnings []model.Warning) []string {
+	return lo.Map(warnings, func(w model.Warning, _ int) string { return w.String() })
 }
