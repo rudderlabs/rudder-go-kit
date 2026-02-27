@@ -101,7 +101,7 @@ The prefix is configurable via the `-prefix` CLI flag (default: `RSERVER`).
 
 ```bash
 # Generate docs
-make cdoc
+go run ./cmd/cdoc -root . -prefix PREFIX -output docs/CONFIGURATION.md
 
 # Run tests
 go test ./cmd/cdoc/...

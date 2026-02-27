@@ -9,6 +9,7 @@ All configuration is read via environment variables with the `PREFIX_` prefix, o
 | Config variable | Env variable | Default | Description |
 |---|---|---|---|
 | `server.http.host`<br>`server.host` | `PREFIX_SERVER_HTTP_HOST`<br>`PREFIX_SERVER_HOST` | `localhost` | Hostname the server binds to |
+| `server.http.maxReqSize` | `PREFIX_SERVER_HTTP_MAX_REQ_SIZE` | `500MB` | 🔄 max req size(body + query params) |
 | `server.http.maxRequestBodySize` | `PREFIX_SERVER_HTTP_MAX_REQUEST_BODY_SIZE` | `1048576` | 🔄 Maximum request body size |
 | `server.http.port` | `PREFIX_SERVER_HTTP_PORT` | `8080` | HTTP server port |
 | `server.http.rateLimit` | `PREFIX_SERVER_HTTP_RATE_LIMIT` | `100.0` | Rate limit (requests per second) |
