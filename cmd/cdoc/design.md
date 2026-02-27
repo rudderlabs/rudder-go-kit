@@ -43,7 +43,7 @@ conf.GetStringVar(computeDefault(), "retry.interval")
 ### Annotation semantics
 
 - **group inheritance**: `//cdoc:group` is sticky — it applies to all subsequent config calls in the same file until another `//cdoc:group` overrides it. An optional numeric prefix sets the sort order (e.g. `//cdoc:group 1 Server`). Only one ordered occurrence per group is needed across the codebase.
-- **desc**: Applies to the immediately following config call only (up to 3 lines above).
+- **desc**: Applies to the immediately following config call only (up to 10 lines above).
 - **key**: Consumed in order for non-literal key arguments. Static string literal keys are extracted normally and don't consume key directives. If there are non-literal args without matching keys, a warning is emitted.
 - **default**: Overrides the extracted default value. Useful when the default argument is a non-literal expression (e.g. a function call or variable).
 - **deduplication**: The same config key can appear in multiple files. Only one occurrence needs annotations — the tool merges desc, group, group order, and env keys across occurrences. Conflicting defaults or groups produce warnings.
@@ -71,10 +71,9 @@ The tool handles these `rudderlabs/rudder-go-kit/config` method signatures:
 
 | Family | Methods | Args layout |
 |---|---|---|
-| simple | `GetStringVar`, `GetBoolVar`, `GetFloat64Var`, `GetStringSliceVar`, `GetReloadableStringVar`, `GetReloadableFloat64Var` | `(default, keys...)` |
-| int | `GetIntVar`, `GetReloadableIntVar` | `(default, min, keys...)` |
+| simple | `GetStringVar`, `GetBoolVar`, `GetFloat64Var`, `GetStringSliceVar`, `GetReloadableStringVar`, `GetReloadableBoolVar`, `GetReloadableFloat64Var`, `GetReloadableStringSliceVar` | `(default, keys...)` |
+| withMultiplier | `GetIntVar`, `GetReloadableIntVar`, `GetInt64Var`, `GetReloadableInt64Var` | `(default, multiplier, keys...)` |
 | duration | `GetDurationVar`, `GetReloadableDurationVar` | `(quantity, unit, keys...)` |
-| int64 | `GetInt64Var` | `(default, multiplier, keys...)` |
 
 ## Env variable derivation
 
