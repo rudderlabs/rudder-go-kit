@@ -591,6 +591,22 @@ func f(conf *config.Config) {
 			wantGrps: []string{"GroupA", "GroupA", "GroupB"},
 		},
 		{
+			name: "directive/group does not apply to previous call",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:desc Before group
+	conf.GetStringVar("a", "same.key")
+	//cdoc:group General
+	//cdoc:desc After group
+	conf.GetStringVar("b", "same.key")
+}`,
+			wantKeys: []string{"same.key", "same.key"},
+			wantDefs: []string{"a", "b"},
+			wantDesc: []string{"Before group", "After group"},
+			wantGrps: []string{"", "General"},
+		},
+		{
 			name: "directive/package-level config call",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
