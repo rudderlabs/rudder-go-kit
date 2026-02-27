@@ -101,7 +101,6 @@ func newConfig(config *config.Config) *factoryConfig {
 	fc.rootLevel = levelMap[config.GetStringVar("INFO", "LOG_LEVEL")]
 	fc.enableNameInLog = config.GetBoolVar(true, "Logger.enableLoggerNameInLog")
 	fc.enableStackTrace = config.GetReloadableBoolVar(false, "Logger.enableStackTrace")
-	config.GetBoolVar(true, "Logger.enableLoggerNameInLog")
 
 	// colon separated key value pairs
 	// Example: "router.GA=DEBUG:warehouse.REDSHIFT=DEBUG"
