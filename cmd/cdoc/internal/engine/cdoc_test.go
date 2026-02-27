@@ -1,4 +1,4 @@
-package cdoc
+package engine
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/model"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
 )
 
 func TestParseProject_ParseWarningCode(t *testing.T) {

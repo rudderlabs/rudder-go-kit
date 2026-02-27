@@ -13,10 +13,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	cdoc "github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc"
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/model"
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/render"
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/cdoc/scanner"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/render"
+	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/scanner"
 	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
@@ -1274,7 +1274,7 @@ func requireWarningContains(t *testing.T, warnings []string, substr string) {
 type configEntry = model.Entry
 
 func parseProject(rootDir string) ([]configEntry, []string, error) {
-	entries, warnings, err := cdoc.ParseProject(rootDir)
+	entries, warnings, err := engine.ParseProject(rootDir)
 	return entries, warningsToStrings(warnings), err
 }
 
@@ -1289,7 +1289,7 @@ func deduplicateEntries(entries []configEntry) ([]configEntry, []string) {
 }
 
 func generateWarnings(entries []configEntry) []string {
-	return warningsToStrings(cdoc.GenerateWarnings(entries))
+	return warningsToStrings(engine.GenerateWarnings(entries))
 }
 
 func warningsToStrings(warnings []model.Warning) []string {
