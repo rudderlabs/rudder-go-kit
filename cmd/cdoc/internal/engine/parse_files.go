@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"io/fs"
@@ -57,4 +58,11 @@ func parseProjectFiles(rootDir string, fset *token.FileSet) ([]parsedFile, []mod
 		return nil, warnings, fmt.Errorf("walking directory: %w", err)
 	}
 	return files, warnings, nil
+}
+
+type parsedFile struct {
+	path    string
+	dir     string
+	pkgName string
+	file    *ast.File
 }

@@ -27,21 +27,15 @@ type FileScanResult struct {
 	Warnings               []model.Warning
 }
 
-// ExtractFromFile extracts config entries and warnings from a parsed Go file.
-func ExtractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]model.Entry, []model.Warning) {
-	result := ScanFile(fset, file, filePath)
-	return result.Entries, result.Warnings
+type ScanOptions struct {
+	CallFilter func(*ast.CallExpr) bool
 }
 
 // ScanFile scans one parsed Go file and returns extracted entries, project-level
 // group order declarations, and warnings.
-func ScanFile(fset *token.FileSet, file *ast.File, filePath string) FileScanResult {
-	return ScanFileWithCallFilter(fset, file, filePath, nil)
-}
-
-// ScanFileWithCallFilter scans one parsed Go file and applies callFilter on
-// matched getter calls. A nil filter accepts all matched calls.
-func ScanFileWithCallFilter(fset *token.FileSet, file *ast.File, filePath string, callFilter func(*ast.CallExpr) bool) FileScanResult {
+// ScanOptions.CallFilter applies additional filtering on matched getter calls.
+// A nil filter accepts all matched calls.
+func ScanFile(fset *token.FileSet, file *ast.File, filePath string, opts ScanOptions) FileScanResult {
 	lineDirectives := collectDirectives(fset, file)
 	directives := flattenDirectives(lineDirectives)
 
@@ -50,7 +44,7 @@ func ScanFileWithCallFilter(fset *token.FileSet, file *ast.File, filePath string
 	}
 
 	// Extract entries and warnings in one pass over the event stream.
-	result.Entries, result.Warnings = extractEntriesWithWarnings(fset, file, filePath, directives, callFilter)
+	result.Entries, result.Warnings = extractEntriesWithWarnings(fset, file, filePath, directives, opts.CallFilter)
 	return result
 }
 
@@ -560,6 +554,42 @@ func parseVarKeyDirective(value string) []string {
 	return keys
 }
 
+var builtinTypeNames = map[string]struct{}{
+	"bool":       {},
+	"string":     {},
+	"int":        {},
+	"int8":       {},
+	"int16":      {},
+	"int32":      {},
+	"int64":      {},
+	"uint":       {},
+	"uint8":      {},
+	"uint16":     {},
+	"uint32":     {},
+	"uint64":     {},
+	"uintptr":    {},
+	"byte":       {},
+	"rune":       {},
+	"float32":    {},
+	"float64":    {},
+	"complex64":  {},
+	"complex128": {},
+}
+
+// isBuiltinTypeConversionCall reports whether call has one argument and calls a
+// builtin type conversion function such as int(...), string(...), or float64(...).
+func isBuiltinTypeConversionCall(call *ast.CallExpr) bool {
+	if len(call.Args) != 1 {
+		return false
+	}
+	funIdent, ok := call.Fun.(*ast.Ident)
+	if !ok {
+		return false
+	}
+	_, ok = builtinTypeNames[funIdent.Name]
+	return ok
+}
+
 // isLiteralDefault reports whether expr should be rendered without ${...} wrapping.
 func isLiteralDefault(expr ast.Expr) bool {
 	switch e := expr.(type) {
@@ -572,7 +602,7 @@ func isLiteralDefault(expr ast.Expr) bool {
 	case *ast.UnaryExpr:
 		return isLiteralDefault(e.X)
 	case *ast.CallExpr:
-		if len(e.Args) == 1 {
+		if isBuiltinTypeConversionCall(e) {
 			return isLiteralDefault(e.Args[0])
 		}
 	}
@@ -604,7 +634,7 @@ func renderExpr(fset *token.FileSet, expr ast.Expr) string {
 	case *ast.UnaryExpr:
 		return e.Op.String() + renderExpr(fset, e.X)
 	case *ast.CallExpr:
-		if len(e.Args) == 1 {
+		if isBuiltinTypeConversionCall(e) {
 			return renderExpr(fset, e.Args[0])
 		}
 	case *ast.SelectorExpr:
@@ -698,7 +728,7 @@ func renderWithUnit(fset *token.FileSet, defaultExpr, unitExpr ast.Expr) string 
 	}
 
 	innerUnit := unitExpr
-	if call, ok := unitExpr.(*ast.CallExpr); ok && len(call.Args) == 1 {
+	if call, ok := unitExpr.(*ast.CallExpr); ok && isBuiltinTypeConversionCall(call) {
 		innerUnit = call.Args[0]
 	}
 

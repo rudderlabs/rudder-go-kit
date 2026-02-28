@@ -1,8 +1,7 @@
-package main
+package engine
 
 import (
-	"flag"
-	"go/ast"
+	"bytes"
 	"go/parser"
 	"go/token"
 	"os"
@@ -10,19 +9,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine"
 	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
 	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/render"
 	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/scanner"
-	"github.com/rudderlabs/rudder-go-kit/config"
 )
 
-var update = flag.Bool("update", false, "update golden files")
-
-func TestExtractFromFile(t *testing.T) {
+func TestScanSingleFileWithMode_ExtractionMatrix(t *testing.T) {
 	tests := []struct {
 		name           string
 		src            string
@@ -58,6 +52,19 @@ func f(conf *config.Config) {
 }`,
 			wantKeys: []string{"key"},
 			wantDefs: []string{"${defaultString}"},
+			wantDesc: []string{"d"},
+		},
+		{
+			name: "GetStringVar/non-literal single-arg call default",
+			src: `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func helper(v string) string { return v }
+func f(conf *config.Config) {
+	//cdoc:desc d
+	conf.GetStringVar(helper("default"), "key")
+}`,
+			wantKeys: []string{"key"},
+			wantDefs: []string{"${helper(\"default\")}"},
 			wantDesc: []string{"d"},
 		},
 		{
@@ -941,37 +948,328 @@ func f(conf *config.Config) {
 		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fset := token.NewFileSet()
-			file, err := parser.ParseFile(fset, "test.go", tt.src, parser.ParseComments)
-			require.NoError(t, err, "parse error")
+	for _, mode := range []ParseMode{ParseModeAST, ParseModeTypes} {
+		t.Run(string(mode), func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					fset := token.NewFileSet()
+					file, err := parser.ParseFile(fset, "test.go", tt.src, parser.ParseComments)
+					require.NoError(t, err, "parse error")
 
-			entries, warnings := extractFromFile(fset, file, "test.go")
-			require.Len(t, warnings, len(tt.wantWarnings), "warning count")
-			for _, wantWarning := range tt.wantWarnings {
-				requireWarningContains(t, warnings, wantWarning)
-			}
+					result, err := scanSingleFileWithMode(fset, file, "test.go", mode)
+					require.NoError(t, err)
+					entries := result.Entries
+					warnings := result.Warnings
+					require.Len(t, warnings, len(tt.wantWarnings), "warning count")
+					for _, wantWarning := range tt.wantWarnings {
+						requireWarningContains(t, warnings, wantWarning)
+					}
 
-			require.Len(t, entries, len(tt.wantKeys))
-			require.Len(t, tt.wantConfigKeys, len(entries), "wantConfigKeys length")
-			require.Len(t, tt.wantEnvKeys, len(entries), "wantEnvKeys length")
+					require.Len(t, entries, len(tt.wantKeys))
+					require.Len(t, tt.wantConfigKeys, len(entries), "wantConfigKeys length")
+					require.Len(t, tt.wantEnvKeys, len(entries), "wantEnvKeys length")
 
-			for i, e := range entries {
-				require.Equal(t, tt.wantKeys[i], e.PrimaryKey, "entry[%d] primary key", i)
-				require.Equal(t, tt.wantDefs[i], e.Default, "entry[%d] default", i)
-				require.Equal(t, tt.wantDesc[i], e.Description, "entry[%d] description", i)
-				if tt.wantGrps != nil {
-					require.Equal(t, tt.wantGrps[i], e.Group, "entry[%d] group", i)
-				}
-				if tt.wantReloadable != nil {
-					require.Equal(t, tt.wantReloadable[i], e.Reloadable, "entry[%d] reloadable", i)
-				}
-				require.Equal(t, tt.wantConfigKeys[i], e.ConfigKeys, "entry[%d] config keys", i)
-				require.Equal(t, tt.wantEnvKeys[i], e.EnvKeys, "entry[%d] env keys", i)
+					for i, e := range entries {
+						require.Equal(t, tt.wantKeys[i], e.PrimaryKey, "entry[%d] primary key", i)
+						require.Equal(t, tt.wantDefs[i], e.Default, "entry[%d] default", i)
+						require.Equal(t, tt.wantDesc[i], e.Description, "entry[%d] description", i)
+						if tt.wantGrps != nil {
+							require.Equal(t, tt.wantGrps[i], e.Group, "entry[%d] group", i)
+						}
+						if tt.wantReloadable != nil {
+							require.Equal(t, tt.wantReloadable[i], e.Reloadable, "entry[%d] reloadable", i)
+						}
+						require.Equal(t, tt.wantConfigKeys[i], e.ConfigKeys, "entry[%d] config keys", i)
+						require.Equal(t, tt.wantEnvKeys[i], e.EnvKeys, "entry[%d] env keys", i)
+					}
+				})
 			}
 		})
 	}
+}
+
+func TestParseProject_ParseWarningCode(t *testing.T) {
+	for _, mode := range []ParseMode{ParseModeAST, ParseModeTypes} {
+		t.Run(string(mode), func(t *testing.T) {
+			root := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(root, "bad.go"), []byte("package bad\nfunc broken("), 0o644))
+
+			entries, warnings, err := parseProjectWithMode(root, mode)
+			require.NoError(t, err)
+			require.Empty(t, entries)
+			require.Len(t, warnings, 1)
+			require.Equal(t, model.WarningCodeParseFailed, warnings[0].Code)
+			require.Contains(t, warnings[0].Message, "failed to parse")
+		})
+	}
+}
+
+func TestParseProjectWithMode_TypesFiltersByReceiverType(t *testing.T) {
+	root := t.TempDir()
+	nonConfigSrc := `package test
+type fake struct{}
+func (fake) GetStringVar(value string, key string) string { return value }
+func f() {
+	//cdoc:desc d
+	var cfg fake
+	cfg.GetStringVar("value", "fake.key")
+}`
+	configSrc := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func g(conf *config.Config) {
+	//cdoc:desc method
+	conf.GetStringVar("value", "real.key")
+}
+func h() {
+	//cdoc:desc function
+	config.GetStringVar("value", "func.key")
+}`
+	require.NoError(t, os.WriteFile(filepath.Join(root, "non_config.go"), []byte(nonConfigSrc), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "config.go"), []byte(configSrc), 0o644))
+
+	astEntries, _, err := parseProjectWithMode(root, ParseModeAST)
+	require.NoError(t, err)
+	require.Len(t, astEntries, 3)
+
+	typedEntries, _, err := parseProjectWithMode(root, ParseModeTypes)
+	require.NoError(t, err)
+	require.Len(t, typedEntries, 2)
+	keys := []string{typedEntries[0].PrimaryKey, typedEntries[1].PrimaryKey}
+	require.ElementsMatch(t, []string{"real.key", "func.key"}, keys)
+}
+
+func TestParseProjectWithMode_TypesDetectsConfigNewReceiver(t *testing.T) {
+	root := t.TempDir()
+	src := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+
+func f() {
+	conf := config.New(config.WithEnvPrefix("TEST"))
+	//cdoc:desc json library
+	_ = use(conf.GetStringVar("jsoniter", "jsonLib"))
+}
+
+func use(value string) string { return value }
+`
+	require.NoError(t, os.WriteFile(filepath.Join(root, "example.go"), []byte(src), 0o644))
+
+	typedEntries, _, err := parseProjectWithMode(root, ParseModeTypes)
+	require.NoError(t, err)
+	require.Len(t, typedEntries, 1)
+	require.Equal(t, "jsonLib", typedEntries[0].PrimaryKey)
+	require.Equal(t, "json library", typedEntries[0].Description)
+}
+
+func TestGenerateWarnings_Codes(t *testing.T) {
+	entries := []model.Entry{{PrimaryKey: "missing.all", File: "x.go", Line: 9}}
+
+	warnings := generateExtraWarnings(entries)
+	require.Len(t, warnings, 2)
+	require.Equal(t, model.WarningCodeMissingDescription, warnings[0].Code)
+	require.Equal(t, model.WarningCodeMissingGroup, warnings[1].Code)
+}
+
+func TestRun_WarningPolicyControlsBehavior(t *testing.T) {
+	root := t.TempDir()
+	src := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	conf.GetStringVar("value", "some.key")
+}`
+	require.NoError(t, os.WriteFile(filepath.Join(root, "example.go"), []byte(src), 0o644))
+
+	for _, mode := range []ParseMode{ParseModeAST, ParseModeTypes} {
+		t.Run(string(mode), func(t *testing.T) {
+			t.Run("warn policy does not fail", func(t *testing.T) {
+				var stdout, stderr bytes.Buffer
+				err := Run(RunOptions{
+					RootDir:       root,
+					EnvPrefix:     "PREFIX",
+					ExtraWarnings: true,
+					ParseMode:     mode,
+					Policy:        new(model.DefaultWarningPolicy()),
+					Stdout:        &stdout,
+					Stderr:        &stderr,
+				})
+				require.NoError(t, err)
+				require.Contains(t, stdout.String(), "`some.key`")
+				require.Contains(t, stderr.String(), "has no //cdoc:desc")
+				require.Contains(t, stderr.String(), "has no //cdoc:group")
+			})
+
+			t.Run("strict policy fails", func(t *testing.T) {
+				var stdout, stderr bytes.Buffer
+				err := Run(RunOptions{
+					RootDir:       root,
+					EnvPrefix:     "PREFIX",
+					ExtraWarnings: true,
+					ParseMode:     mode,
+					Policy:        new(model.StrictWarningPolicy()),
+					Stdout:        &stdout,
+					Stderr:        &stderr,
+				})
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "found 2 warning(s)")
+				require.Contains(t, stdout.String(), "`some.key`")
+				require.NotEmpty(t, stderr.String())
+			})
+
+			t.Run("ignore policy with explicit overrides map suppresses warnings", func(t *testing.T) {
+				var stdout, stderr bytes.Buffer
+				err := Run(RunOptions{
+					RootDir:       root,
+					EnvPrefix:     "PREFIX",
+					ExtraWarnings: true,
+					ParseMode:     mode,
+					Policy: new(model.WarningPolicy{
+						DefaultSeverity: model.SeverityIgnore,
+						Overrides:       map[model.WarningCode]model.WarningSeverity{},
+					}),
+					Stdout: &stdout,
+					Stderr: &stderr,
+				})
+				require.NoError(t, err)
+				require.Contains(t, stdout.String(), "`some.key`")
+				require.Empty(t, stderr.String())
+			})
+
+			t.Run("nil policy falls back to default warn behavior", func(t *testing.T) {
+				var stdout, stderr bytes.Buffer
+				err := Run(RunOptions{
+					RootDir:       root,
+					EnvPrefix:     "PREFIX",
+					ExtraWarnings: true,
+					ParseMode:     mode,
+					Stdout:        &stdout,
+					Stderr:        &stderr,
+				})
+				require.NoError(t, err)
+				require.Contains(t, stdout.String(), "`some.key`")
+				require.Contains(t, stderr.String(), "has no //cdoc:desc")
+			})
+
+			t.Run("zero-value policy can explicitly ignore warnings", func(t *testing.T) {
+				var stdout, stderr bytes.Buffer
+				err := Run(RunOptions{
+					RootDir:       root,
+					EnvPrefix:     "PREFIX",
+					ExtraWarnings: true,
+					ParseMode:     mode,
+					Policy:        new(model.WarningPolicy{}),
+					Stdout:        &stdout,
+					Stderr:        &stderr,
+				})
+				require.NoError(t, err)
+				require.Contains(t, stdout.String(), "`some.key`")
+				require.Empty(t, stderr.String())
+			})
+		})
+	}
+}
+
+func TestParseProjectWithMode_GroupOrderDeclaredWithoutGetters(t *testing.T) {
+	for _, mode := range []ParseMode{ParseModeAST, ParseModeTypes} {
+		t.Run(string(mode), func(t *testing.T) {
+			rootDir := t.TempDir()
+
+			configSrc := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:group General
+	//cdoc:desc Name
+	conf.GetStringVar("app", "app.name")
+	//cdoc:group HTTP
+	//cdoc:desc Port
+	conf.GetIntVar(8080, 1, "http.port")
+}`
+			groupOrderSrc := `package test
+//cdoc:group 1 HTTP
+//cdoc:group 2 General
+`
+
+			err := os.WriteFile(filepath.Join(rootDir, "config.go"), []byte(configSrc), 0o644)
+			require.NoError(t, err)
+			err = os.WriteFile(filepath.Join(rootDir, "group_order.go"), []byte(groupOrderSrc), 0o644)
+			require.NoError(t, err)
+
+			entries, warnings, err := parseProjectWithMode(rootDir, mode)
+			require.NoError(t, err)
+			require.Empty(t, warnings)
+			require.Len(t, entries, 2)
+
+			ordersByKey := make(map[string]int, len(entries))
+			for _, e := range entries {
+				ordersByKey[e.PrimaryKey] = e.GroupOrder
+			}
+			require.Equal(t, 1, ordersByKey["http.port"])
+			require.Equal(t, 2, ordersByKey["app.name"])
+
+			md := render.FormatMarkdown(entries, "PREFIX")
+			httpIdx := strings.Index(md, "## HTTP")
+			generalIdx := strings.Index(md, "## General")
+			require.GreaterOrEqual(t, httpIdx, 0)
+			require.GreaterOrEqual(t, generalIdx, 0)
+			require.Less(t, httpIdx, generalIdx)
+		})
+	}
+}
+
+func TestParseProjectWithMode_GoldenOutput(t *testing.T) {
+	for _, mode := range []ParseMode{ParseModeAST, ParseModeTypes} {
+		t.Run(string(mode), func(t *testing.T) {
+			rootDir := filepath.Join("..", "..", "testdata")
+			entries, warnings, err := parseProjectWithMode(rootDir, mode)
+			require.NoError(t, err)
+
+			requireWarningContains(t, warnings, "non-literal config key argument without //cdoc:key directive")
+
+			missingWarnings := generateExtraWarnings(entries)
+			requireWarningContains(t, missingWarnings, `"missingDescription" has no //cdoc:desc`)
+			requireWarningContains(t, missingWarnings, `"deploymentName,RELEASE_NAME" has no //cdoc:group`)
+
+			md := render.FormatMarkdown(entries, "PREFIX")
+
+			expected, err := os.ReadFile(filepath.Join(rootDir, "expected_output.md"))
+			require.NoError(t, err, "reading golden file")
+			require.Equal(t, string(expected), md, "output does not match golden file")
+		})
+	}
+}
+
+func TestScanSingleFileWithMode_GroupOrderExtraction(t *testing.T) {
+	src := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func f(conf *config.Config) {
+	//cdoc:group 2 HTTP
+	//cdoc:desc Port
+	conf.GetStringVar("8080", "http.port")
+	//cdoc:group 1 General
+	//cdoc:desc Name
+	conf.GetStringVar("app", "app.name")
+}`
+	for _, mode := range []ParseMode{ParseModeAST, ParseModeTypes} {
+		t.Run(string(mode), func(t *testing.T) {
+			fset := token.NewFileSet()
+			file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
+			require.NoError(t, err, "parse error")
+
+			result, err := scanSingleFileWithMode(fset, file, "test.go", mode)
+			require.NoError(t, err)
+			require.Len(t, result.Entries, 2)
+			require.Equal(t, 2, result.Entries[0].GroupOrder)
+			require.Equal(t, 1, result.Entries[1].GroupOrder)
+		})
+	}
+}
+
+func requireWarningContains(t *testing.T, warnings []model.Warning, substr string) {
+	t.Helper()
+	for _, w := range warnings {
+		if strings.Contains(w.String(), substr) {
+			return
+		}
+	}
+	t.Errorf("expected warning containing %q, got: %v", substr, warnings)
 }
 
 func deriveKeyClassification(primaryKeys []string) ([][]string, [][]string) {
@@ -995,303 +1293,4 @@ func deriveKeyClassification(primaryKeys []string) ([][]string, [][]string) {
 		envKeys = append(envKeys, env)
 	}
 	return configKeys, envKeys
-}
-
-func TestKeyClassification(t *testing.T) {
-	tests := []struct {
-		key     string
-		wantEnv bool
-	}{
-		{"http.port", false},
-		{"ETCD_HOSTS", true},
-		{"RELEASE_NAME", true},
-		{"K8S_IN_CLUSTER", true},
-		{"gatewaySeparateService", false},
-		{"newworkspace.poller.baseUrl", false},
-		{"KUBECONFIG", true},
-		{"KUBE_NAMESPACE", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.key, func(t *testing.T) {
-			require.Equal(t, tt.wantEnv, scanner.IsEnvVarStyle(tt.key))
-		})
-	}
-}
-
-func TestConfigKeyToEnv(t *testing.T) {
-	tests := []struct {
-		configKey string
-		want      string
-	}{
-		{"http.port", "PREFIX_HTTP_PORT"},
-		{"k8s.client.retry.initialInterval", "PREFIX_K8S_CLIENT_RETRY_INITIAL_INTERVAL"},
-		{"gatewaySeparateService", "PREFIX_GATEWAY_SEPARATE_SERVICE"},
-		{"partitionCount", "PREFIX_PARTITION_COUNT"},
-		{"http.healthCheckTimeout", "PREFIX_HTTP_HEALTH_CHECK_TIMEOUT"},
-		{"newworkspace.poller.baseUrl", "PREFIX_NEWWORKSPACE_POLLER_BASE_URL"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.configKey, func(t *testing.T) {
-			require.Equal(t, tt.want, config.ConfigKeyToEnv("PREFIX", tt.configKey))
-		})
-	}
-}
-
-func TestDeduplication(t *testing.T) {
-	entries := []configEntry{
-		{PrimaryKey: "http.port", ConfigKeys: []string{"http.port"}, Default: "8080", Description: "HTTP port", Group: "HTTP"},
-		{PrimaryKey: "http.port", ConfigKeys: []string{"http.port"}, Default: "8080", Description: "", Group: ""},
-		{PrimaryKey: "other.key", ConfigKeys: []string{"other.key"}, Default: "val", Description: "Other", Group: "General"},
-	}
-
-	result, warnings := deduplicateEntries(entries)
-	require.Len(t, result, 2)
-	require.Empty(t, warnings)
-	require.Equal(t, "HTTP port", result[0].Description)
-	require.Equal(t, "HTTP", result[0].Group)
-}
-
-func TestDeduplicationConflictWarnings(t *testing.T) {
-	entries := []configEntry{
-		{PrimaryKey: "key", ConfigKeys: []string{"key"}, Default: "a", Group: "G1"},
-		{PrimaryKey: "key", ConfigKeys: []string{"key"}, Default: "b", Group: "G2"},
-	}
-
-	_, warnings := deduplicateEntries(entries)
-	require.Len(t, warnings, 2, "expected default + group conflict warnings")
-	requireWarningContains(t, warnings, `conflicting defaults for "key"`)
-	requireWarningContains(t, warnings, `conflicting groups for "key"`)
-}
-
-func TestGroupOrder(t *testing.T) {
-	entries := []configEntry{
-		{PrimaryKey: "z.key", ConfigKeys: []string{"z.key"}, Default: "z", Group: "Zebra", GroupOrder: 3},
-		{PrimaryKey: "a.key", ConfigKeys: []string{"a.key"}, Default: "a", Group: "Alpha", GroupOrder: 1},
-		{PrimaryKey: "m.key", ConfigKeys: []string{"m.key"}, Default: "m", Group: "Middle", GroupOrder: 2},
-		{PrimaryKey: "u.key", ConfigKeys: []string{"u.key"}, Default: "u", Group: "Unordered"},
-		{PrimaryKey: "v.key", ConfigKeys: []string{"v.key"}, Default: "v", Group: "Another Unordered"},
-	}
-
-	md := render.FormatMarkdown(entries, "PREFIX")
-
-	alphaIdx := strings.Index(md, "## Alpha")
-	middleIdx := strings.Index(md, "## Middle")
-	zebraIdx := strings.Index(md, "## Zebra")
-	unorderedIdx := strings.Index(md, "## Unordered")
-	anotherIdx := strings.Index(md, "## Another Unordered")
-
-	require.Less(t, alphaIdx, middleIdx, "Alpha should come before Middle")
-	require.Less(t, middleIdx, zebraIdx, "Middle should come before Zebra")
-	require.Less(t, zebraIdx, unorderedIdx, "Zebra should come before Unordered")
-	require.Less(t, zebraIdx, anotherIdx, "Zebra should come before Another Unordered")
-	require.Less(t, anotherIdx, unorderedIdx, "Another Unordered should come before Unordered (alphabetical)")
-}
-
-func TestGroupOrderExtraction(t *testing.T) {
-	src := `package test
-import "github.com/rudderlabs/rudder-go-kit/config"
-func f(conf *config.Config) {
-	//cdoc:group 2 HTTP
-	//cdoc:desc Port
-	conf.GetStringVar("8080", "http.port")
-	//cdoc:group 1 General
-	//cdoc:desc Name
-	conf.GetStringVar("app", "app.name")
-}`
-	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
-	require.NoError(t, err, "parse error")
-
-	entries, _ := extractFromFile(fset, file, "test.go")
-	require.Len(t, entries, 2)
-	require.Equal(t, 2, entries[0].GroupOrder)
-	require.Equal(t, 1, entries[1].GroupOrder)
-}
-
-func TestParseProjectGroupOrderDeclaredWithoutGetters(t *testing.T) {
-	rootDir := t.TempDir()
-
-	configSrc := `package test
-import "github.com/rudderlabs/rudder-go-kit/config"
-func f(conf *config.Config) {
-	//cdoc:group General
-	//cdoc:desc Name
-	conf.GetStringVar("app", "app.name")
-	//cdoc:group HTTP
-	//cdoc:desc Port
-	conf.GetIntVar(8080, 1, "http.port")
-}`
-	groupOrderSrc := `package test
-//cdoc:group 1 HTTP
-//cdoc:group 2 General
-`
-
-	err := os.WriteFile(filepath.Join(rootDir, "config.go"), []byte(configSrc), 0o644)
-	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(rootDir, "group_order.go"), []byte(groupOrderSrc), 0o644)
-	require.NoError(t, err)
-
-	entries, warnings, err := parseProject(rootDir)
-	require.NoError(t, err)
-	require.Empty(t, warnings)
-	require.Len(t, entries, 2)
-
-	ordersByKey := make(map[string]int, len(entries))
-	for _, e := range entries {
-		ordersByKey[e.PrimaryKey] = e.GroupOrder
-	}
-	require.Equal(t, 1, ordersByKey["http.port"])
-	require.Equal(t, 2, ordersByKey["app.name"])
-
-	md := render.FormatMarkdown(entries, "PREFIX")
-	httpIdx := strings.Index(md, "## HTTP")
-	generalIdx := strings.Index(md, "## General")
-	require.GreaterOrEqual(t, httpIdx, 0)
-	require.GreaterOrEqual(t, generalIdx, 0)
-	require.Less(t, httpIdx, generalIdx)
-}
-
-func TestFormatMarkdown(t *testing.T) {
-	entries := []configEntry{
-		{PrimaryKey: "http.port", ConfigKeys: []string{"http.port"}, Default: "8080", Description: "HTTP server port", Group: "HTTP server"},
-		{PrimaryKey: "etcd.hosts", ConfigKeys: []string{"etcd.hosts"}, EnvKeys: []string{"ETCD_HOSTS"}, Default: "localhost:2379", Description: "Etcd endpoints", Group: "General"},
-		{PrimaryKey: "http.maxConns", ConfigKeys: []string{"http.maxConns"}, Default: "100", Description: "Max connections", Reloadable: true, Group: "HTTP server"},
-	}
-
-	md := render.FormatMarkdown(entries, "PREFIX")
-
-	require.Contains(t, md, "## HTTP server")
-	require.Contains(t, md, "## General")
-	require.Contains(t, md, "`http.port`")
-	require.Contains(t, md, "`PREFIX_HTTP_PORT`")
-	require.Contains(t, md, "`ETCD_HOSTS`")
-	require.Contains(t, md, "auto-generated")
-	require.Contains(t, md, "`PREFIX_`")
-	// Reloadable entry should have emoji prefix.
-	require.Contains(t, md, "🔄 Max connections")
-	// Non-reloadable entry should not have emoji.
-	require.NotContains(t, md, "🔄 HTTP server port")
-}
-
-func TestParseProject(t *testing.T) {
-	entries, warnings, err := parseProject("testdata")
-	require.NoError(t, err)
-
-	// Verify expected warnings from extraction.
-	requireWarningContains(t, warnings, "non-literal config key argument without //cdoc:key directive")
-
-	// Verify that -extrawarn would produce missing-description warnings.
-	missingWarnings := generateWarnings(entries)
-	requireWarningContains(t, missingWarnings, `"missingDescription" has no //cdoc:desc`)
-	requireWarningContains(t, missingWarnings, `"deploymentName,RELEASE_NAME" has no //cdoc:group`)
-
-	md := render.FormatMarkdown(entries, "PREFIX")
-
-	goldenPath := "testdata/expected_output.md"
-	if *update {
-		err := os.WriteFile(goldenPath, []byte(md), 0o644)
-		require.NoError(t, err, "updating golden file")
-		t.Log("updated golden file")
-		return
-	}
-
-	expected, err := os.ReadFile(goldenPath)
-	require.NoError(t, err, "reading golden file (run with -update to generate)")
-	require.Equal(t, string(expected), md, "output does not match golden file")
-}
-
-func TestParseProjectParseWarning(t *testing.T) {
-	rootDir := t.TempDir()
-	badFile := filepath.Join(rootDir, "bad.go")
-	err := os.WriteFile(badFile, []byte("package bad\nfunc broken("), 0o644)
-	require.NoError(t, err)
-
-	entries, warnings, err := parseProject(rootDir)
-	require.NoError(t, err)
-	require.Empty(t, entries)
-	requireWarningContains(t, warnings, "failed to parse")
-	requireWarningContains(t, warnings, "bad.go")
-}
-
-func TestRun(t *testing.T) {
-	output := filepath.Join(t.TempDir(), "output.md")
-	err := run("testdata", output, "PREFIX", true, false)
-	require.NoError(t, err)
-
-	got, err := os.ReadFile(output)
-	require.NoError(t, err)
-
-	expected, err := os.ReadFile("testdata/expected_output.md")
-	require.NoError(t, err, "reading golden file (run with -update to generate)")
-	require.Equal(t, string(expected), string(got), "run output does not match golden file")
-}
-
-func TestRunFailOnWarning(t *testing.T) {
-	output := filepath.Join(t.TempDir(), "output.md")
-	err := run("testdata", output, "PREFIX", true, true)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "found")
-	require.Contains(t, err.Error(), "warning")
-
-	got, readErr := os.ReadFile(output)
-	require.NoError(t, readErr)
-	expected, readExpectedErr := os.ReadFile("testdata/expected_output.md")
-	require.NoError(t, readExpectedErr)
-	require.Equal(t, string(expected), string(got), "run output should still be generated")
-}
-
-func TestRunFailOnWarningNoWarnings(t *testing.T) {
-	rootDir := t.TempDir()
-	src := `package test
-import "github.com/rudderlabs/rudder-go-kit/config"
-func f(conf *config.Config) {
-	//cdoc:group General
-	//cdoc:desc d
-	conf.GetStringVar("value", "some.key")
-}`
-	err := os.WriteFile(filepath.Join(rootDir, "example.go"), []byte(src), 0o644)
-	require.NoError(t, err)
-
-	output := filepath.Join(t.TempDir(), "output.md")
-	err = run(rootDir, output, "PREFIX", true, true)
-	require.NoError(t, err)
-
-	got, readErr := os.ReadFile(output)
-	require.NoError(t, readErr)
-	require.Contains(t, string(got), "`some.key`")
-}
-
-func requireWarningContains(t *testing.T, warnings []string, substr string) {
-	t.Helper()
-	for _, w := range warnings {
-		if strings.Contains(w, substr) {
-			return
-		}
-	}
-	t.Errorf("expected warning containing %q, got: %v", substr, warnings)
-}
-
-type configEntry = model.Entry
-
-func parseProject(rootDir string) ([]configEntry, []string, error) {
-	entries, warnings, err := engine.ParseProject(rootDir)
-	return entries, warningsToStrings(warnings), err
-}
-
-func extractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]configEntry, []string) {
-	entries, warnings := scanner.ExtractFromFile(fset, file, filePath)
-	return entries, warningsToStrings(warnings)
-}
-
-func deduplicateEntries(entries []configEntry) ([]configEntry, []string) {
-	result, warnings := model.DeduplicateEntries(entries)
-	return result, warningsToStrings(warnings)
-}
-
-func generateWarnings(entries []configEntry) []string {
-	return warningsToStrings(engine.GenerateWarnings(entries))
-}
-
-func warningsToStrings(warnings []model.Warning) []string {
-	return lo.Map(warnings, func(w model.Warning, _ int) string { return w.String() })
 }

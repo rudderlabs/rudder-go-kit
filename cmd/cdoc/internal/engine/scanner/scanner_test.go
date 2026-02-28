@@ -50,7 +50,8 @@ func f(conf *config.Config) {
 	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	require.NoError(t, err)
 
-	entries, warnings := ExtractFromFile(fset, file, "test.go")
+	result := ScanFile(fset, file, "test.go", ScanOptions{})
+	entries, warnings := result.Entries, result.Warnings
 	require.Empty(t, warnings)
 	require.Len(t, entries, 1)
 	require.Equal(t, "kept.key", entries[0].PrimaryKey)
@@ -68,7 +69,8 @@ func f(conf *config.Config) {
 	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	require.NoError(t, err)
 
-	entries, warnings := ExtractFromFile(fset, file, "test.go")
+	result := ScanFile(fset, file, "test.go", ScanOptions{})
+	entries, warnings := result.Entries, result.Warnings
 	require.Len(t, entries, 1)
 	require.Equal(t, "second", entries[0].Description)
 	require.Len(t, warnings, 1)
@@ -83,7 +85,7 @@ func TestScanFile_GroupOrderDeclarationsWithoutCalls(t *testing.T) {
 	file, err := parser.ParseFile(fset, "order.go", src, parser.ParseComments)
 	require.NoError(t, err)
 
-	result := ScanFile(fset, file, "order.go")
+	result := ScanFile(fset, file, "order.go", ScanOptions{})
 	require.Empty(t, result.Entries)
 	require.Empty(t, result.Warnings)
 	require.Len(t, result.GroupOrderDeclarations, 2)
@@ -108,7 +110,8 @@ func f(conf *config.Config, wsID string) {
 	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	require.NoError(t, err)
 
-	_, warnings := ExtractFromFile(fset, file, "test.go")
+	result := ScanFile(fset, file, "test.go", ScanOptions{})
+	warnings := result.Warnings
 	require.Len(t, warnings, 2)
 	require.Equal(t, model.WarningCodeUnusedKeyOverride, warnings[0].Code)
 	require.Equal(t, model.WarningCodeDynamicKeyMissing, warnings[1].Code)
@@ -127,7 +130,8 @@ func f(conf *config.Config) {
 	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	require.NoError(t, err)
 
-	entries, warnings := ExtractFromFile(fset, file, "test.go")
+	result := ScanFile(fset, file, "test.go", ScanOptions{})
+	entries, warnings := result.Entries, result.Warnings
 	require.Len(t, entries, 1)
 	require.Equal(t, "real.key", entries[0].PrimaryKey)
 	require.Equal(t, "", entries[0].Description, "description from failed call must not be reused")
@@ -151,7 +155,7 @@ func f(conf *config.Config, fk fake) {
 	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	require.NoError(t, err)
 
-	result := ScanFile(fset, file, "test.go")
+	result := ScanFile(fset, file, "test.go", ScanOptions{})
 	require.Len(t, result.Entries, 2)
 	require.Equal(t, "real.key", result.Entries[0].PrimaryKey)
 	require.Equal(t, "fake.key", result.Entries[1].PrimaryKey)
@@ -170,7 +174,8 @@ func f(conf *config.Config) {
 	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 	require.NoError(t, err)
 
-	_, warnings := ExtractFromFile(fset, file, "test.go")
+	result := ScanFile(fset, file, "test.go", ScanOptions{})
+	warnings := result.Warnings
 	require.Len(t, warnings, 1)
 	require.Equal(t, model.WarningCodeUnusedDefaultDirective, warnings[0].Code)
 }
@@ -179,4 +184,25 @@ func TestParseGroupDirective_TrimsSpacing(t *testing.T) {
 	group, order := parseGroupDirective("  2    HTTP   Server  ")
 	require.Equal(t, 2, order)
 	require.Equal(t, "HTTP Server", group)
+}
+
+func TestIsEnvVarStyle(t *testing.T) {
+	tests := []struct {
+		key     string
+		wantEnv bool
+	}{
+		{"http.port", false},
+		{"ETCD_HOSTS", true},
+		{"RELEASE_NAME", true},
+		{"K8S_IN_CLUSTER", true},
+		{"gatewaySeparateService", false},
+		{"newworkspace.poller.baseUrl", false},
+		{"KUBECONFIG", true},
+		{"KUBE_NAMESPACE", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			require.Equal(t, tt.wantEnv, IsEnvVarStyle(tt.key))
+		})
+	}
 }
