@@ -6,7 +6,14 @@ A project's configuration options are typically scattered across the codebase as
 
 ## Architecture
 
-A Go CLI tool at `cmd/cdoc/` that uses `go/ast` to find all config getter calls, extract their parameters, and output a grouped, ordered markdown table.
+A Go CLI tool at `cmd/cdoc/` that parses Go files with `go/ast`, extracts config getter calls, and outputs a grouped, ordered markdown table.
+
+The extractor supports two parse modes:
+
+- `types` (default): uses `go/types` to keep only calls that resolve to `github.com/rudderlabs/rudder-go-kit/config` getters (methods and package functions).
+- `ast`: pure AST matching on `Get*Var` selector names with no type filtering.
+
+In both modes, value/key extraction itself is AST-based.
 
 ## Annotations
 
@@ -58,23 +65,29 @@ go run ./cmd/cdoc [flags]
   -prefix string   Environment variable prefix (default "RSERVER")
   -extrawarn       Include extra warnings for missing descriptions/groups
   -fail-on-warning Exit with non-zero status if any warnings are emitted
+  -parse-mode      Parse mode: ast or types (default "types")
 ```
 
 ## Limitations
 
-- **static analysis only**: The tool uses `go/ast` (no type checker). It can only extract string literal key arguments. Non-literal keys (e.g. `fmt.Sprintf(...)`) are skipped unless a `//cdoc:key` directive is provided.
+- **AST value extraction**: Even in `types` mode, argument/default rendering is still AST-based. It can only extract string literal key arguments directly. Non-literal keys (e.g. `fmt.Sprintf(...)`) are skipped unless a `//cdoc:key` directive is provided.
+- **mode tradeoff**:
+  - `types` mode reduces false positives by requiring selectors to resolve to `config` APIs, but depends on lightweight type-checking.
+  - `ast` mode is fastest/simplest and does not require type resolution, but may include lookalike `Get*Var` methods from non-config types.
 - **external constants**: Default values that reference external package constants (e.g. `backoff.DefaultInitialInterval`) are rendered as the Go expression, not as their resolved value.
 - **single-file group scope for assignment**: Group assignment (which group a config call belongs to) is still per-file. A `//cdoc:group` in one file does not assign groups in another file. Numeric group ordering, however, is applied project-wide by group name.
 
 ## Config getter method families
 
-The tool handles these `rudderlabs/rudder-go-kit/config` method signatures:
+The tool handles these `rudderlabs/rudder-go-kit/config` getter signatures:
 
 | Family | Methods | Args layout |
 |---|---|---|
 | simple | `GetStringVar`, `GetBoolVar`, `GetFloat64Var`, `GetStringSliceVar`, `GetReloadableStringVar`, `GetReloadableBoolVar`, `GetReloadableFloat64Var`, `GetReloadableStringSliceVar` | `(default, keys...)` |
 | withMultiplier | `GetIntVar`, `GetReloadableIntVar`, `GetInt64Var`, `GetReloadableInt64Var` | `(default, multiplier, keys...)` |
 | duration | `GetDurationVar`, `GetReloadableDurationVar` | `(quantity, unit, keys...)` |
+
+These can appear either as methods (for example `conf.GetStringVar(...)`) or as package functions (for example `config.GetStringVar(...)`).
 
 ## Env variable derivation
 
@@ -101,14 +114,14 @@ The prefix is configurable via the `-prefix` CLI flag (default: `RSERVER`).
 
 ```bash
 # Generate docs
-go run ./cmd/cdoc -root . -prefix PREFIX -output docs/CONFIGURATION.md
+go run ./cmd/cdoc -root . -prefix PREFIX -output docs/CONFIGURATION.md -parse-mode types
 
 # Run tests
 go test ./cmd/cdoc/...
 
 # Check warnings (including missing descriptions/groups)
-go run ./cmd/cdoc -root . -prefix PREFIX -extrawarn
+go run ./cmd/cdoc -root . -prefix PREFIX -extrawarn -parse-mode types
 
 # Fail CI if warnings are present
-go run ./cmd/cdoc -root . -prefix PREFIX -extrawarn -fail-on-warning
+go run ./cmd/cdoc -root . -prefix PREFIX -extrawarn -fail-on-warning -parse-mode types
 ```
