@@ -86,3 +86,27 @@ func TestFormatMarkdown_BackticksInCodeCells(t *testing.T) {
 	require.Contains(t, md, "``tick`key``")
 	require.Contains(t, md, "```a``b```")
 }
+
+func TestFormatMarkdown_GroupOrderSortsOrderedThenAlphabeticalUnordered(t *testing.T) {
+	entries := []model.Entry{
+		{PrimaryKey: "z.key", ConfigKeys: []string{"z.key"}, Default: "z", Group: "Zebra", GroupOrder: 3},
+		{PrimaryKey: "a.key", ConfigKeys: []string{"a.key"}, Default: "a", Group: "Alpha", GroupOrder: 1},
+		{PrimaryKey: "m.key", ConfigKeys: []string{"m.key"}, Default: "m", Group: "Middle", GroupOrder: 2},
+		{PrimaryKey: "u.key", ConfigKeys: []string{"u.key"}, Default: "u", Group: "Unordered"},
+		{PrimaryKey: "v.key", ConfigKeys: []string{"v.key"}, Default: "v", Group: "Another Unordered"},
+	}
+
+	md := FormatMarkdown(entries, "PREFIX")
+
+	alphaIdx := strings.Index(md, "## Alpha")
+	middleIdx := strings.Index(md, "## Middle")
+	zebraIdx := strings.Index(md, "## Zebra")
+	unorderedIdx := strings.Index(md, "## Unordered")
+	anotherIdx := strings.Index(md, "## Another Unordered")
+
+	require.Less(t, alphaIdx, middleIdx, "Alpha should come before Middle")
+	require.Less(t, middleIdx, zebraIdx, "Middle should come before Zebra")
+	require.Less(t, zebraIdx, unorderedIdx, "Zebra should come before Unordered")
+	require.Less(t, zebraIdx, anotherIdx, "Zebra should come before Another Unordered")
+	require.Less(t, anotherIdx, unorderedIdx, "Another Unordered should come before Unordered (alphabetical)")
+}

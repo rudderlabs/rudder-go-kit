@@ -77,3 +77,29 @@ func TestApplyProjectGroupOrders_FirstDeclarationWins(t *testing.T) {
 	require.Equal(t, WarningCodeConflictingGroupOrder, warnings[0].Code)
 	require.Contains(t, warnings[0].Message, "conflicting group orders")
 }
+
+func TestDeduplicateEntries_BasicMerge(t *testing.T) {
+	entries := []Entry{
+		{PrimaryKey: "http.port", ConfigKeys: []string{"http.port"}, Default: "8080", Description: "HTTP port", Group: "HTTP"},
+		{PrimaryKey: "http.port", ConfigKeys: []string{"http.port"}, Default: "8080", Description: "", Group: ""},
+		{PrimaryKey: "other.key", ConfigKeys: []string{"other.key"}, Default: "val", Description: "Other", Group: "General"},
+	}
+
+	result, warnings := DeduplicateEntries(entries)
+	require.Len(t, result, 2)
+	require.Empty(t, warnings)
+	require.Equal(t, "HTTP port", result[0].Description)
+	require.Equal(t, "HTTP", result[0].Group)
+}
+
+func TestDeduplicateEntries_ConflictWarnings(t *testing.T) {
+	entries := []Entry{
+		{PrimaryKey: "key", ConfigKeys: []string{"key"}, Default: "a", Group: "G1"},
+		{PrimaryKey: "key", ConfigKeys: []string{"key"}, Default: "b", Group: "G2"},
+	}
+
+	_, warnings := DeduplicateEntries(entries)
+	require.Len(t, warnings, 2, "expected default + group conflict warnings")
+	codes := []WarningCode{warnings[0].Code, warnings[1].Code}
+	require.ElementsMatch(t, []WarningCode{WarningCodeConflictingDefault, WarningCodeConflictingGroup}, codes)
+}
