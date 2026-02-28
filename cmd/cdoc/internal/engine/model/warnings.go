@@ -25,6 +25,7 @@ type Warning struct {
 	Message string
 }
 
+// String renders a warning in CLI output format.
 func (w Warning) String() string {
 	switch {
 	case w.File != "" && w.Line > 0:
@@ -49,14 +50,17 @@ type WarningPolicy struct {
 	Overrides       map[WarningCode]WarningSeverity
 }
 
+// DefaultWarningPolicy returns the standard warn-level warning policy.
 func DefaultWarningPolicy() WarningPolicy {
 	return WarningPolicy{DefaultSeverity: SeverityWarn}
 }
 
+// StrictWarningPolicy returns a policy that treats warnings as errors.
 func StrictWarningPolicy() WarningPolicy {
 	return WarningPolicy{DefaultSeverity: SeverityError}
 }
 
+// SeverityFor resolves the effective severity for a warning code.
 func (p WarningPolicy) SeverityFor(code WarningCode) WarningSeverity {
 	if p.Overrides != nil {
 		if severity, ok := p.Overrides[code]; ok {
@@ -71,6 +75,7 @@ type ClassifiedWarning struct {
 	Severity WarningSeverity
 }
 
+// ClassifyWarnings applies a policy to warnings and annotates severities.
 func ClassifyWarnings(warnings []Warning, policy WarningPolicy) []ClassifiedWarning {
 	classified := make([]ClassifiedWarning, 0, len(warnings))
 	for _, warning := range warnings {

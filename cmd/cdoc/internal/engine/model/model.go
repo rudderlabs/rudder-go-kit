@@ -110,6 +110,7 @@ func DeduplicateEntries(entries []Entry) ([]Entry, []Warning) {
 	return result, warnings
 }
 
+// entryLocation formats an entry source location for conflict warnings.
 func entryLocation(entry Entry) string {
 	if entry.File == "" && entry.Line <= 0 {
 		return "unknown"

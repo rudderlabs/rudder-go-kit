@@ -2,66 +2,70 @@ package engine
 
 import (
 	"fmt"
-	"go/parser"
+	"go/ast"
 	"go/token"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
 	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/render"
 	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/scanner"
 )
 
+type ParseMode string
+
+const (
+	ParseModeAST   ParseMode = "ast"
+	ParseModeTypes ParseMode = "types"
+)
+
+type parsedFile struct {
+	path    string
+	dir     string
+	pkgName string
+	file    *ast.File
+}
+
 // ParseProject walks a project and extracts config entries plus warnings.
 func ParseProject(rootDir string) ([]model.Entry, []model.Warning, error) {
+	return ParseProjectWithMode(rootDir, ParseModeAST)
+}
+
+// ParseProjectWithMode walks a project and extracts config entries plus warnings.
+func ParseProjectWithMode(rootDir string, mode ParseMode) ([]model.Entry, []model.Warning, error) {
+	mode, err := normalizeParseMode(mode)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	var entries []model.Entry
 	var groupOrderDeclarations []model.GroupOrderDeclaration
-	var warnings []model.Warning
 	fset := token.NewFileSet()
+	files, warnings, err := parseProjectFiles(rootDir, fset)
+	if err != nil {
+		return nil, warnings, err
+	}
 
-	err := filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			base := d.Name()
-			if base == "vendor" || base == ".git" || base == "node_modules" {
-				return filepath.SkipDir
-			}
-			// Skip the cdoc tool itself.
-			rel, _ := filepath.Rel(rootDir, path)
-			if rel == filepath.Join("cmd", "cdoc") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
+	var allowCallsByFile map[string]map[token.Pos]struct{}
+	if mode == ParseModeTypes {
+		allowCallsByFile = buildTypeCheckedAllowlist(fset, files)
+	}
 
-		file, parseErr := parser.ParseFile(fset, path, nil, parser.ParseComments)
-		if parseErr != nil {
-			warnings = append(warnings, model.Warning{
-				Code:    model.WarningCodeParseFailed,
-				Message: fmt.Sprintf("failed to parse %s: %v", path, parseErr),
+	for _, parsed := range files {
+		var scan scanner.FileScanResult
+		if mode == ParseModeTypes {
+			allowedCalls := allowCallsByFile[parsed.path]
+			scan = scanner.ScanFileWithCallFilter(fset, parsed.file, parsed.path, func(call *ast.CallExpr) bool {
+				_, ok := allowedCalls[call.Pos()]
+				return ok
 			})
-			return nil
+		} else {
+			scan = scanner.ScanFile(fset, parsed.file, parsed.path)
 		}
-
-		// Intentionally AST-only scanning.
-		// Do not reintroduce go/types filtering here: it caused hangs and major
-		// slowdowns on large repos in real usage.
-		scan := scanner.ScanFile(fset, file, path)
 		entries = append(entries, scan.Entries...)
 		groupOrderDeclarations = append(groupOrderDeclarations, scan.GroupOrderDeclarations...)
 		warnings = append(warnings, scan.Warnings...)
-		return nil
-	})
-	if err != nil {
-		return nil, warnings, fmt.Errorf("walking directory: %w", err)
 	}
 
 	merged, mergeWarnings := model.DeduplicateEntries(entries)
@@ -69,6 +73,19 @@ func ParseProject(rootDir string) ([]model.Entry, []model.Warning, error) {
 	groupOrderWarnings := model.ApplyProjectGroupOrders(merged, groupOrderDeclarations)
 	warnings = append(warnings, groupOrderWarnings...)
 	return merged, warnings, nil
+}
+
+// normalizeParseMode validates CLI/config input and applies the default mode.
+func normalizeParseMode(mode ParseMode) (ParseMode, error) {
+	if mode == "" {
+		return ParseModeTypes, nil
+	}
+	switch mode {
+	case ParseModeAST, ParseModeTypes:
+		return mode, nil
+	default:
+		return "", fmt.Errorf("invalid parse mode %q (expected %q or %q)", mode, ParseModeAST, ParseModeTypes)
+	}
 }
 
 // GenerateWarnings emits warnings for entries missing descriptions or groups.
@@ -105,6 +122,7 @@ type RunOptions struct {
 	Output        string
 	EnvPrefix     string
 	ExtraWarnings bool
+	ParseMode     ParseMode
 	Policy        *model.WarningPolicy
 	Stdout        io.Writer
 	Stderr        io.Writer
@@ -126,7 +144,7 @@ func Run(opts RunOptions) error {
 		policy = *opts.Policy
 	}
 
-	entries, warnings, err := ParseProject(opts.RootDir)
+	entries, warnings, err := ParseProjectWithMode(opts.RootDir, opts.ParseMode)
 	if err != nil {
 		return err
 	}

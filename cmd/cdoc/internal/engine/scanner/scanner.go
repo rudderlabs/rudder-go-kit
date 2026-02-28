@@ -13,10 +13,9 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
 )
 
-// IsEnvVarStyle returns true if the key looks like an environment variable
-// (all uppercase letters, digits, and underscores).
 var envVarRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
+// IsEnvVarStyle reports whether key matches UPPER_SNAKE_CASE env style.
 func IsEnvVarStyle(key string) bool {
 	return envVarRe.MatchString(key)
 }
@@ -37,6 +36,12 @@ func ExtractFromFile(fset *token.FileSet, file *ast.File, filePath string) ([]mo
 // ScanFile scans one parsed Go file and returns extracted entries, project-level
 // group order declarations, and warnings.
 func ScanFile(fset *token.FileSet, file *ast.File, filePath string) FileScanResult {
+	return ScanFileWithCallFilter(fset, file, filePath, nil)
+}
+
+// ScanFileWithCallFilter scans one parsed Go file and applies callFilter on
+// matched getter calls. A nil filter accepts all matched calls.
+func ScanFileWithCallFilter(fset *token.FileSet, file *ast.File, filePath string, callFilter func(*ast.CallExpr) bool) FileScanResult {
 	lineDirectives := collectDirectives(fset, file)
 	directives := flattenDirectives(lineDirectives)
 
@@ -45,7 +50,7 @@ func ScanFile(fset *token.FileSet, file *ast.File, filePath string) FileScanResu
 	}
 
 	// Extract entries and warnings in one pass over the event stream.
-	result.Entries, result.Warnings = extractEntriesWithWarnings(fset, file, filePath, directives)
+	result.Entries, result.Warnings = extractEntriesWithWarnings(fset, file, filePath, directives, callFilter)
 	return result
 }
 
@@ -66,6 +71,7 @@ type directive struct {
 	order int
 }
 
+// collectDirectives parses cdoc directives from comments keyed by source line.
 func collectDirectives(fset *token.FileSet, file *ast.File) map[int][]directive {
 	lineDirectives := make(map[int][]directive)
 	order := 0
@@ -92,6 +98,7 @@ func collectDirectives(fset *token.FileSet, file *ast.File) map[int][]directive 
 	return lineDirectives
 }
 
+// flattenDirectives returns directives sorted by line while preserving line-local order.
 func flattenDirectives(lineDirectives map[int][]directive) []directive {
 	var lines []int
 	for line := range lineDirectives {
@@ -119,6 +126,7 @@ type methodSpec struct {
 	reloadable bool
 }
 
+// classifyMethod maps a getter method name to extraction semantics.
 func classifyMethod(name string) (methodSpec, bool) {
 	if !strings.HasPrefix(name, "Get") {
 		return methodSpec{}, false
@@ -154,7 +162,8 @@ type callInfo struct {
 	spec methodSpec
 }
 
-func collectCalls(fset *token.FileSet, file *ast.File) []callInfo {
+// collectCalls finds supported getter calls and records their scan metadata.
+func collectCalls(fset *token.FileSet, file *ast.File, callFilter func(*ast.CallExpr) bool) []callInfo {
 	var calls []callInfo
 	ast.Inspect(file, func(node ast.Node) bool {
 		call, ok := node.(*ast.CallExpr)
@@ -164,6 +173,9 @@ func collectCalls(fset *token.FileSet, file *ast.File) []callInfo {
 		methodName := selectorMethodName(call.Fun)
 		spec, ok := classifyMethod(methodName)
 		if !ok {
+			return true
+		}
+		if callFilter != nil && !callFilter(call) {
 			return true
 		}
 		calls = append(calls, callInfo{
@@ -191,6 +203,7 @@ type fileEvent struct {
 	call callInfo
 }
 
+// buildEvents merges directives and calls into one ordered event stream.
 func buildEvents(calls []callInfo, directives []directive) []fileEvent {
 	events := make([]fileEvent, 0, len(calls)+len(directives))
 	for _, dir := range directives {
@@ -225,11 +238,12 @@ type pendingDirective struct {
 	consumed  bool
 }
 
-func extractEntriesWithWarnings(fset *token.FileSet, file *ast.File, filePath string, directives []directive) ([]model.Entry, []model.Warning) {
+// extractEntriesWithWarnings drives directive consumption and entry extraction.
+func extractEntriesWithWarnings(fset *token.FileSet, file *ast.File, filePath string, directives []directive, callFilter func(*ast.CallExpr) bool) ([]model.Entry, []model.Warning) {
 	var entries []model.Entry
 	var warnings []model.Warning
 
-	calls := collectCalls(fset, file)
+	calls := collectCalls(fset, file, callFilter)
 	events := buildEvents(calls, directives)
 
 	currentGroup := ""
@@ -303,6 +317,7 @@ func extractEntriesWithWarnings(fset *token.FileSet, file *ast.File, filePath st
 	return entries, warnings
 }
 
+// consumeIgnoreDirective applies //cdoc:ignore on the call line or previous line.
 func consumeIgnoreDirective(pending []pendingDirective, line int) bool {
 	if idx := findUnconsumedDirectiveOnLine(pending, directiveIgnore, line); idx >= 0 {
 		pending[idx].consumed = true
@@ -315,6 +330,7 @@ func consumeIgnoreDirective(pending []pendingDirective, line int) bool {
 	return false
 }
 
+// collectKeyAndDefaultOverrides gathers nearby //cdoc:key and //cdoc:default directives.
 func collectKeyAndDefaultOverrides(pending []pendingDirective, line int) ([]string, string, []int) {
 	var varKeys []string
 	var varDefault string
@@ -341,6 +357,7 @@ func collectKeyAndDefaultOverrides(pending []pendingDirective, line int) ([]stri
 	return varKeys, varDefault, keyDirectiveIndexes
 }
 
+// consumeNearestDirectiveValue consumes the nearest matching directive within maxDistance.
 func consumeNearestDirectiveValue(pending []pendingDirective, kind directiveKind, line, maxDistance int) (string, bool) {
 	for target := line; target >= line-maxDistance; target-- {
 		for i := len(pending) - 1; i >= 0; i-- {
@@ -357,6 +374,7 @@ func consumeNearestDirectiveValue(pending []pendingDirective, kind directiveKind
 	return "", false
 }
 
+// findUnconsumedDirectiveOnLine returns the pending index for kind on line.
 func findUnconsumedDirectiveOnLine(pending []pendingDirective, kind directiveKind, line int) int {
 	for i := range pending {
 		if pending[i].consumed {
@@ -369,6 +387,7 @@ func findUnconsumedDirectiveOnLine(pending []pendingDirective, kind directiveKin
 	return -1
 }
 
+// extractGroupOrderDeclarations collects project-level group ordering directives.
 func extractGroupOrderDeclarations(filePath string, directives []directive) []model.GroupOrderDeclaration {
 	declarations := make([]model.GroupOrderDeclaration, 0)
 	for _, dir := range directives {
@@ -415,6 +434,7 @@ func selectorMethodName(fun ast.Expr) string {
 	return ""
 }
 
+// extractEntry converts a matched getter call into a normalized config entry.
 func extractEntry(fset *token.FileSet, ci callInfo, filePath string, line int, varKeys []string, varDefault string) (model.Entry, []model.Warning, error) {
 	args := ci.call.Args
 	entry := model.Entry{
@@ -527,6 +547,7 @@ func classifyKeys(entry *model.Entry, args []ast.Expr, varKeys []string, variadi
 	return allKeys, warnings
 }
 
+// parseVarKeyDirective splits a //cdoc:key directive value by comma.
 func parseVarKeyDirective(value string) []string {
 	parts := strings.Split(value, ",")
 	keys := make([]string, 0, len(parts))
@@ -539,6 +560,7 @@ func parseVarKeyDirective(value string) []string {
 	return keys
 }
 
+// isLiteralDefault reports whether expr should be rendered without ${...} wrapping.
 func isLiteralDefault(expr ast.Expr) bool {
 	switch e := expr.(type) {
 	case *ast.BasicLit:
@@ -557,6 +579,7 @@ func isLiteralDefault(expr ast.Expr) bool {
 	return false
 }
 
+// renderExpr renders an AST expression into cdoc's default-value representation.
 func renderExpr(fset *token.FileSet, expr ast.Expr) string {
 	switch e := expr.(type) {
 	case *ast.BasicLit:
@@ -590,6 +613,7 @@ func renderExpr(fset *token.FileSet, expr ast.Expr) string {
 	return exprToString(fset, expr)
 }
 
+// renderStringLit returns the unquoted value for a string literal expression.
 func renderStringLit(expr ast.Expr) string {
 	lit, ok := expr.(*ast.BasicLit)
 	if !ok || lit.Kind != token.STRING {
@@ -624,6 +648,7 @@ var unitAbbreviations = map[string]string{
 	"TB":          "TB",
 }
 
+// renderDuration renders duration quantity/unit arguments into display form.
 func renderDuration(fset *token.FileSet, quantity, unit ast.Expr) string {
 	qty := renderExpr(fset, quantity)
 	unitStr := durationUnitAbbrev(unit)
@@ -639,6 +664,7 @@ func renderDuration(fset *token.FileSet, quantity, unit ast.Expr) string {
 	return qty + " " + exprToString(fset, unit)
 }
 
+// isNonNegativeInteger reports whether s is a base-10 non-negative integer.
 func isNonNegativeInteger(s string) bool {
 	if s == "" {
 		return false
@@ -651,6 +677,7 @@ func isNonNegativeInteger(s string) bool {
 	return true
 }
 
+// durationUnitAbbrev maps known time unit selectors (for example time.Second) to suffixes.
 func durationUnitAbbrev(expr ast.Expr) string {
 	sel, ok := expr.(*ast.SelectorExpr)
 	if !ok {
@@ -662,6 +689,7 @@ func durationUnitAbbrev(expr ast.Expr) string {
 	return ""
 }
 
+// renderWithUnit renders (default, unit) pairs for int/int64 getter families.
 func renderWithUnit(fset *token.FileSet, defaultExpr, unitExpr ast.Expr) string {
 	def := renderExpr(fset, defaultExpr)
 	defWrapped := def
@@ -695,6 +723,7 @@ func renderWithUnit(fset *token.FileSet, defaultExpr, unitExpr ast.Expr) string 
 	return defWrapped + " " + unitStr
 }
 
+// isNumericLiteral reports whether expr is an int/float literal or signed literal.
 func isNumericLiteral(expr ast.Expr) bool {
 	switch e := expr.(type) {
 	case *ast.BasicLit:
@@ -705,6 +734,7 @@ func isNumericLiteral(expr ast.Expr) bool {
 	return false
 }
 
+// exprToString pretty-prints an expression using go/printer.
 func exprToString(fset *token.FileSet, expr ast.Expr) string {
 	var buf strings.Builder
 	if err := printer.Fprint(&buf, fset, expr); err != nil {
