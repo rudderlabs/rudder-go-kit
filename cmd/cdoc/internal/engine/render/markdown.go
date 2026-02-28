@@ -84,6 +84,7 @@ func FormatMarkdown(entries []model.Entry, envPrefix string) string {
 	return sb.String()
 }
 
+// formatConfigVarColumn renders config keys for the markdown table.
 func formatConfigVarColumn(entry model.Entry) string {
 	var parts []string
 	for _, key := range entry.ConfigKeys {
@@ -96,6 +97,7 @@ func formatConfigVarColumn(entry model.Entry) string {
 	return strings.Join(parts, "<br>")
 }
 
+// formatEnvVarColumn renders derived and explicit environment variable keys.
 func formatEnvVarColumn(entry model.Entry, envPrefix string) string {
 	var parts []string
 
@@ -120,16 +122,19 @@ func formatEnvVarColumn(entry model.Entry, envPrefix string) string {
 	return strings.Join(parts, "<br>")
 }
 
+// formatDefault renders the default value column.
 func formatDefault(def string) string {
 	return formatCodeCell(def)
 }
 
+// normalizeLineEndings converts CRLF/CR to LF for stable markdown formatting.
 func normalizeLineEndings(value string) string {
 	value = strings.ReplaceAll(value, "\r\n", "\n")
 	value = strings.ReplaceAll(value, "\r", "\n")
 	return value
 }
 
+// escapeMarkdownTableText escapes markdown table metacharacters and newlines.
 func escapeMarkdownTableText(value string) string {
 	value = normalizeLineEndings(value)
 	value = strings.ReplaceAll(value, "\n", "<br>")
@@ -137,6 +142,7 @@ func escapeMarkdownTableText(value string) string {
 	return value
 }
 
+// formatCodeCell renders multi-line content as inline-code lines joined by <br>.
 func formatCodeCell(value string) string {
 	value = normalizeLineEndings(value)
 	lines := strings.Split(value, "\n")
@@ -147,6 +153,7 @@ func formatCodeCell(value string) string {
 	return strings.Join(parts, "<br>")
 }
 
+// formatInlineCode wraps a string in a safe backtick delimiter sequence.
 func formatInlineCode(value string) string {
 	if value == "" {
 		return ""

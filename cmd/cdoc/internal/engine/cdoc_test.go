@@ -23,6 +23,62 @@ func TestParseProject_ParseWarningCode(t *testing.T) {
 	require.Contains(t, warnings[0].Message, "failed to parse")
 }
 
+func TestParseProjectWithMode_TypesFiltersByReceiverType(t *testing.T) {
+	root := t.TempDir()
+	nonConfigSrc := `package test
+type fake struct{}
+func (fake) GetStringVar(value string, key string) string { return value }
+func f() {
+	//cdoc:desc d
+	var cfg fake
+	cfg.GetStringVar("value", "fake.key")
+}`
+	configSrc := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+func g(conf *config.Config) {
+	//cdoc:desc method
+	conf.GetStringVar("value", "real.key")
+}
+func h() {
+	//cdoc:desc function
+	config.GetStringVar("value", "func.key")
+}`
+	require.NoError(t, os.WriteFile(filepath.Join(root, "non_config.go"), []byte(nonConfigSrc), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "config.go"), []byte(configSrc), 0o644))
+
+	astEntries, _, err := ParseProjectWithMode(root, ParseModeAST)
+	require.NoError(t, err)
+	require.Len(t, astEntries, 3)
+
+	typedEntries, _, err := ParseProjectWithMode(root, ParseModeTypes)
+	require.NoError(t, err)
+	require.Len(t, typedEntries, 2)
+	keys := []string{typedEntries[0].PrimaryKey, typedEntries[1].PrimaryKey}
+	require.ElementsMatch(t, []string{"real.key", "func.key"}, keys)
+}
+
+func TestParseProjectWithMode_TypesDetectsConfigNewReceiver(t *testing.T) {
+	root := t.TempDir()
+	src := `package test
+import "github.com/rudderlabs/rudder-go-kit/config"
+
+func f() {
+	conf := config.New(config.WithEnvPrefix("TEST"))
+	//cdoc:desc json library
+	_ = use(conf.GetStringVar("jsoniter", "jsonLib"))
+}
+
+func use(value string) string { return value }
+`
+	require.NoError(t, os.WriteFile(filepath.Join(root, "example.go"), []byte(src), 0o644))
+
+	typedEntries, _, err := ParseProjectWithMode(root, ParseModeTypes)
+	require.NoError(t, err)
+	require.Len(t, typedEntries, 1)
+	require.Equal(t, "jsonLib", typedEntries[0].PrimaryKey)
+	require.Equal(t, "json library", typedEntries[0].Description)
+}
+
 func TestGenerateWarnings_Codes(t *testing.T) {
 	entries := []model.Entry{{PrimaryKey: "missing.all", File: "x.go", Line: 9}}
 
