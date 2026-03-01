@@ -5,7 +5,9 @@ import (
 	"go/ast"
 	"go/printer"
 	"go/token"
+	"maps"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,9 +40,7 @@ type ScanOptions struct {
 // ScanOptions.CallFilter applies additional filtering on matched getter calls.
 // A nil filter accepts all matched calls.
 func ScanFile(fset *token.FileSet, file *ast.File, filePath string, opts ScanOptions) FileScanResult {
-	lineDirectives := collectDirectives(fset, file)
-	directives := flattenDirectives(lineDirectives)
-
+	directives := flattenDirectives(collectDirectives(fset, file))
 	result := FileScanResult{
 		GroupOrderDeclarations: extractGroupOrderDeclarations(filePath, directives),
 	}
@@ -96,12 +96,7 @@ func collectDirectives(fset *token.FileSet, file *ast.File) map[int][]directive 
 
 // flattenDirectives returns directives sorted by line while preserving line-local order.
 func flattenDirectives(lineDirectives map[int][]directive) []directive {
-	var lines []int
-	for line := range lineDirectives {
-		lines = append(lines, line)
-	}
-	sort.Ints(lines)
-
+	lines := slices.Sorted(maps.Keys(lineDirectives))
 	var directives []directive
 	for _, line := range lines {
 		directives = append(directives, lineDirectives[line]...)
