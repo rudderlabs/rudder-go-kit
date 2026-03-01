@@ -122,16 +122,15 @@ func parseProjectWithMode(rootDir string, mode ParseMode) ([]model.Entry, []mode
 }
 
 func scanParsedFileWithMode(fset *token.FileSet, parsed parsedFile, mode ParseMode, allowCallsByFile map[string]map[token.Pos]struct{}) scanner.FileScanResult {
+	scanOpts := scanner.ScanOptions{}
+
 	if mode == ParseModeTypes {
-		allowedCalls := allowCallsByFile[parsed.path]
-		return scanner.ScanFile(fset, parsed.file, parsed.path, scanner.ScanOptions{
-			CallFilter: func(call *ast.CallExpr) bool {
-				_, ok := allowedCalls[call.Pos()]
-				return ok
-			},
-		})
+		scanOpts.CallFilter = func(call *ast.CallExpr) bool {
+			_, ok := allowCallsByFile[parsed.path][call.Pos()]
+			return ok
+		}
 	}
-	return scanner.ScanFile(fset, parsed.file, parsed.path, scanner.ScanOptions{})
+	return scanner.ScanFile(fset, parsed.file, parsed.path, scanOpts)
 }
 
 func scanSingleFileWithMode(fset *token.FileSet, file *ast.File, filePath string, mode ParseMode) (scanner.FileScanResult, error) {
