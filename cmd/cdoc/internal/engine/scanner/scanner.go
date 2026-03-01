@@ -13,6 +13,8 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/cmd/cdoc/internal/engine/model"
 )
 
+const maxLookback = 10
+
 var envVarRe = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 
 // IsEnvVarStyle reports whether key matches UPPER_SNAKE_CASE env style.
@@ -150,10 +152,11 @@ func classifyMethod(name string) (methodSpec, bool) {
 }
 
 type callInfo struct {
-	call *ast.CallExpr
-	line int
-	pos  token.Pos
-	spec methodSpec
+	call      *ast.CallExpr
+	startLine int
+	endLine   int
+	pos       token.Pos
+	spec      methodSpec
 }
 
 // collectCalls finds supported getter calls and records their scan metadata.
@@ -173,10 +176,11 @@ func collectCalls(fset *token.FileSet, file *ast.File, callFilter func(*ast.Call
 			return true
 		}
 		calls = append(calls, callInfo{
-			call: call,
-			line: fset.Position(call.Pos()).Line,
-			pos:  call.Pos(),
-			spec: spec,
+			call:      call,
+			startLine: fset.Position(call.Pos()).Line,
+			endLine:   fset.Position(call.End()).Line,
+			pos:       call.Pos(),
+			spec:      spec,
 		})
 		return true
 	})
@@ -204,7 +208,8 @@ func buildEvents(calls []callInfo, directives []directive) []fileEvent {
 		events = append(events, fileEvent{line: dir.line, kind: eventDirective, dir: dir})
 	}
 	for _, call := range calls {
-		events = append(events, fileEvent{line: call.line, kind: eventCall, call: call})
+		// Process a call after all directives inside its span are discovered.
+		events = append(events, fileEvent{line: call.endLine, kind: eventCall, call: call})
 	}
 
 	sort.SliceStable(events, func(i, j int) bool {
@@ -221,7 +226,7 @@ func buildEvents(calls []callInfo, directives []directive) []fileEvent {
 		if events[i].call.pos != events[j].call.pos {
 			return events[i].call.pos < events[j].call.pos
 		}
-		return events[i].call.line < events[j].call.line
+		return events[i].call.startLine < events[j].call.startLine
 	})
 
 	return events
@@ -255,14 +260,15 @@ func extractEntriesWithWarnings(fset *token.FileSet, file *ast.File, filePath st
 			continue
 		}
 
-		line := event.call.line
-		if consumeIgnoreDirective(pending, line) {
+		callStartLine := event.call.startLine
+		callEndLine := event.call.endLine
+		if consumeIgnoreDirective(pending, callStartLine) {
 			continue
 		}
 
-		description, hasDescription := consumeNearestDirectiveValue(pending, directiveDesc, line, 10)
-		varKeys, varDefault, keyDirectiveIndexes := collectKeyAndDefaultOverrides(pending, line)
-		entry, entryWarnings, err := extractEntry(fset, event.call, filePath, line, varKeys, varDefault)
+		description, hasDescription := consumeNearestDirectiveValue(pending, directiveDesc, callStartLine, 10)
+		varKeys, varDefault, keyDirectiveIndexes := collectKeyAndDefaultOverrides(pending, callStartLine, callEndLine)
+		entry, entryWarnings, err := extractEntry(fset, event.call, filePath, callStartLine, varKeys, varDefault)
 		for _, idx := range keyDirectiveIndexes {
 			pending[idx].consumed = true
 		}
@@ -270,7 +276,7 @@ func extractEntriesWithWarnings(fset *token.FileSet, file *ast.File, filePath st
 			warnings = append(warnings, model.Warning{
 				Code:    model.WarningCodeArgCount,
 				File:    filePath,
-				Line:    line,
+				Line:    callStartLine,
 				Message: err.Error(),
 			})
 			continue
@@ -324,8 +330,9 @@ func consumeIgnoreDirective(pending []pendingDirective, line int) bool {
 	return false
 }
 
-// collectKeyAndDefaultOverrides gathers nearby //cdoc:key and //cdoc:default directives.
-func collectKeyAndDefaultOverrides(pending []pendingDirective, line int) ([]string, string, []int) {
+// collectKeyAndDefaultOverrides gathers //cdoc:key and //cdoc:default directives
+// from the start-line lookback window and from inside the multiline call span.
+func collectKeyAndDefaultOverrides(pending []pendingDirective, callStartLine, callEndLine int) ([]string, string, []int) {
 	var varKeys []string
 	var varDefault string
 	var keyDirectiveIndexes []int
@@ -334,8 +341,7 @@ func collectKeyAndDefaultOverrides(pending []pendingDirective, line int) ([]stri
 		if pending[i].consumed {
 			continue
 		}
-		distance := line - pending[i].directive.line
-		if distance < 0 || distance > 10 {
+		if !directiveAppliesToKeyOrDefault(pending[i].directive.line, callStartLine, callEndLine, maxLookback) {
 			continue
 		}
 
@@ -349,6 +355,17 @@ func collectKeyAndDefaultOverrides(pending []pendingDirective, line int) ([]stri
 		}
 	}
 	return varKeys, varDefault, keyDirectiveIndexes
+}
+
+func directiveAppliesToKeyOrDefault(directiveLine, callStartLine, callEndLine, maxLookback int) bool {
+	if inLineWindow(directiveLine, callStartLine-maxLookback, callStartLine) {
+		return true
+	}
+	return inLineWindow(directiveLine, callStartLine, callEndLine)
+}
+
+func inLineWindow(line, start, end int) bool {
+	return line >= start && line <= end
 }
 
 // consumeNearestDirectiveValue consumes the nearest matching directive within maxDistance.

@@ -747,6 +747,30 @@ func f(conf *config.Config, wsID string) {
 			},
 		},
 		{
+			name: "directive/multiline varkeys for multiple dynamic args",
+			src: `package test
+import (
+	"fmt"
+	"github.com/rudderlabs/rudder-go-kit/config"
+)
+func f(conf *config.Config, wsID string) {
+	//cdoc:desc d
+	conf.GetStringVar("30s", 
+		fmt.Sprintf("workspace.%s.timeout", wsID), //cdoc:key workspace.<id>.timeout
+		fmt.Sprintf("WORKSPACE_%s_TIMEOUT", wsID), //cdoc:key WORKSPACE_<id>_TIMEOUT
+	)
+}`,
+			wantKeys: []string{"workspace.<id>.timeout,WORKSPACE_<id>_TIMEOUT"},
+			wantDefs: []string{"30s"},
+			wantDesc: []string{"d"},
+			wantConfigKeys: [][]string{
+				{"workspace.<id>.timeout", "WORKSPACE_<id>_TIMEOUT"},
+			},
+			wantEnvKeys: [][]string{
+				nil,
+			},
+		},
+		{
 			name: "directive/varkey unused override warns",
 			src: `package test
 import "github.com/rudderlabs/rudder-go-kit/config"
