@@ -134,7 +134,7 @@ func classifyMethod(name string) (methodSpec, bool) {
 
 	spec := methodSpec{reloadable: reloadable}
 	switch base {
-	case "String", "Bool", "StringSlice", "Float64":
+	case "String", "Bool", "StringSlice", "StringMap", "Float64":
 		spec.family = familySimple
 	case "Duration":
 		spec.family = familyDuration
@@ -261,7 +261,7 @@ func extractEntriesWithWarnings(fset *token.FileSet, file *ast.File, filePath st
 			continue
 		}
 
-		description, hasDescription := consumeNearestDirectiveValue(pending, directiveDesc, callStartLine, 10)
+		description, hasDescription := consumeNearestDirectiveValue(pending, directiveDesc, callStartLine, maxLookback)
 		varKeys, varDefault, keyDirectiveIndexes := collectKeyAndDefaultOverrides(pending, callStartLine, callEndLine)
 		entry, entryWarnings, err := extractEntry(fset, event.call, filePath, callStartLine, varKeys, varDefault)
 		for _, idx := range keyDirectiveIndexes {

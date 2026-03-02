@@ -21,6 +21,8 @@ func TestClassifyMethod(t *testing.T) {
 		{name: "simple", method: "GetStringVar", wantOK: true, wantFamily: familySimple},
 		{name: "reloadable duration", method: "GetReloadableDurationVar", wantOK: true, wantFamily: familyDuration, wantReload: true},
 		{name: "multiplier", method: "GetInt64Var", wantOK: true, wantFamily: familyWithMultiplier},
+		{name: "simple stringmap", method: "GetStringMapVar", wantOK: true, wantFamily: familySimple},
+		{name: "reloadable stringmap", method: "GetReloadableStringMapVar", wantOK: true, wantFamily: familySimple, wantReload: true},
 		{name: "deprecated non-var", method: "GetBool", wantOK: false},
 		{name: "unknown family", method: "GetMapVar", wantOK: false},
 	}
