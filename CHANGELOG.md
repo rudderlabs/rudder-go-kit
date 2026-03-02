@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.73.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.3...v0.73.0) (2026-03-02)
+
+
+### Features
+
+* add conversion functions between partition index and range start ([#1056](https://github.com/rudderlabs/rudder-go-kit/issues/1056)) ([6adf5f2](https://github.com/rudderlabs/rudder-go-kit/commit/6adf5f2673fcea2206deaf06001f26615fb6379f))
+
+
+### Miscellaneous
+
+* deprecate legacy config methods ([#1053](https://github.com/rudderlabs/rudder-go-kit/issues/1053)) ([badeae7](https://github.com/rudderlabs/rudder-go-kit/commit/badeae7394fb348124481a32577c8c1eda1a3136))
+* replace goimports with gci ([#1051](https://github.com/rudderlabs/rudder-go-kit/issues/1051)) ([bd71c0c](https://github.com/rudderlabs/rudder-go-kit/commit/bd71c0cd96108fc0c2eb89371f30a2618a8e1902))
+* upgrade to go 1.26 and include go fix in fmt makefile target ([#1043](https://github.com/rudderlabs/rudder-go-kit/issues/1043)) ([e2e1177](https://github.com/rudderlabs/rudder-go-kit/commit/e2e1177a0acf00d241df738944f7e6359b1f1c91))
+
 ## [0.72.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.2...v0.72.3) (2026-02-13)
 
 
