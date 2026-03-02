@@ -130,3 +130,32 @@ func (pim PartitionIndexMapping) ToPartitionMappingWithNumPartitions(numPartitio
 func (pim PartitionIndexMapping) ToPartitionMapping() (PartitionMapping, error) {
 	return pim.ToPartitionMappingWithNumPartitions(uint32(len(pim)))
 }
+
+// ToPartitionRangeStart converts partition index to partition range start based on the provided number of partitions
+func (partitionIdx PartitionIndex) ToPartitionRangeStart(numPartitions uint32) (PartitionRangeStart, error) {
+	if numPartitions == 0 {
+		return 0, fmt.Errorf("numPartitions must be greater than 0")
+	}
+	if numPartitions == 1 {
+		return 0, nil // Return partition range start 0 for any partition index if numPartitions is 1
+	}
+	if partitionIdx >= PartitionIndex(numPartitions) {
+		return 0, fmt.Errorf("partition index %d out of range for numPartitions %d", partitionIdx, numPartitions)
+	}
+	window := uint32((1 << 32) / int(numPartitions))
+	rangeStart := uint32(partitionIdx) * window
+	return PartitionRangeStart(rangeStart), nil
+}
+
+// ToPartitionIndex converts partition range start to partition index based on the provided number of partitions
+func (rangeStart PartitionRangeStart) ToPartitionIndex(numPartitions uint32) (PartitionIndex, error) {
+	if numPartitions == 0 {
+		return 0, fmt.Errorf("numPartitions must be greater than 0")
+	}
+	if numPartitions == 1 {
+		return 0, nil // Return partition index 0 for any range start if numPartitions is 1
+	}
+	window := uint32((1 << 32) / int(numPartitions))
+	idx := rangeStart / PartitionRangeStart(window)
+	return PartitionIndex(idx), nil
+}

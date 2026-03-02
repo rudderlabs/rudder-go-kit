@@ -228,3 +228,76 @@ func TestPartitionIndexMappingToPartitionMapping(t *testing.T) {
 		require.Equal(t, partmap.NodeIndex(5), partitionMapping[0])
 	})
 }
+
+func TestPartitionIdxToRangeStart(t *testing.T) {
+	t.Run("valid conversions", func(t *testing.T) {
+		for _, numPartitions := range []uint32{1, 2, 4, 8, 16, 64} {
+			t.Run("numPartitions="+strconv.Itoa(int(numPartitions)), func(t *testing.T) {
+				window := uint32((1 << 32) / int(numPartitions))
+				for idx := range numPartitions {
+					rangeStart, err := partmap.PartitionIndex(idx).ToPartitionRangeStart(numPartitions)
+					require.NoError(t, err)
+					require.Equal(t, partmap.PartitionRangeStart(idx*window), rangeStart)
+				}
+			})
+		}
+	})
+
+	t.Run("zero numPartitions", func(t *testing.T) {
+		_, err := partmap.PartitionIndex(0).ToPartitionRangeStart(0)
+		require.Error(t, err)
+	})
+
+	t.Run("index out of range", func(t *testing.T) {
+		_, err := partmap.PartitionIndex(4).ToPartitionRangeStart(4)
+		require.Error(t, err)
+
+		_, err = partmap.PartitionIndex(10).ToPartitionRangeStart(4)
+		require.Error(t, err)
+	})
+
+	t.Run("boundary index", func(t *testing.T) {
+		// last valid index
+		rangeStart, err := partmap.PartitionIndex(3).ToPartitionRangeStart(4)
+		require.NoError(t, err)
+		expectedWindow := uint32((1 << 32) / 4)
+		require.Equal(t, partmap.PartitionRangeStart(3*expectedWindow), rangeStart)
+	})
+}
+
+func TestPartitionRangeStartToIdx(t *testing.T) {
+	t.Run("valid conversions", func(t *testing.T) {
+		for _, numPartitions := range []uint32{2, 4, 8, 16, 64} {
+			t.Run("numPartitions="+strconv.Itoa(int(numPartitions)), func(t *testing.T) {
+				window := uint32((1 << 32) / int(numPartitions))
+				for idx := range numPartitions {
+					rangeStart := partmap.PartitionRangeStart(idx * window)
+					result, err := rangeStart.ToPartitionIndex(numPartitions)
+					require.NoError(t, err)
+					require.Equal(t, partmap.PartitionIndex(idx), result)
+				}
+			})
+		}
+	})
+
+	t.Run("zero numPartitions", func(t *testing.T) {
+		_, err := partmap.PartitionRangeStart(0).ToPartitionIndex(0)
+		require.Error(t, err)
+	})
+
+	t.Run("roundtrip with PartitionIdxToRangeStart", func(t *testing.T) {
+		for _, numPartitions := range []uint32{1, 2, 4, 8, 16, 64} {
+			t.Run("numPartitions="+strconv.Itoa(int(numPartitions)), func(t *testing.T) {
+				for idx := range numPartitions {
+					originalIdx := partmap.PartitionIndex(idx)
+					rangeStart, err := originalIdx.ToPartitionRangeStart(numPartitions)
+					require.NoError(t, err)
+
+					resultIdx, err := rangeStart.ToPartitionIndex(numPartitions)
+					require.NoError(t, err)
+					require.Equal(t, originalIdx, resultIdx)
+				}
+			})
+		}
+	})
+}
