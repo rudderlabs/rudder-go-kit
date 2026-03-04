@@ -1,11 +1,19 @@
 package config
 
 // GetStringMap gets string map value from config
+//
+// Deprecated: Use GetStringMapVar(defaultValue, key) instead.
+//
+//go:fix inline
 func GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
-	return Default.GetStringMap(key, defaultValue)
+	return GetStringMapVar(defaultValue, key)
 }
 
 // GetStringMap gets string map value from config
+//
+// Deprecated: Use (*Config).GetStringMapVar(defaultValue, key) instead.
+//
+//go:fix inline
 func (c *Config) GetStringMap(key string, defaultValue map[string]any) (value map[string]any) {
 	return c.GetStringMapVar(defaultValue, key)
 }

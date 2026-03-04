@@ -1,0 +1,127 @@
+# Config Documentation Generator
+
+## Context
+
+A project's configuration options are typically scattered across the codebase as `conf.GetXxxVar(...)` calls. Maintaining a config table in markdown format is a tedious job that could easily drift out of sync. This tool parses Go source code, extracts config options (keys, defaults, descriptions from annotations), and generates a grouped markdown table automatically.
+
+## Architecture
+
+A Go CLI tool at `cmd/cdoc/` that parses Go files with `go/ast`, extracts config getter calls, and outputs a grouped, ordered markdown table.
+
+The extractor supports two parse modes:
+
+- `types` (default): uses `go/types` to keep only calls that resolve to `github.com/rudderlabs/rudder-go-kit/config` getters (methods and package functions).
+- `ast`: pure AST matching on `Get*Var` selector names with no type filtering.
+
+In both modes, value/key extraction itself is AST-based.
+
+## Annotations
+
+All annotations use the `//cdoc:` prefix. Place them on the line(s) above or on the same line as the config getter call.
+
+| Directive | Scope | Description |
+|---|---|---|
+| `//cdoc:group [n] <name>` | Sticky (applies to all subsequent calls in the file until overridden) | Sets the group for config entries, with an optional numeric prefix for sort order. Ordered groups appear first (ascending), unordered groups appear last (alphabetically) |
+| `//cdoc:desc <text>` | Per-call (applies to the next config getter call) | Sets the description for a config entry |
+| `//cdoc:key <key>[, <key>...]` | Per-call (multiple allowed, consumed in order) | Provides key override(s) for non-literal (dynamic) config key arguments |
+| `//cdoc:default <value>` | Per-call | Provides a default value for non-literal (dynamic) default arguments |
+| `//cdoc:ignore` | Per-call | Excludes the config entry from output |
+
+### Example usage
+
+```go
+//cdoc:group 3 HTTP server
+//cdoc:desc HTTP server port
+port := s.conf.GetIntVar(8080, 1, "http.port")
+
+//cdoc:desc Read header timeout
+timeout := s.conf.GetDurationVar(10, time.Second, "http.timeout")
+
+//cdoc:ignore
+conf.GetStringVar("", "k8s.client.key")
+
+//cdoc:key workspace.<id>.timeout
+conf.GetStringVar("30s", fmt.Sprintf("workspace.%s.timeout", wsID))
+
+//cdoc:default 5s
+conf.GetStringVar(computeDefault(), "retry.interval")
+```
+
+### Annotation semantics
+
+- **group inheritance**: `//cdoc:group` is sticky — it applies to all subsequent config calls in the same file until another `//cdoc:group` overrides it.
+- **project-level group ordering**: Numeric `//cdoc:group [n] <name>` directives are also collected project-wide, even from files without config getters, and applied by group name. This allows keeping group order declarations in a dedicated file.
+- **desc**: Applies to the immediately following config call only (up to 10 lines above).
+- **key**: Consumed in order for non-literal key arguments. Static string literal keys are extracted normally and don't consume key directives. If there are non-literal args without matching keys, a warning is emitted.
+- **default**: Overrides the extracted default value. Useful when the default argument is a non-literal expression (e.g. a function call or variable).
+- **deduplication**: The same config key can appear in multiple files. Only one occurrence needs annotations — the tool merges desc, group, group order, and env keys across occurrences. Conflicting defaults or groups produce warnings.
+
+## CLI flags
+
+```
+go run ./cmd/cdoc [flags]
+  -root string     Project root directory (default ".")
+  -output string   Output file path (default: stdout)
+  -prefix string   Environment variable prefix (default "RSERVER")
+  -extrawarn       Include extra warnings for missing descriptions/groups
+  -fail-on-warning Exit with non-zero status if any warnings are emitted
+  -parse-mode      Parse mode: ast or types (default "types")
+```
+
+## Limitations
+
+- **AST value extraction**: Even in `types` mode, argument/default rendering is still AST-based. It can only extract string literal key arguments directly. Non-literal keys (e.g. `fmt.Sprintf(...)`) are skipped unless a `//cdoc:key` directive is provided.
+- **mode tradeoff**:
+  - `types` mode reduces false positives by requiring selectors to resolve to `config` APIs, but depends on lightweight type-checking.
+  - `ast` mode is fastest/simplest and does not require type resolution, but may include lookalike `Get*Var` methods from non-config types.
+- **external constants**: Default values that reference external package constants (e.g. `backoff.DefaultInitialInterval`) are rendered as the Go expression, not as their resolved value.
+- **single-file group scope for assignment**: Group assignment (which group a config call belongs to) is still per-file. A `//cdoc:group` in one file does not assign groups in another file. Numeric group ordering, however, is applied project-wide by group name.
+
+## Config getter method families
+
+The tool handles these `rudderlabs/rudder-go-kit/config` getter signatures:
+
+| Family | Methods | Args layout |
+|---|---|---|
+| simple | `GetStringVar`, `GetBoolVar`, `GetFloat64Var`, `GetStringSliceVar`, `GetReloadableStringVar`, `GetReloadableBoolVar`, `GetReloadableFloat64Var`, `GetReloadableStringSliceVar` | `(default, keys...)` |
+| withMultiplier | `GetIntVar`, `GetReloadableIntVar`, `GetInt64Var`, `GetReloadableInt64Var` | `(default, multiplier, keys...)` |
+| duration | `GetDurationVar`, `GetReloadableDurationVar` | `(quantity, unit, keys...)` |
+
+These can appear either as methods (for example `conf.GetStringVar(...)`) or as package functions (for example `config.GetStringVar(...)`).
+
+## Env variable derivation
+
+Env variables are derived from config keys using the same algorithm as `ConfigKeyToEnv` from `rudder-go-kit/config/config_env.go`:
+
+- camelCase is split into SNAKE_CASE: `healthCheckTimeout` → `HEALTH_CHECK_TIMEOUT`
+- Dots become underscores: `http.port` → `HTTP_PORT`
+- A configurable prefix is prepended: `HTTP_PORT` → `PREFIX_HTTP_PORT`
+- Keys already in UPPERCASE_STYLE (e.g. `RELEASE_NAME`, `ETCD_HOSTS`) are displayed as-is without the prefix
+
+The prefix is configurable via the `-prefix` CLI flag (default: `RSERVER`).
+
+## Default value rendering
+
+- **string/bool/int/float**: rendered as literal values
+- **duration**: quantity + unit abbreviation (`10` + `time.Second` → `10s`)
+- **int64 with multiplier**: `1` + `bytesize.MB` → `1MB`
+- **external constants**: rendered as the Go expression (e.g. `backoff.DefaultInitialInterval`)
+- **non-literal expressions**: rendered as Go source text
+
+
+
+## Verification
+
+```bash
+# Generate docs
+go run ./cmd/cdoc -root . -prefix PREFIX -output docs/CONFIGURATION.md -parse-mode types
+
+# Run tests
+go test ./cmd/cdoc/...
+
+# Check warnings (including missing descriptions/groups)
+go run ./cmd/cdoc -root . -prefix PREFIX -extrawarn -parse-mode types
+
+# Fail CI if warnings are present
+go run ./cmd/cdoc -root . -prefix PREFIX -extrawarn -fail-on-warning -parse-mode types
+```

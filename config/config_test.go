@@ -47,8 +47,8 @@ func Test_Getters_Existing_and_Default(t *testing.T) {
 	require.Equal(t, time.Second, tc.GetDurationVar(1, time.Second, "other"), "it should return the default value")
 
 	tc.Set("stringmap", map[string]any{"string": "any"})
-	require.Equal(t, map[string]any{"string": "any"}, tc.GetStringMap("stringmap", map[string]any{"default": "value"}), "it should return the key value")
-	require.Equal(t, map[string]any{"default": "value"}, tc.GetStringMap("other", map[string]any{"default": "value"}), "it should return the default value")
+	require.Equal(t, map[string]any{"string": "any"}, tc.GetStringMapVar(map[string]any{"default": "value"}, "stringmap"), "it should return the key value")
+	require.Equal(t, map[string]any{"default": "value"}, tc.GetStringMapVar(map[string]any{"default": "value"}, "other"), "it should return the default value")
 }
 
 func Test_MustGet(t *testing.T) {
@@ -904,7 +904,7 @@ newKey: value
 			require.Equal(t, 1*time.Second, durationValue)
 			stringSliceValue := c.GetStringSliceVar([]string{"default"}, "stringSliceKey")
 			require.Equal(t, []string{"1"}, stringSliceValue)
-			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
+			stringMapValue := c.GetStringMapVar(map[string]any{"default": "value"}, "stringMapKey")
 			require.Equal(t, map[string]any{"key": "value"}, stringMapValue)
 
 			// Modify the config file
@@ -930,7 +930,7 @@ stringMapKey: '{"key": "value2"}'
 					c.GetBoolVar(false, "boolKey") == false &&
 					c.GetDurationVar(0, time.Second, "durationKey") == 2*time.Second &&
 					reflect.DeepEqual(c.GetStringSliceVar([]string{"default"}, "stringSliceKey"), []string{"2"}) &&
-					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"key": "value2"})
+					reflect.DeepEqual(c.GetStringMapVar(map[string]any{"default": "value"}, "stringMapKey"), map[string]any{"key": "value2"})
 			}, 2*time.Second, 1*time.Millisecond)
 
 			// Te observer should be notified of config file changes
@@ -978,7 +978,7 @@ stringMapKey: '{"key": "value2"}'
 			require.Equal(t, 1*time.Second, durationValue)
 			stringSliceValue := c.GetStringSliceVar([]string{"default"}, "stringSliceKey")
 			require.Equal(t, []string{"1"}, stringSliceValue)
-			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
+			stringMapValue := c.GetStringMapVar(map[string]any{"default": "value"}, "stringMapKey")
 			require.Equal(t, map[string]any{"key": "value"}, stringMapValue)
 
 			// Modify the config file
@@ -996,7 +996,7 @@ stringMapKey: '{"key": "value2"}'
 					c.GetBoolVar(false, "boolKey") == false &&
 					c.GetDurationVar(0, time.Second, "durationKey") == 0*time.Second &&
 					reflect.DeepEqual(c.GetStringSliceVar([]string{"default"}, "stringSliceKey"), []string{"default"}) &&
-					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"default": "value"})
+					reflect.DeepEqual(c.GetStringMapVar(map[string]any{"default": "value"}, "stringMapKey"), map[string]any{"default": "value"})
 			}, 2*time.Second, 1*time.Millisecond)
 
 			// Te observer should be notified of config file changes
@@ -1044,7 +1044,7 @@ stringMapKey: '{"key": "value2"}'
 			require.Equal(t, 0*time.Second, durationValue)
 			stringSliceValue := c.GetStringSliceVar([]string{"default"}, "stringSliceKey")
 			require.Equal(t, []string{"default"}, stringSliceValue)
-			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
+			stringMapValue := c.GetStringMapVar(map[string]any{"default": "value"}, "stringMapKey")
 			require.Equal(t, map[string]any{"default": "value"}, stringMapValue)
 
 			// Modify the config file
@@ -1070,7 +1070,7 @@ stringMapKey: '{"key": "value"}'
 					c.GetBoolVar(false, "boolKey") == true &&
 					c.GetDurationVar(0, time.Second, "durationKey") == 1*time.Second &&
 					reflect.DeepEqual(c.GetStringSliceVar([]string{"default"}, "stringSliceKey"), []string{"1"}) &&
-					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"key": "value"})
+					reflect.DeepEqual(c.GetStringMapVar(map[string]any{"default": "value"}, "stringMapKey"), map[string]any{"key": "value"})
 			}, 2*time.Second, 1*time.Millisecond)
 
 			// Te observer should be notified of config file changes
@@ -1166,7 +1166,7 @@ stringMapKey: '{"key": "value"}'
 			require.Equal(t, 0*time.Second, durationValue)
 			stringSliceValue := c.GetStringSliceVar([]string{"default"}, "stringSliceKey")
 			require.Equal(t, []string{"default"}, stringSliceValue)
-			stringMapValue := c.GetStringMap("stringMapKey", map[string]any{"default": "value"})
+			stringMapValue := c.GetStringMapVar(map[string]any{"default": "value"}, "stringMapKey")
 			require.Equal(t, map[string]any{"default": "value"}, stringMapValue)
 
 			// Modify the config file
@@ -1194,7 +1194,7 @@ newKey: newValue
 					c.GetBoolVar(false, "boolKey") == false &&
 					c.GetDurationVar(0, time.Second, "durationKey") == 0*time.Second &&
 					reflect.DeepEqual(c.GetStringSliceVar([]string{"default"}, "stringSliceKey"), []string{"default"}) &&
-					reflect.DeepEqual(c.GetStringMap("stringMapKey", map[string]any{"default": "value"}), map[string]any{"default": "value"})
+					reflect.DeepEqual(c.GetStringMapVar(map[string]any{"default": "value"}, "stringMapKey"), map[string]any{"default": "value"})
 			}, 2*time.Second, 1*time.Millisecond)
 
 			// The observer should not be notified of config file changes
