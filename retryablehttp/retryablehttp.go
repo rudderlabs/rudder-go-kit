@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 
 	conf "github.com/rudderlabs/rudder-go-kit/config"
 )
@@ -23,13 +23,13 @@ type HttpClient interface {
 type retryStrategy func(resp *http.Response, err error) (bool, error)
 
 type Config struct {
-	// MaxRetry is the maximum number of retries.
-	MaxRetry int
+	// MaxTries is the maximum number of tries (0 means no limit).
+	MaxTries int
 	//  InitialInterval is the initial interval between retries.
 	InitialInterval time.Duration
 	// MaxInterval is the maximum interval between retries.
 	MaxInterval time.Duration
-	// MaxElapsedTime is the maximum total elapsed time for retries.
+	// MaxElapsedTime is the maximum total elapsed time for retrie (0 means no limit).
 	MaxElapsedTime time.Duration
 	// Multiplier is the multiplier used to increase the interval between retries.
 	Multiplier float64
@@ -66,14 +66,14 @@ func WithCustomRetryStrategy(retryStrategy retryStrategy) Option {
 
 // NewDefaultConfig creates a new Config with default retry settings.
 //
-//	MaxRetry: Maximum number of retries (default: 5)
+//	MaxTries: Maximum number of tries (default: 6)
 //	InitialInterval: Initial retry interval in milliseconds (default: 100ms)
 //	MaxInterval: Maximum retry interval in milliseconds (default: 1000ms)
 //	MaxElapsedTime: Maximum total elapsed time for retries in seconds (default: 10s)
 //	Multiplier: Backoff multiplier for retry intervals (default: 1.5)
 func NewDefaultConfig() *Config {
 	return &Config{
-		MaxRetry:        conf.GetIntVar(5, 1, "retryablehttp.maxRetry"),
+		MaxTries:        conf.GetIntVar(6, 1, "retryablehttp.maxTries"),
 		InitialInterval: conf.GetDurationVar(100, time.Millisecond, "retryablehttp.initialInterval"),
 		MaxInterval:     conf.GetDurationVar(1000, time.Millisecond, "retryablehttp.maxInterval"),
 		MaxElapsedTime:  conf.GetDurationVar(10, time.Second, "retryablehttp.maxElapsedTime"),
@@ -139,8 +139,8 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	// of the standard HTTP client. If you can get a response, even if it's a 500 then err should be nil and the
 	// response should simply contain the correct status code (e.g. 500) and body for the caller perusal.
 	var doErr error
-	_ = backoff.RetryNotify( // ignoring error here to use doErr
-		func() error {
+	_, _ = backoff.Retry(req.Context(),
+		func() (struct{}, error) {
 			// if the body was read, we need to reset it
 			if bodyBytes != nil {
 				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
@@ -148,24 +148,23 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 			resp, doErr = c.HttpClient.Do(req) // nolint: bodyclose
 			retry, retryErr := c.shouldRetry(resp, doErr)
 			if retry {
-				return fmt.Errorf("retryable error: %w", retryErr)
+				return struct{}{}, fmt.Errorf("retryable error: %w", retryErr)
 			}
-			return nil
+			return struct{}{}, nil
 		},
-		backoff.WithMaxRetries(
-			backoff.NewExponentialBackOff(
-				backoff.WithInitialInterval(c.config.InitialInterval),
-				backoff.WithMaxInterval(c.config.MaxInterval),
-				backoff.WithMaxElapsedTime(c.config.MaxElapsedTime),
-				backoff.WithMultiplier(c.config.Multiplier),
-			),
-			uint64(c.config.MaxRetry),
-		),
-		func(err error, duration time.Duration) {
+		backoff.WithBackOff(&backoff.ExponentialBackOff{
+			InitialInterval:     c.config.InitialInterval,
+			RandomizationFactor: backoff.DefaultRandomizationFactor,
+			Multiplier:          c.config.Multiplier,
+			MaxInterval:         c.config.MaxInterval,
+		}),
+		backoff.WithNotify(func(err error, duration time.Duration) {
 			if c.onFailure != nil {
 				c.onFailure(err, duration)
 			}
-		},
+		}),
+		backoff.WithMaxElapsedTime(c.config.MaxElapsedTime),
+		backoff.WithMaxTries(uint(c.config.MaxTries)),
 	)
 	return resp, doErr
 }

@@ -87,7 +87,7 @@ func TestRetryableHTTPClient_Do_PostRetryOn5xx(t *testing.T) {
 
 	// create client with custom config (faster retries for testing)
 	config := &Config{
-		MaxRetry:        3,
+		MaxTries:        4,
 		InitialInterval: 10 * time.Millisecond,
 		MaxInterval:     50 * time.Millisecond,
 		MaxElapsedTime:  time.Second,
@@ -132,7 +132,7 @@ func TestRetryableHTTPClient_Do_RetryOn5xx(t *testing.T) {
 
 	// create client with custom config (faster retries for testing)
 	config := &Config{
-		MaxRetry:        3,
+		MaxTries:        4,
 		InitialInterval: 10 * time.Millisecond,
 		MaxInterval:     50 * time.Millisecond,
 		MaxElapsedTime:  time.Second,
@@ -170,7 +170,7 @@ func TestRetryableHTTPClient_Do_RetryOn429(t *testing.T) {
 
 	// create client with custom config (faster retries for testing)
 	config := &Config{
-		MaxRetry:        3,
+		MaxTries:        4,
 		InitialInterval: 10 * time.Millisecond,
 		MaxInterval:     50 * time.Millisecond,
 		MaxElapsedTime:  time.Second,
@@ -202,7 +202,7 @@ func TestRetryableHTTPClient_Do_MaxRetriesExceeded(t *testing.T) {
 
 	// create client with limited retries
 	config := &Config{
-		MaxRetry:        2,
+		MaxTries:        3,
 		InitialInterval: 10 * time.Millisecond,
 		MaxInterval:     50 * time.Millisecond,
 		MaxElapsedTime:  time.Second,
@@ -281,7 +281,7 @@ func TestRetryableHTTPClient_WithOnFailure(t *testing.T) {
 
 	// create client with onFailure callback
 	config := &Config{
-		MaxRetry:        3,
+		MaxTries:        4,
 		InitialInterval: 10 * time.Millisecond,
 		MaxInterval:     50 * time.Millisecond,
 		MaxElapsedTime:  time.Second,
@@ -333,7 +333,7 @@ func TestRetryableHTTPClient_WithCustomRetryStrategy(t *testing.T) {
 
 	// create client with custom retry strategy and fast retry intervals
 	config := &Config{
-		MaxRetry:        3,
+		MaxTries:        4,
 		InitialInterval: 10 * time.Millisecond,
 		MaxInterval:     50 * time.Millisecond,
 		MaxElapsedTime:  time.Second,
@@ -381,7 +381,7 @@ func TestRetryableHTTPClient_WithCustomRetryStrategyHttpClientReturnError(t *tes
 
 	// create client with custom retry strategy and fast retry intervals
 	config := &Config{
-		MaxRetry:        10,
+		MaxTries:        11,
 		InitialInterval: 10 * time.Millisecond,
 		MaxInterval:     50 * time.Millisecond,
 		MaxElapsedTime:  time.Second,
@@ -420,7 +420,7 @@ func TestRetryableHTTPClient_WithCustomRetryStrategyHttpClientReturnError(t *tes
 func TestNewDefaultConfig(t *testing.T) {
 	config := NewDefaultConfig()
 
-	require.Equal(t, 5, config.MaxRetry)
+	require.Equal(t, 6, config.MaxTries)
 	require.Equal(t, 100*time.Millisecond, config.InitialInterval)
 	require.Equal(t, 1000*time.Millisecond, config.MaxInterval)
 	require.Equal(t, 10*time.Second, config.MaxElapsedTime)
