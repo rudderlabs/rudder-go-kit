@@ -24,8 +24,8 @@ type HttpClient interface {
 type retryStrategy func(resp *http.Response, err error) (bool, error)
 
 type Config struct {
-	// MaxTries is the maximum number of tries (0 means no limit).
-	MaxTries int
+	// MaxRetry is the maximum number of retries (<0 means no limit).
+	MaxRetry int
 	//  InitialInterval is the initial interval between retries.
 	InitialInterval time.Duration
 	// MaxInterval is the maximum interval between retries.
@@ -67,14 +67,14 @@ func WithCustomRetryStrategy(retryStrategy retryStrategy) Option {
 
 // NewDefaultConfig creates a new Config with default retry settings.
 //
-//	MaxTries: Maximum number of tries (default: 6)
+//	MaxRetry: Maximum number of retries (default: 5)
 //	InitialInterval: Initial retry interval in milliseconds (default: 100ms)
 //	MaxInterval: Maximum retry interval in milliseconds (default: 1000ms)
 //	MaxElapsedTime: Maximum total elapsed time for retries in seconds (default: 10s)
 //	Multiplier: Backoff multiplier for retry intervals (default: 1.5)
 func NewDefaultConfig() *Config {
 	return &Config{
-		MaxTries:        conf.GetIntVar(6, 1, "retryablehttp.maxTries"),
+		MaxRetry:        conf.GetIntVar(5, 1, "retryablehttp.maxRetry"),
 		InitialInterval: conf.GetDurationVar(100, time.Millisecond, "retryablehttp.initialInterval"),
 		MaxInterval:     conf.GetDurationVar(1000, time.Millisecond, "retryablehttp.maxInterval"),
 		MaxElapsedTime:  conf.GetDurationVar(10, time.Second, "retryablehttp.maxElapsedTime"),
@@ -140,6 +140,10 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		resp *http.Response
 		err  error
 	)
+	var maxTries uint
+	if c.config.MaxRetry >= 0 {
+		maxTries = uint(c.config.MaxRetry) + 1
+	}
 	_, _ = backoff.Retry(req.Context(),
 		func() (*http.Response, error) {
 			// if the body was read, we need to reset it
@@ -166,7 +170,7 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 			}
 		}),
 		backoff.WithMaxElapsedTime(c.config.MaxElapsedTime),
-		backoff.WithMaxTries(uint(c.config.MaxTries)),
+		backoff.WithMaxTries(maxTries),
 	)
 	return resp, err
 }
