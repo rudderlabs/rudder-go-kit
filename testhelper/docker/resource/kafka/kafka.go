@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
+	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 
 	kithelper "github.com/rudderlabs/rudder-go-kit/testhelper"
@@ -192,10 +194,9 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 
 	var schemaRegistryURL string
 	if c.useSchemaRegistry {
-		bootstrapServers := ""
-		for i := uint(1); i <= c.brokers; i++ {
-			bootstrapServers += fmt.Sprintf("PLAINTEXT://kafka%d:9090,", i)
-		}
+		bootstrapServers := strings.Join(lo.Times(int(c.brokers), func(i int) string {
+			return fmt.Sprintf("PLAINTEXT://kafka%d:9090", i+1)
+		}), ",")
 		src, err := pool.RunWithOptions(&dockertest.RunOptions{
 			Repository:   registry.ImagePath("bitnamilegacy/schema-registry"),
 			Tag:          "7.5-debian-11",
@@ -206,7 +207,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			Auth:         registry.AuthConfiguration(),
 			Env: []string{
 				"SCHEMA_REGISTRY_DEBUG=true",
-				"SCHEMA_REGISTRY_KAFKA_BROKERS=" + bootstrapServers[:len(bootstrapServers)-1],
+				"SCHEMA_REGISTRY_KAFKA_BROKERS=" + bootstrapServers,
 				"SCHEMA_REGISTRY_ADVERTISED_HOSTNAME=schemaregistry",
 				"SCHEMA_REGISTRY_CLIENT_AUTHENTICATION=NONE",
 			},

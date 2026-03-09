@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/alexcesaro/statsd.v2"
 
@@ -102,20 +102,14 @@ func (s *statsdStats) NewTracer(_ string) Tracer { return &tracer{tracer: s.trac
 func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opts ...statsd.Option) (*statsd.Client, error) {
 	bo := backoff.NewExponentialBackOff()
 	bo.MaxInterval = time.Minute
-	bo.MaxElapsedTime = 0
-	boCtx := backoff.WithContext(bo, ctx)
-	var err error
-	var c *statsd.Client
-	op := func() error {
-		c, err = statsd.New(opts...)
+	op := func() (*statsd.Client, error) {
+		c, err := statsd.New(opts...)
 		if err != nil {
 			s.logger.Errorn("error while creating new StatsD client", obskit.Error(err))
 		}
-		return err
+		return c, err
 	}
-
-	err = backoff.Retry(op, boCtx)
-	return c, err
+	return backoff.Retry(ctx, op)
 }
 
 func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {

@@ -10,6 +10,7 @@ import (
 	"github.com/cenkalti/backoff/v5"
 
 	conf "github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/httputil"
 )
 
 type HttpClient interface {
@@ -29,7 +30,7 @@ type Config struct {
 	InitialInterval time.Duration
 	// MaxInterval is the maximum interval between retries.
 	MaxInterval time.Duration
-	// MaxElapsedTime is the maximum total elapsed time for retrie (0 means no limit).
+	// MaxElapsedTime is the maximum total elapsed time for all retries (0 means no limit).
 	MaxElapsedTime time.Duration
 	// Multiplier is the multiplier used to increase the interval between retries.
 	Multiplier float64
@@ -121,10 +122,7 @@ func NewRetryableHTTPClient(config *Config, options ...Option) HttpClient {
 
 // Do executes an HTTP request with retry logic.
 func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	var (
-		resp      *http.Response
-		bodyBytes []byte
-	)
+	var bodyBytes []byte
 
 	// if the body is not nil, read it and store it in bodyBytes
 	if req.Body != nil {
@@ -135,22 +133,24 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		}
 	}
 
-	// We should return doErr instead of the error returned by backoff.RetryNotify to follow the convention
+	// We don't use backoff's return values to follow the convention
 	// of the standard HTTP client. If you can get a response, even if it's a 500 then err should be nil and the
 	// response should simply contain the correct status code (e.g. 500) and body for the caller perusal.
-	var doErr error
+	var (
+		resp *http.Response
+		err  error
+	)
 	_, _ = backoff.Retry(req.Context(),
-		func() (struct{}, error) {
+		func() (*http.Response, error) {
 			// if the body was read, we need to reset it
 			if bodyBytes != nil {
 				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
-			resp, doErr = c.HttpClient.Do(req) // nolint: bodyclose
-			retry, retryErr := c.shouldRetry(resp, doErr)
-			if retry {
-				return struct{}{}, fmt.Errorf("retryable error: %w", retryErr)
+			resp, err = c.HttpClient.Do(req) // nolint: bodyclose
+			if retry, retryErr := c.shouldRetry(resp, err); retry {
+				return nil, fmt.Errorf("retryable error: %w", retryErr)
 			}
-			return struct{}{}, nil
+			return resp, nil
 		},
 		backoff.WithBackOff(&backoff.ExponentialBackOff{
 			InitialInterval:     c.config.InitialInterval,
@@ -159,6 +159,8 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 			MaxInterval:         c.config.MaxInterval,
 		}),
 		backoff.WithNotify(func(err error, duration time.Duration) {
+			// since we will be retrying, close the previous response to avoid leaking connections
+			httputil.CloseResponse(resp)
 			if c.onFailure != nil {
 				c.onFailure(err, duration)
 			}
@@ -166,7 +168,7 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		backoff.WithMaxElapsedTime(c.config.MaxElapsedTime),
 		backoff.WithMaxTries(uint(c.config.MaxTries)),
 	)
-	return resp, doErr
+	return resp, err
 }
 
 func BaseRetryStrategy(resp *http.Response, err error) (bool, error) {
