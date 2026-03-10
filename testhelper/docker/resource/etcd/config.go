@@ -1,13 +1,22 @@
 package etcd
 
-type Opt func(*Config)
+import "github.com/ory/dockertest/v3/docker"
 
-func WithTag(tag string) Opt {
-	return func(c *Config) {
-		c.Tag = tag
+type config struct {
+	network *docker.Network
+	bindIP  string
+}
+
+type Option func(*config)
+
+func WithNetwork(network *docker.Network) Option {
+	return func(c *config) {
+		c.network = network
 	}
 }
 
-type Config struct {
-	Tag string
+func WithBindIP(bindIP string) Option {
+	return func(c *config) {
+		c.bindIP = bindIP
+	}
 }

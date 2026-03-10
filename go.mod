@@ -39,6 +39,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.67.5
 	github.com/rudderlabs/rudder-observability-kit v0.0.6
+	github.com/rudderlabs/rudder-schemas v0.10.0
 	github.com/rudderlabs/sonnet v1.0.2
 	github.com/samber/lo v1.52.0
 	github.com/segmentio/kafka-go v0.4.50
@@ -51,6 +52,7 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/tidwall/sjson v1.2.5
 	github.com/twmb/murmur3 v1.1.8
+	github.com/urfave/cli/v3 v3.7.0
 	github.com/zenizh/go-capturer v0.0.0-20211219060012-52ea6c8fed04
 	go.etcd.io/etcd/api/v3 v3.6.7
 	go.etcd.io/etcd/client/v3 v3.6.7
