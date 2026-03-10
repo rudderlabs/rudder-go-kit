@@ -100,8 +100,6 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 func (s *statsdStats) NewTracer(_ string) Tracer { return &tracer{tracer: s.tracer} }
 
 func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opts ...statsd.Option) (*statsd.Client, error) {
-	bo := backoff.NewExponentialBackOff()
-	bo.MaxInterval = time.Minute
 	op := func() (*statsd.Client, error) {
 		c, err := statsd.New(opts...)
 		if err != nil {
@@ -109,7 +107,7 @@ func (s *statsdStats) getNewStatsdClientWithExpoBackoff(ctx context.Context, opt
 		}
 		return c, err
 	}
-	return backoff.Retry(ctx, op)
+	return backoff.Retry(ctx, op, backoff.WithMaxElapsedTime(0))
 }
 
 func (s *statsdStats) collectPeriodicStats(goFactory GoRoutineFactory) {
