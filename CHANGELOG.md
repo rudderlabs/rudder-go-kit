@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.73.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.73.0...v0.73.1) (2026-03-10)
+
+
+### Miscellaneous
+
+* use backoff v5 for retryablehttp client ([#1062](https://github.com/rudderlabs/rudder-go-kit/issues/1062)) ([77cacbd](https://github.com/rudderlabs/rudder-go-kit/commit/77cacbd35e402131a0d3aefdfbfc95ccb08b207c))
+
 ## [0.73.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.72.3...v0.73.0) (2026-03-04)
 
 
