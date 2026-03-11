@@ -1,7 +1,10 @@
 package rudo
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"maps"
 	"net/http"
 	"net/url"
@@ -9,7 +12,10 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/samber/lo"
 
+	clustertypes "github.com/rudderlabs/rudder-schemas/go/cluster"
+
 	"github.com/rudderlabs/rudder-go-kit/httputil"
+	"github.com/rudderlabs/rudder-go-kit/jsonrs"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
@@ -91,4 +97,78 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	}
 
 	return &Resource{URL: rudoURL}, nil
+}
+
+func (r *Resource) CreateMigration(ctx context.Context, migration WorkspaceMigration) (*clustertypes.PartitionMigrationInfo, error) {
+	body, err := jsonrs.Marshal(migration)
+	if err != nil {
+		return nil, fmt.Errorf("encoding request body: %w", err)
+	}
+	migrationURL, _ := url.JoinPath(r.URL, "/orchestrator/v1/migrations")
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, migrationURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	defer func() { httputil.CloseResponse(resp) }()
+	if err != nil {
+		return nil, fmt.Errorf("performing request: %w", err)
+	}
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d - %s", resp.StatusCode, string(respBody))
+	}
+	var migrationInfo clustertypes.PartitionMigrationInfo
+	if err := jsonrs.Unmarshal(respBody, &migrationInfo); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+	return &migrationInfo, nil
+}
+
+func (r *Resource) ListMigrations(ctx context.Context) ([]clustertypes.PartitionMigrationInfo, error) {
+	migrationURL, _ := url.JoinPath(r.URL, "/orchestrator/v1/migrations/")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, migrationURL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	defer func() { httputil.CloseResponse(resp) }()
+	if err != nil {
+		return nil, fmt.Errorf("performing request: %w", err)
+	}
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d - %s", resp.StatusCode, string(respBody))
+	}
+	var migrations []clustertypes.PartitionMigrationInfo
+	if err := jsonrs.Unmarshal(respBody, &migrations); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+	return migrations, nil
+}
+
+type WorkspaceMigration struct {
+	WorkspaceID string      `json:"workspaceId"`
+	Migrations  []Migration `json:"migration"`
+}
+
+type Migration struct {
+	Src Src `json:"src"`
+	Dst Dst `json:"dst"`
+}
+
+type Src struct {
+	ServerID      int   `json:"serverId"`
+	PartitionIdxs []int `json:"partition_idxs,omitempty"`
+}
+
+type Dst struct {
+	ServerID int `json:"serverId"`
 }

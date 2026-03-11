@@ -133,3 +133,10 @@ func WithWorkspaceNamespace(namespace string) Option {
 		"WORKSPACE_NAMESPACE": namespace,
 	})
 }
+
+// WithAssignmentStrategy sets the RUDO_NEWWORKSPACE_ASSIGNER_STRATEGY environment variable for the rudo container. Defaults to "multi-node-round-robin".
+func WithAssignmentStrategy(strategy string) Option {
+	return WithExtraEnvVars(map[string]string{
+		"RUDO_NEWWORKSPACE_ASSIGNER_STRATEGY": strategy,
+	})
+}

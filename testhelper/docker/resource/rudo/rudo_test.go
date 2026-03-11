@@ -39,6 +39,7 @@ func TestRudoResource(t *testing.T) {
 		rudo.WithReleaseName(namepace),
 		rudo.WithStaticWorkspaces([]string{"workspace1"}),
 		rudo.WithSrcRouterNodes([]string{"srcrouter-node-0"}),
+		rudo.WithAssignmentStrategy("single-node-least-loaded"),
 	)
 	require.NoError(t, err)
 
@@ -85,6 +86,29 @@ func TestRudoResource(t *testing.T) {
 	}, 60*time.Second, 1*time.Second)
 	require.Len(t, ackKeys, 1)
 	require.Len(t, events, 1)
+
+	// create a migration for workspace1
+	migrationInfo, err := rudoContainer.CreateMigration(ctx, rudo.WorkspaceMigration{
+		WorkspaceID: "workspace1",
+		Migrations: []rudo.Migration{
+			{
+				Src: rudo.Src{
+					ServerID:      0,
+					PartitionIdxs: []int{0},
+				},
+				Dst: rudo.Dst{
+					ServerID: 1,
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, migrationInfo.ID)
+
+	migrations, err := rudoContainer.ListMigrations(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, migrations)
+	require.Equal(t, migrationInfo.ID, migrations[0].ID)
 
 	cancel()
 	require.NoError(t, g.Wait())
