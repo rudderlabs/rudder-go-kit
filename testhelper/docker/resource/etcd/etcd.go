@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ory/dockertest/v3"
-	"github.com/ory/dockertest/v3/docker"
 	etcd "go.etcd.io/etcd/client/v3"
 
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
@@ -19,18 +18,6 @@ type Resource struct {
 	Hosts  []string
 	// HostsInNetwork is the list of ETCD hosts accessible from the provided Docker network (if any).
 	HostsInNetwork []string
-}
-
-type config struct {
-	network *docker.Network
-}
-
-type Option func(*config)
-
-func WithNetwork(network *docker.Network) Option {
-	return func(c *config) {
-		c.network = network
-	}
 }
 
 func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resource, error) {
@@ -50,7 +37,7 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Env: []string{
 			"ALLOW_NONE_AUTHENTICATION=yes",
 		},
-		PortBindings: internal.IPv4PortBindings([]string{"2379"}),
+		PortBindings: internal.IPv4PortBindings([]string{"2379"}, internal.WithBindIP(c.bindIP)),
 		Auth:         registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	cln.Cleanup(func() {
