@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.74.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.73.1...v0.74.0) (2026-03-12)
+
+
+### Features
+
+* rudo docker resource and rudoacker test helper and command ([#1066](https://github.com/rudderlabs/rudder-go-kit/issues/1066)) ([eeb0fc3](https://github.com/rudderlabs/rudder-go-kit/commit/eeb0fc39d5ae0b4f32df497cfe26e45e47ec35a4))
+
 ## [0.73.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.73.0...v0.73.1) (2026-03-10)
 
 
