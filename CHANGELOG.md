@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.74.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.74.0...v0.74.1) (2026-03-14)
+
+
+### Miscellaneous
+
+* **deps:** bump actions/setup-go from 6.2.0 to 6.3.0 ([#1055](https://github.com/rudderlabs/rudder-go-kit/issues/1055)) ([d9696da](https://github.com/rudderlabs/rudder-go-kit/commit/d9696dac74f9827804dccf4fc76bb84fa9f19e88))
+* **deps:** bump actions/stale from 10.1.1 to 10.2.0 ([#1046](https://github.com/rudderlabs/rudder-go-kit/issues/1046)) ([5760527](https://github.com/rudderlabs/rudder-go-kit/commit/57605272bcc679ef4dd4791257fdb939cc416ddf))
+* **deps:** bump step-security/harden-runner from 2.14.2 to 2.15.1 ([#1060](https://github.com/rudderlabs/rudder-go-kit/issues/1060)) ([31a6344](https://github.com/rudderlabs/rudder-go-kit/commit/31a6344918d795e25a74eb20f738194d373fc921))
+
 ## [0.74.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.73.1...v0.74.0) (2026-03-12)
 
 
