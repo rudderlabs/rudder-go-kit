@@ -99,7 +99,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	return &Resource{URL: rudoURL}, nil
 }
 
-func (r *Resource) CreateMigration(ctx context.Context, migration WorkspaceMigration) (*clustertypes.PartitionMigrationInfo, error) {
+func (r *Resource) CreateMigration(ctx context.Context, migration []WorkspaceMigration) (*clustertypes.PartitionMigrationInfo, error) {
 	body, err := jsonrs.Marshal(migration)
 	if err != nil {
 		return nil, fmt.Errorf("encoding request body: %w", err)
