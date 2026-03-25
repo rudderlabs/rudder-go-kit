@@ -88,7 +88,7 @@ func TestRudoResource(t *testing.T) {
 	require.Len(t, events, 1)
 
 	// create a migration for workspace1
-	migrationInfo, err := rudoContainer.CreateMigration(ctx, rudo.WorkspaceMigration{
+	migrationInfo, err := rudoContainer.CreateMigration(ctx, []rudo.WorkspaceMigration{{
 		WorkspaceID: "workspace1",
 		Migrations: []rudo.Migration{
 			{
@@ -101,7 +101,7 @@ func TestRudoResource(t *testing.T) {
 				},
 			},
 		},
-	})
+	}})
 	require.NoError(t, err)
 	require.NotEmpty(t, migrationInfo.ID)
 
