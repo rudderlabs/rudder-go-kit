@@ -5,7 +5,13 @@ import (
 )
 
 const (
-	// TidwallLib is the implementation using gjson/sjson libraries
+	// TidwallLib is the implementation using gjson/sjson libraries.
+	// Note: this library does NOT expose the full GJSON path syntax. Advanced
+	// features such as wildcards (*,?), array queries (#(...)), modifiers
+	// (@reverse, @pretty, ...), multipaths ({a,b}), literals (!true), the
+	// pipe operator (|), and the tilde comparison operator (~) are all
+	// disabled. Every path segment is treated as a literal object key; special
+	// characters are escaped before being forwarded to gjson/sjson.
 	TidwallLib = "tidwall"
 	// GrafanaLib is the implementation using jsonparser library
 	GrafanaLib = "grafana"
