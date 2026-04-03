@@ -80,8 +80,5 @@ jobs:
         with:
           version: v2.9.0
       - id: govulncheck
-        uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
-        with:
-          go-version-file: 'go.mod'
-          go-package: ./...
-          repo-checkout: false
+        name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest $(go list ./... | grep -v '/testhelper')

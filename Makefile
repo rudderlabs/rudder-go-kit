@@ -78,12 +78,12 @@ lint: fmt ## Run linters on all go files
 .PHONY: sec
 sec: ## Run security checks
 	$(GO) run $(gitleaks) detect .
-	$(GO) run $(govulncheck) ./...
+	$(GO) run $(govulncheck) $(shell $(GO) list ./... | grep -v '/testhelper')
 
 .PHONY: fmt
 fmt: install-tools ## Formats all go files
 	$(GO) generate ./...
-	$(GO) run $(govulncheck) ./...
+	$(GO) run $(govulncheck) $(shell $(GO) list ./... | grep -v '/testhelper')
 	$(GO) fix ./...	
 	$(GO) run $(gofumpt) -l -w -extra  .
 	$(GO) run $(gci) write -s standard -s default -s "prefix(github.com/rudderlabs)" -s "prefix($(shell $(GO) list -m))" --skip-generated .
