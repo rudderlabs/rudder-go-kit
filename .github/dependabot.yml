@@ -4,6 +4,11 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
+    cooldown:
+      default-days: 10
+      semver-patch-days: 5
+      exclude:
+        - "github.com/rudderlabs/*"
     groups:
       opentelemetry:
         patterns:
@@ -27,3 +32,5 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    cooldown:
+      default-days: 10
