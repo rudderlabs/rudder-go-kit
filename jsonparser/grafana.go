@@ -1,6 +1,7 @@
 package jsonparser
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
@@ -35,12 +36,17 @@ func (p *grafanaJSONParser) GetValue(data []byte, path ...string) ([]byte, error
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return nil, ErrKeyNotFound
 		}
-		return nil, fmt.Errorf("failed to get value for path %v: %w", path, err)
+		return nil, fmt.Errorf("getting value for path %v: %w", path, err)
 	}
 
-	// if the value is a string, wrap it in quotes as the library is specifically stripping quotes from string value
+	// if the value is a string, re-add the surrounding quotes that the library strips.
+	// The raw bytes from Get are already JSON-escaped, so we just wrap them.
 	if dtype == jsonparser.String {
-		return []byte("\"" + string(value) + "\""), nil
+		var b bytes.Buffer
+		b.WriteByte('"')
+		b.Write(value)
+		b.WriteByte('"')
+		return b.Bytes(), nil
 	}
 
 	return value, nil
@@ -63,9 +69,14 @@ func (p *grafanaJSONParser) GetValueOrEmpty(data []byte, path ...string) []byte 
 		return nil
 	}
 
-	// if the value is a string, wrap it in quotes as the library is specifically stripping quotes from string value
+	// if the value is a string, re-add the surrounding quotes that the library strips.
+	// The raw bytes from Get are already JSON-escaped, so we just wrap them.
 	if dtype == jsonparser.String {
-		return []byte("\"" + string(value) + "\"")
+		var b bytes.Buffer
+		b.WriteByte('"')
+		b.Write(value)
+		b.WriteByte('"')
+		return b.Bytes()
 	}
 
 	return value
@@ -86,14 +97,17 @@ func (p *grafanaJSONParser) GetBoolean(data []byte, path ...string) (bool, error
 		return false, ErrEmptyKey
 	}
 
-	value, err := jsonparser.GetBoolean(data, path...)
+	value, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return false, ErrKeyNotFound
 		}
-		return false, fmt.Errorf("failed to get value for path %v, %w", path, err)
+		return false, fmt.Errorf("getting value for path %v: %w", path, err)
 	}
-	return value, nil
+	if dtype != jsonparser.Boolean {
+		return false, ErrNotOfExpectedType
+	}
+	return jsonparser.ParseBoolean(value)
 }
 
 // GetBooleanOrFalse retrieves a boolean value for a given path from JSON bytes.
@@ -138,16 +152,21 @@ func (p *grafanaJSONParser) GetInt(data []byte, path ...string) (int64, error) {
 		return 0, ErrEmptyKey
 	}
 
-	floatVal, err := jsonparser.GetFloat(data, path...)
+	value, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return 0, ErrKeyNotFound
 		}
-		return 0, fmt.Errorf("failed to get value for path %v, %w", path, err)
+		return 0, fmt.Errorf("getting value for path %v: %w", path, err)
 	}
-	value := int64(floatVal)
-
-	return value, nil
+	if dtype != jsonparser.Number {
+		return 0, ErrNotOfExpectedType
+	}
+	floatVal, err := jsonparser.ParseFloat(value)
+	if err != nil {
+		return 0, fmt.Errorf("getting value for path %v: %w", path, err)
+	}
+	return int64(floatVal), nil
 }
 
 // GetIntOrZero retrieves an integer value for a given key from JSON bytes.
@@ -192,15 +211,17 @@ func (p *grafanaJSONParser) GetFloat(data []byte, path ...string) (float64, erro
 		return 0, ErrEmptyKey
 	}
 
-	value, err := jsonparser.GetFloat(data, path...)
+	value, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return 0, ErrKeyNotFound
 		}
-		return 0, fmt.Errorf("failed to get value for path %v, %w", path, err)
+		return 0, fmt.Errorf("getting value for path %v: %w", path, err)
 	}
-
-	return value, nil
+	if dtype != jsonparser.Number {
+		return 0, ErrNotOfExpectedType
+	}
+	return jsonparser.ParseFloat(value)
 }
 
 // GetFloatOrZero retrieves a float value for a given key from JSON bytes.
@@ -245,15 +266,17 @@ func (p *grafanaJSONParser) GetString(data []byte, path ...string) (string, erro
 		return "", ErrEmptyKey
 	}
 
-	value, err := jsonparser.GetString(data, path...)
+	value, dtype, _, err := jsonparser.Get(data, path...)
 	if err != nil {
 		if errors.Is(err, jsonparser.KeyPathNotFoundError) {
 			return "", ErrKeyNotFound
 		}
-		return "", fmt.Errorf("failed to get value for path %v, %w", path, err)
+		return "", fmt.Errorf("getting value for path %v: %w", path, err)
 	}
-
-	return value, nil
+	if dtype != jsonparser.String {
+		return "", ErrNotOfExpectedType
+	}
+	return jsonparser.ParseString(value)
 }
 
 // GetStringOrEmpty retrieves a string value for a given key from JSON bytes.
@@ -304,10 +327,10 @@ func (p *grafanaJSONParser) SetValue(data []byte, value any, path ...string) ([]
 	default:
 		valueBytes, err = jsonrs.Marshal(value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal value: %w", err)
+			return nil, fmt.Errorf("marshalling value: %w", err)
 		}
 	case string:
-		valueBytes = []byte("\"" + v + "\"")
+		valueBytes = []byte(strconv.Quote(v))
 	case bool:
 		if v {
 			valueBytes = []byte("true")
@@ -322,7 +345,7 @@ func (p *grafanaJSONParser) SetValue(data []byte, value any, path ...string) ([]
 
 	resultData, err := jsonparser.Set(data, valueBytes, path...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set value: %w", err)
+		return nil, fmt.Errorf("setting value: %w", err)
 	}
 
 	return resultData, nil
@@ -386,7 +409,8 @@ func parseInt(value []byte, dataType jsonparser.ValueType) (int64, error) {
 	default:
 		return 0, nil
 	case jsonparser.Number:
-		return jsonparser.ParseInt(value)
+		num, err := jsonparser.ParseFloat(value)
+		return int64(num), err
 	case jsonparser.Boolean:
 		boolVal, err := jsonparser.ParseBoolean(value)
 		if err != nil {

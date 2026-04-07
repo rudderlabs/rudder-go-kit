@@ -2,9 +2,9 @@ package jsonparser
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
-	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -296,25 +296,14 @@ func (p *tidwallJSONParser) SetValue(data []byte, value any, path ...string) ([]
 		return nil, ErrNoKeysProvided
 	}
 
-	dotSeperatedPath := ""
-	for _, key := range path {
-		if key == "" {
-			return nil, ErrEmptyKey
-		}
-		if dotSeperatedPath != "" {
-			dotSeperatedPath += "."
-		}
-		// handle array index as array index will be like `[index]`
-		if key[0] == '[' {
-			key = key[1 : len(key)-1]
-		}
-		dotSeperatedPath += key
+	if slices.Contains(path, "") {
+		return nil, ErrEmptyKey
 	}
 
 	// Use sjson to set the value
-	result, err := sjson.SetBytes(data, dotSeperatedPath, value)
+	result, err := sjson.SetBytes(data, mutationPath(path...), value)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set value: %w", err)
+		return nil, fmt.Errorf("setting value: %w", err)
 	}
 
 	return result, nil
@@ -354,28 +343,173 @@ func (p *tidwallJSONParser) DeleteKey(data []byte, path ...string) ([]byte, erro
 		return nil, ErrEmptyKey
 	}
 
-	// Join keys with dots to create a path
-	dotSeperatedPath := getPath(path...)
-
 	// Use sjson to delete the key
-	resultData, err := sjson.DeleteBytes(data, dotSeperatedPath)
+	resultData, err := sjson.DeleteBytes(data, mutationPath(path...))
 	if err != nil {
-		return nil, fmt.Errorf("failed to delete key: %w", err)
+		return nil, fmt.Errorf("deleting key: %w", err)
 	}
 
 	return resultData, nil
 }
 
 func getPath(path ...string) string {
+	if fastPath, ok := tryFastTidwallPath(path); ok {
+		return fastPath
+	}
+
+	return buildTidwallPath(path, func(key string) string {
+		return `\` + key
+	})
+}
+
+// mutationPath builds an sjson path that preserves literal object keys.
+// Numeric segments are forced to object keys with ":" because sjson would
+// otherwise interpret them as array indexes.
+func mutationPath(path ...string) string {
+	if fastPath, ok := tryFastTidwallPath(path); ok {
+		return fastPath
+	}
+
+	return buildTidwallPath(path, func(key string) string {
+		return ":" + key
+	})
+}
+
+// tryFastTidwallPath handles the common case where all segments are already
+// plain tidwall path components or explicit "[n]" array indexes.
+// It intentionally rejects dotted, numeric, or escapable object-key segments so
+// those continue through the parity-preserving slow path.
+func tryFastTidwallPath(path []string) (string, bool) {
+	if len(path) == 0 {
+		return "", true
+	}
+
+	pathLen := 0
+	for _, key := range path {
+		switch {
+		case isArrayIndexPath(key):
+			pathLen += len(key) - 2
+		case key == "" || strings.IndexByte(key, '.') >= 0:
+			return "", false
+		case isNumericPathComponent(key), needsTidwallEscaping(key):
+			return "", false
+		default:
+			pathLen += len(key)
+		}
+	}
+
+	var b strings.Builder
+	b.Grow(pathLen + len(path) - 1)
+	for i, key := range path {
+		if i > 0 {
+			b.WriteByte('.')
+		}
+		if isArrayIndexPath(key) {
+			b.WriteString(key[1 : len(key)-1])
+			continue
+		}
+		b.WriteString(key)
+	}
+
+	return b.String(), true
+}
+
+// buildTidwallPath converts this package's path format into a tidwall path.
+// It preserves the shared behavior with the grafana backend:
+// dotted path elements are expanded, "[n]" is an array index, and every other
+// segment is treated as a literal object key.
+func buildTidwallPath(path []string, formatNumericKey func(string) string) string {
 	if len(path) == 0 {
 		return ""
 	}
-	// Join keys with dots to create a path
-	return strings.Join(lo.Map(path, func(key string, _ int) string {
-		// handle array index as array index will be [index]
-		if len(key) > 0 && key[0] == '[' {
-			return key[1 : len(key)-1]
+
+	parts := make([]string, 0, len(path))
+	for _, key := range path {
+		if isArrayIndexPath(key) {
+			parts = append(parts, key[1:len(key)-1])
+			continue
 		}
-		return key
-	}), ".")
+		if isNumericPathComponent(key) {
+			parts = append(parts, formatNumericKey(key))
+			continue
+		}
+		parts = append(parts, escapeTidwallPathComponent(key))
+	}
+
+	return strings.Join(parts, ".")
+}
+
+// isArrayIndexPath reports whether a segment uses this package's explicit array
+// index syntax, e.g. "[0]".
+func isArrayIndexPath(key string) bool {
+	if len(key) < 3 || key[0] != '[' || key[len(key)-1] != ']' {
+		return false
+	}
+
+	return isSignedInteger(key[1 : len(key)-1])
+}
+
+// isNumericPathComponent reports whether a segment is a bare number like "0".
+// Those are object keys in the grafana backend, not implicit array indexes.
+func isNumericPathComponent(key string) bool {
+	return isSignedInteger(key)
+}
+
+// escapeTidwallPathComponent escapes a path segment so tidwall treats special
+// syntax characters such as "*", "?", "@", "|", and "#" as literal key bytes.
+func escapeTidwallPathComponent(key string) string {
+	var b strings.Builder
+	b.Grow(len(key))
+
+	for i := 0; i < len(key); i++ {
+		if !isSafeTidwallPathKeyChar(key[i]) {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(key[i])
+	}
+
+	return b.String()
+}
+
+// needsTidwallEscaping reports whether a segment contains bytes that tidwall
+// would interpret as path syntax unless escaped.
+func needsTidwallEscaping(key string) bool {
+	for i := 0; i < len(key); i++ {
+		if !isSafeTidwallPathKeyChar(key[i]) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isSafeTidwallPathKeyChar matches the characters that do not need escaping in
+// a tidwall path component.
+func isSafeTidwallPathKeyChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') || c <= ' ' || c > '~' || c == '_' ||
+		c == '-'
+}
+
+// isSignedInteger reports whether s is a base-10 integer with an optional sign.
+func isSignedInteger(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	start := 0
+	if s[0] == '+' || s[0] == '-' {
+		if len(s) == 1 {
+			return false
+		}
+		start = 1
+	}
+
+	for i := start; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+
+	return true
 }

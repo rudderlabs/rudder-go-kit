@@ -15,6 +15,7 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 		keys     []string
 		want     any
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple key",
@@ -80,10 +81,46 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			wantErr:  false,
 		},
 		{
+			name:     "string with escaped quote",
+			jsonData: `{"key": "hello\"world"}`,
+			keys:     []string{"key"},
+			want:     []byte(`"hello\"world"`),
+			wantErr:  false,
+		},
+		{
+			name:     "string with escaped backslash",
+			jsonData: `{"key": "hello\\world"}`,
+			keys:     []string{"key"},
+			want:     []byte(`"hello\\world"`),
+			wantErr:  false,
+		},
+		{
+			name:     "string with unicode escape",
+			jsonData: `{"key": "\u0041\u0042"}`,
+			keys:     []string{"key"},
+			want:     []byte(`"\u0041\u0042"`),
+			wantErr:  false,
+		},
+		{
+			name:     "string with newline escape",
+			jsonData: `{"key": "line1\nline2"}`,
+			keys:     []string{"key"},
+			want:     []byte(`"line1\nline2"`),
+			wantErr:  false,
+		},
+		{
+			name:     "string with tab escape",
+			jsonData: `{"key": "col1\tcol2"}`,
+			keys:     []string{"key"},
+			want:     []byte(`"col1\tcol2"`),
+			wantErr:  false,
+		},
+		{
 			name:     "empty key",
 			jsonData: `{"name": "John"}`,
 			keys:     []string{""},
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "key not found",
@@ -91,12 +128,14 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"age"},
 			want:     nil,
 			wantErr:  true,
+			err:      ErrKeyNotFound,
 		},
 		{
 			name:     "no keys provided",
 			jsonData: `{"name": "John"}`,
 			keys:     []string{},
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 		{
 			name:     "invalid array index",
@@ -104,6 +143,7 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"users", "[2]"},
 			want:     nil,
 			wantErr:  true,
+			err:      ErrKeyNotFound,
 		},
 		{
 			name:     "invalid json",
@@ -118,12 +158,14 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"name"},
 			want:     nil,
 			wantErr:  true,
+			err:      ErrEmptyJSON,
 		},
 		{
 			name:     "invalid path empty",
 			jsonData: `{"user": {"active": true}}`,
 			keys:     []string{"user", "", "active"},
 			wantErr:  true,
+			err:      ErrKeyNotFound,
 		},
 	}
 
@@ -132,6 +174,9 @@ func suiteGetValue(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.GetValue([]byte(tt.jsonData), tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -148,6 +193,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 		value    any
 		want     map[string]any
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple key",
@@ -198,6 +244,38 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			wantErr:  false,
 		},
 		{
+			name:     "string value with embedded quote",
+			jsonData: `{}`,
+			keys:     []string{"name"},
+			value:    `Jane "JJ" Doe`,
+			want:     map[string]any{"name": `Jane "JJ" Doe`},
+			wantErr:  false,
+		},
+		{
+			name:     "string value with embedded newline",
+			jsonData: `{}`,
+			keys:     []string{"name"},
+			value:    "Jane\nDoe",
+			want:     map[string]any{"name": "Jane\nDoe"},
+			wantErr:  false,
+		},
+		{
+			name:     "string value with embedded backslash",
+			jsonData: `{}`,
+			keys:     []string{"path"},
+			value:    `C:\Users\file`,
+			want:     map[string]any{"path": `C:\Users\file`},
+			wantErr:  false,
+		},
+		{
+			name:     "string value with embedded tab",
+			jsonData: `{}`,
+			keys:     []string{"text"},
+			value:    "col1\tcol2",
+			want:     map[string]any{"text": "col1\tcol2"},
+			wantErr:  false,
+		},
+		{
 			name:     "empty json",
 			jsonData: ``,
 			keys:     []string{"name"},
@@ -212,6 +290,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			value:    "value",
 			want:     nil,
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
@@ -220,6 +299,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			value:    "value",
 			want:     nil,
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 		{
 			name:     "invalid path empty",
@@ -227,6 +307,7 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"user", "", "active"},
 			value:    "cat",
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 	}
 
@@ -235,6 +316,9 @@ func suiteSetValue(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.SetValue([]byte(tt.jsonData), tt.value, tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -317,6 +401,7 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 		keys     []string
 		want     bool
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple boolean true",
@@ -352,6 +437,7 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"active"},
 			want:     false,
 			wantErr:  true,
+			err:      ErrNotOfExpectedType,
 		},
 		{
 			name:     "key not found",
@@ -359,6 +445,7 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"active"},
 			want:     false,
 			wantErr:  true,
+			err:      ErrKeyNotFound,
 		},
 		{
 			name:     "empty json",
@@ -366,6 +453,7 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"active"},
 			want:     false,
 			wantErr:  true,
+			err:      ErrEmptyJSON,
 		},
 		{
 			name:     "empty key",
@@ -373,6 +461,7 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{""},
 			want:     false,
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
@@ -380,6 +469,7 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{},
 			want:     false,
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 		{
 			name:     "null",
@@ -387,6 +477,7 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"active"},
 			want:     false,
 			wantErr:  true,
+			err:      ErrNotOfExpectedType,
 		},
 	}
 
@@ -395,6 +486,9 @@ func suiteGetBoolean(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.GetBoolean([]byte(tt.jsonData), tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -410,6 +504,7 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 		keys     []string
 		want     int64
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple integer",
@@ -438,6 +533,7 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"age"},
 			want:     0,
 			wantErr:  true,
+			err:      ErrNotOfExpectedType,
 		},
 		{
 			name:     "key not found",
@@ -445,6 +541,7 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"age"},
 			want:     0,
 			wantErr:  true,
+			err:      ErrKeyNotFound,
 		},
 		{
 			name:     "empty json",
@@ -452,6 +549,7 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"age"},
 			want:     0,
 			wantErr:  true,
+			err:      ErrEmptyJSON,
 		},
 		{
 			name:     "float value",
@@ -461,11 +559,26 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			wantErr:  false,
 		},
 		{
+			name:     "negative fractional number value truncated",
+			jsonData: `{"age": -2.32}`,
+			keys:     []string{"age"},
+			want:     -2,
+			wantErr:  false,
+		},
+		{
+			name:     "scientific notation integer value",
+			jsonData: `{"age": 1e3}`,
+			keys:     []string{"age"},
+			want:     1000,
+			wantErr:  false,
+		},
+		{
 			name:     "empty key",
 			jsonData: `{"active": true}`,
 			keys:     []string{""},
 			want:     0,
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
@@ -473,6 +586,7 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{},
 			want:     0,
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 		{
 			name:     "null",
@@ -480,6 +594,7 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"active"},
 			want:     0,
 			wantErr:  true,
+			err:      ErrNotOfExpectedType,
 		},
 	}
 
@@ -488,6 +603,9 @@ func suiteGetInt(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.GetInt([]byte(tt.jsonData), tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -503,6 +621,7 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 		keys     []string
 		want     float64
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple float",
@@ -538,6 +657,7 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"price"},
 			want:     0,
 			wantErr:  true,
+			err:      ErrNotOfExpectedType,
 		},
 		{
 			name:     "key not found",
@@ -545,6 +665,7 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"price"},
 			want:     0,
 			wantErr:  true,
+			err:      ErrKeyNotFound,
 		},
 		{
 			name:     "empty json",
@@ -552,6 +673,7 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"price"},
 			want:     0,
 			wantErr:  true,
+			err:      ErrEmptyJSON,
 		},
 		{
 			name:     "empty key",
@@ -559,6 +681,7 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{""},
 			want:     0,
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
@@ -566,6 +689,7 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{},
 			want:     0,
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 		{
 			name:     "null",
@@ -573,6 +697,7 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"active"},
 			want:     0,
 			wantErr:  true,
+			err:      ErrNotOfExpectedType,
 		},
 	}
 
@@ -581,6 +706,9 @@ func suiteGetFloat(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.GetFloat([]byte(tt.jsonData), tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -596,6 +724,7 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 		keys     []string
 		want     string
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple string",
@@ -624,6 +753,7 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"name"},
 			want:     "",
 			wantErr:  true,
+			err:      ErrNotOfExpectedType,
 		},
 		{
 			name:     "key not found",
@@ -631,6 +761,7 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"name"},
 			want:     "",
 			wantErr:  true,
+			err:      ErrKeyNotFound,
 		},
 		{
 			name:     "empty json",
@@ -638,6 +769,7 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"name"},
 			want:     "",
 			wantErr:  true,
+			err:      ErrEmptyJSON,
 		},
 		{
 			name:     "empty key",
@@ -645,6 +777,7 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{""},
 			want:     "",
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
@@ -652,6 +785,7 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{},
 			want:     "",
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 		{
 			name:     "null",
@@ -659,6 +793,71 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"active"},
 			want:     "",
 			wantErr:  true,
+			err:      ErrNotOfExpectedType,
+		},
+		{
+			name:     "literal special key star",
+			jsonData: `{"obj": {"ab": "wildcard-match", "a*b": "literal-star"}}`,
+			keys:     []string{"obj", "a*b"},
+			want:     "literal-star",
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key question",
+			jsonData: `{"obj": {"acb": "question-match", "a?b": "literal-question"}}`,
+			keys:     []string{"obj", "a?b"},
+			want:     "literal-question",
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key modifier",
+			jsonData: `{"obj": {"@reverse": "literal-modifier"}}`,
+			keys:     []string{"obj", "@reverse"},
+			want:     "literal-modifier",
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key pipe",
+			jsonData: `{"obj": {"a|b": "literal-pipe"}}`,
+			keys:     []string{"obj", "a|b"},
+			want:     "literal-pipe",
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key hash",
+			jsonData: `{"obj": {"a#b": "literal-hash"}}`,
+			keys:     []string{"obj", "a#b"},
+			want:     "literal-hash",
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key colon",
+			jsonData: `{"obj": {"a:b": "literal-colon"}}`,
+			keys:     []string{"obj", "a:b"},
+			want:     "literal-colon",
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key backslash",
+			jsonData: `{"obj": {"a\\b": "literal-backslash"}}`,
+			keys:     []string{"obj", `a\b`},
+			want:     "literal-backslash",
+			wantErr:  false,
+		},
+		{
+			name:     "numeric object key",
+			jsonData: `{"obj": {"0": {"x": "object-key"}}}`,
+			keys:     []string{"obj", "0", "x"},
+			want:     "object-key",
+			wantErr:  false,
+		},
+		{
+			name:     "numeric array segment requires brackets",
+			jsonData: `{"arr": [{"x": "array-index"}]}`,
+			keys:     []string{"arr", "0", "x"},
+			want:     "",
+			wantErr:  true,
+			err:      ErrKeyNotFound,
 		},
 	}
 
@@ -667,6 +866,9 @@ func suiteGetString(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.GetString([]byte(tt.jsonData), tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -683,6 +885,7 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 		value    bool
 		want     map[string]any
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple boolean true",
@@ -739,18 +942,14 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			value:    false,
 			want:     nil,
 			wantErr:  true,
-		},
-		{
-			name:     "empty key",
-			jsonData: `{"active": true}`,
-			keys:     []string{""},
-			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
 			jsonData: `{"active": true}`,
 			keys:     []string{},
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 	}
 
@@ -759,6 +958,9 @@ func suiteSetBoolean(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.SetBoolean([]byte(tt.jsonData), tt.value, tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -778,6 +980,7 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 		value    int64
 		want     map[string]any
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple integer",
@@ -826,12 +1029,14 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 			value:    30,
 			want:     nil,
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
 			jsonData: `{"active": true}`,
 			keys:     []string{},
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 	}
 
@@ -840,6 +1045,9 @@ func suiteSetInt(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.SetInt([]byte(tt.jsonData), tt.value, tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -859,6 +1067,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 		value    float64
 		want     map[string]any
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple float",
@@ -907,6 +1116,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			value:    29.99,
 			want:     nil,
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
@@ -914,6 +1124,7 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{},
 			value:    29.99,
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 	}
 
@@ -922,6 +1133,9 @@ func suiteSetFloat(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.SetFloat([]byte(tt.jsonData), tt.value, tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -941,6 +1155,7 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 		value    string
 		want     map[string]any
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple string",
@@ -975,6 +1190,38 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			wantErr:  false,
 		},
 		{
+			name:     "string with embedded quote",
+			jsonData: `{}`,
+			keys:     []string{"name"},
+			value:    `Jane "JJ" Doe`,
+			want:     map[string]any{"name": `Jane "JJ" Doe`},
+			wantErr:  false,
+		},
+		{
+			name:     "string with embedded newline",
+			jsonData: `{}`,
+			keys:     []string{"name"},
+			value:    "Jane\nDoe",
+			want:     map[string]any{"name": "Jane\nDoe"},
+			wantErr:  false,
+		},
+		{
+			name:     "string with embedded backslash",
+			jsonData: `{}`,
+			keys:     []string{"path"},
+			value:    `C:\Users\file`,
+			want:     map[string]any{"path": `C:\Users\file`},
+			wantErr:  false,
+		},
+		{
+			name:     "string with embedded tab",
+			jsonData: `{}`,
+			keys:     []string{"text"},
+			value:    "col1\tcol2",
+			want:     map[string]any{"text": "col1\tcol2"},
+			wantErr:  false,
+		},
+		{
 			name:     "empty json",
 			jsonData: ``,
 			keys:     []string{"name"},
@@ -989,12 +1236,70 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			value:    "Jane",
 			want:     nil,
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
 			jsonData: `{"active": true}`,
 			keys:     []string{},
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
+		},
+		{
+			name:     "literal special key star",
+			jsonData: `{}`,
+			keys:     []string{"obj", "a*b"},
+			value:    "literal-star",
+			want:     map[string]any{"obj": map[string]any{"a*b": "literal-star"}},
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key question",
+			jsonData: `{}`,
+			keys:     []string{"obj", "a?b"},
+			value:    "literal-question",
+			want:     map[string]any{"obj": map[string]any{"a?b": "literal-question"}},
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key modifier",
+			jsonData: `{}`,
+			keys:     []string{"obj", "@reverse"},
+			value:    "literal-modifier",
+			want:     map[string]any{"obj": map[string]any{"@reverse": "literal-modifier"}},
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key pipe",
+			jsonData: `{}`,
+			keys:     []string{"obj", "a|b"},
+			value:    "literal-pipe",
+			want:     map[string]any{"obj": map[string]any{"a|b": "literal-pipe"}},
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key hash",
+			jsonData: `{}`,
+			keys:     []string{"obj", "a#b"},
+			value:    "literal-hash",
+			want:     map[string]any{"obj": map[string]any{"a#b": "literal-hash"}},
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key colon",
+			jsonData: `{}`,
+			keys:     []string{"obj", "a:b"},
+			value:    "literal-colon",
+			want:     map[string]any{"obj": map[string]any{"a:b": "literal-colon"}},
+			wantErr:  false,
+		},
+		{
+			name:     "numeric object key",
+			jsonData: `{}`,
+			keys:     []string{"obj", "0", "x"},
+			value:    "object-key",
+			want:     map[string]any{"obj": map[string]any{"0": map[string]any{"x": "object-key"}}},
+			wantErr:  false,
 		},
 	}
 
@@ -1003,6 +1308,9 @@ func suiteSetString(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.SetString([]byte(tt.jsonData), tt.value, tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -1021,6 +1329,7 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 		keys     []string
 		want     map[string]any
 		wantErr  bool
+		err      error
 	}{
 		{
 			name:     "simple key",
@@ -1056,6 +1365,7 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{"name"},
 			want:     nil,
 			wantErr:  true,
+			err:      ErrEmptyJSON,
 		},
 		{
 			name:     "empty key",
@@ -1063,18 +1373,27 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 			keys:     []string{""},
 			want:     nil,
 			wantErr:  true,
+			err:      ErrEmptyKey,
 		},
 		{
 			name:     "no key",
 			jsonData: `{"active": true}`,
 			keys:     []string{},
 			wantErr:  true,
+			err:      ErrNoKeysProvided,
 		},
 		{
 			name:     "null",
 			jsonData: `{"user": {"name": "John", "age": null}}`,
 			keys:     []string{"user", "age"},
 			want:     map[string]any{"user": map[string]any{"name": "John"}},
+			wantErr:  false,
+		},
+		{
+			name:     "literal special key",
+			jsonData: `{"obj": {"@reverse": "literal-modifier", "a|b": "literal-pipe"}}`,
+			keys:     []string{"obj", "@reverse"},
+			want:     map[string]any{"obj": map[string]any{"a|b": "literal-pipe"}},
 			wantErr:  false,
 		},
 	}
@@ -1084,6 +1403,9 @@ func suiteDeleteKey(t *testing.T, jsonParser JSONParser) {
 			got, err := jsonParser.DeleteKey([]byte(tt.jsonData), tt.keys...)
 			if tt.wantErr {
 				require.Error(t, err)
+				if tt.err != nil {
+					require.ErrorIs(t, err, tt.err)
+				}
 				return
 			}
 			require.NoError(t, err)
@@ -1123,6 +1445,12 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.Equal(t, int64(0), intVal)
 	intVal = jsonParser.GetIntOrZero([]byte(`{"age": null}`), "age")
 	require.Equal(t, int64(0), intVal)
+	intVal = jsonParser.GetIntOrZero([]byte(`{"age": 2.9}`), "age")
+	require.Equal(t, int64(2), intVal)
+	intVal = jsonParser.GetIntOrZero([]byte(`{"age": -2.9}`), "age")
+	require.Equal(t, int64(-2), intVal)
+	intVal = jsonParser.GetIntOrZero([]byte(`{"age": 1e3}`), "age")
+	require.Equal(t, int64(1000), intVal)
 
 	// Test GetFloatOrZero
 	floatVal := jsonParser.GetFloatOrZero([]byte(`{"price": 29.99}`), "price")
@@ -1177,6 +1505,426 @@ func suiteSoftGetter(t *testing.T, jsonParser JSONParser) {
 	require.Empty(t, jsonParser.GetStringOrEmpty([]byte(`{"city": 30}`), ""))
 }
 
+// suiteGJSONFeaturesNotSupported verifies that advanced GJSON path syntax
+// features are NOT interpreted as special syntax by our jsonparser library.
+// All special characters in path segments must be treated as literal key names.
+// Each test uses a JSON payload that contains the special-syntax string as a
+// real object key so the parser must return the literal value, proving it
+// never activates the GJSON feature.
+func suiteGJSONFeaturesNotSupported(t *testing.T, jsonParser JSONParser) {
+	t.Run("wildcards are not pattern matchers", func(t *testing.T) {
+		data := []byte(`{
+			"child*": {"2": "literal-child*"},
+			"children": ["Sara", "Alex", "Jack"],
+			"c?ildren": ["Literal-Sara"],
+			"*": "literal-star",
+			"ag?": "literal-ag?"
+		}`)
+		// In GJSON: "child*.2" would match "children" and return "Jack"
+		// Our parser treats "child*" as a literal key
+		got, err := jsonParser.GetString(data, "child*", "2")
+		require.NoError(t, err)
+		require.Equal(t, "literal-child*", got)
+
+		// In GJSON: "c?ildren.[0]" would match "children" and return "Sara"
+		got, err = jsonParser.GetString(data, "c?ildren", "[0]")
+		require.NoError(t, err)
+		require.Equal(t, "Literal-Sara", got)
+
+		// In GJSON: "*" would match first key
+		got, err = jsonParser.GetString(data, "*")
+		require.NoError(t, err)
+		require.Equal(t, "literal-star", got)
+
+		// In GJSON: "ag?" would match "age"
+		got, err = jsonParser.GetString(data, "ag?")
+		require.NoError(t, err)
+		require.Equal(t, "literal-ag?", got)
+	})
+
+	t.Run("hash does not return array length", func(t *testing.T) {
+		data := []byte(`{
+			"children": {"#": "literal-hash"},
+			"friends": {"#": "literal-friends-hash"}
+		}`)
+		// In GJSON: "children.#" returns 3 (array length)
+		got, err := jsonParser.GetString(data, "children", "#")
+		require.NoError(t, err)
+		require.Equal(t, "literal-hash", got)
+
+		got, err = jsonParser.GetString(data, "friends", "#")
+		require.NoError(t, err)
+		require.Equal(t, "literal-friends-hash", got)
+	})
+
+	t.Run("hash does not iterate array members", func(t *testing.T) {
+		data := []byte(`{
+			"friends": {
+				"#": {"age": "literal-hash-age", "first": "literal-hash-first"}
+			}
+		}`)
+		// In GJSON: "friends.#.age" returns [44,68,47]
+		got, err := jsonParser.GetString(data, "friends", "#", "age")
+		require.NoError(t, err)
+		require.Equal(t, "literal-hash-age", got)
+
+		got, err = jsonParser.GetString(data, "friends", "#", "first")
+		require.NoError(t, err)
+		require.Equal(t, "literal-hash-first", got)
+	})
+
+	t.Run("queries are not supported", func(t *testing.T) {
+		data := []byte(`{
+			"friends": {
+				"#(last==Murphy)": {"first": "literal-query-single"},
+				"#(last==Murphy)#": {"first": "literal-query-multi"},
+				"#(age>45)#": {"last": "literal-gt-query"},
+				"#(first%D*)": {"last": "literal-like-query"},
+				"#(first!%D*)": {"last": "literal-notlike-query"}
+			}
+		}`)
+		got, err := jsonParser.GetString(data, "friends", "#(last==Murphy)", "first")
+		require.NoError(t, err)
+		require.Equal(t, "literal-query-single", got)
+
+		got, err = jsonParser.GetString(data, "friends", "#(last==Murphy)#", "first")
+		require.NoError(t, err)
+		require.Equal(t, "literal-query-multi", got)
+
+		got, err = jsonParser.GetString(data, "friends", "#(age>45)#", "last")
+		require.NoError(t, err)
+		require.Equal(t, "literal-gt-query", got)
+
+		got, err = jsonParser.GetString(data, "friends", "#(first%D*)", "last")
+		require.NoError(t, err)
+		require.Equal(t, "literal-like-query", got)
+
+		got, err = jsonParser.GetString(data, "friends", "#(first!%D*)", "last")
+		require.NoError(t, err)
+		require.Equal(t, "literal-notlike-query", got)
+	})
+
+	t.Run("nested queries are not supported", func(t *testing.T) {
+		data := []byte(`{
+			"friends": {
+				"#(nets.#(==fb))#": {"first": "literal-nested-query"}
+			}
+		}`)
+		got, err := jsonParser.GetString(data, "friends", "#(nets.#(==fb))#", "first")
+		require.NoError(t, err)
+		require.Equal(t, "literal-nested-query", got)
+	})
+
+	t.Run("tilde comparison operator not supported", func(t *testing.T) {
+		data := []byte(`{
+			"vals": {
+				"#(b==~true)#": {"a": "literal-tilde-true"},
+				"#(b==~false)#": {"a": "literal-tilde-false"},
+				"#(b==~null)#": {"a": "literal-tilde-null"},
+				"#(b==~*)#": {"a": "literal-tilde-star"}
+			}
+		}`)
+		got, err := jsonParser.GetString(data, "vals", "#(b==~true)#", "a")
+		require.NoError(t, err)
+		require.Equal(t, "literal-tilde-true", got)
+
+		got, err = jsonParser.GetString(data, "vals", "#(b==~false)#", "a")
+		require.NoError(t, err)
+		require.Equal(t, "literal-tilde-false", got)
+
+		got, err = jsonParser.GetString(data, "vals", "#(b==~null)#", "a")
+		require.NoError(t, err)
+		require.Equal(t, "literal-tilde-null", got)
+
+		got, err = jsonParser.GetString(data, "vals", "#(b==~*)#", "a")
+		require.NoError(t, err)
+		require.Equal(t, "literal-tilde-star", got)
+	})
+
+	t.Run("pipe operator does not work as path separator", func(t *testing.T) {
+		data := []byte(`{
+			"friends|0|first": "literal-pipe-path",
+			"name|first": "literal-pipe-name",
+			"friends": {
+				"#(last=Murphy)#|0": "literal-pipe-query"
+			}
+		}`)
+		// In GJSON: "friends|0|first" is equivalent to "friends.0.first"
+		got, err := jsonParser.GetString(data, "friends|0|first")
+		require.NoError(t, err)
+		require.Equal(t, "literal-pipe-path", got)
+
+		// In GJSON: "name|first" would traverse into name.first
+		got, err = jsonParser.GetString(data, "name|first")
+		require.NoError(t, err)
+		require.Equal(t, "literal-pipe-name", got)
+
+		got, err = jsonParser.GetString(data, "friends", "#(last=Murphy)#|0")
+		require.NoError(t, err)
+		require.Equal(t, "literal-pipe-query", got)
+	})
+
+	t.Run("modifiers are not supported", func(t *testing.T) {
+		data := []byte(`{
+			"children": {"@reverse": "literal-reverse"},
+			"@ugly": "literal-ugly",
+			"@pretty": "literal-pretty",
+			"@this": "literal-this",
+			"@valid": "literal-valid",
+			"friends": {"@flatten": "literal-flatten", "@join": "literal-join", "@group": "literal-group"},
+			"name": {"@keys": "literal-keys", "@values": "literal-values", "@tostr": "literal-tostr"},
+			"@fromstr": "literal-fromstr",
+			"@dig": {"first": "literal-dig"}
+		}`)
+		got, err := jsonParser.GetString(data, "children", "@reverse")
+		require.NoError(t, err)
+		require.Equal(t, "literal-reverse", got)
+
+		got, err = jsonParser.GetString(data, "@ugly")
+		require.NoError(t, err)
+		require.Equal(t, "literal-ugly", got)
+
+		got, err = jsonParser.GetString(data, "@pretty")
+		require.NoError(t, err)
+		require.Equal(t, "literal-pretty", got)
+
+		// In GJSON: @this returns the root element
+		got, err = jsonParser.GetString(data, "@this")
+		require.NoError(t, err)
+		require.Equal(t, "literal-this", got)
+
+		got, err = jsonParser.GetString(data, "@valid")
+		require.NoError(t, err)
+		require.Equal(t, "literal-valid", got)
+
+		got, err = jsonParser.GetString(data, "friends", "@flatten")
+		require.NoError(t, err)
+		require.Equal(t, "literal-flatten", got)
+
+		got, err = jsonParser.GetString(data, "name", "@keys")
+		require.NoError(t, err)
+		require.Equal(t, "literal-keys", got)
+
+		got, err = jsonParser.GetString(data, "name", "@values")
+		require.NoError(t, err)
+		require.Equal(t, "literal-values", got)
+
+		got, err = jsonParser.GetString(data, "friends", "@join")
+		require.NoError(t, err)
+		require.Equal(t, "literal-join", got)
+
+		got, err = jsonParser.GetString(data, "name", "@tostr")
+		require.NoError(t, err)
+		require.Equal(t, "literal-tostr", got)
+
+		got, err = jsonParser.GetString(data, "@fromstr")
+		require.NoError(t, err)
+		require.Equal(t, "literal-fromstr", got)
+
+		got, err = jsonParser.GetString(data, "friends", "@group")
+		require.NoError(t, err)
+		require.Equal(t, "literal-group", got)
+
+		got, err = jsonParser.GetString(data, "@dig", "first")
+		require.NoError(t, err)
+		require.Equal(t, "literal-dig", got)
+	})
+
+	t.Run("modifier arguments are not supported", func(t *testing.T) {
+		data := []byte(`{
+			"@pretty:indent": "literal-pretty-arg",
+			"children": {"@case:upper": "literal-case-arg"}
+		}`)
+		got, err := jsonParser.GetString(data, "@pretty:indent")
+		require.NoError(t, err)
+		require.Equal(t, "literal-pretty-arg", got)
+
+		got, err = jsonParser.GetString(data, "children", "@case:upper")
+		require.NoError(t, err)
+		require.Equal(t, "literal-case-arg", got)
+	})
+
+	t.Run("multipaths are not supported", func(t *testing.T) {
+		data := []byte(`{
+			"{first,age}": "literal-multipath-obj",
+			"{name.first,age}": "literal-multipath-dotted"
+		}`)
+		// In GJSON: {first,age} creates a new JSON array from multiple paths
+		got, err := jsonParser.GetString(data, "{first,age}")
+		require.NoError(t, err)
+		require.Equal(t, "literal-multipath-obj", got)
+
+		// In GJSON: {name.first,age} creates a new JSON object
+		got, err = jsonParser.GetString(data, "{name.first,age}")
+		require.NoError(t, err)
+		require.Equal(t, "literal-multipath-dotted", got)
+	})
+
+	t.Run("literals are not supported", func(t *testing.T) {
+		data := []byte(`{
+			"!true": "literal-bang-true",
+			"!false": "literal-bang-false"
+		}`)
+		// In GJSON: !true is a literal boolean value injected into the result
+		got, err := jsonParser.GetString(data, "!true")
+		require.NoError(t, err)
+		require.Equal(t, "literal-bang-true", got)
+
+		got, err = jsonParser.GetString(data, "!false")
+		require.NoError(t, err)
+		require.Equal(t, "literal-bang-false", got)
+	})
+
+	t.Run("dot in single path segment is literal not path separator", func(t *testing.T) {
+		data := []byte(`{
+			"fav.movie": "Deer Hunter",
+			"fav": {"movie": "nested-movie"}
+		}`)
+		// A single path segment "fav.movie" matches the literal key "fav.movie",
+		// it does NOT split on dots into separate path segments.
+		// Use separate segments "fav", "movie" to navigate nested paths.
+		got, err := jsonParser.GetString(data, "fav.movie")
+		require.NoError(t, err)
+		require.Equal(t, "Deer Hunter", got)
+
+		// Separate segments navigate the nested path
+		got, err = jsonParser.GetString(data, "fav", "movie")
+		require.NoError(t, err)
+		require.Equal(t, "nested-movie", got)
+	})
+
+	t.Run("SetValue treats special syntax as literal keys", func(t *testing.T) {
+		t.Run("wildcard creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "a*b")
+			require.NoError(t, err)
+			// Should create a key literally named "a*b"
+			got, err := jsonParser.GetString(result, "a*b")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("question mark creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "a?b")
+			require.NoError(t, err)
+			got, err := jsonParser.GetString(result, "a?b")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("hash creates literal key not array length", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "items", "#")
+			require.NoError(t, err)
+			got, err := jsonParser.GetString(result, "items", "#")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("modifier syntax creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "@reverse")
+			require.NoError(t, err)
+			got, err := jsonParser.GetString(result, "@reverse")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("pipe creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "a|b")
+			require.NoError(t, err)
+			got, err := jsonParser.GetString(result, "a|b")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("query syntax creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{"items": {}}`), "val", "items", "#(age>45)")
+			require.NoError(t, err)
+			// Should create a literal key, not query into any array
+			got, err := jsonParser.GetString(result, "items", "#(age>45)")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("modifier with argument creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "@pretty:indent")
+			require.NoError(t, err)
+			got, err := jsonParser.GetString(result, "@pretty:indent")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("exclamation mark creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "!true")
+			require.NoError(t, err)
+			got, err := jsonParser.GetString(result, "!true")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("colon creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "a:b")
+			require.NoError(t, err)
+			got, err := jsonParser.GetString(result, "a:b")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+
+		t.Run("dot creates literal key", func(t *testing.T) {
+			result, err := jsonParser.SetValue([]byte(`{}`), "val", "a.b")
+			require.NoError(t, err)
+			got, err := jsonParser.GetString(result, "a.b")
+			require.NoError(t, err)
+			require.Equal(t, "val", got)
+		})
+	})
+
+	t.Run("DeleteKey treats special syntax as literal keys", func(t *testing.T) {
+		t.Run("delete wildcard key", func(t *testing.T) {
+			data := []byte(`{"a*b": "val", "other": "keep"}`)
+			result, err := jsonParser.DeleteKey(data, "a*b")
+			require.NoError(t, err)
+			// "a*b" should be deleted, "other" should remain
+			_, err = jsonParser.GetString(result, "a*b")
+			require.ErrorIs(t, err, ErrKeyNotFound)
+			got, err := jsonParser.GetString(result, "other")
+			require.NoError(t, err)
+			require.Equal(t, "keep", got)
+		})
+
+		t.Run("delete hash key", func(t *testing.T) {
+			data := []byte(`{"items": {"#": "val", "other": "keep"}}`)
+			result, err := jsonParser.DeleteKey(data, "items", "#")
+			require.NoError(t, err)
+			_, err = jsonParser.GetString(result, "items", "#")
+			require.ErrorIs(t, err, ErrKeyNotFound)
+			got, err := jsonParser.GetString(result, "items", "other")
+			require.NoError(t, err)
+			require.Equal(t, "keep", got)
+		})
+
+		t.Run("delete modifier key", func(t *testing.T) {
+			data := []byte(`{"@reverse": "val", "other": "keep"}`)
+			result, err := jsonParser.DeleteKey(data, "@reverse")
+			require.NoError(t, err)
+			_, err = jsonParser.GetString(result, "@reverse")
+			require.ErrorIs(t, err, ErrKeyNotFound)
+			got, err := jsonParser.GetString(result, "other")
+			require.NoError(t, err)
+			require.Equal(t, "keep", got)
+		})
+
+		t.Run("delete pipe key", func(t *testing.T) {
+			data := []byte(`{"a|b": "val", "other": "keep"}`)
+			result, err := jsonParser.DeleteKey(data, "a|b")
+			require.NoError(t, err)
+			_, err = jsonParser.GetString(result, "a|b")
+			require.ErrorIs(t, err, ErrKeyNotFound)
+			got, err := jsonParser.GetString(result, "other")
+			require.NoError(t, err)
+			require.Equal(t, "keep", got)
+		})
+	})
+}
+
 func TestJsonParser(t *testing.T) {
 	libs := []string{TidwallLib, GrafanaLib}
 	for _, lib := range libs {
@@ -1223,6 +1971,9 @@ func TestJsonParser(t *testing.T) {
 			})
 			t.Run("SoftGetter", func(t *testing.T) {
 				suiteSoftGetter(t, jsonParser)
+			})
+			t.Run("GJSONFeaturesNotSupported", func(t *testing.T) {
+				suiteGJSONFeaturesNotSupported(t, jsonParser)
 			})
 		})
 	}
