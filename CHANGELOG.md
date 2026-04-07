@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.74.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.74.1...v0.74.2) (2026-04-07)
+
+
+### Miscellaneous
+
+* add dependabot cooldown ([#1088](https://github.com/rudderlabs/rudder-go-kit/issues/1088)) ([1023c1d](https://github.com/rudderlabs/rudder-go-kit/commit/1023c1dc0c87723f6c4e5268ac8f6dd6bd9d23d1))
+* apply security best practices from step security ([#1090](https://github.com/rudderlabs/rudder-go-kit/issues/1090)) ([d83a813](https://github.com/rudderlabs/rudder-go-kit/commit/d83a8135aef1224dfa269ce09f8906558721911d))
+* **deps:** bump actions/create-github-app-token from 2.2.1 to 3.0.0 ([#1073](https://github.com/rudderlabs/rudder-go-kit/issues/1073)) ([b427ab4](https://github.com/rudderlabs/rudder-go-kit/commit/b427ab4a4010d80b437d063255dd1255e88e5b5b))
+* **deps:** bump actions/setup-go from 6.3.0 to 6.4.0 ([#1085](https://github.com/rudderlabs/rudder-go-kit/issues/1085)) ([19dd689](https://github.com/rudderlabs/rudder-go-kit/commit/19dd6893cc1728faeec281a5c30c0c25a26243be))
+* **deps:** bump aws-actions/amazon-ecr-login from 2.0.1 to 2.1.1 ([#1081](https://github.com/rudderlabs/rudder-go-kit/issues/1081)) ([43a456e](https://github.com/rudderlabs/rudder-go-kit/commit/43a456e7356e8f00f66bf04c7f95149a3a636204))
+* **deps:** bump codecov/codecov-action from 5.5.2 to 6.0.0 ([#1084](https://github.com/rudderlabs/rudder-go-kit/issues/1084)) ([ccba43c](https://github.com/rudderlabs/rudder-go-kit/commit/ccba43c5641fc22a77454de9528b21926c9cf63c))
+* **deps:** bump github.com/go-jose/go-jose/v4 from 4.1.3 to 4.1.4 ([#1087](https://github.com/rudderlabs/rudder-go-kit/issues/1087)) ([f47ff7b](https://github.com/rudderlabs/rudder-go-kit/commit/f47ff7b69ac1a9f3244a121f80a711af0b2a2f21))
+* **deps:** bump google.golang.org/api from 0.271.0 to 0.272.0 in the frequent group ([#1089](https://github.com/rudderlabs/rudder-go-kit/issues/1089)) ([550fc2b](https://github.com/rudderlabs/rudder-go-kit/commit/550fc2b90c07bd7d349bcbbf17e249ac509128ae))
+* **deps:** bump step-security/harden-runner from 2.15.1 to 2.16.0 ([#1071](https://github.com/rudderlabs/rudder-go-kit/issues/1071)) ([007394b](https://github.com/rudderlabs/rudder-go-kit/commit/007394b7ed5ab01b84f6d691ee906f0b6e3b9acd))
+* **deps:** bump the all group across 1 directory with 21 updates ([#1082](https://github.com/rudderlabs/rudder-go-kit/issues/1082)) ([693fade](https://github.com/rudderlabs/rudder-go-kit/commit/693fade02745a137b8482352d2d60d6e1382a64e))
+* **deps:** bump the frequent group across 1 directory with 2 updates ([#1065](https://github.com/rudderlabs/rudder-go-kit/issues/1065)) ([e4d96bc](https://github.com/rudderlabs/rudder-go-kit/commit/e4d96bc6a5dbdf717d260086369ba1ec64526712))
+* **deps:** bump the opentelemetry group with 9 updates ([#1057](https://github.com/rudderlabs/rudder-go-kit/issues/1057)) ([17fe903](https://github.com/rudderlabs/rudder-go-kit/commit/17fe903346a12259bb4589e26ae564fd1e768bcd))
+* jsonparser to treat special characters in JSON keys literally ([#1083](https://github.com/rudderlabs/rudder-go-kit/issues/1083)) ([3078e47](https://github.com/rudderlabs/rudder-go-kit/commit/3078e475361adb5413d64cf91642cf78b071db40))
+
 ## [0.74.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.74.0...v0.74.1) (2026-03-25)
 
 
