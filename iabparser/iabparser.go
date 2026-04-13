@@ -96,7 +96,7 @@ func parseBlacklistLine(line string) (BlacklistEntry, error) {
 		exceptions = strings.Split(fields[2], ", ")
 	}
 
-	dualPass, err := parseBinaryFlagInt(fields[3], "dual-pass flag (field 4)")
+	dualPass, err := parseDualPassFlag(fields[3])
 	if err != nil {
 		return BlacklistEntry{}, err
 	}
@@ -179,14 +179,14 @@ func parseBinaryFlag(s, name string) (bool, error) {
 	}
 }
 
-func parseBinaryFlagInt(s, name string) (int, error) {
+func parseDualPassFlag(s string) (int, error) {
 	switch s {
 	case "0":
 		return 0, nil
 	case "1":
 		return 1, nil
 	default:
-		return 0, fmt.Errorf("%s must be \"0\" or \"1\", got %q", name, s)
+		return 0, fmt.Errorf("dual-pass flag (field 4) must be \"0\" or \"1\", got %q", s)
 	}
 }
 
