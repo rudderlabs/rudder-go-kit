@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.75.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.74.2...v0.75.0) (2026-04-15)
+
+
+### Features
+
+* add IAB blacklist and whitelist parser and validator ([#1095](https://github.com/rudderlabs/rudder-go-kit/issues/1095)) ([3b8dcb1](https://github.com/rudderlabs/rudder-go-kit/commit/3b8dcb1498d36e28d6b6e814c428c1a334b6e565))
+
+
+### Miscellaneous
+
+* **deps:** bump google.golang.org/api from 0.272.0 to 0.273.0 in the frequent group across 1 directory ([#1092](https://github.com/rudderlabs/rudder-go-kit/issues/1092)) ([56268e7](https://github.com/rudderlabs/rudder-go-kit/commit/56268e7b0cce36139f00ce8b8d6b07725204334b))
+* **deps:** bump google.golang.org/api from 0.273.0 to 0.273.1 in the frequent group ([#1097](https://github.com/rudderlabs/rudder-go-kit/issues/1097)) ([dff0ebf](https://github.com/rudderlabs/rudder-go-kit/commit/dff0ebf0a07ef4768a3432481bfa036f55b9e497))
+* **deps:** bump googleapis/release-please-action from 4.4.0 to 4.4.1 ([#1098](https://github.com/rudderlabs/rudder-go-kit/issues/1098)) ([0d419ec](https://github.com/rudderlabs/rudder-go-kit/commit/0d419ec4770694a47715f42e12d2cf7ee90b83f4))
+* **deps:** bump the all group across 1 directory with 4 updates ([#1096](https://github.com/rudderlabs/rudder-go-kit/issues/1096)) ([ddce66a](https://github.com/rudderlabs/rudder-go-kit/commit/ddce66a651c356361e0977d62f8d7a41af7006f6))
+* opentelemetry v1.43.0 ([#1091](https://github.com/rudderlabs/rudder-go-kit/issues/1091)) ([151e1d8](https://github.com/rudderlabs/rudder-go-kit/commit/151e1d8bad0acdad95e48858f3a0b26610f69079))
+
 ## [0.74.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.74.1...v0.74.2) (2026-04-07)
 
 
