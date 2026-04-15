@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
         id: extract_branch
-      - uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # 4.4.0
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # 4.4.1
         with:
           token: ${{ steps.generate-token.outputs.token }}
           config-file: .github/release-please-config.json
