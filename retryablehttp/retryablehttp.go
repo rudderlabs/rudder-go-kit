@@ -17,11 +17,12 @@ type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// retryStrategy is a function that determines whether to retry based on the response and error.
+// retryStrategy is a function that determines whether to retry based on the attempt number, response and error.
+// attempt is the number of the request that just completed (1 = initial request, 2 = first retry, ...).
 // It should return true if the request should be retried, along with an error for the reason of retry.
 // If it returns false, it means no retry is needed and the error(if any while making http req) along with a response can be returned directly.
 // if retry is true, it means the request should be retried and error(if any from retryStrategy) will be sent to onFailure.
-type retryStrategy func(resp *http.Response, err error) (bool, error)
+type retryStrategy func(attempt int, resp *http.Response, err error) (bool, error)
 
 type Config struct {
 	// MaxRetry is the maximum number of retries (<0 means no limit).
@@ -144,14 +145,16 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	if c.config.MaxRetry >= 0 {
 		maxTries = uint(c.config.MaxRetry) + 1
 	}
+	var attempt int
 	_, _ = backoff.Retry(req.Context(),
 		func() (*http.Response, error) {
 			// if the body was read, we need to reset it
 			if bodyBytes != nil {
 				req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
+			attempt++
 			resp, err = c.HttpClient.Do(req) // nolint: bodyclose
-			if retry, retryErr := c.shouldRetry(resp, err); retry {
+			if retry, retryErr := c.shouldRetry(attempt, resp, err); retry {
 				return nil, fmt.Errorf("retryable error: %w", retryErr)
 			}
 			return resp, nil
@@ -175,7 +178,7 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-func BaseRetryStrategy(resp *http.Response, err error) (bool, error) {
+func BaseRetryStrategy(_ int, resp *http.Response, err error) (bool, error) {
 	if err != nil {
 		return true, err
 	}
