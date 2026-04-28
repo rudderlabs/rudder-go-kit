@@ -316,7 +316,7 @@ func TestRetryableHTTPClient_WithCustomRetryStrategy(t *testing.T) {
 
 	// create a custom retry strategy that retries on 404s (which normally wouldn't retry)
 	customRetryCount := 0
-	customRetryStrategy := func(resp *http.Response, err error) (bool, error) {
+	customRetryStrategy := func(_ int, resp *http.Response, err error) (bool, error) {
 		if err != nil {
 			return true, err
 		}
@@ -371,7 +371,9 @@ func TestRetryableHTTPClient_WithCustomRetryStrategy(t *testing.T) {
 func TestRetryableHTTPClient_WithCustomRetryStrategyHttpClientReturnError(t *testing.T) {
 	// create a custom retry strategy that retries on 404s (which normally wouldn't retry)
 	customRetryCount := 0
-	customRetryStrategy := func(resp *http.Response, err error) (bool, error) {
+	var observedAttempts []int
+	customRetryStrategy := func(attempt int, resp *http.Response, err error) (bool, error) {
+		observedAttempts = append(observedAttempts, attempt)
 		customRetryCount++
 		if customRetryCount < 3 {
 			return true, fmt.Errorf("custom retry strategy: retrying")
@@ -409,8 +411,9 @@ func TestRetryableHTTPClient_WithCustomRetryStrategyHttpClientReturnError(t *tes
 	// Assertions
 	require.Error(t, err)
 	require.Nil(t, resp)
-	require.Equal(t, 2, failureCalls)     // Should be called for each retry
-	require.Equal(t, 3, customRetryCount) // Our strategy should have been called and incremented
+	require.Equal(t, 2, failureCalls)                  // Should be called for each retry
+	require.Equal(t, 3, customRetryCount)              // Our strategy should have been called and incremented
+	require.Equal(t, []int{1, 2, 3}, observedAttempts) // Attempt should be 1-indexed and incremented per call
 
 	if resp != nil {
 		resp.Body.Close()
