@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.75.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.75.0...v0.75.1) (2026-04-28)
+
+
+### Miscellaneous
+
+* **deps:** bump aws-actions/amazon-ecr-login from 2.1.2 to 2.1.3 ([#1114](https://github.com/rudderlabs/rudder-go-kit/issues/1114)) ([6f27048](https://github.com/rudderlabs/rudder-go-kit/commit/6f270481a31fd21cf16f942aea224aecaff6aa00))
+* scope workflow permissions to least privilege (SEC-167) ([#1109](https://github.com/rudderlabs/rudder-go-kit/issues/1109)) ([32353ee](https://github.com/rudderlabs/rudder-go-kit/commit/32353eec47d69a24b235a223774184a25f65a6e3))
+
 ## [0.75.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.74.2...v0.75.0) (2026-04-15)
 
 
