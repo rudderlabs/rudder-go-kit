@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.76.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.75.0...v0.76.0) (2026-04-30)
+
+
+### Features
+
+* attempt-aware retryablehttp strategy ([#1111](https://github.com/rudderlabs/rudder-go-kit/issues/1111)) ([931216a](https://github.com/rudderlabs/rudder-go-kit/commit/931216a72e13e15c408b93c46e979cc2fb558ef4))
+
+
+### Miscellaneous
+
+* **deps:** bump aws-actions/amazon-ecr-login from 2.1.2 to 2.1.3 ([#1114](https://github.com/rudderlabs/rudder-go-kit/issues/1114)) ([6f27048](https://github.com/rudderlabs/rudder-go-kit/commit/6f270481a31fd21cf16f942aea224aecaff6aa00))
+* scope workflow permissions to least privilege (SEC-167) ([#1109](https://github.com/rudderlabs/rudder-go-kit/issues/1109)) ([32353ee](https://github.com/rudderlabs/rudder-go-kit/commit/32353eec47d69a24b235a223774184a25f65a6e3))
+
 ## [0.75.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.74.2...v0.75.0) (2026-04-15)
 
 
