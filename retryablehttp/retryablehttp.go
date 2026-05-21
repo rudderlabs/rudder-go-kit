@@ -146,7 +146,8 @@ func (c *retryableHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		maxTries = uint(c.config.MaxRetry) + 1
 	}
 	var attempt int
-	_, _ = backoff.Retry(req.Context(),
+	_, _ = backoff.Retry(
+		req.Context(),
 		func() (*http.Response, error) {
 			// if the body was read, we need to reset it
 			if bodyBytes != nil {

@@ -369,7 +369,8 @@ func addExponentialHistogramMetric[N int64 | float64](
 		if scale < -4 {
 			otel.Handle(fmt.Errorf(
 				"exponential histogram scale %d is below minimum supported scale -4, skipping data point",
-				scale))
+				scale,
+			))
 			continue
 		}
 
@@ -410,7 +411,8 @@ func addExponentialHistogramMetric[N int64 | float64](
 			scale,
 			dp.ZeroThreshold,
 			dp.StartTime,
-			values...)
+			values...,
+		)
 		if err != nil {
 			otel.Handle(err)
 			continue

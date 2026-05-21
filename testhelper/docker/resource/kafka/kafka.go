@@ -267,17 +267,20 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 
 		switch c.saslConfig.hashType {
 		case scramPlainText:
-			envVariables = append(envVariables,
+			envVariables = append(
+				envVariables,
 				"KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN",
 				"KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN",
 			)
 		case scramSHA256:
-			envVariables = append(envVariables,
+			envVariables = append(
+				envVariables,
 				"KAFKA_CFG_SASL_ENABLED_MECHANISMS=SCRAM-SHA-256",
 				"KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=SCRAM-SHA-256",
 			)
 		case scramSHA512:
-			envVariables = append(envVariables,
+			envVariables = append(
+				envVariables,
 				"KAFKA_CFG_SASL_ENABLED_MECHANISMS=SCRAM-SHA-512",
 				"KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=SCRAM-SHA-512",
 			)
@@ -285,7 +288,8 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			return nil, fmt.Errorf("scram algorithm out of the known domain")
 		}
 
-		envVariables = append(envVariables,
+		envVariables = append(
+			envVariables,
 			"KAFKA_CLIENT_USERS="+users[:len(users)-1],             // removing trailing comma
 			"KAFKA_CLIENT_PASSWORDS="+passwords[:len(passwords)-1], // removing trailing comma
 			"KAFKA_INTER_BROKER_USER="+c.saslConfig.BrokerUser.Username,
@@ -298,7 +302,8 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 			"KAFKA_ZOOKEEPER_TLS_VERIFY_HOSTNAME=false",
 		)
 	} else {
-		envVariables = append(envVariables,
+		envVariables = append(
+			envVariables,
 			"KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT",
 		)
 	}

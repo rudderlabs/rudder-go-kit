@@ -107,7 +107,8 @@ func TestSet_WithMinProcs(t *testing.T) {
 	defer runtime.GOMAXPROCS(before)
 
 	mockLog := requireLoggerInfo(t, 0.1, 5, 1.5, 0, 5)
-	set("100m",
+	set(
+		"100m",
 		withMinProcs(5),
 		withLogger(mockLog),
 	)
@@ -137,7 +138,8 @@ func TestSet_WithMultiplier(t *testing.T) {
 	defer runtime.GOMAXPROCS(before)
 
 	mockLog := requireLoggerInfo(t, 0.3, 1, 4, 0, 2)
-	set("300m",
+	set(
+		"300m",
 		withCPURequestsMultiplier(4),
 		withLogger(mockLog),
 	)
@@ -167,7 +169,8 @@ func TestSet_CustomRoundQuotaFunc(t *testing.T) {
 	roundFloor := func(f float64) int { return int(math.Floor(f)) }
 
 	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, 0, 2)
-	set("1500m",
+	set(
+		"1500m",
 		withRoundQuotaFunc(roundFloor),
 		withLogger(mockLog),
 	)
@@ -180,7 +183,8 @@ func TestSet_WithMaxProcs(t *testing.T) {
 	defer runtime.GOMAXPROCS(before)
 
 	mockLog := requireLoggerInfo(t, 10, 1, 1.5, 8, 8)
-	set("10000m",
+	set(
+		"10000m",
 		withMaxProcs(8),
 		withLogger(mockLog),
 	)
@@ -193,7 +197,8 @@ func TestSet_WithMaxProcsNoEffect(t *testing.T) {
 	defer runtime.GOMAXPROCS(before)
 
 	mockLog := requireLoggerInfo(t, 0.1, 1, 1.5, 10, 1)
-	set("100m",
+	set(
+		"100m",
 		withMaxProcs(10),
 		withLogger(mockLog),
 	)
@@ -240,7 +245,8 @@ func TestSetWithConfig_CustomRoundQuotaFunc(t *testing.T) {
 
 	numCPU := runtime.NumCPU()
 	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, int64(numCPU), 2)
-	setWithConfig(cfg,
+	setWithConfig(
+		cfg,
 		withRoundQuotaFunc(roundFloor),
 		withLogger(mockLog),
 	)
@@ -290,7 +296,8 @@ func TestSetWithConfig_ReadFromFile(t *testing.T) {
 	numCPU := runtime.NumCPU()
 	expectedResult := min(numCPU, 3)
 	mockLog := requireLoggerInfo(t, 1.5, 1, 1.5, int64(numCPU), int64(expectedResult))
-	mockLog.EXPECT().Infon("Using CPU requests from file",
+	mockLog.EXPECT().Infon(
+		"Using CPU requests from file",
 		logger.NewStringField("requests", "1500m"),
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
@@ -352,7 +359,8 @@ func TestSetWithConfig_WatchDisabled(t *testing.T) {
 
 	numCPU := runtime.NumCPU()
 	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
-	mockLog.EXPECT().Infon("Using CPU requests from file",
+	mockLog.EXPECT().Infon(
+		"Using CPU requests from file",
 		logger.NewStringField("requests", "1000m"),
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
@@ -380,15 +388,18 @@ func TestSetWithConfig_FileWatcherWithChanges(t *testing.T) {
 	expectedAfterUpdate := min(numCPU, 3)
 
 	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
-	mockLog.EXPECT().Infon("Using CPU requests from file",
+	mockLog.EXPECT().Infon(
+		"Using CPU requests from file",
 		logger.NewStringField("requests", "1000m"),
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
-	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes",
+	mockLog.EXPECT().Infon(
+		"Starting file watcher to monitor CPU requests changes",
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
 	mockLog.EXPECT().Withn(logger.NewStringField("file", requestsFile)).Return(mockLog).Times(1)
-	mockLog.EXPECT().Infon("GOMAXPROCS has been configured", // 2nd call is for the watcher
+	mockLog.EXPECT().Infon(
+		"GOMAXPROCS has been configured", // 2nd call is for the watcher
 		logger.NewFloatField("cpuRequests", 2),
 		logger.NewFloatField("multiplier", 1.5),
 		logger.NewIntField("minProcs", 1),
@@ -434,11 +445,13 @@ func TestSetWithConfig_FileWatcherWithSignal(t *testing.T) {
 
 	numCPU := runtime.NumCPU()
 	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
-	mockLog.EXPECT().Infon("Using CPU requests from file",
+	mockLog.EXPECT().Infon(
+		"Using CPU requests from file",
 		logger.NewStringField("requests", "1000m"),
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
-	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes",
+	mockLog.EXPECT().Infon(
+		"Starting file watcher to monitor CPU requests changes",
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
 	mockLog.EXPECT().Withn(logger.NewStringField("file", requestsFile)).Return(mockLog).Times(1)
@@ -564,7 +577,8 @@ func TestSetWithConfig_ZeroInFile(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	mockLog := mock_logger.NewMockLogger(ctrl)
-	mockLog.EXPECT().Infon("Using CPU requests from file",
+	mockLog.EXPECT().Infon(
+		"Using CPU requests from file",
 		logger.NewStringField("requests", "0m"),
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
@@ -590,11 +604,13 @@ func TestSetWithConfig_FileWatcherWithZeroValue(t *testing.T) {
 	numCPU := runtime.NumCPU()
 
 	mockLog := requireLoggerInfo(t, 1, 1, 1.5, int64(numCPU), 2)
-	mockLog.EXPECT().Infon("Using CPU requests from file",
+	mockLog.EXPECT().Infon(
+		"Using CPU requests from file",
 		logger.NewStringField("requests", "1000m"),
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
-	mockLog.EXPECT().Infon("Starting file watcher to monitor CPU requests changes",
+	mockLog.EXPECT().Infon(
+		"Starting file watcher to monitor CPU requests changes",
 		logger.NewStringField("file", requestsFile),
 	).Times(1)
 	mockLog.EXPECT().Withn(logger.NewStringField("file", requestsFile)).Return(mockLog).Times(1)
@@ -660,7 +676,8 @@ func requireLoggerInfo(t testing.TB,
 	t.Helper()
 	ctrl := gomock.NewController(t)
 	mockLog := mock_logger.NewMockLogger(ctrl)
-	mockLog.EXPECT().Infon("GOMAXPROCS has been configured",
+	mockLog.EXPECT().Infon(
+		"GOMAXPROCS has been configured",
 		logger.NewFloatField("cpuRequests", cpuRequests),
 		logger.NewFloatField("multiplier", multiplier),
 		logger.NewIntField("minProcs", minProcs),

@@ -209,7 +209,8 @@ func (m *S3Manager) Delete(ctx context.Context, keys []string) error {
 		if err != nil {
 			var apiErr smithy.APIError
 			if errors.As(err, &apiErr) {
-				m.logger.Errorn("Error while deleting S3 objects",
+				m.logger.Errorn(
+					"Error while deleting S3 objects",
 					obskit.Error(err), logger.NewStringField("error_code", apiErr.ErrorCode()),
 				)
 			} else {
@@ -279,7 +280,8 @@ func (m *S3Manager) getClient(ctx context.Context) (*s3.Client, error) {
 	if m.config.Region == nil || *m.config.Region == "" {
 		region, err := awsutil.GetRegionFromBucket(ctx, m.config.Bucket, m.config.RegionHint)
 		if err != nil {
-			m.logger.Errorn("Failed to fetch AWS region for bucket",
+			m.logger.Errorn(
+				"Failed to fetch AWS region for bucket",
 				logger.NewStringField("bucket", m.config.Bucket), obskit.Error(err),
 			)
 			// Failed to get Region probably due to VPC restrictions

@@ -75,7 +75,8 @@ func StatMiddleware(ctx context.Context, s stats.Stats, component string, option
 					"reqType": getPath(r),
 					"method":  r.Method,
 					"code":    strconv.Itoa(sw.status),
-				}).Since(start)
+				},
+			).Since(start)
 		})
 	}
 }

@@ -26,7 +26,8 @@ func TestMinioResource(t *testing.T) {
 	minioResource, err := Setup(pool, t)
 	require.NoError(t, err)
 
-	_, err = minioResource.Client.FPutObject(context.Background(),
+	_, err = minioResource.Client.FPutObject(
+		context.Background(),
 		minioResource.BucketName, prefix+"/"+objectName, "testdata/minio.object", minio.PutObjectOptions{},
 	)
 	require.NoError(t, err)
@@ -69,7 +70,8 @@ func TestMinioContents(t *testing.T) {
 	minioResource, err := Setup(pool, t)
 	require.NoError(t, err)
 
-	uploadInfo, err := minioResource.Client.PutObject(context.Background(),
+	uploadInfo, err := minioResource.Client.PutObject(
+		context.Background(),
 		minioResource.BucketName, "test-bucket/hello.txt", bytes.NewBufferString("hello"), -1, minio.PutObjectOptions{},
 	)
 	require.NoError(t, err)
@@ -82,13 +84,15 @@ func TestMinioContents(t *testing.T) {
 	err = gz.Close()
 	require.NoError(t, err)
 
-	uploadInfo, err = minioResource.Client.PutObject(context.Background(),
+	uploadInfo, err = minioResource.Client.PutObject(
+		context.Background(),
 		minioResource.BucketName, "test-bucket/hello.txt.gz", &b, -1, minio.PutObjectOptions{},
 	)
 	require.NoError(t, err)
 	etag2 := uploadInfo.ETag
 
-	uploadInfo, err = minioResource.Client.PutObject(context.Background(),
+	uploadInfo, err = minioResource.Client.PutObject(
+		context.Background(),
 		minioResource.BucketName, "test-bucket/empty", bytes.NewBuffer([]byte{}), -1, minio.PutObjectOptions{},
 	)
 	require.NoError(t, err)

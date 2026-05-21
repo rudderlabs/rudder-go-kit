@@ -32,13 +32,15 @@ func TestTraces(t *testing.T) {
 		require.NoError(t, exp.Shutdown(ctx))
 	})
 
-	res, err := NewResource(t.Name(), "v1.2.3",
+	res, err := NewResource(
+		t.Name(), "v1.2.3",
 		attribute.String("instanceName", "my-instance-id"),
 	)
 	require.NoError(t, err)
 
 	var om Manager
-	tp, _, err := om.Setup(ctx, res,
+	tp, _, err := om.Setup(
+		ctx, res,
 		WithCustomTracerProvider(exp, WithTracingSamplingRate(1.0), WithTracingSyncer()),
 		WithTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 			propagation.TraceContext{}, propagation.Baggage{},
@@ -75,7 +77,8 @@ func TestOTLPHTTPIntegration(t *testing.T) {
 	jaegerContainer, err := jaeger.Setup(pool, t)
 	require.NoError(t, err)
 
-	res, err := NewResource(t.Name(), "v1.2.3",
+	res, err := NewResource(
+		t.Name(), "v1.2.3",
 		attribute.String("instanceName", "my-instance-id"),
 	)
 	require.NoError(t, err)
@@ -84,8 +87,10 @@ func TestOTLPHTTPIntegration(t *testing.T) {
 		om  Manager
 		ctx = context.Background()
 	)
-	tp, _, err := om.Setup(ctx, res,
-		WithTracerProvider(jaegerContainer.OTLPEndpoint,
+	tp, _, err := om.Setup(
+		ctx, res,
+		WithTracerProvider(
+			jaegerContainer.OTLPEndpoint,
 			WithTracingSamplingRate(1.0),
 			WithTracingSyncer(),
 			WithOTLPHTTP(),

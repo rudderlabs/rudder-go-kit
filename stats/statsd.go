@@ -88,7 +88,8 @@ func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) err
 		}
 	})
 
-	s.logger.Infon("Stats started successfully",
+	s.logger.Infon(
+		"Stats started successfully",
 		logger.NewStringField("mode", "StatsD"),
 		logger.NewStringField("url", s.statsdConfig.statsdServerURL),
 	)
@@ -192,7 +193,8 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 	newTags := make(Tags)
 	for k, v := range tags {
 		if strings.Trim(k, " ") == "" {
-			s.logger.Warnn("removing empty tag key",
+			s.logger.Warnn(
+				"removing empty tag key",
 				logger.NewStringField("value", v),
 				logger.NewStringField("measurement", name),
 			)

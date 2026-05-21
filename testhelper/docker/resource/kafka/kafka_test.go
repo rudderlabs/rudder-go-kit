@@ -39,7 +39,8 @@ func TestResource(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	res, err := Setup(pool, t,
+	res, err := Setup(
+		pool, t,
 		WithBrokers(3),
 	)
 	require.NoError(t, err)
@@ -58,7 +59,8 @@ func TestResource(t *testing.T) {
 	t.Cleanup(func() { _ = w.Close() })
 
 	require.Eventually(t, func() bool {
-		err := w.WriteMessages(ctx,
+		err := w.WriteMessages(
+			ctx,
 			kafka.Message{Topic: topic, Key: []byte("one"), Value: []byte("one!")},
 			kafka.Message{Topic: topic, Key: []byte("two"), Value: []byte("two!")},
 			kafka.Message{Topic: topic, Key: []byte("three"), Value: []byte("three!")},
@@ -132,7 +134,8 @@ func TestWithSASL(t *testing.T) {
 			t.Cleanup(func() { _ = w.Close() })
 
 			require.Eventually(t, func() bool {
-				err := w.WriteMessages(context.Background(),
+				err := w.WriteMessages(
+					context.Background(),
 					kafka.Message{Topic: "my-topic", Key: []byte("one"), Value: []byte("one!")},
 					kafka.Message{Topic: "my-topic", Key: []byte("two"), Value: []byte("two!")},
 					kafka.Message{Topic: "my-topic", Key: []byte("three"), Value: []byte("three!")},
@@ -225,7 +228,8 @@ func TestAvroSchemaRegistry(t *testing.T) {
 
 	t.Log("Writing message")
 	require.Eventually(t, func() bool {
-		err := w.WriteMessages(context.Background(),
+		err := w.WriteMessages(
+			context.Background(),
 			kafka.Message{Topic: topic, Key: []byte("123"), Value: avroMessage},
 		)
 		if err != nil {
@@ -249,7 +253,8 @@ func TestSSH(t *testing.T) {
 	require.NoError(t, err)
 
 	// Start Kafka cluster with ZooKeeper and three brokers
-	_, err = Setup(pool, t,
+	_, err = Setup(
+		pool, t,
 		WithBrokers(1),
 		WithNetwork(network),
 		WithoutDockerHostListeners(),
@@ -260,7 +265,8 @@ func TestSSH(t *testing.T) {
 	privateKeyPath, publicKeyPath, err := keygen.NewRSAKeyPair(2048, keygen.SaveTo(t.TempDir()))
 	require.NoError(t, err)
 
-	sshServer, err := sshserver.Setup(pool, t,
+	sshServer, err := sshserver.Setup(
+		pool, t,
 		sshserver.WithPublicKeyPath(publicKeyPath),
 		sshserver.WithCredentials("linuxserver.io", ""),
 		sshserver.WithDockerNetwork(network),
@@ -310,7 +316,8 @@ func TestSSH(t *testing.T) {
 	t.Cleanup(func() { _ = w.Close() })
 
 	require.Eventually(t, func() bool {
-		err := w.WriteMessages(context.Background(),
+		err := w.WriteMessages(
+			context.Background(),
 			kafka.Message{Topic: "my-topic", Key: []byte("foo"), Value: []byte("bar!")},
 		)
 		if err != nil {

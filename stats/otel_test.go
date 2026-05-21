@@ -255,7 +255,8 @@ func TestOTelMeasurementOperations(t *testing.T) {
 		md := getDataPoint[metricdata.Gauge[float64]](ctx, t, r, "novalue", 0)
 		require.Len(t, md.DataPoints, 1)
 		require.EqualValues(t, 22, md.DataPoints[0].Value)
-		require.True(t, md.DataPoints[0].Attributes.Equals(newAttributesSet(t,
+		require.True(t, md.DataPoints[0].Attributes.Equals(newAttributesSet(
+			t,
 			attribute.String("key", "value"),
 		)))
 	})
@@ -306,7 +307,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 	require.NoError(t, err)
 
 	runTest := func(t *testing.T, prepareFunc func(c *config.Config, m metric.Manager), expected []expectation) {
-		container, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+		container, grpcEndpoint := statsTest.StartOTelCollector(
+			t, metricsPort,
 			filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 		)
 
@@ -319,7 +321,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 		prepareFunc(c, m)
 
 		l := logger.NewFactory(c)
-		s := NewStats(c, l, m,
+		s := NewStats(
+			c, l, m,
 			WithServiceName("TestOTelPeriodicStats"),
 			WithServiceVersion("v1.2.3"),
 		)
@@ -361,7 +364,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 			require.EqualValues(t, ptr(promClient.MetricType_GAUGE), metrics[metricName].Type)
 			require.Len(t, metrics[metricName].Metric, 1)
 
-			expectedLabels := append(globalDefaultAttrs,
+			expectedLabels := append(
+				globalDefaultAttrs,
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
 				&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
 				&promClient.LabelPair{Name: new("job"), Value: new("TestOTelPeriodicStats")},
@@ -370,7 +374,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 			if exp.tags != nil {
 				expectedLabels = append(expectedLabels, exp.tags...)
 			}
-			require.ElementsMatchf(t, expectedLabels, metrics[metricName].Metric[0].Label,
+			require.ElementsMatchf(
+				t, expectedLabels, metrics[metricName].Metric[0].Label,
 				"Got %+v", metrics[metricName].Metric[0].Label,
 			)
 		}
@@ -470,7 +475,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 func TestOTelExcludedTags(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
-	container, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+	container, grpcEndpoint := statsTest.StartOTelCollector(
+		t, metricsPort,
 		filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 	)
 
@@ -505,7 +511,8 @@ func TestOTelExcludedTags(t *testing.T) {
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[expectedMetricName].Type)
 	require.Len(t, metrics[expectedMetricName].Metric, 1)
 	require.EqualValues(t, &promClient.Counter{Value: new(1.0)}, metrics[expectedMetricName].Metric[0].Counter)
-	require.ElementsMatchf(t, append(globalDefaultAttrs,
+	require.ElementsMatchf(t, append(
+		globalDefaultAttrs,
 		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
 		&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
 		&promClient.LabelPair{Name: new("should_not_be_filtered"), Value: new("fancy-value")},
@@ -523,7 +530,8 @@ func TestOTelStartStopError(t *testing.T) {
 	s := NewStats(c, l, m)
 
 	ctx := context.Background()
-	require.Error(t, s.Start(ctx, DefaultGoRoutineFactory),
+	require.Error(
+		t, s.Start(ctx, DefaultGoRoutineFactory),
 		"we should error if no endpoint is provided but stats are enabled",
 	)
 
@@ -550,7 +558,8 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 	scenarios := []testCase{
 		{
 			name: "grpc",
-			additionalLabels: append(globalDefaultAttrs,
+			additionalLabels: append(
+				globalDefaultAttrs,
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
 				&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
 			),
@@ -558,7 +567,8 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 			setupMeterProvider: func(t testing.TB) (Stats, string) {
 				cwd, err := os.Getwd()
 				require.NoError(t, err)
-				container, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+				container, grpcEndpoint := statsTest.StartOTelCollector(
+					t, metricsPort,
 					filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 				)
 
@@ -570,7 +580,8 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				c.Set("RuntimeStats.enabled", false)
 				l := logger.NewFactory(c)
 				m := metric.NewManager()
-				s := NewStats(c, l, m,
+				s := NewStats(
+					c, l, m,
 					WithServiceName("TestOTelHistogramBuckets"),
 					WithServiceVersion("v1.2.3"),
 					WithDefaultHistogramBuckets([]float64{10, 20, 30}),
@@ -598,7 +609,8 @@ func TestOTelMeasurementsConsistency(t *testing.T) {
 				c.Set("RuntimeStats.enabled", false)
 				l := logger.NewFactory(c)
 				m := metric.NewManager()
-				s := NewStats(c, l, m,
+				s := NewStats(
+					c, l, m,
 					WithServiceName("TestOTelHistogramBuckets"),
 					WithServiceVersion("v1.2.3"),
 					WithDefaultHistogramBuckets([]float64{10, 20, 30}),
@@ -718,7 +730,8 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		l := logger.NewFactory(c)
 		m := metric.NewManager()
 		r := prometheus.NewRegistry()
-		s := NewStats(c, l, m,
+		s := NewStats(
+			c, l, m,
 			WithServiceName("TestPrometheusCustomRegistry"),
 			WithServiceVersion("v1.2.3"),
 			WithPrometheusRegistry(r, r),
@@ -759,7 +772,8 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
 		require.Len(t, metrics[metricName].Metric, 1)
 		require.EqualValues(t, &promClient.Counter{Value: new(7.0)}, metrics[metricName].Metric[0].Counter)
-		require.ElementsMatchf(t, append(globalDefaultAttrs,
+		require.ElementsMatchf(t, append(
+			globalDefaultAttrs,
 			&promClient.LabelPair{Name: new("a"), Value: new("b")},
 			&promClient.LabelPair{Name: new("job"), Value: new("TestPrometheusCustomRegistry")},
 			&promClient.LabelPair{Name: new("service_name"), Value: new("TestPrometheusCustomRegistry")},
@@ -782,7 +796,8 @@ func TestPrometheusCustomRegistry(t *testing.T) {
 		require.EqualValues(t, metricName, mf.GetName())
 		require.EqualValues(t, promClient.MetricType_COUNTER, mf.GetType())
 		require.Len(t, mf.GetMetric(), 1)
-		require.ElementsMatch(t, append(globalDefaultAttrs,
+		require.ElementsMatch(t, append(
+			globalDefaultAttrs,
 			&promClient.LabelPair{Name: new("a"), Value: new("b")},
 			&promClient.LabelPair{Name: new("job"), Value: new("TestPrometheusCustomRegistry")},
 			&promClient.LabelPair{Name: new("service_name"), Value: new("TestPrometheusCustomRegistry")},
@@ -815,7 +830,8 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	l := newLoggerSpyFactory(loggerFactory)
 	m := metric.NewManager()
 	r := prometheus.NewRegistry()
-	s := NewStats(c, l, m,
+	s := NewStats(
+		c, l, m,
 		WithServiceName(t.Name()),
 		WithServiceVersion("v1.2.3"),
 		WithPrometheusRegistry(r, r),
@@ -851,7 +867,8 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics[metricName].Type)
 	require.Len(t, metrics[metricName].Metric, 1)
 	require.EqualValues(t, &promClient.Counter{Value: new(7.0)}, metrics[metricName].Metric[0].Counter)
-	require.ElementsMatchf(t, append(globalDefaultAttrs,
+	require.ElementsMatchf(t, append(
+		globalDefaultAttrs,
 		&promClient.LabelPair{Name: new("a"), Value: new("b")},
 		&promClient.LabelPair{Name: new("job"), Value: new(t.Name())},
 		&promClient.LabelPair{Name: new("service_name"), Value: new(t.Name())},
@@ -875,7 +892,8 @@ func TestExponentialHistogram(t *testing.T) {
 		r := prometheus.NewRegistry()
 
 		// Create stats with exponential histogram enabled
-		s := NewStats(c, l, m,
+		s := NewStats(
+			c, l, m,
 			WithServiceName(t.Name()),
 			WithServiceVersion("v1.2.3"),
 			WithPrometheusRegistry(r, r),
@@ -952,7 +970,8 @@ func TestExponentialHistogram(t *testing.T) {
 
 		histogramName := "test_per_histogram_exponential"
 		// Create stats with per-histogram exponential config
-		s := NewStats(c, l, m,
+		s := NewStats(
+			c, l, m,
 			WithServiceName(t.Name()),
 			WithServiceVersion("v1.2.3"),
 			WithPrometheusRegistry(r, r),

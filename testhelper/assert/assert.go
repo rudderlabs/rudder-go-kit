@@ -60,7 +60,8 @@ func RequireEventuallyStatusCode(
 		body             []byte
 		actualStatusCode int
 	)
-	require.Eventuallyf(t,
+	require.Eventuallyf(
+		t,
 		func() bool {
 			resp, err := config.httpClient.Do(r)
 			if err != nil {
