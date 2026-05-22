@@ -1,4 +1,4 @@
-package redis
+package valkey
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
-const redisPort = "6379"
+const servicePort = "6379"
 
 // WithTag is used to specify a custom tag that is used when pulling the Redis image from the container registry
 func WithTag(tag string) Option {
@@ -59,8 +59,8 @@ type redisConfig struct {
 
 func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource, error) {
 	conf := redisConfig{
-		tag:        "8",
-		repository: "redis",
+		tag:        "9",
+		repository: "valkey",
 	}
 	for _, opt := range opts {
 		opt(&conf)
@@ -70,8 +70,8 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 		Tag:          conf.tag,
 		Env:          conf.envs,
 		Cmd:          []string{"redis-server"},
-		ExposedPorts: []string{redisPort + "/tcp"},
-		PortBindings: internal.IPv4PortBindings([]string{redisPort}),
+		ExposedPorts: []string{servicePort + "/tcp"},
+		PortBindings: internal.IPv4PortBindings([]string{servicePort}),
 		Auth:         registry.AuthConfiguration(),
 	}
 	if len(conf.cmdArgs) > 0 {
@@ -90,7 +90,7 @@ func Setup(ctx context.Context, pool *dockertest.Pool, d resource.Cleaner, opts 
 	}
 
 	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
-	addr := fmt.Sprintf("%s:%s", container.GetBoundIP(redisPort+"/tcp"), container.GetPort(redisPort+"/tcp"))
+	addr := fmt.Sprintf("%s:%s", container.GetBoundIP(servicePort+"/tcp"), container.GetPort(servicePort+"/tcp"))
 	err = pool.Retry(func() error {
 		redisClient := redis.NewClient(&redis.Options{
 			Addr: addr,
