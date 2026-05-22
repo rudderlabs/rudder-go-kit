@@ -121,7 +121,8 @@ func TestStatsdMeasurementOperations(t *testing.T) {
 
 	l := logger.NewFactory(c)
 	m := metric.NewManager()
-	s := stats.NewStats(c, l, m,
+	s := stats.NewStats(
+		c, l, m,
 		stats.WithServiceName("test-service"),
 		stats.WithServiceVersion("1.0.0"),
 	)
@@ -436,19 +437,22 @@ func TestStatsdRegisterCollector(t *testing.T) {
 	}
 
 	t.Run("static stats", func(t *testing.T) {
-		runTest(t,
+		runTest(
+			t,
 			[]string{"a_custom_metric,instanceName=test,namespace=my-namespace"},
 			collectors.NewStaticMetric("a_custom_metric", nil, 1),
 		)
 
-		runTest(t,
+		runTest(
+			t,
 			[]string{"a_custom_metric,instanceName=test,namespace=my-namespace,foo=bar"},
 			collectors.NewStaticMetric("a_custom_metric", stats.Tags{"foo": "bar"}, 1),
 		)
 	})
 
 	t.Run("multiple collectors", func(t *testing.T) {
-		runTest(t,
+		runTest(
+			t,
 			[]string{
 				"col_1,instanceName=test,namespace=my-namespace",
 				"col_2,instanceName=test,namespace=my-namespace",
@@ -467,7 +471,8 @@ func TestStatsdRegisterCollector(t *testing.T) {
 		}
 		defer db.Close()
 
-		runTest(t,
+		runTest(
+			t,
 			[]string{
 				"sql_db_max_open_connections,instanceName=test,namespace=my-namespace,name=test",
 				"sql_db_open_connections,instanceName=test,namespace=my-namespace,name=test",

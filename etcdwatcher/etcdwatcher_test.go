@@ -53,10 +53,10 @@ func TestWatcher_Builder(t *testing.T) {
 
 	t.Run("valid construction with explicit values", func(t *testing.T) {
 		client := &MockEtcdClient{}
-		watcher, err := (etcdwatcher.NewBuilder[TestData](client, "/test/").
+		watcher, err := etcdwatcher.NewBuilder[TestData](client, "/test/").
 			WithPrefix().
 			WithWatchEventType(etcdwatcher.PutWatchEventType).
-			WithWatchMode(etcdwatcher.AllMode)).Build()
+			WithWatchMode(etcdwatcher.AllMode).Build()
 		require.NoError(t, err)
 		require.NotNil(t, watcher)
 	})
@@ -73,9 +73,9 @@ func TestWatcher_Builder(t *testing.T) {
 
 	t.Run("valid construction with OnceMode and prefix watches", func(t *testing.T) {
 		client := &MockEtcdClient{}
-		watcher, err := (etcdwatcher.NewBuilder[TestData](client, "/test/").
+		watcher, err := etcdwatcher.NewBuilder[TestData](client, "/test/").
 			WithPrefix().
-			WithWatchMode(etcdwatcher.OnceMode)).Build()
+			WithWatchMode(etcdwatcher.OnceMode).Build()
 
 		require.NoError(t, err)
 		require.NotNil(t, watcher)

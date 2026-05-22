@@ -19,7 +19,8 @@ import (
 func BenchmarkOTel(b *testing.B) {
 	cwd, err := os.Getwd()
 	require.NoError(b, err)
-	_, grpcEndpoint := statsTest.StartOTelCollector(b, metricsPort,
+	_, grpcEndpoint := statsTest.StartOTelCollector(
+		b, metricsPort,
 		filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 	)
 

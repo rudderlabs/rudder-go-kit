@@ -31,7 +31,8 @@ func TestSpanFromContext(t *testing.T) {
 	c.Set("OpenTelemetry.traces.samplingRate", 1.0)
 	c.Set("OpenTelemetry.traces.withSyncer", true)
 	c.Set("OpenTelemetry.traces.withOTLPHTTP", true)
-	stats := NewStats(c, logger.NewFactory(c), metric.NewManager(),
+	stats := NewStats(
+		c, logger.NewFactory(c), metric.NewManager(),
 		WithServiceName(t.Name()), WithServiceVersion("1.2.3"),
 	)
 	t.Cleanup(stats.Stop)
@@ -47,7 +48,8 @@ func TestSpanFromContext(t *testing.T) {
 	// let's add the attributes to the span from the ctx, we should see them on Jaeger for the same span
 	spanFromCtx.SetStatus(SpanStatusError, "some bad error")
 	spanFromCtx.SetAttributes(Tags{"key1": "value1"})
-	spanFromCtx.AddEvent("some-event",
+	spanFromCtx.AddEvent(
+		"some-event",
 		SpanWithTags(Tags{"key2": "value2"}),
 		SpanWithTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC)),
 	)
@@ -154,7 +156,8 @@ func TestAsyncTracePropagation(t *testing.T) {
 
 	// let's verify that the two spans have the same traceID even though we did not share the context
 	t.Logf("my-span-02 trace ID: %v", span.SpanContext().TraceID())
-	require.Equalf(t, 0,
+	require.Equalf(
+		t, 0,
 		strings.Index(traceParent, "00-"+span.SpanContext().TraceID().String()),
 		"The 2nd span traceID should be the same as the 1st span traceID",
 	)

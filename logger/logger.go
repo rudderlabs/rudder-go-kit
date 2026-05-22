@@ -164,7 +164,8 @@ func (l *logger) With(args ...any) Logger {
 	for i := 0; i < len(args)-1; i += 2 {
 		key, ok := args[i].(string)
 		if !ok {
-			cp.Warnw("Logger.With called with non-string key",
+			cp.Warnw(
+				"Logger.With called with non-string key",
 				"parentName", l.parent.name, "name", l.name,
 			)
 			break

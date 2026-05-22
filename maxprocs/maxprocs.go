@@ -115,7 +115,8 @@ func set(raw string, opts ...option) {
 	runtime.GOMAXPROCS(gomaxprocs)
 
 	// Log new GOMAXPROCS
-	conf.logger.Infon("GOMAXPROCS has been configured",
+	conf.logger.Infon(
+		"GOMAXPROCS has been configured",
 		logger.NewFloatField("cpuRequests", cpuRequests),
 		logger.NewFloatField("multiplier", conf.cpuRequestsMultiplier),
 		logger.NewIntField("minProcs", int64(conf.minProcs)),
@@ -146,13 +147,15 @@ func setWithConfig(c *config.Config, opts ...option) {
 	if data, err := os.ReadFile(requestsFile); err == nil && len(data) > 0 {
 		fileMode = true
 		requests = strings.TrimSpace(string(data)) + "m"
-		conf.logger.Infon("Using CPU requests from file",
+		conf.logger.Infon(
+			"Using CPU requests from file",
 			logger.NewStringField("requests", requests),
 			logger.NewStringField("file", requestsFile),
 		)
 	}
 
-	set(requests,
+	set(
+		requests,
 		withLogger(conf.logger),
 		withMinProcs(conf.minProcs),
 		withMaxProcs(conf.maxProcs),
@@ -161,7 +164,8 @@ func setWithConfig(c *config.Config, opts ...option) {
 	)
 
 	if fileMode && c.GetBoolVar(true, "Watch") {
-		conf.logger.Infon("Starting file watcher to monitor CPU requests changes",
+		conf.logger.Infon(
+			"Starting file watcher to monitor CPU requests changes",
 			logger.NewStringField("file", requestsFile),
 		)
 		signal.Notify(conf.stop, os.Interrupt, syscall.SIGTERM)
@@ -204,7 +208,8 @@ func watchFile(conf *conf, file string) {
 			if event.Op&(fsnotify.Write|fsnotify.Create) != 0 {
 				if data, err := os.ReadFile(file); err == nil && len(data) > 0 {
 					requests := strings.TrimSpace(string(data)) + "m"
-					set(requests,
+					set(
+						requests,
 						withLogger(conf.logger),
 						withMinProcs(conf.minProcs),
 						withMaxProcs(conf.maxProcs),

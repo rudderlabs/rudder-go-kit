@@ -59,8 +59,10 @@ func (m *Manager) Setup(
 
 	if c.tracerProviderConfig.enabled {
 		if c.tracerProviderConfig.customSpanExporter != nil {
-			m.tp = sdktrace.NewTracerProvider(m.buildTracerProviderOptions(
-				&c, res, c.tracerProviderConfig.customSpanExporter)...,
+			m.tp = sdktrace.NewTracerProvider(
+				m.buildTracerProviderOptions(
+					&c, res, c.tracerProviderConfig.customSpanExporter,
+				)...,
 			)
 		} else if c.tracerProviderConfig.withOTLPHTTP {
 			opts := []otlptracehttp.Option{

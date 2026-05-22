@@ -115,7 +115,8 @@ func TestEmptyRegion(t *testing.T) {
 	require.NoError(t, err)
 
 	// Upload test file using minio client
-	_, err = minioResource.Client.PutObject(context.Background(),
+	_, err = minioResource.Client.PutObject(
+		context.Background(),
 		minioResource.BucketName, prefix+"/"+objectName,
 		bytes.NewReader([]byte(fileContent)), int64(len(fileContent)),
 		minio.PutObjectOptions{},

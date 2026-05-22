@@ -41,30 +41,33 @@ func TestMonitorDatabase(t *testing.T) {
 		sqlutil.MonitorDatabase(ctx, conf, statsStore, postgresContainer.DB, identifier)
 	}()
 
-	require.Eventually(t, func() bool {
-		m := statsStore.Get("db_max_open_connections", stats.Tags{
-			"identifier": identifier,
-		})
-		return m != nil && m.LastValue() == 10
-	},
+	require.Eventually(
+		t, func() bool {
+			m := statsStore.Get("db_max_open_connections", stats.Tags{
+				"identifier": identifier,
+			})
+			return m != nil && m.LastValue() == 10
+		},
 		5*time.Second,
 		100*time.Millisecond,
 	)
-	require.Eventually(t, func() bool {
-		m := statsStore.Get("db_open_connections", stats.Tags{
-			"identifier": identifier,
-		})
-		return m != nil && m.LastValue() == 1
-	},
+	require.Eventually(
+		t, func() bool {
+			m := statsStore.Get("db_open_connections", stats.Tags{
+				"identifier": identifier,
+			})
+			return m != nil && m.LastValue() == 1
+		},
 		5*time.Second,
 		100*time.Millisecond,
 	)
-	require.Eventually(t, func() bool {
-		m := statsStore.Get("db_idle", stats.Tags{
-			"identifier": identifier,
-		})
-		return m != nil && m.LastValue() == 1
-	},
+	require.Eventually(
+		t, func() bool {
+			m := statsStore.Get("db_idle", stats.Tags{
+				"identifier": identifier,
+			})
+			return m != nil && m.LastValue() == 1
+		},
 		5*time.Second,
 		100*time.Millisecond,
 	)

@@ -136,7 +136,8 @@ func TestStats(t *testing.T) {
 
 		m.SendTiming(time.Minute)
 		require.Equal(t, time.Minute, store.Get(name, commonTags).LastDuration())
-		require.Equal(t,
+		require.Equal(
+			t,
 			[]time.Duration{time.Second, time.Minute},
 			store.Get(name, commonTags).Durations(),
 		)
@@ -146,14 +147,16 @@ func TestStats(t *testing.T) {
 			now = now.Add(time.Second)
 		}()
 		require.Equal(t, time.Second, store.Get(name, commonTags).LastDuration())
-		require.Equal(t,
+		require.Equal(
+			t,
 			[]time.Duration{time.Second, time.Minute, time.Second},
 			store.Get(name, commonTags).Durations(),
 		)
 
 		m.Since(now.Add(-time.Minute))
 		require.Equal(t, time.Minute, store.Get(name, commonTags).LastDuration())
-		require.Equal(t,
+		require.Equal(
+			t,
 			[]time.Duration{time.Second, time.Minute, time.Second, time.Minute},
 			store.Get(name, commonTags).Durations(),
 		)

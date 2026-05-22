@@ -105,7 +105,8 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		if s.otelConfig.withOTLPHTTP {
 			tpOpts = append(tpOpts, otel.WithOTLPHTTP())
 		}
-		options = append(options,
+		options = append(
+			options,
 			otel.WithTracerProvider(s.otelConfig.tracesEndpoint, tpOpts...),
 			otel.WithTextMapPropagator(
 				propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}),
@@ -119,11 +120,13 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 
 	// Configure default histogram aggregation (exponential takes precedence over explicit buckets)
 	if s.config.useExponentialHistogram {
-		meterProviderOptions = append(meterProviderOptions,
+		meterProviderOptions = append(
+			meterProviderOptions,
 			otel.WithDefaultExponentialHistogram(s.config.exponentialHistogramMaxSize),
 		)
 	} else if len(s.config.defaultHistogramBuckets) > 0 {
-		meterProviderOptions = append(meterProviderOptions,
+		meterProviderOptions = append(
+			meterProviderOptions,
 			otel.WithDefaultHistogramBucketBoundaries(s.config.defaultHistogramBuckets),
 		)
 	}
@@ -131,7 +134,8 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	// Configure per-histogram aggregation (exponential histograms are configured first, then explicit buckets)
 	if len(s.config.exponentialHistograms) > 0 {
 		for histogramName, maxSize := range s.config.exponentialHistograms {
-			meterProviderOptions = append(meterProviderOptions,
+			meterProviderOptions = append(
+				meterProviderOptions,
 				otel.WithExponentialHistogram(histogramName, defaultMeterName, maxSize),
 			)
 		}
@@ -140,18 +144,21 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		for histogramName, buckets := range s.config.histogramBuckets {
 			// Only apply explicit bucket config if not already configured as exponential
 			if _, isExponential := s.config.exponentialHistograms[histogramName]; !isExponential {
-				meterProviderOptions = append(meterProviderOptions,
+				meterProviderOptions = append(
+					meterProviderOptions,
 					otel.WithHistogramBucketBoundaries(histogramName, defaultMeterName, buckets),
 				)
 			}
 		}
 	}
 	if s.otelConfig.metricsEndpoint != "" {
-		options = append(options, otel.WithMeterProvider(append(meterProviderOptions,
+		options = append(options, otel.WithMeterProvider(append(
+			meterProviderOptions,
 			otel.WithGRPCMeterProvider(s.otelConfig.metricsEndpoint),
 		)...))
 	} else if s.otelConfig.enablePrometheusExporter {
-		options = append(options, otel.WithMeterProvider(append(meterProviderOptions,
+		options = append(options, otel.WithMeterProvider(append(
+			meterProviderOptions,
 			otel.WithPrometheusExporter(s.prometheusRegisterer),
 		)...))
 	}
@@ -224,7 +231,8 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	if s.otelConfig.enablePrometheusExporter {
 		s.logger.Infon("Stats started in Prometheus mode", logger.NewIntField("port", int64(s.otelConfig.prometheusMetricsPort)))
 	} else {
-		s.logger.Infon("Stats started in OpenTelemetry mode",
+		s.logger.Infon(
+			"Stats started in OpenTelemetry mode",
 			logger.NewStringField("metricsEndpoint", s.otelConfig.metricsEndpoint),
 			logger.NewStringField("tracesEndpoint", s.otelConfig.tracesEndpoint),
 		)
@@ -340,7 +348,8 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
 		stackTrace := string(byteArr[:n])
-		s.logger.Warnn("detected missing stat measurement name, using 'novalue'",
+		s.logger.Warnn(
+			"detected missing stat measurement name, using 'novalue'",
 			logger.NewStringField("stacktrace", stackTrace),
 		)
 		name = "novalue"
@@ -350,7 +359,8 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	newTags := make(Tags)
 	for k, v := range tags {
 		if strings.Trim(k, " ") == "" {
-			s.logger.Warnn("removing empty tag key for measurement",
+			s.logger.Warnn(
+				"removing empty tag key for measurement",
 				logger.NewStringField("value", v),
 				logger.NewStringField("measurement", name),
 			)
@@ -364,7 +374,8 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 			continue
 		}
 		if _, ok := s.resourceAttrs[sanitizedKey]; ok {
-			s.logger.Warnn("removing tag for measurement since it is a resource attribute",
+			s.logger.Warnn(
+				"removing tag for measurement since it is a resource attribute",
 				logger.NewStringField("key", k),
 				logger.NewStringField("measurement", name),
 			)
@@ -421,7 +432,8 @@ func (s *otelStats) getGauge(
 
 		g, err := s.meter.Float64ObservableGauge(name)
 		if err != nil {
-			s.logger.Warnn("failed to create gauge",
+			s.logger.Warnn(
+				"failed to create gauge",
 				logger.NewStringField("name", name),
 				obskit.Error(err),
 			)
@@ -478,7 +490,8 @@ func buildOTelInstrument[T any](
 			panic(fmt.Errorf("unknown instrument type %T", instr))
 		}
 		if err != nil {
-			l.Warnn("failed to create instrument",
+			l.Warnn(
+				"failed to create instrument",
 				logger.NewStringField("type", fmt.Sprintf("%T", instr)),
 				logger.NewStringField("name", name),
 				obskit.Error(err),

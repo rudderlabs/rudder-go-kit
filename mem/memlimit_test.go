@@ -111,7 +111,8 @@ func TestWatchMemoryLimit(t *testing.T) {
 		limitPercent := config.NewMockValueLoader(50)
 		wg := &sync.WaitGroup{}
 
-		WatchMemoryLimit(ctx, wg,
+		WatchMemoryLimit(
+			ctx, wg,
 			WatchWithPercentageLoader(limitPercent),
 			WatchWithInterval(500*time.Millisecond),
 		)
@@ -140,7 +141,8 @@ func TestWatchMemoryLimit(t *testing.T) {
 
 		wg := &sync.WaitGroup{}
 
-		WatchMemoryLimit(ctx, wg,
+		WatchMemoryLimit(
+			ctx, wg,
 			WatchWithPercentage(75),
 			WatchWithInterval(100*time.Millisecond),
 		)
@@ -163,7 +165,8 @@ func TestWatchMemoryLimit(t *testing.T) {
 
 		wg := &sync.WaitGroup{}
 
-		WatchMemoryLimit(ctx, wg,
+		WatchMemoryLimit(
+			ctx, wg,
 			WatchWithPercentage(70),
 			WatchWithInterval(100*time.Millisecond),
 		)
@@ -194,7 +197,8 @@ func TestWatchMemoryLimit(t *testing.T) {
 
 		wg := &sync.WaitGroup{}
 
-		WatchMemoryLimit(ctx, wg,
+		WatchMemoryLimit(
+			ctx, wg,
 			WatchWithPercentage(75),
 			WatchWithInterval(200*time.Millisecond),
 		)
@@ -222,7 +226,8 @@ func TestWatchMemoryLimit(t *testing.T) {
 		wg := &sync.WaitGroup{}
 		customLog := logger.NOP
 
-		WatchMemoryLimit(ctx, wg,
+		WatchMemoryLimit(
+			ctx, wg,
 			WatchWithPercentage(60),
 			WatchWithInterval(100*time.Millisecond),
 			WatchWithLogger(customLog),

@@ -60,7 +60,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		}
 	})
 
-	dbDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?tls=false",
+	dbDSN := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?tls=false",
 		defaultUser, defaultPassword,
 		mysqlContainer.GetBoundIP("3306/tcp"),
 		mysqlContainer.GetPort("3306/tcp"),

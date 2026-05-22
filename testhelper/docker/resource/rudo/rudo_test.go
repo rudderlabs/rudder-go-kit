@@ -33,7 +33,8 @@ func TestRudoResource(t *testing.T) {
 	require.NoError(t, err)
 
 	// start rudo container with ETCD_HOSTS env var pointing to the etcd container
-	rudoContainer, err := rudo.Setup(pool, t,
+	rudoContainer, err := rudo.Setup(
+		pool, t,
 		rudo.WithBindIP(bindIP),
 		rudo.WithEtcdHosts(etcdContainer.Hosts),
 		rudo.WithReleaseName(namepace),
