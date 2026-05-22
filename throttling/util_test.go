@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	redisdocker "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/redis"
+	valkeydocker "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/valkey"
 )
 
 type tester interface {
+	Context() context.Context
 	Helper()
 	Log(...any)
 	Logf(string, ...any)
@@ -33,9 +35,12 @@ func newLimiter(t tester, opts ...Option) *Limiter {
 	return l
 }
 
-func bootstrapRedis(ctx context.Context, t tester, pool *dockertest.Pool) *redis.Client {
+func bootstrapRedis(t tester, pool *dockertest.Pool) *redis.Client {
 	t.Helper()
-	redisContainer, err := redisdocker.Setup(ctx, pool, t)
+	redisContainer, err := redisdocker.Setup(
+		t.Context(), pool, t,
+		redisdocker.WithTag("7.0-alpine"), // this is what is supported on AWS ElastiCache
+	)
 	require.NoError(t, err)
 
 	rc := redis.NewClient(&redis.Options{
@@ -44,11 +49,29 @@ func bootstrapRedis(ctx context.Context, t tester, pool *dockertest.Pool) *redis
 	})
 	t.Cleanup(func() { _ = rc.Close() })
 
-	pong, err := rc.Ping(ctx).Result()
-	if err != nil {
-		t.Fatalf("Could not ping Redis cluster: %v", err)
-	}
+	pong, err := rc.Ping(t.Context()).Result()
+	require.NoError(t, err)
+	require.Equal(t, "PONG", pong)
 
+	return rc
+}
+
+func bootstrapValkey(t tester, pool *dockertest.Pool) *redis.Client {
+	t.Helper()
+	valkeyContainer, err := valkeydocker.Setup(
+		t.Context(), pool, t,
+		valkeydocker.WithTag("9.0-alpine"), // this is what is supported on AWS ElastiCache
+	)
+	require.NoError(t, err)
+
+	rc := redis.NewClient(&redis.Options{
+		Network: "tcp",
+		Addr:    valkeyContainer.Addr,
+	})
+	t.Cleanup(func() { _ = rc.Close() })
+
+	pong, err := rc.Ping(t.Context()).Result()
+	require.NoError(t, err)
 	require.Equal(t, "PONG", pong)
 
 	return rc

@@ -31,7 +31,7 @@ func BenchmarkLimiters(b *testing.B) {
 		rate     int64 = 10
 		window   int64 = 1
 		ctx            = context.Background()
-		rc             = bootstrapRedis(ctx, b, pool)
+		rc             = bootstrapRedis(b, pool)
 		limiters       = map[string]*Limiter{
 			"gcra":              newLimiter(b, WithInMemoryGCRA(0)),
 			"gcra redis":        newLimiter(b, WithRedisGCRA(rc, 0)),
@@ -63,7 +63,7 @@ func BenchmarkRedisSortedSetRemover(b *testing.B) {
 	require.NoError(b, err)
 
 	prepare := func(b *testing.B) (*redis.Client, string, []*redis.Z) {
-		rc := bootstrapRedis(ctx, b, pool)
+		rc := bootstrapRedis(b, pool)
 
 		key := rand.UniqueString(10)
 		members := make([]*redis.Z, b.N*3)
