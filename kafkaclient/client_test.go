@@ -827,7 +827,8 @@ func TestSSH(t *testing.T) {
 	})
 
 	// Start Kafka cluster with ZooKeeper and three brokers
-	_, err = dockerKafka.Setup(pool, t,
+	_, err = dockerKafka.Setup(
+		pool, t,
 		dockerKafka.WithBrokers(3),
 		dockerKafka.WithNetwork(network),
 		dockerKafka.WithoutDockerHostListeners(),
@@ -838,7 +839,8 @@ func TestSSH(t *testing.T) {
 	privateKeyPath, publicKeyPath, err := keygen.NewRSAKeyPair(2048, keygen.SaveTo(t.TempDir()))
 	require.NoError(t, err)
 
-	sshServer, err := sshserver.Setup(pool, t,
+	sshServer, err := sshserver.Setup(
+		pool, t,
 		sshserver.WithPublicKeyPath(publicKeyPath),
 		sshserver.WithCredentials("linuxserver.io", ""),
 		sshserver.WithDockerNetwork(network),
@@ -861,7 +863,8 @@ func TestSSH(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Eventuallyf(t, func() bool { err = c.Ping(ctx); return err == nil }, 30*time.Second, time.Second,
+	require.Eventuallyf(
+		t, func() bool { err = c.Ping(ctx); return err == nil }, 30*time.Second, time.Second,
 		"could not ping kafka: %v", err,
 	)
 
@@ -906,7 +909,8 @@ func TestSSH(t *testing.T) {
 	pubCtx, pubCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer pubCancel()
 	require.Eventually(t, func() bool {
-		err = p.Publish(pubCtx,
+		err = p.Publish(
+			pubCtx,
 			Message{Key: []byte("key-01"), Value: []byte("value-01"), Topic: t.Name()},
 		)
 		if err != nil {

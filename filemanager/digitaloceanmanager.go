@@ -232,7 +232,8 @@ func (m *digitalOceanManager) Delete(ctx context.Context, keys []string) error {
 		if err != nil {
 			var apiErr smithy.APIError
 			if errors.As(err, &apiErr) {
-				m.logger.Errorn("Error while deleting DigitalOcean Spaces objects",
+				m.logger.Errorn(
+					"Error while deleting DigitalOcean Spaces objects",
 					logger.NewStringField("error_code", apiErr.ErrorCode()),
 					obskit.Error(err),
 				)

@@ -268,7 +268,8 @@ func TestNewReloadableAPI(t *testing.T) {
 			c.Set(t.Name(), 10)
 			require.Equal(t, 10, v.Load(), "value should not change")
 
-			require.PanicsWithError(t,
+			require.PanicsWithError(
+				t,
 				"detected misuse of config variable registered with different default values for \"int:TestNewReloadableAPI/reloadable/int\": "+
 					"5 - 10",
 				func() {
@@ -288,7 +289,8 @@ func TestNewReloadableAPI(t *testing.T) {
 			c.Set(t.Name(), 10)
 			require.EqualValues(t, 10, v.Load(), "value should not change")
 
-			require.PanicsWithError(t,
+			require.PanicsWithError(
+				t,
 				"detected misuse of config variable registered with different default values for \"int64:TestNewReloadableAPI/reloadable/int64\": "+
 					"5 - 10",
 				func() {
@@ -308,7 +310,8 @@ func TestNewReloadableAPI(t *testing.T) {
 			c.Set(t.Name(), false)
 			require.False(t, v.Load(), "value should not change")
 
-			require.PanicsWithError(t,
+			require.PanicsWithError(
+				t,
 				"detected misuse of config variable registered with different default values for \"bool:TestNewReloadableAPI/reloadable/bool\": "+
 					"true - false",
 				func() {
@@ -327,7 +330,8 @@ func TestNewReloadableAPI(t *testing.T) {
 			c.Set(t.Name(), 4.567)
 			require.EqualValues(t, 4.567, v.Load(), "value should not change")
 
-			require.PanicsWithError(t,
+			require.PanicsWithError(
+				t,
 				"detected misuse of config variable registered with different default values for \"float64:TestNewReloadableAPI/reloadable/float64\": "+
 					"0.123 - 0.1234",
 				func() {
@@ -346,7 +350,8 @@ func TestNewReloadableAPI(t *testing.T) {
 			c.Set(t.Name(), "bar")
 			require.EqualValues(t, "bar", v.Load(), "value should not change")
 
-			require.PanicsWithError(t,
+			require.PanicsWithError(
+				t,
 				"detected misuse of config variable registered with different default values for \"string:TestNewReloadableAPI/reloadable/string\": "+
 					"foo - qux",
 				func() {
@@ -365,7 +370,8 @@ func TestNewReloadableAPI(t *testing.T) {
 			c.Set(t.Name(), 456*time.Millisecond)
 			require.Equal(t, 456*time.Millisecond, v.Load(), "value should not change")
 
-			require.PanicsWithError(t,
+			require.PanicsWithError(
+				t,
 				"detected misuse of config variable registered with different default values for \"time.Duration:TestNewReloadableAPI/reloadable/duration\": "+
 					"123ns - 2m3s",
 				func() {
@@ -384,7 +390,8 @@ func TestNewReloadableAPI(t *testing.T) {
 			c.Set(t.Name(), []string{"c", "d"})
 			require.Equal(t, []string{"c", "d"}, v.Load(), "value should not change")
 
-			require.PanicsWithError(t,
+			require.PanicsWithError(
+				t,
 				"detected misuse of config variable registered with different default values for \"[]string:TestNewReloadableAPI/reloadable/[]string\": "+
 					"a,b - a,b,c",
 				func() {
@@ -403,7 +410,8 @@ func TestNewReloadableAPI(t *testing.T) {
 			c.Set(t.Name(), map[string]any{"c": 3, "d": 4})
 			require.Equal(t, map[string]any{"c": 3, "d": 4}, v.Load(), "value should not change")
 
-			require.PanicsWithError(t,
+			require.PanicsWithError(
+				t,
 				"detected misuse of config variable registered with different default values for \"map[string]any:TestNewReloadableAPI/reloadable/map[string]any\": "+
 					"map[a:1 b:2] - map[a:2 b:1]",
 				func() {
@@ -437,7 +445,8 @@ func TestGetOrCreatePointer(t *testing.T) {
 	require.True(t, p1 != p4)
 	require.False(t, exists)
 
-	require.PanicsWithError(t,
+	require.PanicsWithError(
+		t,
 		"detected misuse of config variable registered with different default values for \"int:bar,foo,qux\": "+
 			"123 - 456",
 		func() {

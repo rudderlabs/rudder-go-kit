@@ -341,14 +341,16 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 		}
 		resource.ConfigBackendURL = configBackendURL
 		// seed postgres with user, workspace, destination, destination definition, account & account definition
-		if _, err := postgresResource.DB.Exec(`insert into users (id, name, email) values ($1, $2, $3)`,
+		if _, err := postgresResource.DB.Exec(
+			`insert into users (id, name, email) values ($1, $2, $3)`,
 			adminUsername,
 			adminUsername,
 			"admin@example.com",
 		); err != nil {
 			return fmt.Errorf("seeding user: %w", err)
 		}
-		if _, err := postgresResource.DB.Exec(`insert into workspaces (id, name, token) values ($1, $2, $3)`,
+		if _, err := postgresResource.DB.Exec(
+			`insert into workspaces (id, name, token) values ($1, $2, $3)`,
 			fixture.WorkspaceID,
 			"Test Workspace",
 			"test-token",
@@ -359,7 +361,8 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 		var accountDefinitionName sql.NullString
 		if fixture.HasAccountDefinition {
 			accountDefinitionName = sql.NullString{String: fixture.accountDefName(), Valid: true}
-			if _, err := postgresResource.DB.Exec(`insert into account_definitions 
+			if _, err := postgresResource.DB.Exec(
+				`insert into account_definitions 
 				(name, type, "authenticationType", category, config, "optionsSchema", "secretSchema", "uiConfig") 
 				values 
 				($1, $2, 'oauth', $3, '{}', '{}', '{}', '{}')`,
@@ -370,7 +373,8 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 				return fmt.Errorf("seeding account definition: %w", err)
 			}
 		}
-		if _, err := postgresResource.DB.Exec(`insert into accounts 
+		if _, err := postgresResource.DB.Exec(
+			`insert into accounts 
 			(id, name, options, role, "userId", "workspaceId", "rudderCategory", "secretVersion", "accountDefinitionName") 
 			values 
 			($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
@@ -388,7 +392,8 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 		}
 
 		if fixture.DestinationID != "" {
-			if _, err := postgresResource.DB.Exec(`insert into destination_definitions 
+			if _, err := postgresResource.DB.Exec(
+				`insert into destination_definitions 
 			(id, name, "displayName", config, "responseRules", "configSchema", "connectionConfigSchema") 
 			values 
 			($1, $2, $3, $4, $5, $6, $7)`,
@@ -402,7 +407,8 @@ func Setup(pool *dockertest.Pool, fixture AccountFixture, d resource.Cleaner, op
 			); err != nil {
 				return fmt.Errorf("seeding destination definition: %w", err)
 			}
-			if _, err := postgresResource.DB.Exec(`insert into destinations 
+			if _, err := postgresResource.DB.Exec(
+				`insert into destinations 
 			(id, name, enabled, config, "destinationDefinitionId", "workspaceId", "accountId", "createdBy", "updatedBy") 
 			values 
 			($1, $2, $3, $4, $5, $6, $7, $8, $9)`,

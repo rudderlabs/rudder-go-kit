@@ -69,7 +69,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 			Env: lo.MapToSlice(envs, func(k, v string) string {
 				return fmt.Sprintf("%s=%s", k, v)
 			}),
-		}, internal.DefaultHostConfig)
+		}, internal.DefaultHostConfig,
+	)
 	d.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {
 			d.Log("Could not purge resource:", err)

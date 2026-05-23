@@ -16,7 +16,8 @@ func TestCredentials(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
 
-	res, err := Setup(pool, t,
+	res, err := Setup(
+		pool, t,
 		WithCredentials("qux", "foobar"),
 	)
 	require.NoError(t, err)
@@ -54,7 +55,8 @@ func TestKeys(t *testing.T) {
 	privateKeyPath, publicKeyPath, err := keygen.NewRSAKeyPair(2048, keygen.SaveTo(t.TempDir()))
 	require.NoError(t, err)
 
-	res, err := Setup(pool, t,
+	res, err := Setup(
+		pool, t,
 		WithPublicKeyPath(publicKeyPath),
 		WithCredentials("linuxserver.io", ""),
 		WithDockerNetwork(network),

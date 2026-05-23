@@ -41,7 +41,8 @@ func (c *config) setBackendConfigURL(url string) {
 		lo.Filter(c.envs, func(s string, _ int) bool {
 			return !strings.HasPrefix(s, "CONFIG_BACKEND_URL=")
 		}),
-		"CONFIG_BACKEND_URL="+url)
+		"CONFIG_BACKEND_URL="+url,
+	)
 }
 
 // WithUserTransformations will mock BE config to set transformation for given transformation versionID to transformation function map

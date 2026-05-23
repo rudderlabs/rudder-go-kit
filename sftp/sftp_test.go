@@ -225,7 +225,8 @@ func TestSFTP(t *testing.T) {
 	privateKeyPath, publicKeyPath, err := keygen.NewRSAKeyPair(2048, keygen.SaveTo(t.TempDir()))
 	require.NoError(t, err)
 
-	sshServer, err := sshserver.Setup(pool, t,
+	sshServer, err := sshserver.Setup(
+		pool, t,
 		sshserver.WithPublicKeyPath(publicKeyPath),
 		sshserver.WithCredentials("linuxserver.io", ""),
 	)

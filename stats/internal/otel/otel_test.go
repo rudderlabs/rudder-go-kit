@@ -42,7 +42,8 @@ var (
 		{Name: new("telemetry_sdk_version"), Value: new(otel.Version())},
 		{Name: new("instanceName"), Value: new("my-instance-id")},
 	}
-	globalGRPCDefaultAttrs = append(globalDefaultAttrs,
+	globalGRPCDefaultAttrs = append(
+		globalDefaultAttrs,
 		// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
 		&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
 	)
@@ -63,16 +64,19 @@ func TestMetrics(t *testing.T) {
 			setupMeterProvider: func(t testing.TB, _ ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				cwd, err := os.Getwd()
 				require.NoError(t, err)
-				container, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+				container, grpcEndpoint := statsTest.StartOTelCollector(
+					t, metricsPort,
 					filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 				)
 
-				res, err := NewResource(svcName, "v1.2.3",
+				res, err := NewResource(
+					svcName, "v1.2.3",
 					attribute.String("instanceName", "my-instance-id"),
 				)
 				require.NoError(t, err)
 				var om Manager
-				_, mp, err := om.Setup(ctx, res,
+				_, mp, err := om.Setup(
+					ctx, res,
 					WithInsecure(),
 					WithMeterProvider(
 						WithGRPCMeterProvider(grpcEndpoint),
@@ -96,12 +100,14 @@ func TestMetrics(t *testing.T) {
 			setupMeterProvider: func(t testing.TB, _ ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				registry := prometheus.NewRegistry()
 
-				res, err := NewResource(svcName, "v1.2.3",
+				res, err := NewResource(
+					svcName, "v1.2.3",
 					attribute.String("instanceName", "my-instance-id"),
 				)
 				require.NoError(t, err)
 				var om Manager
-				tp, mp, err := om.Setup(ctx, res,
+				tp, mp, err := om.Setup(
+					ctx, res,
 					WithInsecure(),
 					WithMeterProvider(
 						WithPrometheusExporter(registry),
@@ -220,16 +226,19 @@ func TestHistogramBuckets(t *testing.T) {
 			setupMeterProvider: func(t testing.TB, opts ...MeterProviderOption) (*sdkmetric.MeterProvider, string) {
 				cwd, err := os.Getwd()
 				require.NoError(t, err)
-				container, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+				container, grpcEndpoint := statsTest.StartOTelCollector(
+					t, metricsPort,
 					filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 				)
 
 				res, err := NewResource(svcName, "v1.2.3", attribute.String("instanceName", "my-instance-id"))
 				require.NoError(t, err)
 				var om Manager
-				_, mp, err := om.Setup(ctx, res,
+				_, mp, err := om.Setup(
+					ctx, res,
 					WithInsecure(),
-					WithMeterProvider(append(opts,
+					WithMeterProvider(append(
+						opts,
 						WithGRPCMeterProvider(grpcEndpoint),
 						WithMeterProviderExportsInterval(50*time.Millisecond),
 					)...),
@@ -251,9 +260,11 @@ func TestHistogramBuckets(t *testing.T) {
 				res, err := NewResource(svcName, "v1.2.3", attribute.String("instanceName", "my-instance-id"))
 				require.NoError(t, err)
 				var om Manager
-				tp, mp, err := om.Setup(ctx, res,
+				tp, mp, err := om.Setup(
+					ctx, res,
 					WithInsecure(),
-					WithMeterProvider(append(opts,
+					WithMeterProvider(append(
+						opts,
 						WithPrometheusExporter(registry),
 						WithMeterProviderExportsInterval(50*time.Millisecond),
 					)...),
@@ -276,7 +287,8 @@ func TestHistogramBuckets(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Run("default applies to all meters", func(t *testing.T) {
-				mp, metricsEndpoint := scenario.setupMeterProvider(t,
+				mp, metricsEndpoint := scenario.setupMeterProvider(
+					t,
 					WithDefaultHistogramBucketBoundaries([]float64{10, 20, 30}),
 				)
 
@@ -326,7 +338,8 @@ func TestHistogramBuckets(t *testing.T) {
 			})
 
 			t.Run("custom boundaries do not override default ones", func(t *testing.T) {
-				mp, metricsEndpoint := scenario.setupMeterProvider(t,
+				mp, metricsEndpoint := scenario.setupMeterProvider(
+					t,
 					WithDefaultHistogramBucketBoundaries([]float64{10, 20, 30}),
 					WithHistogramBucketBoundaries("bar", "meter-1", []float64{40, 50, 60}),
 					WithHistogramBucketBoundaries("baz", "meter-1", []float64{70, 80, 90}),
@@ -430,7 +443,8 @@ func TestCollectorGlobals(t *testing.T) {
 	)
 	res, err := NewResource(t.Name(), "v1.2.3", attribute.String("instanceName", "my-instance-id"))
 	require.NoError(t, err)
-	tp, mp, err := om.Setup(ctx, res,
+	tp, mp, err := om.Setup(
+		ctx, res,
 		WithInsecure(),
 		WithTracerProvider(endpoint, WithTracingSamplingRate(1.0), WithGlobalTracerProvider()),
 		WithMeterProvider(WithGRPCMeterProvider(endpoint), WithGlobalMeterProvider()),
@@ -445,7 +459,8 @@ func TestNonBlockingConnection(t *testing.T) {
 	grpcPort, err := testhelper.GetFreePort()
 	require.NoError(t, err)
 
-	res, err := NewResource(t.Name(), "v1.2.3",
+	res, err := NewResource(
+		t.Name(), "v1.2.3",
 		attribute.String("instanceName", "my-instance-id"),
 	)
 	require.NoError(t, err)
@@ -455,7 +470,8 @@ func TestNonBlockingConnection(t *testing.T) {
 		ctx      = context.Background()
 		endpoint = fmt.Sprintf("localhost:%d", grpcPort)
 	)
-	_, mp, err := om.Setup(ctx, res,
+	_, mp, err := om.Setup(
+		ctx, res,
 		WithInsecure(),
 		WithMeterProvider(
 			WithGRPCMeterProvider(endpoint),
@@ -485,7 +501,8 @@ func TestNonBlockingConnection(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 
-	container, _ := statsTest.StartOTelCollector(t, metricsPort,
+	container, _ := statsTest.StartOTelCollector(
+		t, metricsPort,
 		filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 		statsTest.WithStartCollectorPort(grpcPort),
 	)
@@ -495,7 +512,8 @@ func TestNonBlockingConnection(t *testing.T) {
 	// Note: Counter metrics have _total suffix due to OTel Collector Prometheus exporter
 	metrics := requireMetrics(t, metricsEndpoint, "foo_total", "bar_total")
 
-	defaultAttrs := append(globalGRPCDefaultAttrs,
+	defaultAttrs := append(
+		globalGRPCDefaultAttrs,
 		&promClient.LabelPair{Name: new("job"), Value: new("TestNonBlockingConnection")},
 		&promClient.LabelPair{Name: new("service_name"), Value: new("TestNonBlockingConnection")},
 	)
@@ -504,7 +522,8 @@ func TestNonBlockingConnection(t *testing.T) {
 	require.EqualValues(t, ptr(promClient.MetricType_COUNTER), metrics["foo_total"].Type)
 	require.Len(t, metrics["foo_total"].Metric, 1)
 	require.EqualValues(t, &promClient.Counter{Value: new(123.0)}, metrics["foo_total"].Metric[0].Counter)
-	require.ElementsMatch(t, append(defaultAttrs,
+	require.ElementsMatch(t, append(
+		defaultAttrs,
 		&promClient.LabelPair{Name: new("hello"), Value: new("world")},
 	), metrics["foo_total"].Metric[0].Label)
 
@@ -551,10 +570,12 @@ func requireHistogramEqual(t *testing.T, mf *promClient.MetricFamily, h histogra
 	require.EqualValues(t, &h.name, mf.Name)
 	require.EqualValues(t, ptr(promClient.MetricType_HISTOGRAM), mf.Type)
 	require.Len(t, mf.Metric, 1)
-	require.EqualValuesf(t, &h.count, mf.Metric[0].Histogram.SampleCount,
+	require.EqualValuesf(
+		t, &h.count, mf.Metric[0].Histogram.SampleCount,
 		"Got %d, expected %d", *mf.Metric[0].Histogram.SampleCount, h.count,
 	)
-	require.EqualValuesf(t, &h.sum, mf.Metric[0].Histogram.SampleSum,
+	require.EqualValuesf(
+		t, &h.sum, mf.Metric[0].Histogram.SampleSum,
 		"Got %.2f, expected %.2f", *mf.Metric[0].Histogram.SampleSum, h.sum,
 	)
 	require.ElementsMatchf(t, h.buckets, mf.Metric[0].Histogram.Bucket, "Buckets for %q do not match", h.name)

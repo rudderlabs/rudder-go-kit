@@ -324,7 +324,8 @@ func Test_Logger_NonSugared(t *testing.T) {
 	require.Contains(t, scanner.Text(), `"foo":true`)
 	require.Contains(t, scanner.Text(), `"msg":"goroutine`)
 
-	rootLogger.Debugn("using all fields",
+	rootLogger.Debugn(
+		"using all fields",
 		logger.NewField("foo", "any value"),
 		logger.NewStringField("myString", "hello"),
 		logger.NewIntField("myInt", 666),
@@ -370,7 +371,8 @@ func Test_Logger_Expand(t *testing.T) {
 
 	scanner := bufio.NewScanner(f)
 
-	rootLogger.Debugw("using expand",
+	rootLogger.Debugw(
+		"using expand",
 		logger.Expand(
 			logger.NewField("foo", "any value"),
 			logger.NewStringField("myString", "hello"),

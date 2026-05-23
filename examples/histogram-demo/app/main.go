@@ -35,7 +35,8 @@ func main() {
 	m := metric.NewManager()
 	r := prometheus.NewRegistry()
 
-	s := stats.NewStats(conf, logFactory, m,
+	s := stats.NewStats(
+		conf, logFactory, m,
 		stats.WithServiceName("histogram-demo"),
 		stats.WithServiceVersion("v1.0.0"),
 		stats.WithPrometheusRegistry(r, r),
@@ -71,7 +72,8 @@ func main() {
 			requestCount++
 
 			if requestCount%100 == 0 {
-				log.Infon("Generated 100 more requests",
+				log.Infon(
+					"Generated 100 more requests",
 					logger.NewIntField("requests", int64(requestCount)),
 					logger.NewDurationField("latency", time.Duration(latency*1e6)*time.Microsecond),
 				)

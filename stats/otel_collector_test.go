@@ -48,7 +48,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 	require.NoError(t, err)
 
 	runTest := func(t *testing.T, expected []expectation, cols ...stats.Collector) {
-		container, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+		container, grpcEndpoint := statsTest.StartOTelCollector(
+			t, metricsPort,
 			filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 		)
 
@@ -60,7 +61,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 		m := metric.NewManager()
 
 		l := logger.NewFactory(c)
-		s := stats.NewStats(c, l, m,
+		s := stats.NewStats(
+			c, l, m,
 			stats.WithServiceName("TestOTelPeriodicStats"),
 			stats.WithServiceVersion("v1.2.3"),
 		)
@@ -107,7 +109,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 			require.EqualValues(t, lo.ToPtr(promClient.MetricType_GAUGE), metrics[metricName].Type)
 			require.Len(t, metrics[metricName].Metric, 1)
 
-			expectedLabels := append(globalDefaultAttrs,
+			expectedLabels := append(
+				globalDefaultAttrs,
 				// the label1=value1 is coming from the otel-collector-config.yaml (see const_labels)
 				&promClient.LabelPair{Name: new("label1"), Value: new("value1")},
 				&promClient.LabelPair{Name: new("job"), Value: new("TestOTelPeriodicStats")},
@@ -116,21 +119,24 @@ func TestOTelPeriodicStats(t *testing.T) {
 			if exp.tags != nil {
 				expectedLabels = append(expectedLabels, exp.tags...)
 			}
-			require.ElementsMatchf(t, expectedLabels, metrics[metricName].Metric[0].Label,
+			require.ElementsMatchf(
+				t, expectedLabels, metrics[metricName].Metric[0].Label,
 				"Got %+v", metrics[metricName].Metric[0].Label,
 			)
 		}
 	}
 
 	t.Run("static stats", func(t *testing.T) {
-		runTest(t,
+		runTest(
+			t,
 			[]expectation{
 				{name: "a_custom_metric"},
 			},
 			collectors.NewStaticMetric("a_custom_metric", nil, 1),
 		)
 
-		runTest(t,
+		runTest(
+			t,
 			[]expectation{
 				{name: "a_custom_metric", tags: []*promClient.LabelPair{
 					{Name: new("foo"), Value: new("bar")},
@@ -141,7 +147,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 	})
 
 	t.Run("multiple collectors", func(t *testing.T) {
-		runTest(t,
+		runTest(
+			t,
 			[]expectation{
 				{name: "col_1"},
 				{name: "col_2"},
@@ -160,7 +167,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 		}
 		defer db.Close()
 
-		runTest(t,
+		runTest(
+			t,
 			[]expectation{
 				{name: "sql_db_max_open_connections", tags: []*promClient.LabelPair{
 					{Name: new("name"), Value: new("test")},
@@ -194,7 +202,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 		)
 	})
 	t.Run("error on duplicate collector", func(t *testing.T) {
-		_, grpcEndpoint := statsTest.StartOTelCollector(t, metricsPort,
+		_, grpcEndpoint := statsTest.StartOTelCollector(
+			t, metricsPort,
 			filepath.Join(cwd, "testdata", "otel-collector-config.yaml"),
 		)
 
@@ -206,7 +215,8 @@ func TestOTelPeriodicStats(t *testing.T) {
 		m := metric.NewManager()
 
 		l := logger.NewFactory(c)
-		s := stats.NewStats(c, l, m,
+		s := stats.NewStats(
+			c, l, m,
 			stats.WithServiceName("TestOTelPeriodicStats"),
 			stats.WithServiceVersion("v1.2.3"),
 		)
