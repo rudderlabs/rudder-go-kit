@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.76.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.76.0...v0.76.1) (2026-05-23)
+
+
+### Miscellaneous
+
+* apply security best practices from step security ([#1112](https://github.com/rudderlabs/rudder-go-kit/issues/1112)) ([f9589af](https://github.com/rudderlabs/rudder-go-kit/commit/f9589af139ef3469d3043f926588ba5949838bb5))
+* **ci:** workflow cleanup (SEC-284) ([#1122](https://github.com/rudderlabs/rudder-go-kit/issues/1122)) ([1cadaa0](https://github.com/rudderlabs/rudder-go-kit/commit/1cadaa0f47427a08db9d2cab076c0a6091b7e275))
+* **deps:** bump actions/create-github-app-token from 3.0.0 to 3.1.1 ([#1106](https://github.com/rudderlabs/rudder-go-kit/issues/1106)) ([be4e317](https://github.com/rudderlabs/rudder-go-kit/commit/be4e317ee33a2312d4a6597542881de0f146a38c))
+* **deps:** bump aws-actions/configure-aws-credentials from 6.0.0 to 6.1.0 ([#1101](https://github.com/rudderlabs/rudder-go-kit/issues/1101)) ([471ce63](https://github.com/rudderlabs/rudder-go-kit/commit/471ce6325971fd4045afe4a368255a878bc3f978))
+* enforce service_account type in CompatibleGoogleCredentialsJSON ([#1132](https://github.com/rudderlabs/rudder-go-kit/issues/1132)) ([1ff8b67](https://github.com/rudderlabs/rudder-go-kit/commit/1ff8b671309b7dde864c96f9e1b87c33bb165bc6))
+* upgrade vulnerabilities dependencies ([#1134](https://github.com/rudderlabs/rudder-go-kit/issues/1134)) ([0388f54](https://github.com/rudderlabs/rudder-go-kit/commit/0388f5462a7e536a1e15a4e4bee0a50cb6aafe1b))
+
 ## [0.76.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.75.0...v0.76.0) (2026-04-30)
 
 
