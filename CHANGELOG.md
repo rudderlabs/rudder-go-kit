@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.76.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.76.1...v0.76.2) (2026-05-28)
+
+
+### Miscellaneous
+
+* **deps:** bump actions/labeler from 6.0.1 to 6.1.0 ([#1126](https://github.com/rudderlabs/rudder-go-kit/issues/1126)) ([2963fe4](https://github.com/rudderlabs/rudder-go-kit/commit/2963fe46be06ac17b5f790589722981b34a743c8))
+* **deps:** bump aws-actions/amazon-ecr-login from 2.1.3 to 2.1.5 ([#1125](https://github.com/rudderlabs/rudder-go-kit/issues/1125)) ([33a4342](https://github.com/rudderlabs/rudder-go-kit/commit/33a43423836502581919544a2aa5472714c46d05))
+* **deps:** bump aws-actions/configure-aws-credentials from 6.1.0 to 6.1.1 ([#1128](https://github.com/rudderlabs/rudder-go-kit/issues/1128)) ([59d0340](https://github.com/rudderlabs/rudder-go-kit/commit/59d0340449ffda6a9c89945fc04ab84997c71f13))
+* **deps:** bump googleapis/release-please-action from 4.4.1 to 5.0.0 ([#1117](https://github.com/rudderlabs/rudder-go-kit/issues/1117)) ([da36c21](https://github.com/rudderlabs/rudder-go-kit/commit/da36c21e2b4d586f7c10818b240834e221f6fbe4))
+* **deps:** bump step-security/harden-runner from 2.16.1 to 2.19.3 ([#1127](https://github.com/rudderlabs/rudder-go-kit/issues/1127)) ([5e1d232](https://github.com/rudderlabs/rudder-go-kit/commit/5e1d232e1ccff724bfb711a1c7fcd864450d80a1))
+* **deps:** bump the all group across 1 directory with 18 updates ([#1135](https://github.com/rudderlabs/rudder-go-kit/issues/1135)) ([7bff61a](https://github.com/rudderlabs/rudder-go-kit/commit/7bff61a22896995447447f87dc03d2bc5c6a9168))
+* **deps:** bump the frequent group across 1 directory with 2 updates ([#1131](https://github.com/rudderlabs/rudder-go-kit/issues/1131)) ([7f4e2cd](https://github.com/rudderlabs/rudder-go-kit/commit/7f4e2cd3fb40827e246fb79fabf5aa5b19ab7b9e))
+* **stats:** scheduler lag collector ([#1136](https://github.com/rudderlabs/rudder-go-kit/issues/1136)) ([e19927a](https://github.com/rudderlabs/rudder-go-kit/commit/e19927a735b772577913f07d5b73b5b5577edea3))
+
 ## [0.76.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.76.0...v0.76.1) (2026-05-23)
 
 
