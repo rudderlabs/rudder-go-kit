@@ -3,7 +3,7 @@ module github.com/rudderlabs/rudder-go-kit
 go 1.26.3
 
 require (
-	cloud.google.com/go/storage v1.62.1
+	cloud.google.com/go/storage v1.62.2
 	github.com/Azure/azure-storage-blob-go v0.15.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/DataDog/zstd v1.5.7
