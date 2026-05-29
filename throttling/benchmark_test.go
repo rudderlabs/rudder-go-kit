@@ -19,9 +19,11 @@ import (
 /*
 goos: linux, goarch: amd64
 cpu: 12th Gen Intel(R) Core(TM) i9-12900K
-BenchmarkLimiters/gcra_redis-24					58465			20173 ns/op
-BenchmarkLimiters/sorted_sets_redis-24			60723			19385 ns/op
-BenchmarkLimiters/gcra-24						9005494			129.9 ns/op
+BenchmarkLimiters/gcra-24                	  941049	      1157 ns/op
+BenchmarkLimiters/gcra_valkey-24         	   48194	     27208 ns/op
+BenchmarkLimiters/gcra_redis-24          	   48608	     26728 ns/op
+BenchmarkLimiters/sorted_sets_valkey-24  	   46354	     25045 ns/op
+BenchmarkLimiters/sorted_sets_redis-24   	   39974	     27498 ns/op
 */
 func BenchmarkLimiters(b *testing.B) {
 	pool, err := dockertest.NewPool("")
@@ -31,11 +33,14 @@ func BenchmarkLimiters(b *testing.B) {
 		rate     int64 = 10
 		window   int64 = 1
 		ctx            = context.Background()
-		rc             = bootstrapRedis(ctx, b, pool)
+		rc             = bootstrapRedis(b, pool)
+		vc             = bootstrapValkey(b, pool)
 		limiters       = map[string]*Limiter{
-			"gcra":              newLimiter(b, WithInMemoryGCRA(0)),
-			"gcra redis":        newLimiter(b, WithRedisGCRA(rc, 0)),
-			"sorted sets redis": newLimiter(b, WithRedisSortedSet(rc)),
+			"gcra":               newLimiter(b, WithInMemoryGCRA(0)),
+			"gcra redis":         newLimiter(b, WithRedisGCRA(rc, 0)),
+			"sorted sets redis":  newLimiter(b, WithRedisSortedSet(rc)),
+			"gcra valkey":        newLimiter(b, WithRedisGCRA(vc, 0)),
+			"sorted sets valkey": newLimiter(b, WithRedisSortedSet(vc)),
 		}
 	)
 
@@ -63,7 +68,7 @@ func BenchmarkRedisSortedSetRemover(b *testing.B) {
 	require.NoError(b, err)
 
 	prepare := func(b *testing.B) (*redis.Client, string, []*redis.Z) {
-		rc := bootstrapRedis(ctx, b, pool)
+		rc := bootstrapRedis(b, pool)
 
 		key := rand.UniqueString(10)
 		members := make([]*redis.Z, b.N*3)

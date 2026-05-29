@@ -31,7 +31,8 @@ func TestThrottling(t *testing.T) {
 
 	var (
 		ctx      = context.Background()
-		rc       = bootstrapRedis(ctx, t, pool)
+		rc       = bootstrapRedis(t, pool)
+		vc       = bootstrapValkey(t, pool)
 		limiters = []limiterSettings{
 			{
 				name:        "gcra",
@@ -44,8 +45,18 @@ func TestThrottling(t *testing.T) {
 				concurrency: 100,
 			},
 			{
+				name:        "gcra valkey",
+				limiter:     newLimiter(t, WithRedisGCRA(vc, 100)),
+				concurrency: 100,
+			},
+			{
 				name:        "sorted sets redis",
 				limiter:     newLimiter(t, WithRedisSortedSet(rc)),
+				concurrency: 5000,
+			},
+			{
+				name:        "sorted sets valkey",
+				limiter:     newLimiter(t, WithRedisSortedSet(vc)),
 				concurrency: 5000,
 			},
 		}
@@ -163,7 +174,7 @@ func TestGCRABurstAsRate(t *testing.T) {
 
 	var (
 		ctx = context.Background()
-		rc  = bootstrapRedis(ctx, t, pool)
+		rc  = bootstrapRedis(t, pool)
 		l   = newLimiter(t, WithRedisGCRA(rc, 0))
 		// Configuration variables
 		key          = "foo"
@@ -204,7 +215,7 @@ func TestReturn(t *testing.T) {
 		window    int64 = 1
 		windowDur       = time.Duration(window) * time.Second
 		ctx             = context.Background()
-		rc              = bootstrapRedis(ctx, t, pool)
+		rc              = bootstrapRedis(t, pool)
 		testCases       = []testCase{
 			{
 				name:    "sorted sets redis",
@@ -251,7 +262,7 @@ func TestBadData(t *testing.T) {
 
 	var (
 		ctx      = context.Background()
-		rc       = bootstrapRedis(ctx, t, pool)
+		rc       = bootstrapRedis(t, pool)
 		limiters = map[string]*Limiter{
 			"gcra":              newLimiter(t, WithInMemoryGCRA(0)),
 			"gcra redis":        newLimiter(t, WithRedisGCRA(rc, 0)),
@@ -306,7 +317,7 @@ func TestRetryAfter(t *testing.T) {
 
 	var (
 		ctx       = context.Background()
-		rc        = bootstrapRedis(ctx, t, pool)
+		rc        = bootstrapRedis(t, pool)
 		testCases = []testCase{
 			{
 				name:                      "gcra",
