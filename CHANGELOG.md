@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.76.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.76.2...v0.76.3) (2026-05-29)
+
+
+### Miscellaneous
+
+* **deps:** bump actions/create-github-app-token from 3.1.1 to 3.2.0 ([#1139](https://github.com/rudderlabs/rudder-go-kit/issues/1139)) ([5c68263](https://github.com/rudderlabs/rudder-go-kit/commit/5c68263f15e708fa1a941ec20f6a68d64c891d91))
+* **deps:** bump cloud.google.com/go/storage from 1.62.1 to 1.62.2 in the frequent group ([#1138](https://github.com/rudderlabs/rudder-go-kit/issues/1138)) ([ba63789](https://github.com/rudderlabs/rudder-go-kit/commit/ba63789994526822879c82da8b6a6230f79ef787))
+* **deps:** bump codecov/codecov-action from 6.0.0 to 6.0.1 ([#1140](https://github.com/rudderlabs/rudder-go-kit/issues/1140)) ([efc3c37](https://github.com/rudderlabs/rudder-go-kit/commit/efc3c37d9b2f950e813b49acf1c072dbf3bed1f7))
+
 ## [0.76.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.76.1...v0.76.2) (2026-05-28)
 
 
