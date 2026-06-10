@@ -41,6 +41,11 @@ func (*nop) Stop()                                             {}
 
 func (*nop) RegisterCollector(c Collector) error { return nil }
 
+func (*nop) TrackHistogram(_ string, _ Tags, _ RollingHistogramConfig) (RollingHistogramTracker, error) {
+	// TODO don't panic, just return a no-op object
+	panic("rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled")
+}
+
 type nopTracer struct{}
 
 func (*nopTracer) Start(ctx context.Context, _ string, _ SpanKind, _ ...SpanOption) (context.Context, TraceSpan) {

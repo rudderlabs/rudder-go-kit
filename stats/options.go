@@ -2,6 +2,7 @@ package stats
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -19,6 +20,7 @@ type statsConfig struct {
 	histogramBuckets        map[string][]float64
 	prometheusRegisterer    prometheus.Registerer
 	prometheusGatherer      prometheus.Gatherer
+	histogramPollInterval   time.Duration // TODO where is the With* option?
 
 	// Exponential histogram configuration
 	useExponentialHistogram     bool

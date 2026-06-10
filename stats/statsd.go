@@ -183,32 +183,18 @@ func (s *statsdStats) NewSampledTaggedStat(Name, StatType string, tags Tags) (m 
 	return s.internalNewTaggedStat(Name, StatType, tags, s.statsdConfig.samplingRate)
 }
 
+func (s *statsdStats) TrackHistogram(name string, tags Tags, cfg RollingHistogramConfig) (RollingHistogramTracker, error) {
+	// TODO don't panic, return a no-op instead. if a logger is available then log a warning as well.
+	panic("rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled")
+}
+
 func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, samplingRate float32) (m Measurement) {
 	// If stats is not enabled, returning a dummy struct
 	if !s.config.enabled.Load() {
 		return s.newStatsdMeasurement(name, statType, &statsdClient{})
 	}
 
-	// Clean up tags based on deployment type. No need to send workspace id tag for free tier customers.
-	newTags := make(Tags)
-	for k, v := range tags {
-		if strings.Trim(k, " ") == "" {
-			s.logger.Warnn(
-				"removing empty tag key",
-				logger.NewStringField("value", v),
-				logger.NewStringField("measurement", name),
-			)
-			continue
-		}
-		if _, ok := s.config.excludedTags[k]; ok {
-			continue
-		}
-		sanitizedKey := sanitizeTagKey(k)
-		if _, ok := s.config.excludedTags[sanitizedKey]; ok {
-			continue
-		}
-		newTags[sanitizedKey] = v
-	}
+	name, newTags := s.canonicalMeasurementIdentity(name, tags)
 
 	// key comprises the measurement type plus all tag-value pairs
 	taggedClientKey := newTags.String() + fmt.Sprintf("%f", samplingRate)
@@ -239,7 +225,40 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 		s.state.clientsLock.Unlock()
 	}
 
-	return s.newStatsdMeasurement(name, statType, taggedClient)
+	m = s.newStatsdMeasurement(name, statType, taggedClient)
+	return m
+}
+
+func (s *statsdStats) canonicalMeasurementIdentity(name string, tags Tags) (string, Tags) {
+	if strings.Trim(name, " ") == "" {
+		byteArr := make([]byte, 2048)
+		n := runtime.Stack(byteArr, false)
+		stackTrace := string(byteArr[:n])
+		s.logger.Warnn("detected missing stat measurement name, using 'novalue'", logger.NewStringField("stacktrace", stackTrace))
+		name = "novalue"
+	}
+
+	// Clean up tags based on deployment type. No need to send workspace id tag for free tier customers.
+	newTags := make(Tags)
+	for k, v := range tags {
+		if strings.Trim(k, " ") == "" {
+			s.logger.Warnn(
+				"removing empty tag key",
+				logger.NewStringField("value", v),
+				logger.NewStringField("measurement", name),
+			)
+			continue
+		}
+		if _, ok := s.config.excludedTags[k]; ok {
+			continue
+		}
+		sanitizedKey := sanitizeTagKey(k)
+		if _, ok := s.config.excludedTags[sanitizedKey]; ok {
+			continue
+		}
+		newTags[sanitizedKey] = v
+	}
+	return name, newTags
 }
 
 // newStatsdMeasurement creates a new measurement of the specific type
@@ -265,7 +284,7 @@ func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsd
 	case TimerType:
 		return &statsdTimer{statsdMeasurement: baseMeasurement}
 	case HistogramType:
-		return &statsdHistogram{baseMeasurement}
+		return &statsdHistogram{statsdMeasurement: baseMeasurement}
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
 	}

@@ -34,6 +34,12 @@ func init() {
 // Default is the default (singleton) Stats instance
 var Default Stats
 
+var (
+	_ RollingHistogramStats = (*otelStats)(nil)
+	_ RollingHistogramStats = (*statsdStats)(nil)
+	_ RollingHistogramStats = (*nop)(nil)
+)
+
 type GoRoutineFactory interface {
 	Go(function func())
 }
@@ -80,6 +86,7 @@ func NewStats(
 
 	enabled := atomic.Bool{}
 	enabled.Store(config.GetBoolVar(true, "enableStats"))
+	metricsExportInterval := config.GetDurationVar(5, time.Second, "OpenTelemetry.metrics.exportInterval")
 	statsConfig := statsConfig{
 		excludedTags:        excludedTags,
 		enabled:             &enabled,
@@ -93,6 +100,11 @@ func NewStats(
 			enableGCStats:           config.GetBoolVar(true, "RuntimeStats.enableGCStats"),
 			metricManager:           metricManager,
 		},
+		histogramPollInterval: config.GetDurationVar(
+			int64(metricsExportInterval),
+			time.Nanosecond,
+			"OpenTelemetry.metrics.rollingHistogramPollInterval",
+		),
 	}
 	for _, opt := range opts {
 		opt(&statsConfig)
@@ -112,16 +124,20 @@ func NewStats(
 			stopBackgroundCollection: func() {},
 			meter:                    otel.GetMeterProvider().Meter(defaultMeterName),
 			logger:                   loggerFactory.NewLogger().Child("stats"),
-			prometheusRegisterer:     registerer,
-			prometheusGatherer:       gatherer,
-			tracerProvider:           noop.NewTracerProvider(),
+			rollingHistograms: newRollingHistogramRegistry(
+				time.Now,
+				statsConfig.histogramPollInterval,
+			),
+			prometheusRegisterer: registerer,
+			prometheusGatherer:   gatherer,
+			tracerProvider:       noop.NewTracerProvider(),
 			otelConfig: otelStatsConfig{
 				tracesEndpoint:           config.GetStringVar("", "OpenTelemetry.traces.endpoint"),
 				tracingSamplingRate:      config.GetFloat64Var(0.1, "OpenTelemetry.traces.samplingRate"),
 				withTracingSyncer:        config.GetBoolVar(false, "OpenTelemetry.traces.withSyncer"),
 				withOTLPHTTP:             config.GetBoolVar(false, "OpenTelemetry.traces.withOTLPHTTP"),
 				metricsEndpoint:          config.GetStringVar("", "OpenTelemetry.metrics.endpoint"),
-				metricsExportInterval:    config.GetDurationVar(5, time.Second, "OpenTelemetry.metrics.exportInterval"),
+				metricsExportInterval:    metricsExportInterval,
 				enablePrometheusExporter: config.GetBoolVar(false, "OpenTelemetry.metrics.prometheus.enabled"),
 				prometheusMetricsPort:    config.GetIntVar(0, 1, "OpenTelemetry.metrics.prometheus.port"),
 			},

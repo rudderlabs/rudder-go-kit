@@ -42,16 +42,17 @@ type otelStats struct {
 	tracerMap           map[string]Tracer
 	tracerMapMu         sync.Mutex
 
-	meter        metric.Meter
-	noopMeter    metric.Meter
-	counters     map[string]metric.Int64Counter
-	countersMu   sync.Mutex
-	gauges       map[string]*otelGauge
-	gaugesMu     sync.Mutex
-	timers       map[string]metric.Float64Histogram
-	timersMu     sync.Mutex
-	histograms   map[string]metric.Float64Histogram
-	histogramsMu sync.Mutex
+	meter             metric.Meter
+	noopMeter         metric.Meter
+	counters          map[string]metric.Int64Counter
+	countersMu        sync.Mutex
+	gauges            map[string]*otelGauge
+	gaugesMu          sync.Mutex
+	timers            map[string]metric.Float64Histogram
+	timersMu          sync.Mutex
+	histograms        map[string]metric.Float64Histogram
+	histogramsMu      sync.Mutex
+	rollingHistograms *rollingHistogramRegistry
 
 	otelManager              otel.Manager
 	collectorAggregator      *aggregatedCollector
@@ -200,6 +201,9 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	// Starting background collection
 	var backgroundCollectionCtx context.Context
 	backgroundCollectionCtx, s.stopBackgroundCollection = context.WithCancel(context.Background())
+	if s.otelConfig.enablePrometheusExporter && s.rollingHistograms != nil {
+		s.rollingHistograms.start(backgroundCollectionCtx, goFactory, s.otelManager.PrometheusReader())
+	}
 
 	gaugeFunc := func(key string, val uint64) {
 		s.getMeasurement("runtime_"+key, GaugeType, nil).Gauge(val)
@@ -321,6 +325,20 @@ func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) (m Me
 	return s.NewTaggedStat(name, statType, tags)
 }
 
+func (s *otelStats) TrackHistogram(name string, tags Tags, cfg RollingHistogramConfig) (RollingHistogramTracker, error) {
+	if !s.otelConfig.enablePrometheusExporter {
+		panic("rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled")
+	}
+	if s.rollingHistograms == nil {
+		s.rollingHistograms = newRollingHistogramRegistry(
+			time.Now,
+			s.config.histogramPollInterval,
+		)
+	}
+	name, tags = s.canonicalMeasurementIdentity(name, tags)
+	return s.rollingHistograms.track(name, tags, cfg)
+}
+
 func (*otelStats) getNoOpMeasurement(statType string) Measurement {
 	om := &otelMeasurement{
 		genericMeasurement: genericMeasurement{statType: statType},
@@ -344,6 +362,32 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		return s.getNoOpMeasurement(statType)
 	}
 
+	name, newTags := s.canonicalMeasurementIdentity(name, tags)
+	attributes := newTags.otelAttributes()
+
+	om := &otelMeasurement{
+		genericMeasurement: genericMeasurement{statType: statType},
+		attributes:         attributes,
+	}
+
+	switch statType {
+	case CountType:
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger)
+		return &otelCounter{counter: instr, otelMeasurement: om}
+	case GaugeType:
+		return s.getGauge(name, attributes, newTags.String())
+	case TimerType:
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
+		return &otelTimer{timer: instr, otelMeasurement: om}
+	case HistogramType:
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
+		return &otelHistogram{histogram: instr, otelMeasurement: om}
+	default:
+		panic(fmt.Errorf("unsupported measurement type %s", statType))
+	}
+}
+
+func (s *otelStats) canonicalMeasurementIdentity(name string, tags Tags) (string, Tags) {
 	if strings.Trim(name, " ") == "" {
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
@@ -383,27 +427,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		}
 		newTags[sanitizedKey] = v
 	}
-
-	om := &otelMeasurement{
-		genericMeasurement: genericMeasurement{statType: statType},
-		attributes:         newTags.otelAttributes(),
-	}
-
-	switch statType {
-	case CountType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger)
-		return &otelCounter{counter: instr, otelMeasurement: om}
-	case GaugeType:
-		return s.getGauge(name, om.attributes, newTags.String())
-	case TimerType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
-		return &otelTimer{timer: instr, otelMeasurement: om}
-	case HistogramType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
-		return &otelHistogram{histogram: instr, otelMeasurement: om}
-	default:
-		panic(fmt.Errorf("unsupported measurement type %s", statType))
-	}
+	return name, newTags
 }
 
 func (s *otelStats) getGauge(
