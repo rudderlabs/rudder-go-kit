@@ -343,9 +343,32 @@ func (s *otelStats) TrackHistogram(
 		)
 		return nopRollingHistogramTracker{}, false, nil
 	}
+	// Rolling histogram tracking reads exponential (Prometheus native) histograms only.
+	// A histogram using explicit buckets is exported as a classic histogram, which the poller cannot read, so we
+	// report it as unsupported instead of handing back a tracker that would never receive data.
+	if !s.histogramIsExponential(name) {
+		s.logger.Warnn(
+			"Rolling histogram tracking requires the histogram to use exponential (native) bucketing; returning a no-op tracker",
+			logger.NewStringField("measurement", name),
+		)
+		return nopRollingHistogramTracker{}, false, nil
+	}
 	name, tags = s.canonicalMeasurementIdentity(name, tags)
 	tracker, err = s.rollingHistograms.track(name, tags, cfg)
 	return tracker, true, err
+}
+
+// histogramIsExponential reports whether the histogram with the given name is configured to use
+// exponential (Prometheus native) bucketing, mirroring the aggregation precedence applied in Start:
+// a per-histogram setting wins over the default, and exponential wins over explicit buckets.
+func (s *otelStats) histogramIsExponential(name string) bool {
+	if _, ok := s.config.exponentialHistograms[name]; ok {
+		return true
+	}
+	if _, ok := s.config.histogramBuckets[name]; ok {
+		return false
+	}
+	return s.config.useExponentialHistogram
 }
 
 func (*otelStats) getNoOpMeasurement(statType string) Measurement {

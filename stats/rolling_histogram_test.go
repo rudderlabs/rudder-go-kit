@@ -89,50 +89,112 @@ func TestTrackHistogramUnsupportedBackends(t *testing.T) {
 	require.EqualValues(t, 0, tracker.Count())
 }
 
-func TestTrackHistogramWithOTelPrometheus(t *testing.T) {
-	c := config.New()
-	c.Set("OpenTelemetry.enabled", true)
-	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
-	c.Set("OpenTelemetry.metrics.rollingHistogramPollInterval", 10*time.Millisecond)
+// TestTrackHistogramConfigurations is an end-to-end test (real OTel SDK + Prometheus reader +
+// background poller) that exercises one case per histogram-aggregation configuration. All cases run
+// with the Prometheus exporter enabled — the only mode that can support rolling histograms; the
+// "OTel without Prometheus" combination is covered by TestTrackHistogramUnsupportedBackends.
+func TestTrackHistogramConfigurations(t *testing.T) {
+	const histogramName = "publish_latency"
+	histogramTags := Tags{"dest": "pulsar"}
+	explicitBuckets := []float64{0.1, 0.25, 0.5, 1, 2.5, 5, 10}
 
-	r := prometheus.NewRegistry()
-	s := NewStats(
-		c,
-		logger.NewFactory(c),
-		svcMetric.NewManager(),
-		WithPrometheusRegistry(r, r),
-		WithDefaultExponentialHistogram(160),
-	)
-	require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
-	t.Cleanup(s.Stop)
-
-	tracker, supported, err := TrackHistogram(s, "publish_latency", Tags{"dest": "pulsar"}, RollingHistogramConfig{
-		Window:     time.Minute,
-		Percentile: 95,
-	})
-	require.NoError(t, err)
-	require.True(t, supported)
-
-	h := s.NewTaggedStat("publish_latency", HistogramType, Tags{"dest": "pulsar"})
-	typedTracker := tracker.(*rollingHistogramTracker)
-
-	h.Observe(0.1)
-	require.Eventually(t, func() bool {
-		typedTracker.mu.Lock()
-		defer typedTracker.mu.Unlock()
-		return len(typedTracker.prevByKey) > 0
-	}, time.Second, 10*time.Millisecond)
-
-	for i := 0; i < 100; i++ {
-		h.Observe(float64(i+1) / 100)
+	type testCase struct {
+		name              string
+		options           []Option
+		expectedSupported bool
 	}
 
-	require.Eventually(t, func() bool {
-		return tracker.Count() >= 100
-	}, time.Second, 10*time.Millisecond)
-	p95, ok := tracker.Percentile()
-	require.True(t, ok)
-	require.Greater(t, p95, 0.9)
+	runTest := func(t *testing.T, tc testCase) {
+		c := config.New()
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+		c.Set("OpenTelemetry.metrics.rollingHistogramPollInterval", 10*time.Millisecond)
+
+		r := prometheus.NewRegistry()
+		opts := append([]Option{WithPrometheusRegistry(r, r)}, tc.options...)
+		s := NewStats(c, logger.NewFactory(c), svcMetric.NewManager(), opts...)
+		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+		t.Cleanup(s.Stop)
+
+		tracker, supported, err := TrackHistogram(s, histogramName, histogramTags, RollingHistogramConfig{
+			Window:     time.Minute,
+			Percentile: 95,
+		})
+		require.NoError(t, err)
+		require.Equal(t, tc.expectedSupported, supported)
+		require.NotNil(t, tracker)
+
+		h := s.NewTaggedStat(histogramName, HistogramType, histogramTags)
+
+		if !tc.expectedSupported {
+			// A no-op tracker never records observations, even though the histogram is still emitted
+			// (as a classic histogram, which the poller cannot read).
+			for i := 0; i < 100; i++ {
+				h.Observe(float64(i+1) / 100)
+			}
+			require.EqualValues(t, 0, tracker.Count())
+			_, ok := tracker.Percentile()
+			require.False(t, ok)
+			return
+		}
+
+		// The first poll records the cumulative baseline without emitting a delta, so observe one
+		// value and wait for that baseline before observing the data we want in the rolling window.
+		h.Observe(0.1)
+		typedTracker := tracker.(*rollingHistogramTracker)
+		require.Eventually(t, func() bool {
+			typedTracker.mu.Lock()
+			defer typedTracker.mu.Unlock()
+			return len(typedTracker.prevByKey) > 0
+		}, 5*time.Second, 10*time.Millisecond)
+
+		for i := 0; i < 100; i++ {
+			h.Observe(float64(i+1) / 100)
+		}
+		require.Eventually(t, func() bool {
+			return tracker.Count() >= 100
+		}, 5*time.Second, 10*time.Millisecond)
+
+		p95, ok := tracker.Percentile()
+		require.True(t, ok)
+		require.Greater(t, p95, 0.9)
+		t.Log("p95 latency:", p95)
+	}
+
+	for _, tc := range []testCase{
+		{
+			name:              "default exponential (native) histogram",
+			options:           []Option{WithDefaultExponentialHistogram(160)},
+			expectedSupported: true,
+		},
+		{
+			name:              "per-histogram exponential (native) histogram",
+			options:           []Option{WithExponentialHistogram(histogramName, 160)},
+			expectedSupported: true,
+		},
+		{
+			name: "per-histogram explicit buckets override default exponential",
+			options: []Option{
+				WithDefaultExponentialHistogram(160),
+				WithHistogramBuckets(histogramName, explicitBuckets),
+			},
+			expectedSupported: false,
+		},
+		{
+			name:              "default explicit buckets",
+			options:           []Option{WithDefaultHistogramBuckets(explicitBuckets)},
+			expectedSupported: false,
+		},
+		{
+			name:              "no histogram aggregation configured (classic histogram)",
+			options:           nil,
+			expectedSupported: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runTest(t, tc)
+		})
+	}
 }
 
 func TestExponentialHistogramSnapshotFromDataPoint(t *testing.T) {
