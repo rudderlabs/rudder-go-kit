@@ -81,6 +81,12 @@ type rollingHistogramRegistry struct {
 	reader        sdkmetric.Reader
 	entries       map[string]*rollingHistogramTracker
 	started       bool
+
+	// scratch is the buffer Collect writes into, reused across polls so we don't re-allocate the full
+	// metric snapshot every interval (the SDK reuses its slice capacity). Touched only by the single
+	// poll goroutine, so it needs no lock. Everything we keep is copied out of it (see
+	// exponentialHistogramSnapshotFromDataPoint / tagsFromMetricAttributes), so reuse is safe.
+	scratch metricdata.ResourceMetrics
 }
 
 func newRollingHistogramRegistry(
@@ -165,13 +171,12 @@ func (r *rollingHistogramRegistry) poll(ctx context.Context) {
 		return
 	}
 
-	rm := metricdata.ResourceMetrics{}
-	if err := reader.Collect(ctx, &rm); err != nil {
+	if err := reader.Collect(ctx, &r.scratch); err != nil {
 		return
 	}
 
 	now := r.now()
-	for _, scopeMetrics := range rm.ScopeMetrics {
+	for _, scopeMetrics := range r.scratch.ScopeMetrics {
 		for _, m := range scopeMetrics.Metrics {
 			switch data := m.Data.(type) {
 			case metricdata.ExponentialHistogram[float64]:
