@@ -17,10 +17,9 @@ import (
 func TestRollingHistogramTrackerFromExponentialDeltas(t *testing.T) {
 	now := time.Now()
 	tracker := &rollingHistogramTracker{
-		window:    time.Minute,
-		quantile:  0.95,
-		now:       func() time.Time { return now },
-		prevByKey: make(map[string]exponentialHistogramSnapshot),
+		window:   time.Minute,
+		quantile: 0.95,
+		now:      func() time.Time { return now },
 	}
 
 	tracker.observe(exponentialHistogramSnapshot{
@@ -145,7 +144,7 @@ func TestTrackHistogramConfigurations(t *testing.T) {
 		require.Eventually(t, func() bool {
 			typedTracker.mu.Lock()
 			defer typedTracker.mu.Unlock()
-			return len(typedTracker.prevByKey) > 0
+			return typedTracker.hasPrev
 		}, 5*time.Second, 10*time.Millisecond)
 
 		for i := 0; i < 100; i++ {
@@ -155,10 +154,12 @@ func TestTrackHistogramConfigurations(t *testing.T) {
 			return tracker.Count() >= 100
 		}, 5*time.Second, 10*time.Millisecond)
 
+		// Observations are 0.01..1.00, so the true p95 is ~0.95. With native histograms at full
+		// resolution the window settles around scale 4 and the reported value is the containing
+		// bucket's upper bound (~0.96) — not the coarse scale-0 value of 1.0.
 		p95, ok := tracker.Percentile()
 		require.True(t, ok)
-		require.Greater(t, p95, 0.9)
-		t.Log("p95 latency:", p95)
+		require.InDelta(t, 0.95, p95, 0.03)
 	}
 
 	for _, tc := range []testCase{

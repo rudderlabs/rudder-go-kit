@@ -190,6 +190,10 @@ func WithDefaultExponentialHistogram(maxSize int32) MeterProviderOption {
 			sdkmetric.Stream{
 				Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
 					MaxSize: maxSize,
+					// MaxScale is the starting (highest) resolution; the SDK only ever downscales from
+					// here. Leaving it at the zero value pins every histogram at scale 0 (coarse 2x
+					// buckets), so use the SDK maximum/default of 20 for full resolution.
+					MaxScale: 20,
 				},
 			},
 		)
@@ -214,6 +218,9 @@ func WithExponentialHistogram(instrumentName, meterName string, maxSize int32) M
 		sdkmetric.Stream{
 			Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
 				MaxSize: maxSize,
+				// See WithDefaultExponentialHistogram: MaxScale must be set or the histogram is pinned
+				// at scale 0. 20 is the SDK maximum/default and gives full resolution.
+				MaxScale: 20,
 			},
 		},
 	)

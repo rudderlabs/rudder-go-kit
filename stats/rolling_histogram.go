@@ -3,7 +3,6 @@ package stats
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 	"sort"
 	"sync"
@@ -139,10 +138,9 @@ func (r *rollingHistogramRegistry) track(name string, tags Tags, cfg RollingHist
 		return entry, nil
 	}
 	tracker := &rollingHistogramTracker{
-		window:    cfg.Window,
-		quantile:  cfg.Percentile / 100,
-		now:       r.now,
-		prevByKey: make(map[string]exponentialHistogramSnapshot),
+		window:   cfg.Window,
+		quantile: cfg.Percentile / 100,
+		now:      r.now,
 	}
 	r.entries[key] = tracker
 	return tracker, nil
@@ -210,12 +208,15 @@ func tagsFromMetricAttributes(attrs attribute.Set) Tags {
 }
 
 type rollingHistogramTracker struct {
-	mu        sync.Mutex
-	window    time.Duration
-	quantile  float64
-	now       func() time.Time
-	prevByKey map[string]exponentialHistogramSnapshot
-	samples   []timedExponentialHistogram
+	mu       sync.Mutex
+	window   time.Duration
+	quantile float64
+	now      func() time.Time
+	// prev is the last cumulative snapshot observed for this (single) series; deltas are computed
+	// against it. A tracker only ever sees one series, so a single snapshot is enough.
+	prev    exponentialHistogramSnapshot
+	hasPrev bool
+	samples []timedExponentialHistogram
 }
 
 type timedExponentialHistogram struct {
@@ -255,7 +256,8 @@ func (t *rollingHistogramTracker) Reset() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.prevByKey = make(map[string]exponentialHistogramSnapshot)
+	t.prev = exponentialHistogramSnapshot{}
+	t.hasPrev = false
 	t.samples = nil
 }
 
@@ -263,10 +265,11 @@ func (t *rollingHistogramTracker) observe(current exponentialHistogramSnapshot, 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	seriesKey := current.seriesKey()
-	previous, ok := t.prevByKey[seriesKey]
-	t.prevByKey[seriesKey] = current
-	if !ok {
+	previous := t.prev
+	hadPrev := t.hasPrev
+	t.prev = current
+	t.hasPrev = true
+	if !hadPrev {
 		return
 	}
 	delta := current.delta(previous)
@@ -321,31 +324,61 @@ func exponentialHistogramSnapshotFromDataPoint[N int64 | float64](
 	return s
 }
 
-func (s exponentialHistogramSnapshot) seriesKey() string {
-	return fmt.Sprintf("%d", s.scale)
+// downscale reduces the snapshot's resolution to targetScale (which must be <= s.scale), merging
+// positive buckets the way OTel does when it downscales: bucket index i maps to i>>delta. Counts that
+// are not scale-dependent (negative, zero, total) are preserved. It is used to align two cumulative
+// snapshots taken at different scales before differencing, since OTel histograms downscale over time.
+func (s exponentialHistogramSnapshot) downscale(targetScale int32) exponentialHistogramSnapshot {
+	if targetScale >= s.scale {
+		return s
+	}
+	shift := uint(s.scale - targetScale)
+	out := exponentialHistogramSnapshot{
+		scale:         targetScale,
+		negativeCount: s.negativeCount,
+		zeroCount:     s.zeroCount,
+		count:         s.count,
+		positiveCount: make(map[int32]uint64, len(s.positiveCount)),
+	}
+	for key, count := range s.positiveCount {
+		// key is the upper-bound exponent (OTel bucket index + 1); shift the index, not the exponent.
+		out.positiveCount[((key-1)>>shift)+1] += count
+	}
+	return out
 }
 
 func (s exponentialHistogramSnapshot) delta(previous exponentialHistogramSnapshot) exponentialHistogramSnapshot {
-	if s.scale != previous.scale ||
-		s.count < previous.count ||
-		s.negativeCount < previous.negativeCount ||
-		s.zeroCount < previous.zeroCount {
-		return s
+	// Align scales before differencing: OTel exponential histograms only ever downscale, so bring the
+	// higher-resolution snapshot down to the lower scale (previously a scale change was treated as a
+	// reset, which dropped a poll interval of data on every rescale).
+	cur, prev := s, previous
+	if cur.scale > prev.scale {
+		cur = cur.downscale(prev.scale)
+	} else if prev.scale > cur.scale {
+		prev = prev.downscale(cur.scale)
+	}
+
+	// A drop in any cumulative total means the series reset (e.g. process restart); the current
+	// cumulative snapshot is then the best estimate of the delta.
+	if cur.count < prev.count ||
+		cur.negativeCount < prev.negativeCount ||
+		cur.zeroCount < prev.zeroCount {
+		return cur
 	}
 	delta := exponentialHistogramSnapshot{
-		scale:         s.scale,
-		negativeCount: s.negativeCount - previous.negativeCount,
-		zeroCount:     s.zeroCount - previous.zeroCount,
-		count:         s.count - previous.count,
-		positiveCount: make(map[int32]uint64, len(s.positiveCount)),
+		scale:         cur.scale,
+		negativeCount: cur.negativeCount - prev.negativeCount,
+		zeroCount:     cur.zeroCount - prev.zeroCount,
+		count:         cur.count - prev.count,
+		positiveCount: make(map[int32]uint64, len(cur.positiveCount)),
 	}
-	for index, count := range s.positiveCount {
-		prev := previous.positiveCount[index]
-		if count < prev {
-			return s
+	for index, count := range cur.positiveCount {
+		prevCount := prev.positiveCount[index]
+		if count < prevCount {
+			return cur
 		}
-		if count > prev {
-			delta.positiveCount[index] = count - prev
+		if count > prevCount {
+			delta.positiveCount[index] = count - prevCount
 		}
 	}
 	return delta
