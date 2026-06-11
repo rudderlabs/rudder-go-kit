@@ -102,6 +102,9 @@ func NewStats(
 			time.Second,
 			"OpenTelemetry.metrics.rollingHistogramPollInterval",
 		),
+		trackingHistogramMaxEmptyPolls: config.GetIntVar(
+			defaultMaxEmptyPolls, 1, "OpenTelemetry.metrics.rollingHistogramMaxEmptyPolls",
+		),
 	}
 	for _, opt := range opts {
 		opt(&statsConfig)
@@ -124,6 +127,7 @@ func NewStats(
 			rollingHistograms: newRollingHistogramRegistry(
 				time.Now,
 				statsConfig.trackingHistogramPollInterval,
+				statsConfig.trackingHistogramMaxEmptyPolls,
 			),
 			prometheusRegisterer: registerer,
 			prometheusGatherer:   gatherer,

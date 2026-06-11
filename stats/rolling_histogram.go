@@ -16,6 +16,9 @@ import (
 const (
 	defaultRollingHistogramPercentile = 99
 	defaultPollingInterval            = 5 * time.Second
+	// defaultMaxEmptyPolls is how many consecutive polls a tracker's window may stay empty (after it
+	// has held data) before the registry drops it to bound memory; see rollingHistogramRegistry.poll.
+	defaultMaxEmptyPolls = 1
 )
 
 // RollingHistogramConfig configures an in-process rolling histogram tracker.
@@ -71,25 +74,32 @@ func (nopRollingHistogramTracker) Count() uint64                      { return 0
 func (nopRollingHistogramTracker) Reset()                             {}
 
 type rollingHistogramRegistry struct {
-	mu           sync.RWMutex
-	now          func() time.Time
-	pollInterval time.Duration
-	reader       sdkmetric.Reader
-	entries      map[string]*rollingHistogramTracker
-	started      bool
+	mu            sync.RWMutex
+	now           func() time.Time
+	pollInterval  time.Duration
+	maxEmptyPolls int
+	reader        sdkmetric.Reader
+	entries       map[string]*rollingHistogramTracker
+	started       bool
 }
 
-func newRollingHistogramRegistry(now func() time.Time, pollInterval time.Duration) *rollingHistogramRegistry {
+func newRollingHistogramRegistry(
+	now func() time.Time, pollInterval time.Duration, maxEmptyPolls int,
+) *rollingHistogramRegistry {
 	if now == nil {
 		now = time.Now
 	}
 	if pollInterval <= 0 {
 		pollInterval = defaultPollingInterval
 	}
+	if maxEmptyPolls <= 0 {
+		maxEmptyPolls = defaultMaxEmptyPolls
+	}
 	return &rollingHistogramRegistry{
-		now:          now,
-		pollInterval: pollInterval,
-		entries:      make(map[string]*rollingHistogramTracker),
+		now:           now,
+		pollInterval:  pollInterval,
+		maxEmptyPolls: maxEmptyPolls,
+		entries:       make(map[string]*rollingHistogramTracker),
 	}
 }
 
@@ -171,6 +181,24 @@ func (r *rollingHistogramRegistry) poll(ctx context.Context) {
 			}
 		}
 	}
+
+	r.evictEmpty()
+}
+
+// evictEmpty drops trackers whose rolling window has been empty for maxEmptyPolls consecutive polls
+// (after having held data at least once), bounding registry memory when callers create trackers for
+// series that later go idle. A tracker that is still warming up (never held data) is never evicted.
+// Note: an evicted series that later resumes will not be re-attached to a tracker the caller still
+// holds — that tracker stays empty until the caller registers it again.
+func (r *rollingHistogramRegistry) evictEmpty() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for key, tracker := range r.entries {
+		if tracker.evictable(r.maxEmptyPolls) {
+			delete(r.entries, key)
+		}
+	}
 }
 
 func pollExponentialHistogram[N int64 | float64](
@@ -217,6 +245,10 @@ type rollingHistogramTracker struct {
 	prev    exponentialHistogramSnapshot
 	hasPrev bool
 	samples []timedExponentialHistogram
+
+	// eviction bookkeeping, maintained by the registry poll goroutine under mu.
+	hadSamples bool // the window has held at least one sample (i.e. the tracker is past warm-up)
+	emptyPolls int  // consecutive polls the window has been empty since it last held data
 }
 
 type timedExponentialHistogram struct {
@@ -259,6 +291,8 @@ func (t *rollingHistogramTracker) Reset() {
 	t.prev = exponentialHistogramSnapshot{}
 	t.hasPrev = false
 	t.samples = nil
+	t.hadSamples = false
+	t.emptyPolls = 0
 }
 
 func (t *rollingHistogramTracker) observe(current exponentialHistogramSnapshot, now time.Time) {
@@ -280,7 +314,27 @@ func (t *rollingHistogramTracker) observe(current exponentialHistogramSnapshot, 
 		at:       now,
 		snapshot: delta,
 	})
+	t.hadSamples = true
 	t.pruneLocked()
+}
+
+// evictable prunes expired samples and reports whether the tracker should be dropped: it has held
+// data at some point and its window has now been empty for at least maxEmptyPolls consecutive polls.
+// A tracker that has never held data (still warming up) is kept regardless.
+func (t *rollingHistogramTracker) evictable(maxEmptyPolls int) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.pruneLocked()
+	if len(t.samples) > 0 {
+		t.emptyPolls = 0
+		return false
+	}
+	if !t.hadSamples {
+		return false
+	}
+	t.emptyPolls++
+	return t.emptyPolls >= maxEmptyPolls
 }
 
 func (t *rollingHistogramTracker) pruneLocked() {

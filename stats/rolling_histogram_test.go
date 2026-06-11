@@ -212,3 +212,49 @@ func TestExponentialHistogramSnapshotFromDataPoint(t *testing.T) {
 	require.EqualValues(t, 3, snapshot.count)
 	require.Equal(t, map[int32]uint64{3: 2, 4: 1}, snapshot.positiveCount)
 }
+
+func TestRollingHistogramEviction(t *testing.T) {
+	now := time.Now()
+	clock := func() time.Time { return now }
+
+	// addActiveTracker registers a tracker and feeds it two cumulative snapshots so it holds one
+	// delta sample (i.e. it is past warm-up).
+	addActiveTracker := func(r *rollingHistogramRegistry, key string) {
+		tr := &rollingHistogramTracker{window: time.Minute, now: clock}
+		r.entries[key] = tr
+		tr.observe(exponentialHistogramSnapshot{scale: 0, count: 10, positiveCount: map[int32]uint64{1: 10}}, now)
+		tr.observe(exponentialHistogramSnapshot{scale: 0, count: 20, positiveCount: map[int32]uint64{1: 20}}, now)
+	}
+
+	t.Run("warming-up trackers are never evicted", func(t *testing.T) {
+		r := newRollingHistogramRegistry(clock, time.Second, 1)
+		r.entries["k"] = &rollingHistogramTracker{window: time.Minute, now: clock}
+		r.evictEmpty()
+		require.Contains(t, r.entries, "k", "a tracker that never held data must not be evicted")
+	})
+
+	t.Run("evicted once the window empties (N=1)", func(t *testing.T) {
+		now = time.Now()
+		r := newRollingHistogramRegistry(clock, time.Second, 1)
+		addActiveTracker(r, "k")
+
+		r.evictEmpty() // window still holds the sample
+		require.Contains(t, r.entries, "k")
+
+		now = now.Add(2 * time.Minute) // sample falls out of the window
+		r.evictEmpty()
+		require.NotContains(t, r.entries, "k")
+	})
+
+	t.Run("kept until N consecutive empty polls (N=2)", func(t *testing.T) {
+		now = time.Now()
+		r := newRollingHistogramRegistry(clock, time.Second, 2)
+		addActiveTracker(r, "k")
+
+		now = now.Add(2 * time.Minute) // sample falls out of the window
+		r.evictEmpty()                 // 1st empty poll
+		require.Contains(t, r.entries, "k")
+		r.evictEmpty() // 2nd empty poll
+		require.NotContains(t, r.entries, "k")
+	})
+}

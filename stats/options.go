@@ -15,12 +15,13 @@ type statsConfig struct {
 	namespaceIdentifier string
 	excludedTags        map[string]struct{}
 
-	periodicStatsConfig           periodicStatsConfig
-	defaultHistogramBuckets       []float64
-	histogramBuckets              map[string][]float64
-	prometheusRegisterer          prometheus.Registerer
-	prometheusGatherer            prometheus.Gatherer
-	trackingHistogramPollInterval time.Duration
+	periodicStatsConfig            periodicStatsConfig
+	defaultHistogramBuckets        []float64
+	histogramBuckets               map[string][]float64
+	prometheusRegisterer           prometheus.Registerer
+	prometheusGatherer             prometheus.Gatherer
+	trackingHistogramPollInterval  time.Duration
+	trackingHistogramMaxEmptyPolls int
 
 	// Exponential histogram configuration
 	useExponentialHistogram     bool
@@ -104,5 +105,14 @@ func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheu
 func WithTrackingHistogramPollInterval(interval time.Duration) Option {
 	return func(c *statsConfig) {
 		c.trackingHistogramPollInterval = interval
+	}
+}
+
+// WithTrackingHistogramMaxEmptyPolls sets how many consecutive polls a histogram tracker's window may
+// stay empty (after it has held data) before the registry drops it to bound memory. Must be >= 1; if
+// unset it defaults to 1.
+func WithTrackingHistogramMaxEmptyPolls(n int) Option {
+	return func(c *statsConfig) {
+		c.trackingHistogramMaxEmptyPolls = n
 	}
 }
