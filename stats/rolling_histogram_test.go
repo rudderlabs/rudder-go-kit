@@ -2,11 +2,14 @@ package stats
 
 import (
 	"context"
+	"math"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
@@ -257,4 +260,188 @@ func TestRollingHistogramEviction(t *testing.T) {
 		r.evictEmpty() // 2nd empty poll
 		require.NotContains(t, r.entries, "k")
 	})
+}
+
+func TestExponentialHistogramSnapshotDownscale(t *testing.T) {
+	s := exponentialHistogramSnapshot{
+		scale:         2,
+		negativeCount: 1,
+		zeroCount:     2,
+		count:         10,
+		positiveCount: map[int32]uint64{1: 5, 2: 3, 3: 2}, // keys are OTel bucket index + 1
+	}
+
+	got := s.downscale(1)
+	require.Equal(t, int32(1), got.scale)
+	require.EqualValues(t, 1, got.negativeCount, "non-positive counts are scale-independent")
+	require.EqualValues(t, 2, got.zeroCount)
+	require.EqualValues(t, 10, got.count)
+	// index = key-1 -> 0,1,2; >>1 -> 0,0,1; +1 -> keys 1,1,2 (the first two merge).
+	require.Equal(t, map[int32]uint64{1: 8, 2: 2}, got.positiveCount)
+
+	// Downscaling to an equal or higher scale is a no-op.
+	require.Equal(t, s.positiveCount, s.downscale(2).positiveCount)
+	require.Equal(t, s.positiveCount, s.downscale(5).positiveCount)
+}
+
+func TestRollingHistogramDeltaAcrossScaleChange(t *testing.T) {
+	now := time.Now()
+	tr := &rollingHistogramTracker{window: time.Minute, now: func() time.Time { return now }}
+
+	// Baseline at scale 1.
+	tr.observe(exponentialHistogramSnapshot{scale: 1, count: 4, positiveCount: map[int32]uint64{2: 4}}, now)
+	require.EqualValues(t, 0, tr.Count())
+
+	// Next cumulative snapshot has downscaled to 0 (as OTel does when data spreads). The delta must be
+	// captured (10-4=6), not dropped as a spurious reset.
+	now = now.Add(time.Second)
+	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 10, positiveCount: map[int32]uint64{1: 10}}, now)
+	require.EqualValues(t, 6, tr.Count())
+}
+
+func TestRollingHistogramCounterReset(t *testing.T) {
+	now := time.Now()
+	tr := &rollingHistogramTracker{window: time.Minute, now: func() time.Time { return now }}
+
+	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 100, positiveCount: map[int32]uint64{1: 100}}, now)
+	now = now.Add(time.Second)
+	// Cumulative total dropped -> treated as a reset; the current snapshot becomes the delta.
+	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 30, positiveCount: map[int32]uint64{1: 30}}, now)
+	require.EqualValues(t, 30, tr.Count())
+}
+
+func TestQuantileFromExponentialSnapshots(t *testing.T) {
+	_, ok := quantileFromExponentialSnapshots(nil, 0.5)
+	require.False(t, ok, "empty window has no quantile")
+
+	// 6 of 10 observations are in the zero bucket, so the median falls in the zero/negative region.
+	samples := []timedExponentialHistogram{{
+		snapshot: exponentialHistogramSnapshot{
+			scale: 0, count: 10, zeroCount: 6, positiveCount: map[int32]uint64{1: 4},
+		},
+	}}
+	v, ok := quantileFromExponentialSnapshots(samples, 0.5) // rank 5 <= zeroCount 6
+	require.True(t, ok)
+	require.Equal(t, 0.0, v)
+
+	// A higher quantile lands in the positive bucket (upper bound 2^1 = 2 at scale 0).
+	v, ok = quantileFromExponentialSnapshots(samples, 0.95) // rank 10
+	require.True(t, ok)
+	require.Equal(t, 2.0, v)
+}
+
+func TestRollingHistogramTrackerQuantileInvalidInputs(t *testing.T) {
+	now := time.Now()
+	tr := &rollingHistogramTracker{window: time.Minute, now: func() time.Time { return now }}
+	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 10, positiveCount: map[int32]uint64{1: 10}}, now)
+	now = now.Add(time.Second)
+	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 20, positiveCount: map[int32]uint64{1: 20}}, now)
+	require.EqualValues(t, 10, tr.Count())
+
+	for _, q := range []float64{-0.1, 1.1, math.NaN()} {
+		_, ok := tr.Quantile(q)
+		require.Falsef(t, ok, "q=%v must be rejected", q)
+	}
+	_, ok := tr.Quantile(0.5)
+	require.True(t, ok, "valid quantile still works")
+}
+
+func TestRollingHistogramReset(t *testing.T) {
+	now := time.Now()
+	tr := &rollingHistogramTracker{window: time.Minute, now: func() time.Time { return now }}
+	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 10, positiveCount: map[int32]uint64{1: 10}}, now)
+	now = now.Add(time.Second)
+	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 20, positiveCount: map[int32]uint64{1: 20}}, now)
+	require.EqualValues(t, 10, tr.Count())
+
+	tr.Reset()
+	require.EqualValues(t, 0, tr.Count())
+	_, ok := tr.Percentile()
+	require.False(t, ok)
+
+	// After Reset the next observation is a fresh baseline (no delta yet).
+	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 100, positiveCount: map[int32]uint64{1: 100}}, now)
+	require.EqualValues(t, 0, tr.Count())
+}
+
+func TestRollingHistogramConcurrentAccess(t *testing.T) {
+	tr := &rollingHistogramTracker{window: time.Minute, quantile: 0.95, now: time.Now}
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+
+	wg.Go(func() { // single writer, mirroring the poll goroutine
+		defer close(done)
+		var c uint64
+		for i := 0; i < 2000; i++ {
+			c += 10
+			tr.observe(
+				exponentialHistogramSnapshot{scale: 0, count: c, positiveCount: map[int32]uint64{1: c}},
+				time.Now(),
+			)
+		}
+	})
+
+	for i := 0; i < 4; i++ { // concurrent readers
+		wg.Go(func() {
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					_, _ = tr.Percentile()
+					_ = tr.Count()
+				}
+			}
+		})
+	}
+
+	wg.Go(func() { // concurrent resetter
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				tr.Reset()
+			}
+		}
+	})
+
+	wg.Wait()
+}
+
+func TestPollExponentialHistogramMultipleSeries(t *testing.T) {
+	now := time.Now()
+	clock := func() time.Time { return now }
+	r := newRollingHistogramRegistry(clock, time.Second, 1)
+
+	attrsA := attribute.NewSet(attribute.String("dest", "a"))
+	attrsB := attribute.NewSet(attribute.String("dest", "b"))
+	trackerA := &rollingHistogramTracker{window: time.Minute, now: clock}
+	trackerB := &rollingHistogramTracker{window: time.Minute, now: clock}
+	r.entries[rollingHistogramKey("lat", tagsFromMetricAttributes(attrsA))] = trackerA
+	r.entries[rollingHistogramKey("lat", tagsFromMetricAttributes(attrsB))] = trackerB
+
+	dp := func(attrs attribute.Set, count uint64) metricdata.ExponentialHistogramDataPoint[float64] {
+		return metricdata.ExponentialHistogramDataPoint[float64]{
+			Attributes:     attrs,
+			Scale:          0,
+			Count:          count,
+			PositiveBucket: metricdata.ExponentialBucket{Offset: 0, Counts: []uint64{count}},
+		}
+	}
+	poll := func(a, b uint64) {
+		pollExponentialHistogram(r, "lat", metricdata.ExponentialHistogram[float64]{
+			DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{dp(attrsA, a), dp(attrsB, b)},
+		}, now)
+	}
+
+	poll(10, 5) // baselines only
+	require.EqualValues(t, 0, trackerA.Count())
+	require.EqualValues(t, 0, trackerB.Count())
+
+	now = now.Add(time.Second)
+	poll(30, 8) // each datapoint is routed to its own tracker
+	require.EqualValues(t, 20, trackerA.Count())
+	require.EqualValues(t, 3, trackerB.Count())
 }

@@ -204,7 +204,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	// Rolling histograms poll the Prometheus reader only; without the Prometheus exporter
 	// there is no internal reader to poll (see otelStats.TrackHistogram for the rationale).
 	if s.otelConfig.enablePrometheusExporter && s.rollingHistograms != nil {
-		s.rollingHistograms.start(backgroundCollectionCtx, goFactory, s.otelManager.PrometheusReader())
+		s.rollingHistograms.start(backgroundCollectionCtx, goFactory, s.otelManager.PrometheusReader(), s.logger)
 	}
 
 	gaugeFunc := func(key string, val uint64) {

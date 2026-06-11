@@ -11,6 +11,10 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
+	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 const (
@@ -79,8 +83,13 @@ type rollingHistogramRegistry struct {
 	pollInterval  time.Duration
 	maxEmptyPolls int
 	reader        sdkmetric.Reader
+	logger        logger.Logger
 	entries       map[string]*rollingHistogramTracker
 	started       bool
+
+	// collectFailing tracks whether the last poll's Collect failed, so we log the failure (and the
+	// recovery) once per episode instead of every poll. Touched only by the poll goroutine.
+	collectFailing bool
 
 	// scratch is the buffer Collect writes into, reused across polls so we don't re-allocate the full
 	// metric snapshot every interval (the SDK reuses its slice capacity). Touched only by the single
@@ -109,7 +118,9 @@ func newRollingHistogramRegistry(
 	}
 }
 
-func (r *rollingHistogramRegistry) start(ctx context.Context, goFactory GoRoutineFactory, reader sdkmetric.Reader) {
+func (r *rollingHistogramRegistry) start(
+	ctx context.Context, goFactory GoRoutineFactory, reader sdkmetric.Reader, log logger.Logger,
+) {
 	if r == nil {
 		return
 	}
@@ -119,6 +130,7 @@ func (r *rollingHistogramRegistry) start(ctx context.Context, goFactory GoRoutin
 		return
 	}
 	r.reader = reader
+	r.logger = log
 	r.started = true
 	r.mu.Unlock()
 
@@ -172,7 +184,21 @@ func (r *rollingHistogramRegistry) poll(ctx context.Context) {
 	}
 
 	if err := reader.Collect(ctx, &r.scratch); err != nil {
+		// Don't log while shutting down (the poller's context is cancelled in Stop): a Collect against
+		// a reader being shut down is expected, not an operational failure.
+		if ctx.Err() == nil && !r.collectFailing {
+			r.collectFailing = true
+			if r.logger != nil {
+				r.logger.Warnn("rolling histogram poll failed to collect metrics", obskit.Error(err))
+			}
+		}
 		return
+	}
+	if r.collectFailing {
+		r.collectFailing = false
+		if r.logger != nil {
+			r.logger.Infon("rolling histogram poll resumed collecting metrics")
+		}
 	}
 
 	now := r.now()
