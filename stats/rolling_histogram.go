@@ -20,8 +20,8 @@ import (
 const (
 	defaultRollingHistogramPercentile = 99
 	defaultPollingInterval            = 5 * time.Second
-	// defaultMaxEmptyPolls is how many consecutive polls a tracker's window may stay empty (after it
-	// has held data) before the registry drops it to bound memory; see rollingHistogramRegistry.poll.
+	// defaultMaxEmptyPolls is how many consecutive polls a tracker's window may stay empty
+	// before the registry drops it to clean up memory; see rollingHistogramRegistry.poll.
 	defaultMaxEmptyPolls = 1
 )
 
@@ -69,14 +69,6 @@ func TrackHistogram(
 	return rollingStats.TrackHistogram(name, tags, cfg)
 }
 
-// nopRollingHistogramTracker is returned for Stats backends that do not support rolling histograms.
-type nopRollingHistogramTracker struct{}
-
-func (nopRollingHistogramTracker) Percentile() (float64, bool)        { return 0, false }
-func (nopRollingHistogramTracker) Quantile(_ float64) (float64, bool) { return 0, false }
-func (nopRollingHistogramTracker) Count() uint64                      { return 0 }
-func (nopRollingHistogramTracker) Reset()                             {}
-
 type rollingHistogramRegistry struct {
 	mu            sync.RWMutex
 	now           func() time.Time
@@ -90,12 +82,6 @@ type rollingHistogramRegistry struct {
 	// collectFailing tracks whether the last poll's Collect failed, so we log the failure (and the
 	// recovery) once per episode instead of every poll. Touched only by the poll goroutine.
 	collectFailing bool
-
-	// scratch is the buffer Collect writes into, reused across polls so we don't re-allocate the full
-	// metric snapshot every interval (the SDK reuses its slice capacity). Touched only by the single
-	// poll goroutine, so it needs no lock. Everything we keep is copied out of it (see
-	// exponentialHistogramSnapshotFromDataPoint / tagsFromMetricAttributes), so reuse is safe.
-	scratch metricdata.ResourceMetrics
 }
 
 func newRollingHistogramRegistry(
@@ -153,10 +139,11 @@ func (r *rollingHistogramRegistry) start(
 func (r *rollingHistogramRegistry) track(name string, tags Tags, cfg RollingHistogramConfig) (
 	RollingHistogramTracker, error,
 ) {
-	cfg, err := resolveRollingHistogramConfig(cfg)
+	cfg, err := validateRollingHistogramConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
+
 	key := rollingHistogramKey(name, tags)
 
 	r.mu.Lock()
@@ -165,12 +152,15 @@ func (r *rollingHistogramRegistry) track(name string, tags Tags, cfg RollingHist
 	if entry, ok := r.entries[key]; ok {
 		return entry, nil
 	}
+
 	tracker := &rollingHistogramTracker{
 		window:   cfg.Window,
 		quantile: cfg.Percentile / 100,
 		now:      r.now,
 	}
+
 	r.entries[key] = tracker
+
 	return tracker, nil
 }
 
@@ -183,13 +173,14 @@ func (r *rollingHistogramRegistry) poll(ctx context.Context) {
 		return
 	}
 
-	if err := reader.Collect(ctx, &r.scratch); err != nil {
+	var resourceMetrics metricdata.ResourceMetrics
+	if err := reader.Collect(ctx, &resourceMetrics); err != nil {
 		// Don't log while shutting down (the poller's context is cancelled in Stop): a Collect against
 		// a reader being shut down is expected, not an operational failure.
 		if ctx.Err() == nil && !r.collectFailing {
 			r.collectFailing = true
 			if r.logger != nil {
-				r.logger.Warnn("rolling histogram poll failed to collect metrics", obskit.Error(err))
+				r.logger.Warnn("Rolling histogram poll failed to collect metrics", obskit.Error(err))
 			}
 		}
 		return
@@ -197,12 +188,12 @@ func (r *rollingHistogramRegistry) poll(ctx context.Context) {
 	if r.collectFailing {
 		r.collectFailing = false
 		if r.logger != nil {
-			r.logger.Infon("rolling histogram poll resumed collecting metrics")
+			r.logger.Infon("Rolling histogram poll resumed collecting metrics")
 		}
 	}
 
 	now := r.now()
-	for _, scopeMetrics := range r.scratch.ScopeMetrics {
+	for _, scopeMetrics := range resourceMetrics.ScopeMetrics {
 		for _, m := range scopeMetrics.Metrics {
 			switch data := m.Data.(type) {
 			case metricdata.ExponentialHistogram[float64]:
@@ -516,7 +507,7 @@ func exponentialBucketUpperBound(scale, index int32) float64 {
 	return math.Exp2(math.Ldexp(float64(index), int(-scale)))
 }
 
-func resolveRollingHistogramConfig(cfg RollingHistogramConfig) (RollingHistogramConfig, error) {
+func validateRollingHistogramConfig(cfg RollingHistogramConfig) (RollingHistogramConfig, error) {
 	if cfg.Window <= 0 {
 		return cfg, errors.New("rolling histogram window must be positive")
 	}
@@ -528,3 +519,11 @@ func resolveRollingHistogramConfig(cfg RollingHistogramConfig) (RollingHistogram
 	}
 	return cfg, nil
 }
+
+// nopRollingHistogramTracker is returned for Stats backends that do not support rolling histograms.
+type nopRollingHistogramTracker struct{}
+
+func (nopRollingHistogramTracker) Percentile() (float64, bool)        { return 0, false }
+func (nopRollingHistogramTracker) Quantile(_ float64) (float64, bool) { return 0, false }
+func (nopRollingHistogramTracker) Count() uint64                      { return 0 }
+func (nopRollingHistogramTracker) Reset()                             {}

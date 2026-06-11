@@ -51,16 +51,16 @@ func TestRollingHistogramTrackerFromExponentialDeltas(t *testing.T) {
 }
 
 func TestRollingHistogramValidation(t *testing.T) {
-	_, err := resolveRollingHistogramConfig(RollingHistogramConfig{})
+	_, err := validateRollingHistogramConfig(RollingHistogramConfig{})
 	require.ErrorContains(t, err, "window must be positive")
 
-	_, err = resolveRollingHistogramConfig(RollingHistogramConfig{
+	_, err = validateRollingHistogramConfig(RollingHistogramConfig{
 		Window:     time.Minute,
 		Percentile: 101,
 	})
 	require.ErrorContains(t, err, "percentile")
 
-	cfg, err := resolveRollingHistogramConfig(RollingHistogramConfig{Window: time.Minute})
+	cfg, err := validateRollingHistogramConfig(RollingHistogramConfig{Window: time.Minute})
 	require.NoError(t, err)
 	require.Equal(t, float64(defaultRollingHistogramPercentile), cfg.Percentile)
 }
