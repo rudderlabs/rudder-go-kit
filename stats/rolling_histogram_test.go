@@ -63,25 +63,30 @@ func TestRollingHistogramValidation(t *testing.T) {
 	require.Equal(t, float64(defaultRollingHistogramPercentile), cfg.Percentile)
 }
 
-func TestTrackHistogramPanicsWithoutOTelPrometheus(t *testing.T) {
-	require.PanicsWithValue(
-		t,
-		"rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled",
-		func() {
-			_, _, _ = TrackHistogram(NOP, "latency", nil, RollingHistogramConfig{Window: time.Minute})
-		},
-	)
+func TestTrackHistogramUnsupportedBackends(t *testing.T) {
+	// Backends that do not support rolling histograms (e.g. NOP) degrade gracefully to a no-op
+	// tracker instead of panicking.
+	tracker, supported, err := TrackHistogram(NOP, "latency", nil, RollingHistogramConfig{Window: time.Minute})
+	require.NoError(t, err)
+	require.False(t, supported)
+	require.NotNil(t, tracker)
+	_, ok := tracker.Percentile()
+	require.False(t, ok)
+	require.EqualValues(t, 0, tracker.Count())
 
+	// OpenTelemetry without the Prometheus exporter is unsupported: rolling histograms read from the
+	// Prometheus reader only (we avoid a dedicated internal reader for performance). It must degrade
+	// to a no-op tracker rather than panic.
 	c := config.New()
 	c.Set("OpenTelemetry.enabled", true)
 	s := NewStats(c, logger.NewFactory(c), svcMetric.NewManager())
-	require.PanicsWithValue(
-		t,
-		"rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled",
-		func() {
-			_, _, _ = TrackHistogram(s, "latency", nil, RollingHistogramConfig{Window: time.Minute})
-		},
-	)
+	tracker, supported, err = TrackHistogram(s, "latency", nil, RollingHistogramConfig{Window: time.Minute})
+	require.NoError(t, err)
+	require.False(t, supported)
+	require.NotNil(t, tracker)
+	_, ok = tracker.Percentile()
+	require.False(t, ok)
+	require.EqualValues(t, 0, tracker.Count())
 }
 
 func TestTrackHistogramWithOTelPrometheus(t *testing.T) {

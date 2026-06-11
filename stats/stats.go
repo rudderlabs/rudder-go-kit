@@ -34,11 +34,8 @@ func init() {
 // Default is the default (singleton) Stats instance
 var Default Stats
 
-var (
-	_ RollingHistogramStats = (*otelStats)(nil)
-	_ RollingHistogramStats = (*statsdStats)(nil)
-	_ RollingHistogramStats = (*nop)(nil)
-)
+// otelStats is the only backend that supports in-process rolling histograms (OTel + Prometheus).
+var _ RollingHistogramStats = (*otelStats)(nil)
 
 type GoRoutineFactory interface {
 	Go(function func())
@@ -100,9 +97,9 @@ func NewStats(
 			enableGCStats:           config.GetBoolVar(true, "RuntimeStats.enableGCStats"),
 			metricManager:           metricManager,
 		},
-		histogramPollInterval: config.GetDurationVar(
-			int64(metricsExportInterval),
-			time.Nanosecond,
+		trackingHistogramPollInterval: config.GetDurationVar(
+			int64(metricsExportInterval.Seconds()),
+			time.Second,
 			"OpenTelemetry.metrics.rollingHistogramPollInterval",
 		),
 	}
@@ -126,7 +123,7 @@ func NewStats(
 			logger:                   loggerFactory.NewLogger().Child("stats"),
 			rollingHistograms: newRollingHistogramRegistry(
 				time.Now,
-				statsConfig.histogramPollInterval,
+				statsConfig.trackingHistogramPollInterval,
 			),
 			prometheusRegisterer: registerer,
 			prometheusGatherer:   gatherer,

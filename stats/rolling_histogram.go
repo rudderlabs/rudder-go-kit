@@ -14,7 +14,10 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
-const defaultRollingHistogramPercentile = 99
+const (
+	defaultRollingHistogramPercentile = 99
+	defaultPollingInterval            = 5 * time.Second
+)
 
 // RollingHistogramConfig configures an in-process rolling histogram tracker.
 type RollingHistogramConfig struct {
@@ -37,22 +40,36 @@ type RollingHistogramTracker interface {
 	Reset()
 }
 
-// RollingHistogramStats is implemented by Stats backends that support in-process histogram quantiles.
+// RollingHistogramStats is implemented by Stats backends that can vend in-process histogram quantiles.
+// Only the OpenTelemetry backend implements it; statsd, memstats and nop do not.
+// Implementing the interface does not guarantee support at runtime: the OTel backend still reports supported=false
+// when the Prometheus exporter is disabled (see otelStats.TrackHistogram), so the returned supported flag is
+// the authoritative signal.
 type RollingHistogramStats interface {
-	TrackHistogram(name string, tags Tags, cfg RollingHistogramConfig) (RollingHistogramTracker, error)
+	TrackHistogram(name string, tags Tags, cfg RollingHistogramConfig) (RollingHistogramTracker, bool, error)
 }
 
 // TrackHistogram attaches an in-process rolling quantile tracker to an OTel+Prometheus histogram.
+// supported is false when the underlying Stats backend cannot provide in-process rolling histograms
+// (a non-OTel backend, or OTel without the Prometheus exporter); in that case a no-op tracker is
+// returned so callers can degrade gracefully without checking the backend type or recovering a panic.
 func TrackHistogram(
 	s Stats, name string, tags Tags, cfg RollingHistogramConfig,
 ) (tracker RollingHistogramTracker, supported bool, err error) {
 	rollingStats, ok := s.(RollingHistogramStats)
 	if !ok {
-		panic("rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled")
+		return nopRollingHistogramTracker{}, false, nil
 	}
-	tracker, err = rollingStats.TrackHistogram(name, tags, cfg)
-	return tracker, true, err
+	return rollingStats.TrackHistogram(name, tags, cfg)
 }
+
+// nopRollingHistogramTracker is returned for Stats backends that do not support rolling histograms.
+type nopRollingHistogramTracker struct{}
+
+func (nopRollingHistogramTracker) Percentile() (float64, bool)        { return 0, false }
+func (nopRollingHistogramTracker) Quantile(_ float64) (float64, bool) { return 0, false }
+func (nopRollingHistogramTracker) Count() uint64                      { return 0 }
+func (nopRollingHistogramTracker) Reset()                             {}
 
 type rollingHistogramRegistry struct {
 	mu           sync.RWMutex
@@ -68,7 +85,7 @@ func newRollingHistogramRegistry(now func() time.Time, pollInterval time.Duratio
 		now = time.Now
 	}
 	if pollInterval <= 0 {
-		pollInterval = 5 * time.Second
+		pollInterval = defaultPollingInterval
 	}
 	return &rollingHistogramRegistry{
 		now:          now,
@@ -106,12 +123,9 @@ func (r *rollingHistogramRegistry) start(ctx context.Context, goFactory GoRoutin
 	})
 }
 
-func (r *rollingHistogramRegistry) track(
-	name string, tags Tags, cfg RollingHistogramConfig,
-) (RollingHistogramTracker, error) {
-	if r == nil {
-		panic("rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled")
-	}
+func (r *rollingHistogramRegistry) track(name string, tags Tags, cfg RollingHistogramConfig) (
+	RollingHistogramTracker, error,
+) {
 	cfg, err := resolveRollingHistogramConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -147,8 +161,8 @@ func (r *rollingHistogramRegistry) poll(ctx context.Context) {
 	if err := reader.Collect(ctx, &rm); err != nil {
 		return
 	}
-	now := r.now()
 
+	now := r.now()
 	for _, scopeMetrics := range rm.ScopeMetrics {
 		for _, m := range scopeMetrics.Metrics {
 			switch data := m.Data.(type) {
@@ -162,8 +176,7 @@ func (r *rollingHistogramRegistry) poll(ctx context.Context) {
 }
 
 func pollExponentialHistogram[N int64 | float64](
-	r *rollingHistogramRegistry,
-	name string, histogram metricdata.ExponentialHistogram[N], now time.Time,
+	r *rollingHistogramRegistry, name string, histogram metricdata.ExponentialHistogram[N], now time.Time,
 ) {
 	for _, dp := range histogram.DataPoints {
 		tags := tagsFromMetricAttributes(dp.Attributes)

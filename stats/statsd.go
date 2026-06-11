@@ -183,11 +183,6 @@ func (s *statsdStats) NewSampledTaggedStat(Name, StatType string, tags Tags) (m 
 	return s.internalNewTaggedStat(Name, StatType, tags, s.statsdConfig.samplingRate)
 }
 
-func (s *statsdStats) TrackHistogram(name string, tags Tags, cfg RollingHistogramConfig) (RollingHistogramTracker, error) {
-	// TODO don't panic, return a no-op instead. if a logger is available then log a warning as well.
-	panic("rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled")
-}
-
 func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, samplingRate float32) (m Measurement) {
 	// If stats is not enabled, returning a dummy struct
 	if !s.config.enabled.Load() {

@@ -198,7 +198,8 @@ func (m *Manager) buildOTLPMeterProvider(
 		return nil, fmt.Errorf("otlp: failed to create metric exporter: %w", err)
 	}
 
-	// TODO could we easily support histogram tracking even if prometheus is not enabled?
+	// In-process rolling histograms read on demand from a manual (Prometheus) reader.
+	// The OTLP path uses a periodic reader driven by the export loop, so no internal reader is exposed here.
 	m.prometheusReader = nil
 
 	reader := sdkmetric.NewPeriodicReader(

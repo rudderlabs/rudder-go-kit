@@ -201,6 +201,8 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	// Starting background collection
 	var backgroundCollectionCtx context.Context
 	backgroundCollectionCtx, s.stopBackgroundCollection = context.WithCancel(context.Background())
+	// Rolling histograms poll the Prometheus reader only; without the Prometheus exporter
+	// there is no internal reader to poll (see otelStats.TrackHistogram for the rationale).
 	if s.otelConfig.enablePrometheusExporter && s.rollingHistograms != nil {
 		s.rollingHistograms.start(backgroundCollectionCtx, goFactory, s.otelManager.PrometheusReader())
 	}
@@ -325,18 +327,25 @@ func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) (m Me
 	return s.NewTaggedStat(name, statType, tags)
 }
 
-func (s *otelStats) TrackHistogram(name string, tags Tags, cfg RollingHistogramConfig) (RollingHistogramTracker, error) {
+func (s *otelStats) TrackHistogram(
+	name string, tags Tags, cfg RollingHistogramConfig,
+) (tracker RollingHistogramTracker, supported bool, err error) {
+	// In-process rolling histograms are read on demand from the Prometheus reader.
+	// We deliberately do NOT register a dedicated internal reader for the OTLP-only path:
+	// a second reader would roughly double the in-process metric aggregation state and CPU for every
+	// instrument, and all production environments run OTel together with the Prometheus exporter.
+	// So when Prometheus is disabled we report the feature as unsupported and return a no-op tracker
+	// instead of panicking, letting callers degrade gracefully.
 	if !s.otelConfig.enablePrometheusExporter {
-		panic("rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled")
-	}
-	if s.rollingHistograms == nil {
-		s.rollingHistograms = newRollingHistogramRegistry(
-			time.Now,
-			s.config.histogramPollInterval,
+		s.logger.Warnn(
+			"Rolling histogram tracking requires the OpenTelemetry Prometheus exporter; returning a no-op tracker",
+			logger.NewStringField("measurement", name),
 		)
+		return nopRollingHistogramTracker{}, false, nil
 	}
 	name, tags = s.canonicalMeasurementIdentity(name, tags)
-	return s.rollingHistograms.track(name, tags, cfg)
+	tracker, err = s.rollingHistograms.track(name, tags, cfg)
+	return tracker, true, err
 }
 
 func (*otelStats) getNoOpMeasurement(statType string) Measurement {

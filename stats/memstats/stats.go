@@ -22,9 +22,8 @@ import (
 )
 
 var (
-	_ stats.Stats                 = (*Store)(nil)
-	_ stats.RollingHistogramStats = (*Store)(nil)
-	_ stats.Measurement           = (*Measurement)(nil)
+	_ stats.Stats       = (*Store)(nil)
+	_ stats.Measurement = (*Measurement)(nil)
 )
 
 type Store struct {
@@ -273,13 +272,6 @@ func (ms *Store) NewSampledTaggedStat(name, statType string, tags stats.Tags) st
 
 	ms.byKey[ms.getKey(name, tags)] = m
 	return m
-}
-
-func (ms *Store) TrackHistogram(
-	name string, tags stats.Tags, cfg stats.RollingHistogramConfig,
-) (stats.RollingHistogramTracker, error) {
-	// TODO replace with an in-memory implementation
-	panic("rolling histogram percentiles require OpenTelemetry with Prometheus exporter enabled")
 }
 
 // Get the stored measurement with the name and tags.

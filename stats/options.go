@@ -15,12 +15,12 @@ type statsConfig struct {
 	namespaceIdentifier string
 	excludedTags        map[string]struct{}
 
-	periodicStatsConfig     periodicStatsConfig
-	defaultHistogramBuckets []float64
-	histogramBuckets        map[string][]float64
-	prometheusRegisterer    prometheus.Registerer
-	prometheusGatherer      prometheus.Gatherer
-	histogramPollInterval   time.Duration // TODO where is the With* option?
+	periodicStatsConfig           periodicStatsConfig
+	defaultHistogramBuckets       []float64
+	histogramBuckets              map[string][]float64
+	prometheusRegisterer          prometheus.Registerer
+	prometheusGatherer            prometheus.Gatherer
+	trackingHistogramPollInterval time.Duration
 
 	// Exponential histogram configuration
 	useExponentialHistogram     bool
@@ -95,5 +95,14 @@ func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheu
 	return func(c *statsConfig) {
 		c.prometheusRegisterer = registerer
 		c.prometheusGatherer = gatherer
+	}
+}
+
+// WithTrackingHistogramPollInterval sets how frequently in-process histogram trackers poll the
+// Prometheus reader for new histogram data. If unset, it defaults to the metrics export interval
+// (OpenTelemetry.metrics.exportInterval).
+func WithTrackingHistogramPollInterval(interval time.Duration) Option {
+	return func(c *statsConfig) {
+		c.trackingHistogramPollInterval = interval
 	}
 }
