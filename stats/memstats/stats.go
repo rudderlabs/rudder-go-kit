@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -167,9 +168,9 @@ func (m *Measurement) Percentile(p float64) (float64, bool) {
 	if len(m.values) == 0 {
 		return 0, false
 	}
-	sorted := make([]float64, len(m.values))
-	copy(sorted, m.values)
-	sort.Float64s(sorted)
+
+	sorted := slices.Clone(m.values)
+	slices.Sort(sorted)
 
 	rank := int(math.Ceil(p/100*float64(len(sorted)))) - 1
 	if rank < 0 {
