@@ -51,12 +51,6 @@ type Stats interface {
 
 	NewSampledTaggedStat(name, statType string, tags Tags) Measurement
 
-	// NewTrackedHistogram creates a histogram Measurement that also maintains an in-process rolling
-	// quantile tracker over the given window. Call Measurement.Percentile(p) to read the p-th
-	// percentile (p in [0,100]) over that window. Only the OpenTelemetry backend computes real
-	// percentiles; other backends report no data from Percentile.
-	NewTrackedHistogram(name string, tags Tags, window time.Duration) Measurement
-
 	NewTracer(name string) Tracer
 
 	// Start starts the stats service and the collection of periodic stats.
@@ -100,10 +94,9 @@ func NewStats(
 			enableGCStats:           config.GetBoolVar(true, "RuntimeStats.enableGCStats"),
 			metricManager:           metricManager,
 		},
-		trackingHistogramPollInterval: config.GetDurationVar(
-			int64(metricsExportInterval.Seconds()),
-			time.Second,
-			"OpenTelemetry.metrics.rollingHistogramPollInterval",
+		trackingHistogramMaxSamples: config.GetIntVar(
+			defaultTrackingHistogramMaxSamples, 1,
+			"OpenTelemetry.metrics.rollingHistogramMaxSamples",
 		),
 	}
 	for _, opt := range opts {
@@ -119,14 +112,16 @@ func NewStats(
 		if statsConfig.prometheusGatherer != nil {
 			gatherer = statsConfig.prometheusGatherer
 		}
+		log := loggerFactory.NewLogger().Child("stats")
 		return &otelStats{
 			config:                   statsConfig,
 			stopBackgroundCollection: func() {},
 			meter:                    otel.GetMeterProvider().Meter(defaultMeterName),
-			logger:                   loggerFactory.NewLogger().Child("stats"),
+			logger:                   log,
 			rollingHistograms: newRollingHistogramRegistry(
 				time.Now,
-				statsConfig.trackingHistogramPollInterval,
+				statsConfig.trackingHistogramMaxSamples,
+				log,
 			),
 			prometheusRegisterer: registerer,
 			prometheusGatherer:   gatherer,

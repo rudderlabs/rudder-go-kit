@@ -183,13 +183,6 @@ func (s *statsdStats) NewSampledTaggedStat(Name, StatType string, tags Tags) (m 
 	return s.internalNewTaggedStat(Name, StatType, tags, s.statsdConfig.samplingRate)
 }
 
-// NewTrackedHistogram returns a regular StatsD histogram: the StatsD backend cannot compute in-process
-// rolling quantiles, so the returned measurement records observations as usual and its Percentile
-// always reports no data (the genericMeasurement default). The window is ignored.
-func (s *statsdStats) NewTrackedHistogram(name string, tags Tags, _ time.Duration) Measurement {
-	return s.internalNewTaggedStat(name, HistogramType, tags, 1)
-}
-
 func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, samplingRate float32) (m Measurement) {
 	// If stats is not enabled, returning a dummy struct
 	if !s.config.enabled.Load() {

@@ -99,24 +99,29 @@ func (t *otelTimer) RecordDuration() func() {
 type otelHistogram struct {
 	*otelMeasurement
 	histogram metric.Float64Histogram
-	// tracker is set only for measurements created via NewTrackedHistogram. When set, histogram is the
-	// dedicated (non-exported) instrument the tracker reads back on demand, and Percentile returns
-	// rolling quantiles.
-	tracker *rollingHistogramTracker
+	// tracking is the shared per-series record backing Percentile. It is dormant until the first
+	// Percentile call, after which Observe also mirrors observations into its reservoir. nil for
+	// disabled (no-op) measurements.
+	tracking *histogramTracking
 }
 
 // Observe sends an observation
 func (h *otelHistogram) Observe(value float64) {
-	if !h.disabled {
-		h.histogram.Record(context.TODO(), value, metric.WithAttributes(h.attributes...))
+	if h.disabled {
+		return
+	}
+	h.histogram.Record(context.TODO(), value, metric.WithAttributes(h.attributes...))
+	if h.tracking != nil {
+		h.tracking.record(context.TODO(), value, metric.WithAttributes(h.attributes...))
 	}
 }
 
-// Percentile returns the p-th percentile over the tracked rolling window, or (0, false) when this is
-// not a tracked histogram or the window is empty.
-func (h *otelHistogram) Percentile(p float64) (float64, bool) {
-	if h.tracker == nil {
+// Percentile returns the p-th percentile over the last window, or (0, false) when tracking is
+// unavailable or the window holds no observations. The first call enables in-process tracking for this
+// series, so percentiles become available shortly after.
+func (h *otelHistogram) Percentile(p float64, window time.Duration) (float64, bool) {
+	if h.tracking == nil {
 		return 0, false
 	}
-	return h.tracker.percentile(p)
+	return h.tracking.percentile(p, window)
 }

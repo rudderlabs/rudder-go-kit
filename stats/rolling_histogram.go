@@ -6,169 +6,226 @@ import (
 	"math"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/exemplar"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
+	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 const (
-	// defaultPollInterval is the minimum time between two on-read snapshots of a tracked histogram.
-	defaultPollInterval = 5 * time.Second
-	// Tracking instruments always use a fixed high-resolution exponential aggregation, regardless of how
-	// the application configures its exported histograms. See newRollingHistogramRegistry.
+	// Tracking instruments use a fixed high-resolution exponential aggregation. Buckets are not actually
+	// read (percentiles are computed from exemplars), but a histogram aggregation is what carries the
+	// exemplars, so we keep it cheap and accurate.
 	trackingHistogramMaxSize  = 160
 	trackingHistogramMaxScale = 20
+	// defaultTrackingHistogramMaxSamples bounds how many recent observations are retained per series.
+	// It caps both memory and the number of samples a percentile is computed over.
+	defaultTrackingHistogramMaxSamples = 2048
+	rollingHistogramMeterName          = "github.com/rudderlabs/rudder-go-kit/stats/rollinghistogram"
 )
 
-// rollingHistogramRegistry owns a private meter provider that holds ONLY the tracked histogram
-// instruments. Tracked stats (created via NewTrackedHistogram) record into these instruments, and each
-// tracker reads them back on demand from the provider's manual reader — there is no background poller,
-// so a service that never calls NewTrackedHistogram does no extra work at all.
+// rollingHistogramRegistry backs Histogram.Percentile for the OpenTelemetry stats. Per histogram series
+// it holds a small histogramTracking record, created when the measurement is created but otherwise
+// dormant: the OTel pipeline that actually retains observations (a private meter provider with an
+// exemplar reservoir) is provisioned lazily, on the first Percentile call for that series. A service
+// that never calls Percentile therefore allocates no providers, no reservoirs and does no extra
+// recording — only an atomic check per Observe.
 type rollingHistogramRegistry struct {
-	mu           sync.Mutex
-	now          func() time.Time
-	pollInterval time.Duration
-
-	provider    *sdkmetric.MeterProvider
-	reader      sdkmetric.Reader
-	meter       metric.Meter
-	instruments map[string]metric.Float64Histogram // tracking instrument per measurement name
+	mu         sync.Mutex
+	now        func() time.Time
+	maxSamples int
+	log        logger.Logger
+	providers  map[string]*trackedHistogramProvider // one private provider per measurement name
+	series     map[string]*histogramTracking        // one tracking record per series (name|tags)
 }
 
-func newRollingHistogramRegistry(now func() time.Time, pollInterval time.Duration) *rollingHistogramRegistry {
+// trackedHistogramProvider is the private OTel pipeline backing a single tracked histogram name. The
+// reader, when collected, returns only that one instrument's data (the view matches it by name); both
+// fields transitively keep the meter provider's pipeline alive.
+type trackedHistogramProvider struct {
+	reader     sdkmetric.Reader
+	instrument metric.Float64Histogram
+}
+
+func newRollingHistogramRegistry(now func() time.Time, maxSamples int, log logger.Logger) *rollingHistogramRegistry {
 	if now == nil {
 		now = time.Now
 	}
-	if pollInterval <= 0 {
-		pollInterval = defaultPollInterval
+	if maxSamples <= 0 {
+		maxSamples = defaultTrackingHistogramMaxSamples
 	}
-
-	// A manual reader (cumulative temporality by default, which delta() relies on) on a private meter
-	// provider. A manual reader runs no background goroutine — it is only collected on demand. The view
-	// forces exponential aggregation so quantiles are accurate regardless of how the exported histogram
-	// is bucketed.
-	reader := sdkmetric.NewManualReader()
-	provider := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(reader),
-		sdkmetric.WithView(sdkmetric.NewView(
-			sdkmetric.Instrument{Kind: sdkmetric.InstrumentKindHistogram},
-			sdkmetric.Stream{Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
-				MaxSize:  trackingHistogramMaxSize,
-				MaxScale: trackingHistogramMaxScale,
-			}},
-		)),
-	)
-
 	return &rollingHistogramRegistry{
-		now:          now,
-		pollInterval: pollInterval,
-		provider:     provider,
-		reader:       reader,
-		meter:        provider.Meter("github.com/rudderlabs/rudder-go-kit/stats/rollinghistogram"),
-		instruments:  make(map[string]metric.Float64Histogram),
+		now:        now,
+		maxSamples: maxSamples,
+		log:        log,
+		providers:  make(map[string]*trackedHistogramProvider),
+		series:     make(map[string]*histogramTracking),
 	}
 }
 
-// track returns a tracker for the given series plus the dedicated instrument the caller must record
-// observations into. The instrument lives on the private meter provider (and is shared across tag sets
-// of the same name), so the tracker — which reads only that provider — never sees any other metric.
-func (r *rollingHistogramRegistry) track(
-	name string, tags Tags, window time.Duration,
-) (*rollingHistogramTracker, metric.Float64Histogram, error) {
-	if window <= 0 {
-		return nil, nil, fmt.Errorf("rolling histogram window must be positive, got %s", window)
+// tracking returns the shared tracking record for a series, creating it if necessary. The record is
+// cheap and dormant until its first Percentile call; sharing it per series means every Measurement for
+// the same series records into the same reservoir once tracking is enabled.
+func (r *rollingHistogramRegistry) tracking(name string, tags Tags) *histogramTracking {
+	if r == nil { // no registry wired (e.g. a directly-constructed otelStats): tracking is unavailable
+		return nil
 	}
+	key := rollingHistogramKey(name, tags)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	instrument, ok := r.instruments[name]
+	ht, ok := r.series[key]
+	if !ok {
+		ht = &histogramTracking{registry: r, name: name, tags: tags}
+		r.series[key] = ht
+	}
+	return ht
+}
+
+// provider returns the private provider for a name, creating it on first use.
+func (r *rollingHistogramRegistry) provider(name string) (*trackedHistogramProvider, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	tp, ok := r.providers[name]
 	if !ok {
 		var err error
-		instrument, err = r.meter.Float64Histogram(name)
+		tp, err = newTrackedHistogramProvider(name, r.maxSamples)
 		if err != nil {
-			return nil, nil, fmt.Errorf("creating rolling histogram instrument %q: %w", name, err)
+			return nil, err
 		}
-		r.instruments[name] = instrument
+		r.providers[name] = tp
 	}
-
-	tracker := &rollingHistogramTracker{
-		reader:       r.reader,
-		name:         name,
-		key:          rollingHistogramKey(name, tags),
-		window:       window,
-		pollInterval: r.pollInterval,
-		now:          r.now,
-	}
-	return tracker, instrument, nil
+	return tp, nil
 }
 
-// rollingHistogramTracker maintains a rolling window of recent observations for a single series by
-// diffing successive cumulative snapshots of its dedicated instrument. Snapshots are taken lazily, when
-// Percentile is read, at most once per pollInterval — so there is no background goroutine and frequent
-// reads don't grow the window unboundedly.
+func newTrackedHistogramProvider(name string, maxSamples int) (*trackedHistogramProvider, error) {
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(reader),
+		// Record an exemplar for every observation, not only those made inside a sampled span.
+		sdkmetric.WithExemplarFilter(exemplar.AlwaysOnFilter),
+		sdkmetric.WithView(sdkmetric.NewView(
+			// Match this one instrument by name: the reader then only ever yields this series' data.
+			sdkmetric.Instrument{Name: name, Kind: sdkmetric.InstrumentKindHistogram},
+			sdkmetric.Stream{
+				Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
+					MaxSize:  trackingHistogramMaxSize,
+					MaxScale: trackingHistogramMaxScale,
+				},
+				// Retain the most recent maxSamples observations (with their timestamps) as exemplars,
+				// so a rolling-window percentile can be read straight from them.
+				ExemplarReservoirProviderSelector: func(sdkmetric.Aggregation) exemplar.ReservoirProvider {
+					return func(attribute.Set) exemplar.Reservoir {
+						return newWindowReservoir(maxSamples)
+					}
+				},
+			},
+		)),
+	)
+
+	instrument, err := provider.Meter(rollingHistogramMeterName).Float64Histogram(name)
+	if err != nil {
+		return nil, fmt.Errorf("creating rolling histogram instrument %q: %w", name, err)
+	}
+	return &trackedHistogramProvider{reader: reader, instrument: instrument}, nil
+}
+
+// histogramTracking is the per-series state behind Histogram.Percentile. It is shared across all
+// Measurements for the same series. enabled gates the (lazy) tracking pipeline: until the first
+// Percentile call it is false and Observe does no extra work; once enabled, instrument is the dedicated
+// instrument observations are mirrored into and tracker reads them back.
+type histogramTracking struct {
+	registry *rollingHistogramRegistry
+	name     string
+	tags     Tags
+
+	once       sync.Once
+	enabled    atomic.Bool
+	instrument metric.Float64Histogram
+	tracker    *rollingHistogramTracker
+}
+
+// record mirrors an observation into the tracking instrument, but only once tracking has been enabled.
+func (h *histogramTracking) record(ctx context.Context, value float64, opts ...metric.RecordOption) {
+	if h.enabled.Load() {
+		h.instrument.Record(ctx, value, opts...)
+	}
+}
+
+// percentile enables tracking on first use, then returns the windowed percentile.
+func (h *histogramTracking) percentile(p float64, window time.Duration) (float64, bool) {
+	h.once.Do(h.enable)
+	if !h.enabled.Load() {
+		return 0, false
+	}
+	return h.tracker.percentile(p, window)
+}
+
+func (h *histogramTracking) enable() {
+	tp, err := h.registry.provider(h.name)
+	if err != nil {
+		if h.registry.log != nil {
+			h.registry.log.Warnn("enabling rolling histogram tracking",
+				logger.NewStringField("measurement", h.name), obskit.Error(err))
+		}
+		return
+	}
+	h.instrument = tp.instrument
+	h.tracker = &rollingHistogramTracker{
+		reader: tp.reader,
+		name:   h.name,
+		key:    rollingHistogramKey(h.name, h.tags),
+		now:    h.registry.now,
+	}
+	h.enabled.Store(true)
+}
+
+// rollingHistogramTracker is immutable after creation, so it needs no locking: percentile only reads
+// the (concurrency-safe) reader and the exemplars it returns.
 type rollingHistogramTracker struct {
-	mu sync.Mutex
-
-	reader       sdkmetric.Reader // private reader to collect on read; nil only in unit tests
-	name         string           // instrument name to find in the collected metrics
-	key          string           // name|tags identity of the exact series this tracker follows
-	window       time.Duration
-	pollInterval time.Duration
-	now          func() time.Time
-
-	// prev is the last cumulative snapshot seen for this series; deltas are computed against it.
-	prev         exponentialHistogramSnapshot
-	hasPrev      bool
-	lastSnapshot time.Time
-	samples      []timedExponentialHistogram
+	reader sdkmetric.Reader // private reader for this measurement's name; nil only in unit tests
+	name   string           // instrument name to find in the collected metrics
+	key    string           // name|tags identity of the exact series this tracker follows
+	now    func() time.Time
 }
 
-type timedExponentialHistogram struct {
-	at       time.Time
-	snapshot exponentialHistogramSnapshot
-}
-
-// percentile takes a fresh snapshot if one is due, then returns the p-th percentile (p in [0,100]) over
-// the rolling window and true when the window holds observations; (0, false) otherwise.
-func (t *rollingHistogramTracker) percentile(p float64) (float64, bool) {
-	if p < 0 || p > 100 || math.IsNaN(p) {
+// percentile returns the p-th percentile (p in [0,100]) over the last window and true when the window
+// holds observations; (0, false) otherwise. It collects the private reader, walks this series'
+// exemplars from newest to oldest, stops at now-window, and computes a nearest-rank percentile over the
+// observed values. Nothing is retained between calls.
+func (t *rollingHistogramTracker) percentile(p float64, window time.Duration) (float64, bool) {
+	if p < 0 || p > 100 || math.IsNaN(p) || window <= 0 {
+		return 0, false
+	}
+	if t.reader == nil {
 		return 0, false
 	}
 
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	now := t.now()
-	if t.reader != nil && (t.lastSnapshot.IsZero() || now.Sub(t.lastSnapshot) >= t.pollInterval) {
-		t.snapshotLocked(now)
-	}
-	t.pruneLocked(now)
-	return quantileFromExponentialSnapshots(t.samples, p/100)
-}
-
-// snapshotLocked collects the current cumulative value of this tracker's series and folds the delta
-// since the previous snapshot into the rolling window. A collect error or a missing series is treated
-// as "no new data": the existing window is left untouched.
-func (t *rollingHistogramTracker) snapshotLocked(now time.Time) {
-	t.lastSnapshot = now
-
 	var rm metricdata.ResourceMetrics
 	if err := t.reader.Collect(context.Background(), &rm); err != nil {
-		return
+		return 0, false
 	}
-	snapshot, ok := t.findSnapshot(&rm)
-	if !ok {
-		return
+	values := t.windowValues(&rm, window)
+	if len(values) == 0 {
+		return 0, false
 	}
-	t.observeLocked(snapshot, now)
+	return nearestRankPercentile(values, p), true
 }
 
-// findSnapshot locates this tracker's series among the collected metrics.
-func (t *rollingHistogramTracker) findSnapshot(rm *metricdata.ResourceMetrics) (exponentialHistogramSnapshot, bool) {
+// windowValues finds this tracker's series among the collected metrics and returns the values of its
+// observations made within the last window.
+func (t *rollingHistogramTracker) windowValues(rm *metricdata.ResourceMetrics, window time.Duration) []float64 {
+	cutoff := t.now().Add(-window)
 	for _, scope := range rm.ScopeMetrics {
 		for _, m := range scope.Metrics {
 			if m.Name != t.name {
@@ -176,75 +233,49 @@ func (t *rollingHistogramTracker) findSnapshot(rm *metricdata.ResourceMetrics) (
 			}
 			switch data := m.Data.(type) {
 			case metricdata.ExponentialHistogram[float64]:
-				return matchExponentialDataPoint(t, data.DataPoints)
+				return windowedExemplarValues(t, data.DataPoints, cutoff)
 			case metricdata.ExponentialHistogram[int64]:
-				return matchExponentialDataPoint(t, data.DataPoints)
+				return windowedExemplarValues(t, data.DataPoints, cutoff)
 			}
 		}
 	}
-	return exponentialHistogramSnapshot{}, false
+	return nil
 }
 
-func matchExponentialDataPoint[N int64 | float64](
-	t *rollingHistogramTracker, dps []metricdata.ExponentialHistogramDataPoint[N],
-) (exponentialHistogramSnapshot, bool) {
+// windowedExemplarValues returns the values of this tracker's series' exemplars that are not older than
+// cutoff. Exemplars are stored in observation order, so it walks them from the most recent backwards and
+// stops as soon as one falls outside the window.
+func windowedExemplarValues[N int64 | float64](
+	t *rollingHistogramTracker, dps []metricdata.ExponentialHistogramDataPoint[N], cutoff time.Time,
+) []float64 {
 	for _, dp := range dps {
-		if rollingHistogramKey(t.name, tagsFromMetricAttributes(dp.Attributes)) == t.key {
-			return exponentialHistogramSnapshotFromDataPoint(dp), true
+		if rollingHistogramKey(t.name, tagsFromMetricAttributes(dp.Attributes)) != t.key {
+			continue
 		}
+		values := make([]float64, 0, len(dp.Exemplars))
+		for i := len(dp.Exemplars) - 1; i >= 0; i-- {
+			if dp.Exemplars[i].Time.Before(cutoff) {
+				break
+			}
+			values = append(values, float64(dp.Exemplars[i].Value))
+		}
+		return values
 	}
-	return exponentialHistogramSnapshot{}, false
+	return nil
 }
 
-// observeLocked folds a cumulative snapshot into the window as a delta against the previous snapshot.
-func (t *rollingHistogramTracker) observeLocked(current exponentialHistogramSnapshot, now time.Time) {
-	previous := t.prev
-	hadPrev := t.hasPrev
-	t.prev = current
-	t.hasPrev = true
-	if !hadPrev {
-		return
+// nearestRankPercentile returns the p-th percentile (p in [0,100]) of values using the nearest-rank
+// method. values is sorted in place; it must be non-empty.
+func nearestRankPercentile(values []float64, p float64) float64 {
+	sort.Float64s(values)
+	rank := int(math.Ceil(p/100*float64(len(values)))) - 1
+	if rank < 0 {
+		rank = 0
 	}
-	delta := current.delta(previous)
-	if delta.count == 0 {
-		return
+	if rank >= len(values) {
+		rank = len(values) - 1
 	}
-	t.samples = append(t.samples, timedExponentialHistogram{at: now, snapshot: delta})
-	t.pruneLocked(now)
-}
-
-// observe folds a cumulative snapshot into the window. Used by tests to drive the tracker without a
-// real reader.
-func (t *rollingHistogramTracker) observe(current exponentialHistogramSnapshot, now time.Time) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.observeLocked(current, now)
-}
-
-// count returns the number of observations currently in the rolling window. Used by tests.
-func (t *rollingHistogramTracker) count() uint64 {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	now := t.now()
-	t.pruneLocked(now)
-	var count uint64
-	for _, sample := range t.samples {
-		count += sample.snapshot.count
-	}
-	return count
-}
-
-func (t *rollingHistogramTracker) pruneLocked(now time.Time) {
-	cutoff := now.Add(-t.window)
-	firstLive := 0
-	for firstLive < len(t.samples) && t.samples[firstLive].at.Before(cutoff) {
-		firstLive++
-	}
-	if firstLive > 0 {
-		copy(t.samples, t.samples[firstLive:])
-		t.samples = t.samples[:len(t.samples)-firstLive]
-	}
+	return values[rank]
 }
 
 func rollingHistogramKey(name string, tags Tags) string {
@@ -264,138 +295,49 @@ func tagsFromMetricAttributes(attrs attribute.Set) Tags {
 	return tags
 }
 
-type exponentialHistogramSnapshot struct {
-	scale         int32
-	negativeCount uint64
-	zeroCount     uint64
-	count         uint64
-	positiveCount map[int32]uint64
+// windowReservoir is a fixed-capacity ring of the most recent observations (timestamp + value),
+// exposed to OTel as an exemplar reservoir. OTel offers every observation to it (AlwaysOn filter) and
+// reads it back on Collect; the reader-side window filter (see windowedExemplarValues) is what makes
+// stale observations drop out, so this only needs to bound memory. It does not embed the SDK's internal
+// reservoir.ConcurrentSafe marker, so the SDK already serializes Offer/Collect — no locking is needed
+// here.
+type windowReservoir struct {
+	times  []time.Time
+	values []exemplar.Value
+	next   int  // next write position
+	full   bool // whether the ring has wrapped at least once
 }
 
-func exponentialHistogramSnapshotFromDataPoint[N int64 | float64](
-	dp metricdata.ExponentialHistogramDataPoint[N],
-) exponentialHistogramSnapshot {
-	s := exponentialHistogramSnapshot{
-		scale:         dp.Scale,
-		zeroCount:     dp.ZeroCount,
-		count:         dp.Count,
-		positiveCount: make(map[int32]uint64, len(dp.PositiveBucket.Counts)),
+func newWindowReservoir(capacity int) *windowReservoir {
+	return &windowReservoir{
+		times:  make([]time.Time, capacity),
+		values: make([]exemplar.Value, capacity),
 	}
-	for _, count := range dp.NegativeBucket.Counts {
-		s.negativeCount += count
-	}
-	for i, count := range dp.PositiveBucket.Counts {
-		if count == 0 {
-			continue
-		}
-		s.positiveCount[dp.PositiveBucket.Offset+int32(i)+1] = count
-	}
-	return s
 }
 
-// downscale reduces the snapshot's resolution to targetScale (which must be <= s.scale), merging
-// positive buckets the way OTel does when it downscales: bucket index i maps to i>>delta. Counts that
-// are not scale-dependent (negative, zero, total) are preserved. It is used to align two cumulative
-// snapshots taken at different scales before differencing, since OTel histograms downscale over time.
-func (s exponentialHistogramSnapshot) downscale(targetScale int32) exponentialHistogramSnapshot {
-	if targetScale >= s.scale {
-		return s
+func (r *windowReservoir) Offer(_ context.Context, t time.Time, v exemplar.Value, _ []attribute.KeyValue) {
+	r.times[r.next] = t
+	r.values[r.next] = v
+	r.next++
+	if r.next == len(r.times) {
+		r.next = 0
+		r.full = true
 	}
-	shift := uint(s.scale - targetScale)
-	out := exponentialHistogramSnapshot{
-		scale:         targetScale,
-		negativeCount: s.negativeCount,
-		zeroCount:     s.zeroCount,
-		count:         s.count,
-		positiveCount: make(map[int32]uint64, len(s.positiveCount)),
-	}
-	for key, count := range s.positiveCount {
-		// key is the upper-bound exponent (OTel bucket index + 1); shift the index, not the exponent.
-		out.positiveCount[((key-1)>>shift)+1] += count
-	}
-	return out
 }
 
-func (s exponentialHistogramSnapshot) delta(previous exponentialHistogramSnapshot) exponentialHistogramSnapshot {
-	// Align scales before differencing: OTel exponential histograms only ever downscale, so bring the
-	// higher-resolution snapshot down to the lower scale (previously a scale change was treated as a
-	// reset, which dropped a poll interval of data on every rescale).
-	cur, prev := s, previous
-	if cur.scale > prev.scale {
-		cur = cur.downscale(prev.scale)
-	} else if prev.scale > cur.scale {
-		prev = prev.downscale(cur.scale)
+// Collect emits the held observations oldest-first. It is non-destructive: state is preserved so
+// successive reads see the same (windowed) observations until they are overwritten by newer ones.
+func (r *windowReservoir) Collect(dest *[]exemplar.Exemplar) {
+	*dest = (*dest)[:0]
+	emit := func(i int) {
+		*dest = append(*dest, exemplar.Exemplar{Time: r.times[i], Value: r.values[i]})
 	}
-
-	// A drop in any cumulative total means the series reset (e.g. process restart); the current
-	// cumulative snapshot is then the best estimate of the delta.
-	if cur.count < prev.count ||
-		cur.negativeCount < prev.negativeCount ||
-		cur.zeroCount < prev.zeroCount {
-		return cur
-	}
-	delta := exponentialHistogramSnapshot{
-		scale:         cur.scale,
-		negativeCount: cur.negativeCount - prev.negativeCount,
-		zeroCount:     cur.zeroCount - prev.zeroCount,
-		count:         cur.count - prev.count,
-		positiveCount: make(map[int32]uint64, len(cur.positiveCount)),
-	}
-	for index, count := range cur.positiveCount {
-		prevCount := prev.positiveCount[index]
-		if count < prevCount {
-			return cur
-		}
-		if count > prevCount {
-			delta.positiveCount[index] = count - prevCount
+	if r.full {
+		for i := r.next; i < len(r.times); i++ {
+			emit(i)
 		}
 	}
-	return delta
-}
-
-func quantileFromExponentialSnapshots(samples []timedExponentialHistogram, q float64) (float64, bool) {
-	var total, negativeCount, zeroCount uint64
-	positiveBounds := make(map[float64]uint64)
-	for _, sample := range samples {
-		snapshot := sample.snapshot
-		total += snapshot.count
-		negativeCount += snapshot.negativeCount
-		zeroCount += snapshot.zeroCount
-		for index, count := range snapshot.positiveCount {
-			positiveBounds[exponentialBucketUpperBound(snapshot.scale, index)] += count
-		}
+	for i := 0; i < r.next; i++ {
+		emit(i)
 	}
-	if total == 0 {
-		return 0, false
-	}
-
-	rank := uint64(math.Ceil(q * float64(total)))
-	if rank == 0 {
-		rank = 1
-	}
-	if negativeCount+zeroCount >= rank {
-		return 0, true
-	}
-
-	bounds := make([]float64, 0, len(positiveBounds))
-	for bound := range positiveBounds {
-		bounds = append(bounds, bound)
-	}
-	sort.Float64s(bounds)
-
-	cumulative := negativeCount + zeroCount
-	for _, bound := range bounds {
-		cumulative += positiveBounds[bound]
-		if cumulative >= rank {
-			return bound, true
-		}
-	}
-	if len(bounds) == 0 {
-		return 0, false
-	}
-	return bounds[len(bounds)-1], true
-}
-
-func exponentialBucketUpperBound(scale, index int32) float64 {
-	return math.Exp2(math.Ldexp(float64(index), int(-scale)))
 }

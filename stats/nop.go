@@ -14,14 +14,14 @@ type nop struct{}
 
 type nopMeasurement struct{}
 
-func (nopMeasurement) Count(_ int)                          {}
-func (nopMeasurement) Increment()                           {}
-func (nopMeasurement) Gauge(_ any)                          {}
-func (nopMeasurement) Observe(_ float64)                    {}
-func (nopMeasurement) SendTiming(_ time.Duration)           {}
-func (nopMeasurement) Since(_ time.Time)                    {}
-func (nopMeasurement) RecordDuration() func()               { return func() {} }
-func (nopMeasurement) Percentile(_ float64) (float64, bool) { return 0, false }
+func (nopMeasurement) Count(_ int)                                           {}
+func (nopMeasurement) Increment()                                            {}
+func (nopMeasurement) Gauge(_ any)                                           {}
+func (nopMeasurement) Observe(_ float64)                                     {}
+func (nopMeasurement) SendTiming(_ time.Duration)                            {}
+func (nopMeasurement) Since(_ time.Time)                                     {}
+func (nopMeasurement) RecordDuration() func()                                { return func() {} }
+func (nopMeasurement) Percentile(_ float64, _ time.Duration) (float64, bool) { return 0, false }
 
 func (*nop) NewStat(_, _ string) Measurement {
 	return &nopMeasurement{}
@@ -32,10 +32,6 @@ func (*nop) NewTaggedStat(_, _ string, _ Tags) Measurement {
 }
 
 func (*nop) NewSampledTaggedStat(_, _ string, _ Tags) Measurement {
-	return &nopMeasurement{}
-}
-
-func (*nop) NewTrackedHistogram(_ string, _ Tags, _ time.Duration) Measurement {
 	return &nopMeasurement{}
 }
 

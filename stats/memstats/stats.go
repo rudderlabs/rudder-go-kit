@@ -155,9 +155,8 @@ func (m *Measurement) Observe(value float64) {
 
 // Percentile implements stats.Measurement.
 // It returns the nearest-rank p-th percentile (p in [0,100]) over all observed histogram values, and true when any have
-// been observed.
-// Unlike the OTel backend memstats keeps no rolling window, so the window passed to NewTrackedHistogram is ignored.
-func (m *Measurement) Percentile(p float64) (float64, bool) {
+// been observed. Unlike the OTel backend memstats keeps no rolling window, so the window is ignored.
+func (m *Measurement) Percentile(p float64, _ time.Duration) (float64, bool) {
 	if p < 0 || p > 100 || math.IsNaN(p) {
 		return 0, false
 	}
@@ -279,12 +278,6 @@ func (ms *Store) NewStat(name, statType string) (m stats.Measurement) {
 // NewTaggedStat implements stats.Stats
 func (ms *Store) NewTaggedStat(name, statType string, tags stats.Tags) stats.Measurement {
 	return ms.NewSampledTaggedStat(name, statType, tags)
-}
-
-// NewTrackedHistogram implements stats.Stats. memstats keeps every observed value, so the returned
-// histogram measurement's Percentile is computed over all observations (the window is ignored).
-func (ms *Store) NewTrackedHistogram(name string, tags stats.Tags, _ time.Duration) stats.Measurement {
-	return ms.NewTaggedStat(name, stats.HistogramType, tags)
 }
 
 // NewSampledTaggedStat implements stats.Stats

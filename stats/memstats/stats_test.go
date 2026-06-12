@@ -120,7 +120,7 @@ func TestStats(t *testing.T) {
 		}}, store.GetByName(name))
 	})
 
-	t.Run("test TrackedHistogram Percentile", func(t *testing.T) {
+	t.Run("test Histogram Percentile", func(t *testing.T) {
 		name := "testTrackedHistogram"
 		store, err := memstats.New(
 			memstats.WithNow(func() time.Time {
@@ -129,10 +129,10 @@ func TestStats(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		m := store.NewTrackedHistogram(name, commonTags, time.Minute)
+		m := store.NewTaggedStat(name, stats.HistogramType, commonTags)
 
 		// With no observations any percentile reports no data.
-		_, ok := m.Percentile(50)
+		_, ok := m.Percentile(50, time.Minute)
 		require.False(t, ok)
 
 		// Observe out of order to confirm the values are sorted before ranking.
@@ -154,14 +154,14 @@ func TestStats(t *testing.T) {
 			{p: 95, want: 116},
 			{p: 100, want: 119}, // the maximum
 		} {
-			got, ok := m.Percentile(tc.p)
+			got, ok := m.Percentile(tc.p, time.Minute)
 			require.Truef(t, ok, "p=%v", tc.p)
 			require.Equalf(t, tc.want, got, "p=%v", tc.p)
 		}
 
 		// Out-of-range or NaN percentiles report no data.
 		for _, p := range []float64{-1, 101, math.NaN()} {
-			_, ok := m.Percentile(p)
+			_, ok := m.Percentile(p, time.Minute)
 			require.Falsef(t, ok, "p=%v must be rejected", p)
 		}
 	})

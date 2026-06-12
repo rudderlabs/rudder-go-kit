@@ -322,39 +322,6 @@ func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) (m Me
 	return s.NewTaggedStat(name, statType, tags)
 }
 
-// NewTrackedHistogram creates a histogram measurement that also maintains an in-process rolling
-// quantile tracker: observations are recorded into a dedicated, non-exported instrument that the
-// tracker reads back on demand when Measurement.Percentile is called (see rollingHistogramRegistry),
-// returning rolling quantiles over the given window. The dedicated instrument always uses a
-// high-resolution exponential aggregation, independent of how the application configures its exported
-// histograms.
-func (s *otelStats) NewTrackedHistogram(name string, tags Tags, window time.Duration) Measurement {
-	if !s.config.enabled.Load() {
-		return s.getNoOpMeasurement(HistogramType)
-	}
-
-	name, newTags := s.canonicalMeasurementIdentity(name, tags)
-	om := &otelMeasurement{
-		genericMeasurement: genericMeasurement{statType: HistogramType},
-		attributes:         newTags.otelAttributes(),
-	}
-
-	tracker, instrument, err := s.rollingHistograms.track(name, newTags, window)
-	if err != nil {
-		s.logger.Warnn(
-			"Creating tracked histogram, returning an untracked histogram",
-			logger.NewStringField("measurement", name), obskit.Error(err),
-		)
-		// Fall back to a regular exported histogram so observations are not lost; Percentile reports
-		// no data (tracker is nil).
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
-		return &otelHistogram{histogram: instr, otelMeasurement: om}
-	}
-
-	// Record into the dedicated instrument (read on demand when Percentile is called); not exported.
-	return &otelHistogram{histogram: instrument, tracker: tracker, otelMeasurement: om}
-}
-
 func (*otelStats) getNoOpMeasurement(statType string) Measurement {
 	om := &otelMeasurement{
 		genericMeasurement: genericMeasurement{statType: statType},
@@ -397,7 +364,12 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		return &otelTimer{timer: instr, otelMeasurement: om}
 	case HistogramType:
 		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
-		return &otelHistogram{histogram: instr, otelMeasurement: om}
+		// Percentile is backed by a per-series tracking record, provisioned lazily on first use.
+		return &otelHistogram{
+			histogram:       instr,
+			otelMeasurement: om,
+			tracking:        s.rollingHistograms.tracking(name, newTags),
+		}
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
 	}

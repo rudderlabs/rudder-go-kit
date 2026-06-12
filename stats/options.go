@@ -2,7 +2,6 @@ package stats
 
 import (
 	"sync/atomic"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -15,12 +14,12 @@ type statsConfig struct {
 	namespaceIdentifier string
 	excludedTags        map[string]struct{}
 
-	periodicStatsConfig           periodicStatsConfig
-	defaultHistogramBuckets       []float64
-	histogramBuckets              map[string][]float64
-	prometheusRegisterer          prometheus.Registerer
-	prometheusGatherer            prometheus.Gatherer
-	trackingHistogramPollInterval time.Duration
+	periodicStatsConfig         periodicStatsConfig
+	defaultHistogramBuckets     []float64
+	histogramBuckets            map[string][]float64
+	prometheusRegisterer        prometheus.Registerer
+	prometheusGatherer          prometheus.Gatherer
+	trackingHistogramMaxSamples int
 
 	// Exponential histogram configuration
 	useExponentialHistogram     bool
@@ -98,12 +97,12 @@ func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheu
 	}
 }
 
-// WithTrackingHistogramPollInterval sets the minimum interval between two snapshots of a tracked
-// histogram. Snapshots are taken lazily, when Measurement.Percentile is called — there is no background
-// poller — so this caps how often a read collects fresh data (and thus how granular the rolling window
-// is). If unset, it defaults to the metrics export interval (OpenTelemetry.metrics.exportInterval).
-func WithTrackingHistogramPollInterval(interval time.Duration) Option {
+// WithTrackingHistogramMaxSamples sets how many recent observations a tracked histogram retains per
+// series. It bounds memory and caps the number of samples a percentile is computed over: for a series
+// busier than maxSamples/window, the percentile reflects the most recent maxSamples observations. Must
+// be >= 1; if unset it defaults to defaultTrackingHistogramMaxSamples.
+func WithTrackingHistogramMaxSamples(n int) Option {
 	return func(c *statsConfig) {
-		c.trackingHistogramPollInterval = interval
+		c.trackingHistogramMaxSamples = n
 	}
 }

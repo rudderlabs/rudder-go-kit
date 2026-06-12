@@ -20,9 +20,10 @@ type Gauge interface {
 type Histogram interface {
 	Observe(value float64)
 
-	// Percentile returns the p-th percentile (p in [0,100]) over the rolling window and true when data is available.
-	// Only NewTrackedHistogram return meaningful values; every other measurement returns (0, false).
-	Percentile(p float64) (float64, bool)
+	// Percentile returns the p-th percentile (p in [0,100]) over the rolling window of the most recent
+	// observations, and true when data is available. It is supported only by the OpenTelemetry backend
+	// (which retains recent observations as exemplars); every other backend returns (0, false).
+	Percentile(p float64, window time.Duration) (float64, bool)
 }
 
 // Timer represents a timer metric
@@ -90,7 +91,7 @@ func (m *genericMeasurement) RecordDuration() func() {
 }
 
 // Percentile default behavior is to report no data: unlike the mutating operations above this is a
-// read, so it returns (0, false) rather than panicking. Only tracked histograms override it.
-func (m *genericMeasurement) Percentile(_ float64) (float64, bool) {
+// read, so it returns (0, false) rather than panicking. Only the OpenTelemetry histogram overrides it.
+func (m *genericMeasurement) Percentile(_ float64, _ time.Duration) (float64, bool) {
 	return 0, false
 }

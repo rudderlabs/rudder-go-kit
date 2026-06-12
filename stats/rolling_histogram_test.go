@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/sdk/metric/exemplar"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
@@ -22,186 +23,134 @@ import (
 	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
 )
 
-func TestRollingHistogramTrackerFromExponentialDeltas(t *testing.T) {
-	now := time.Now()
-	tracker := &rollingHistogramTracker{window: time.Minute, now: func() time.Time { return now }}
-
-	tracker.observe(exponentialHistogramSnapshot{
-		scale:         0,
-		count:         10,
-		positiveCount: map[int32]uint64{1: 10},
-	}, now)
-	require.EqualValues(t, 0, tracker.count(), "first cumulative snapshot is only the baseline")
-
-	now = now.Add(10 * time.Second)
-	tracker.observe(exponentialHistogramSnapshot{
-		scale:         0,
-		count:         20,
-		positiveCount: map[int32]uint64{1: 10, 3: 10},
-	}, now)
-
-	require.EqualValues(t, 10, tracker.count())
-	p95, ok := tracker.percentile(95)
-	require.True(t, ok)
-	require.Equal(t, 8.0, p95)
-
-	now = now.Add(2 * time.Minute)
-	require.EqualValues(t, 0, tracker.count())
-	_, ok = tracker.percentile(95)
-	require.False(t, ok)
+func TestNearestRankPercentile(t *testing.T) {
+	values := []float64{90, 33, 83, 6, 93, 41, 49, 24, 53, 63, 81, 41, 33, 49, 87, 36, 46, 29, 119, 116}
+	cp := func() []float64 { return append([]float64(nil), values...) }
+	require.Equal(t, 6.0, nearestRankPercentile(cp(), 0))
+	require.Equal(t, 49.0, nearestRankPercentile(cp(), 50))
+	require.Equal(t, 116.0, nearestRankPercentile(cp(), 95))
+	require.Equal(t, 119.0, nearestRankPercentile(cp(), 100))
+	require.Equal(t, 7.0, nearestRankPercentile([]float64{7}, 50), "single value")
 }
 
-func TestExponentialHistogramSnapshotDownscale(t *testing.T) {
-	s := exponentialHistogramSnapshot{
-		scale:         2,
-		negativeCount: 1,
-		zeroCount:     2,
-		count:         10,
-		positiveCount: map[int32]uint64{1: 5, 2: 3, 3: 2}, // keys are OTel bucket index + 1
+func TestWindowReservoir(t *testing.T) {
+	r := newWindowReservoir(3)
+	base := time.Now()
+	offer := func(i int, v float64) {
+		r.Offer(context.Background(), base.Add(time.Duration(i)*time.Second), exemplar.NewValue(v), nil)
+	}
+	vals := func(dest []exemplar.Exemplar) []float64 {
+		out := make([]float64, len(dest))
+		for i, e := range dest {
+			out[i] = e.Value.Float64()
+		}
+		return out
 	}
 
-	got := s.downscale(1)
-	require.Equal(t, int32(1), got.scale)
-	require.EqualValues(t, 1, got.negativeCount, "non-positive counts are scale-independent")
-	require.EqualValues(t, 2, got.zeroCount)
-	require.EqualValues(t, 10, got.count)
-	// index = key-1 -> 0,1,2; >>1 -> 0,0,1; +1 -> keys 1,1,2 (the first two merge).
-	require.Equal(t, map[int32]uint64{1: 8, 2: 2}, got.positiveCount)
+	var dest []exemplar.Exemplar
+	offer(0, 10)
+	offer(1, 20)
+	r.Collect(&dest)
+	require.Equal(t, []float64{10, 20}, vals(dest), "before the ring fills, all offers are kept oldest-first")
 
-	// Downscaling to an equal or higher scale is a no-op.
-	require.Equal(t, s.positiveCount, s.downscale(2).positiveCount)
-	require.Equal(t, s.positiveCount, s.downscale(5).positiveCount)
+	// Capacity is 3; offering 3 more keeps only the most recent 3, still chronological.
+	offer(2, 30) // [10,20,30]
+	offer(3, 40) // overwrites 10 -> [20,30,40]
+	offer(4, 50) // overwrites 20 -> [30,40,50]
+	r.Collect(&dest)
+	require.Equal(t, []float64{30, 40, 50}, vals(dest))
+	require.True(t, dest[0].Time.Before(dest[1].Time) && dest[1].Time.Before(dest[2].Time), "times stay ordered")
+
+	// Collect is non-destructive: reading again yields the same observations.
+	r.Collect(&dest)
+	require.Equal(t, []float64{30, 40, 50}, vals(dest))
 }
 
-func TestRollingHistogramDeltaAcrossScaleChange(t *testing.T) {
+func TestWindowedExemplarValues(t *testing.T) {
 	now := time.Now()
-	tr := &rollingHistogramTracker{window: time.Minute, now: func() time.Time { return now }}
-
-	// Baseline at scale 1.
-	tr.observe(exponentialHistogramSnapshot{scale: 1, count: 4, positiveCount: map[int32]uint64{2: 4}}, now)
-	require.EqualValues(t, 0, tr.count())
-
-	// Next cumulative snapshot has downscaled to 0 (as OTel does when data spreads). The delta must be
-	// captured (10-4=6), not dropped as a spurious reset.
-	now = now.Add(time.Second)
-	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 10, positiveCount: map[int32]uint64{1: 10}}, now)
-	require.EqualValues(t, 6, tr.count())
-}
-
-func TestRollingHistogramCounterReset(t *testing.T) {
-	now := time.Now()
-	tr := &rollingHistogramTracker{window: time.Minute, now: func() time.Time { return now }}
-
-	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 100, positiveCount: map[int32]uint64{1: 100}}, now)
-	now = now.Add(time.Second)
-	// Cumulative total dropped -> treated as a reset; the current snapshot becomes the delta.
-	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 30, positiveCount: map[int32]uint64{1: 30}}, now)
-	require.EqualValues(t, 30, tr.count())
-}
-
-func TestQuantileFromExponentialSnapshots(t *testing.T) {
-	_, ok := quantileFromExponentialSnapshots(nil, 0.5)
-	require.False(t, ok, "empty window has no quantile")
-
-	// 6 of 10 observations are in the zero bucket, so the median falls in the zero/negative region.
-	samples := []timedExponentialHistogram{{
-		snapshot: exponentialHistogramSnapshot{
-			scale: 0, count: 10, zeroCount: 6, positiveCount: map[int32]uint64{1: 4},
-		},
-	}}
-	v, ok := quantileFromExponentialSnapshots(samples, 0.5) // rank 5 <= zeroCount 6
-	require.True(t, ok)
-	require.Equal(t, 0.0, v)
-
-	// A higher quantile lands in the positive bucket (upper bound 2^1 = 2 at scale 0).
-	v, ok = quantileFromExponentialSnapshots(samples, 0.95) // rank 10
-	require.True(t, ok)
-	require.Equal(t, 2.0, v)
-}
-
-func TestRollingHistogramTrackerPercentileInvalidInputs(t *testing.T) {
-	now := time.Now()
-	tr := &rollingHistogramTracker{window: time.Minute, now: func() time.Time { return now }}
-	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 10, positiveCount: map[int32]uint64{1: 10}}, now)
-	now = now.Add(time.Second)
-	tr.observe(exponentialHistogramSnapshot{scale: 0, count: 20, positiveCount: map[int32]uint64{1: 20}}, now)
-	require.EqualValues(t, 10, tr.count())
-
-	for _, p := range []float64{-1, 101, math.NaN()} {
-		_, ok := tr.percentile(p)
-		require.Falsef(t, ok, "p=%v must be rejected", p)
+	tracker := &rollingHistogramTracker{
+		name: "lat",
+		key:  rollingHistogramKey("lat", Tags{"dest": "b"}),
+		now:  func() time.Time { return now },
 	}
-	_, ok := tr.percentile(50)
-	require.True(t, ok, "a valid percentile still works")
-}
-
-func TestExponentialHistogramSnapshotFromDataPoint(t *testing.T) {
-	snapshot := exponentialHistogramSnapshotFromDataPoint(metricdata.ExponentialHistogramDataPoint[float64]{
-		Scale: 1,
-		Count: 3,
-		PositiveBucket: metricdata.ExponentialBucket{
-			Offset: 1,
-			Counts: []uint64{0, 2, 1},
-		},
-	})
-
-	require.Equal(t, int32(1), snapshot.scale)
-	require.EqualValues(t, 3, snapshot.count)
-	require.Equal(t, map[int32]uint64{3: 2, 4: 1}, snapshot.positiveCount)
-}
-
-func TestRollingHistogramFindSnapshot(t *testing.T) {
-	// A tracker extracts only its own series — matched by instrument name AND tags — from a collected
-	// snapshot that holds several datapoints. This is what replaces the old poller's routing.
-	tracker := &rollingHistogramTracker{name: "lat", key: rollingHistogramKey("lat", Tags{"dest": "b"})}
-
-	dp := func(dest string, count uint64) metricdata.ExponentialHistogramDataPoint[float64] {
+	ex := func(ageSec int, v float64) metricdata.Exemplar[float64] {
+		return metricdata.Exemplar[float64]{Time: now.Add(-time.Duration(ageSec) * time.Second), Value: v}
+	}
+	dp := func(dest string, exs ...metricdata.Exemplar[float64]) metricdata.ExponentialHistogramDataPoint[float64] {
 		return metricdata.ExponentialHistogramDataPoint[float64]{
-			Attributes:     attribute.NewSet(attribute.String("dest", dest)),
-			Scale:          0,
-			Count:          count,
-			PositiveBucket: metricdata.ExponentialBucket{Offset: 0, Counts: []uint64{count}},
+			Attributes: attribute.NewSet(attribute.String("dest", dest)),
+			Exemplars:  exs,
 		}
 	}
 	rm := metricdata.ResourceMetrics{ScopeMetrics: []metricdata.ScopeMetrics{{
 		Metrics: []metricdata.Metrics{
-			{Name: "other", Data: metricdata.ExponentialHistogram[float64]{
-				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{dp("b", 99)},
+			{Name: "other", Data: metricdata.ExponentialHistogram[float64]{ // wrong name, ignored
+				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{dp("b", ex(1, 999))},
 			}},
 			{Name: "lat", Data: metricdata.ExponentialHistogram[float64]{
-				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{dp("a", 7), dp("b", 4)},
+				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{
+					dp("a", ex(1, 7)), // wrong tag set, ignored
+					dp("b", ex(90, 1), ex(30, 2), ex(10, 3), ex(5, 4)), // oldest-first; 90s is outside the window
+				},
 			}},
 		},
 	}}}
 
-	snapshot, ok := tracker.findSnapshot(&rm)
-	require.True(t, ok)
-	require.EqualValues(t, 4, snapshot.count, "must pick lat{dest=b}, not lat{dest=a} or other{dest=b}")
+	// Walks back from the newest (4,3,2) and stops at the 90s-old observation, which is outside the window.
+	require.ElementsMatch(t, []float64{2, 3, 4}, tracker.windowValues(&rm, time.Minute))
 
-	// A series this tracker does not follow is not found.
-	missing := &rollingHistogramTracker{name: "lat", key: rollingHistogramKey("lat", Tags{"dest": "z"})}
-	_, ok = missing.findSnapshot(&rm)
-	require.False(t, ok)
+	// A series this tracker does not follow yields nothing.
+	missing := &rollingHistogramTracker{
+		name: "lat", key: rollingHistogramKey("lat", Tags{"dest": "z"}), now: func() time.Time { return now },
+	}
+	require.Empty(t, missing.windowValues(&rm, time.Minute))
 }
 
-func TestRollingHistogramConcurrentAccess(t *testing.T) {
-	tr := &rollingHistogramTracker{window: time.Minute, now: time.Now}
+// TestHistogramTrackingInMemory drives the real registry pipeline (private meter provider + exemplar
+// reservoir + manual reader) without any network, asserting lazy enablement and exact percentiles read
+// straight from the recorded observations.
+func TestHistogramTrackingInMemory(t *testing.T) {
+	reg := newRollingHistogramRegistry(time.Now, 0, nil)
+	tracking := reg.tracking("lat", nil)
+
+	// Before the first Percentile call tracking is dormant.
+	require.False(t, tracking.enabled.Load())
+	_, ok := tracking.percentile(50, time.Minute)
+	require.False(t, ok, "first call enables tracking but the reservoir is still empty")
+	require.True(t, tracking.enabled.Load())
+
+	values := []float64{90, 33, 83, 6, 93, 41, 49, 24, 53, 63, 81, 41, 33, 49, 87, 36, 46, 29, 119, 116}
+	for _, v := range values {
+		tracking.instrument.Record(context.Background(), v)
+	}
+
+	for p, want := range map[float64]float64{0: 6, 50: 49, 95: 116, 100: 119} {
+		got, ok := tracking.percentile(p, time.Minute)
+		require.Truef(t, ok, "p=%v", p)
+		require.Equalf(t, want, got, "p=%v", p)
+	}
+
+	for _, bad := range []float64{-1, 101, math.NaN()} {
+		_, ok := tracking.percentile(bad, time.Minute)
+		require.Falsef(t, ok, "p=%v must be rejected", bad)
+	}
+	_, ok = tracking.percentile(50, 0)
+	require.False(t, ok, "a non-positive window has no percentile")
+}
+
+func TestHistogramTrackingConcurrentAccess(t *testing.T) {
+	reg := newRollingHistogramRegistry(time.Now, 0, nil)
+	tracking := reg.tracking("lat", nil)
+	_, _ = tracking.percentile(95, time.Minute) // enable before the race starts
 
 	done := make(chan struct{})
 	var wg sync.WaitGroup
-
-	wg.Go(func() { // single writer, mirroring the poll goroutine
+	wg.Go(func() { // writer: drive observations through the tracking instrument
 		defer close(done)
-		var c uint64
 		for i := 0; i < 2000; i++ {
-			c += 10
-			tr.observe(
-				exponentialHistogramSnapshot{scale: 0, count: c, positiveCount: map[int32]uint64{1: c}},
-				time.Now(),
-			)
+			tracking.record(context.Background(), float64(i%100))
 		}
 	})
-
 	for i := 0; i < 4; i++ { // concurrent readers
 		wg.Go(func() {
 			for {
@@ -209,50 +158,48 @@ func TestRollingHistogramConcurrentAccess(t *testing.T) {
 				case <-done:
 					return
 				default:
-					_, _ = tr.percentile(95)
-					_ = tr.count()
+					_, _ = tracking.percentile(95, time.Minute)
 				}
 			}
 		})
 	}
-
 	wg.Wait()
 }
 
-func TestNewTrackedHistogramNonOTelBackend(t *testing.T) {
+func TestHistogramPercentileUnsupportedBackend(t *testing.T) {
 	// Backends that cannot track (e.g. NOP) still return a usable Measurement, but Percentile reports
 	// no data.
-	m := NOP.NewTrackedHistogram("latency", nil, time.Minute)
+	m := NOP.NewStat("latency", HistogramType)
 	require.NotNil(t, m)
 	m.Observe(1)
-	_, ok := m.Percentile(95)
+	_, ok := m.Percentile(95, time.Minute)
 	require.False(t, ok)
 }
 
-func TestWithTrackingHistogramPollInterval(t *testing.T) {
+func TestWithTrackingHistogramMaxSamples(t *testing.T) {
 	// The option sets the corresponding statsConfig field.
 	var cfg statsConfig
-	WithTrackingHistogramPollInterval(250 * time.Millisecond)(&cfg)
-	require.Equal(t, 250*time.Millisecond, cfg.trackingHistogramPollInterval)
+	WithTrackingHistogramMaxSamples(512)(&cfg)
+	require.Equal(t, 512, cfg.trackingHistogramMaxSamples)
 
 	// And it flows through NewStats into the rolling-histogram registry, taking precedence over the
 	// equivalent config value.
 	c := config.New()
 	c.Set("OpenTelemetry.enabled", true)
-	c.Set("OpenTelemetry.metrics.rollingHistogramPollInterval", time.Hour) // overridden by the option below
+	c.Set("OpenTelemetry.metrics.rollingHistogramMaxSamples", 99) // overridden by the option below
 	s := NewStats(
 		c, logger.NewFactory(c), svcMetric.NewManager(),
-		WithTrackingHistogramPollInterval(250*time.Millisecond),
+		WithTrackingHistogramMaxSamples(512),
 	)
-	require.Equal(t, 250*time.Millisecond, s.(*otelStats).rollingHistograms.pollInterval)
+	require.Equal(t, 512, s.(*otelStats).rollingHistograms.maxSamples)
 }
 
-// TestNewTrackedHistogramRoundRobin is a full end-to-end test (real OTel SDK + Prometheus exporter
-// serving on :9102). It creates a counter, a histogram, a gauge and a tracked histogram, observes them
-// round-robin, and after each round scrapes the real /metrics HTTP endpoint to verify the exported
-// values and checks the tracked histogram's percentile (which lazily collects on read). Finally it
-// verifies the percentile empties once the window elapses.
-func TestNewTrackedHistogramRoundRobin(t *testing.T) {
+// TestHistogramPercentileEndToEnd is a full end-to-end test (real OTel SDK + Prometheus exporter serving
+// on :9102). It creates a counter, a histogram, a gauge and a (plain) histogram whose percentile it also
+// reads. After each round it scrapes the real /metrics HTTP endpoint to verify the exported values and
+// checks the percentile (read on demand from the exemplars). Finally it verifies the percentile empties
+// once the window elapses.
+func TestHistogramPercentileEndToEnd(t *testing.T) {
 	const (
 		window      = time.Second
 		metricsURL  = "http://localhost:9102/metrics"
@@ -264,7 +211,6 @@ func TestNewTrackedHistogramRoundRobin(t *testing.T) {
 	c.Set("OpenTelemetry.enabled", true)
 	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
 	c.Set("OpenTelemetry.metrics.prometheus.port", 9102)
-	c.Set("OpenTelemetry.metrics.rollingHistogramPollInterval", 10*time.Millisecond)
 	c.Set("RuntimeStats.enabled", false) // keep the exported metric set to exactly what we create
 
 	reg := prometheus.NewRegistry()
@@ -276,7 +222,7 @@ func TestNewTrackedHistogramRoundRobin(t *testing.T) {
 	counter := s.NewTaggedStat("rr_counter", CountType, tags)
 	histogram := s.NewTaggedStat("rr_histogram", HistogramType, tags)
 	gauge := s.NewTaggedStat("rr_gauge", GaugeType, tags)
-	tracked := s.NewTrackedHistogram("rr_tracked", tags, window)
+	tracked := s.NewTaggedStat("rr_tracked", HistogramType, tags)
 
 	for round := 1; round <= 10; round++ {
 		counter.Increment()
@@ -295,23 +241,21 @@ func TestNewTrackedHistogramRoundRobin(t *testing.T) {
 			return metricValue(families["rr_counter"], dtoCounterValue) == float64(round) &&
 				metricValue(families["rr_gauge"], dtoGaugeValue) == float64(round) &&
 				metricValue(families["rr_histogram"], dtoHistogramCount) == float64(round) &&
-				!trackedExported // the tracked histogram is in-process only, never exported
+				trackedExported // a tracked histogram is also a normal, exported histogram
 		}, eventuallyT, eventuallyI, "prometheus values not correct at round %d", round)
 
-		// Percentile collects lazily on read, and the tracker's first cumulative snapshot is only a
-		// baseline. Keep observing 1 until the percentile reflects it; every observation is 1, which lands
-		// in the exponential bucket whose upper bound is exactly 1, so the percentile is exactly 1.
+		// Every observation is 1, so the p95 over the window is exactly 1. The first Percentile call
+		// enables tracking (reservoir still empty), so keep observing until it shows.
 		require.Eventuallyf(t, func() bool {
 			tracked.Observe(1)
-			p, ok := tracked.Percentile(95)
+			p, ok := tracked.Percentile(95, window)
 			return ok && p == 1.0
 		}, eventuallyT, eventuallyI, "tracked percentile not correct at round %d", round)
 	}
 
-	// With no further observations the rolling window empties after `window`, and Percentile reports no
-	// data.
+	// With no further observations every exemplar ages past the window, so Percentile reports no data.
 	require.Eventually(t, func() bool {
-		_, ok := tracked.Percentile(95)
+		_, ok := tracked.Percentile(95, window)
 		return !ok
 	}, 5*window, eventuallyI, "tracked percentile should be empty once the window elapses")
 }
