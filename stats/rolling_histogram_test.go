@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/metric/exemplar"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
@@ -23,6 +22,119 @@ import (
 	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
 )
 
+// newOTelStats returns a started OpenTelemetry stats instance. The Prometheus exporter is enabled (the
+// SDK needs at least one) but no port is set, so no HTTP server runs and the test needs no network;
+// percentile tracking is in-process and independent of the export path anyway.
+func newOTelStats(t *testing.T) Stats {
+	t.Helper()
+	c := config.New()
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	c.Set("RuntimeStats.enabled", false)
+	reg := prometheus.NewRegistry()
+	s := NewStats(c, logger.NewFactory(c), svcMetric.NewManager(), WithPrometheusRegistry(reg, reg))
+	require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+	t.Cleanup(s.Stop)
+	return s
+}
+
+// TestHistogramPercentile checks the exact percentiles a histogram reports over its rolling window,
+// end to end through the public API.
+func TestHistogramPercentile(t *testing.T) {
+	const window = time.Minute
+	h := newOTelStats(t).NewStat("latency", HistogramType)
+
+	// The first call enables tracking; with no observations yet there is no data.
+	_, ok := h.Percentile(50, window)
+	require.False(t, ok)
+
+	values := []float64{90, 33, 83, 6, 93, 41, 49, 24, 53, 63, 81, 41, 33, 49, 87, 36, 46, 29, 119, 116}
+	for _, v := range values {
+		h.Observe(v)
+	}
+
+	for p, want := range map[float64]float64{0: 6, 50: 49, 95: 116, 100: 119} {
+		got, ok := h.Percentile(p, window)
+		require.Truef(t, ok, "p=%v", p)
+		require.Equalf(t, want, got, "p=%v", p)
+	}
+
+	for _, bad := range []float64{-1, 101, math.NaN()} {
+		_, ok := h.Percentile(bad, window)
+		require.Falsef(t, ok, "p=%v must be rejected", bad)
+	}
+	_, ok = h.Percentile(50, 0)
+	require.False(t, ok, "a non-positive window has no percentile")
+}
+
+// TestHistogramPercentileNoCollision proves percentiles don't leak across series: same name with
+// different tags, and a different name, all stay independent.
+func TestHistogramPercentileNoCollision(t *testing.T) {
+	const window = time.Minute
+	s := newOTelStats(t)
+
+	a := s.NewTaggedStat("latency", HistogramType, Tags{"dest": "a"}) // same name...
+	b := s.NewTaggedStat("latency", HistogramType, Tags{"dest": "b"}) // ...different tag
+	other := s.NewStat("size", HistogramType)                         // different name
+
+	for _, m := range []Measurement{a, b, other} {
+		_, _ = m.Percentile(95, window) // enable tracking for each series
+	}
+	for i := 0; i < 5; i++ {
+		a.Observe(1)      // latency{dest=a}: only 1s
+		b.Observe(100)    // latency{dest=b}: only 100s
+		other.Observe(50) // size: only 50s
+	}
+
+	requirePercentile := func(m Measurement, want float64) {
+		t.Helper()
+		got, ok := m.Percentile(95, window)
+		require.True(t, ok)
+		require.Equal(t, want, got)
+	}
+	requirePercentile(a, 1)
+	requirePercentile(b, 100)
+	requirePercentile(other, 50)
+}
+
+func TestHistogramPercentileConcurrent(t *testing.T) {
+	const window = time.Minute
+	h := newOTelStats(t).NewTaggedStat("latency", HistogramType, Tags{"dest": "a"})
+	_, _ = h.Percentile(95, window) // enable before the race starts
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Go(func() { // writer
+		defer close(done)
+		for i := 0; i < 2000; i++ {
+			h.Observe(float64(i % 100))
+		}
+	})
+	for i := 0; i < 4; i++ { // concurrent readers
+		wg.Go(func() {
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					_, _ = h.Percentile(95, window)
+				}
+			}
+		})
+	}
+	wg.Wait()
+}
+
+func TestHistogramPercentileUnsupportedBackend(t *testing.T) {
+	// Backends that cannot track (e.g. NOP) still return a usable Measurement, but Percentile reports
+	// no data.
+	m := NOP.NewStat("latency", HistogramType)
+	require.NotNil(t, m)
+	m.Observe(1)
+	_, ok := m.Percentile(95, time.Minute)
+	require.False(t, ok)
+}
+
 func TestNearestRankPercentile(t *testing.T) {
 	values := []float64{90, 33, 83, 6, 93, 41, 49, 24, 53, 63, 81, 41, 33, 49, 87, 36, 46, 29, 119, 116}
 	cp := func() []float64 { return append([]float64(nil), values...) }
@@ -31,6 +143,24 @@ func TestNearestRankPercentile(t *testing.T) {
 	require.Equal(t, 116.0, nearestRankPercentile(cp(), 95))
 	require.Equal(t, 119.0, nearestRankPercentile(cp(), 100))
 	require.Equal(t, 7.0, nearestRankPercentile([]float64{7}, 50), "single value")
+}
+
+func TestExemplarValuesSince(t *testing.T) {
+	now := time.Now()
+	ex := func(ageSec int, v float64) metricdata.Exemplar[float64] {
+		return metricdata.Exemplar[float64]{Time: now.Add(-time.Duration(ageSec) * time.Second), Value: v}
+	}
+	// One data point (a per-series provider only ever has one), exemplars oldest-first.
+	dps := []metricdata.ExponentialHistogramDataPoint[float64]{{
+		Exemplars: []metricdata.Exemplar[float64]{ex(90, 1), ex(30, 2), ex(10, 3), ex(5, 4)},
+	}}
+
+	// Walks newest→oldest and stops at the 90s-old observation, outside a 60s window.
+	require.Equal(t, []float64{4, 3, 2}, exemplarValuesSince(dps, now.Add(-time.Minute)))
+	// A wider window keeps everything.
+	require.Equal(t, []float64{4, 3, 2, 1}, exemplarValuesSince(dps, now.Add(-2*time.Minute)))
+	// No data points → no values.
+	require.Empty(t, exemplarValuesSince([]metricdata.ExponentialHistogramDataPoint[float64]{}, now.Add(-time.Minute)))
 }
 
 func TestWindowReservoir(t *testing.T) {
@@ -66,150 +196,6 @@ func TestWindowReservoir(t *testing.T) {
 	require.Equal(t, []float64{30, 40, 50}, vals(dest))
 }
 
-func TestWindowedExemplarValues(t *testing.T) {
-	now := time.Now()
-	tracker := &rollingHistogramTracker{
-		name: "lat",
-		key:  rollingHistogramKey("lat", Tags{"dest": "b"}),
-		now:  func() time.Time { return now },
-	}
-	ex := func(ageSec int, v float64) metricdata.Exemplar[float64] {
-		return metricdata.Exemplar[float64]{Time: now.Add(-time.Duration(ageSec) * time.Second), Value: v}
-	}
-	dp := func(dest string, exs ...metricdata.Exemplar[float64]) metricdata.ExponentialHistogramDataPoint[float64] {
-		return metricdata.ExponentialHistogramDataPoint[float64]{
-			Attributes: attribute.NewSet(attribute.String("dest", dest)),
-			Exemplars:  exs,
-		}
-	}
-	// The per-name reader only ever yields this one instrument; it may carry several data points, one
-	// per tag set, and the right one is selected by tags.
-	rm := metricdata.ResourceMetrics{ScopeMetrics: []metricdata.ScopeMetrics{{
-		Metrics: []metricdata.Metrics{
-			{Name: "lat", Data: metricdata.ExponentialHistogram[float64]{
-				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{
-					dp("a", ex(1, 7)), // wrong tag set, ignored
-					dp("b", ex(90, 1), ex(30, 2), ex(10, 3), ex(5, 4)), // oldest-first; 90s is outside the window
-				},
-			}},
-		},
-	}}}
-
-	// Walks back from the newest (4,3,2) and stops at the 90s-old observation, which is outside the window.
-	require.ElementsMatch(t, []float64{2, 3, 4}, tracker.windowValues(&rm, time.Minute))
-
-	// A series this tracker does not follow yields nothing.
-	missing := &rollingHistogramTracker{
-		name: "lat", key: rollingHistogramKey("lat", Tags{"dest": "z"}), now: func() time.Time { return now },
-	}
-	require.Empty(t, missing.windowValues(&rm, time.Minute))
-}
-
-// TestHistogramTrackingInMemory drives the real registry pipeline (private meter provider + exemplar
-// reservoir + manual reader) without any network, asserting lazy enablement and exact percentiles read
-// straight from the recorded observations.
-func TestHistogramTrackingInMemory(t *testing.T) {
-	reg := newRollingHistogramRegistry(time.Now, 0, nil)
-	tracking := reg.tracking("lat", nil)
-
-	// Before the first Percentile call tracking is dormant.
-	require.False(t, tracking.enabled.Load())
-	_, ok := tracking.percentile(50, time.Minute)
-	require.False(t, ok, "first call enables tracking but the reservoir is still empty")
-	require.True(t, tracking.enabled.Load())
-
-	values := []float64{90, 33, 83, 6, 93, 41, 49, 24, 53, 63, 81, 41, 33, 49, 87, 36, 46, 29, 119, 116}
-	for _, v := range values {
-		tracking.instrument.Record(context.Background(), v)
-	}
-
-	for p, want := range map[float64]float64{0: 6, 50: 49, 95: 116, 100: 119} {
-		got, ok := tracking.percentile(p, time.Minute)
-		require.Truef(t, ok, "p=%v", p)
-		require.Equalf(t, want, got, "p=%v", p)
-	}
-
-	for _, bad := range []float64{-1, 101, math.NaN()} {
-		_, ok := tracking.percentile(bad, time.Minute)
-		require.Falsef(t, ok, "p=%v must be rejected", bad)
-	}
-	_, ok = tracking.percentile(50, 0)
-	require.False(t, ok, "a non-positive window has no percentile")
-}
-
-// TestHistogramTrackingIsolatedByName proves that each tracked name has its own private provider+reader,
-// so a tracker's collect only ever yields that one instrument. That is why windowValues needs no
-// name guard: there is never a foreign metric to skip.
-func TestHistogramTrackingIsolatedByName(t *testing.T) {
-	reg := newRollingHistogramRegistry(time.Now, 0, nil)
-
-	h1 := reg.tracking("h1", nil)
-	h2 := reg.tracking("h2", nil)
-	_, _ = h1.percentile(50, time.Minute) // enable both
-	_, _ = h2.percentile(50, time.Minute)
-
-	for i := 0; i < 5; i++ {
-		h1.instrument.Record(context.Background(), 1)   // h1 only ever sees 1s
-		h2.instrument.Record(context.Background(), 100) // h2 only ever sees 100s
-	}
-
-	// h1's private reader yields exactly one instrument — its own — never h2's.
-	var rm metricdata.ResourceMetrics
-	require.NoError(t, h1.tracker.reader.Collect(context.Background(), &rm))
-	metrics := 0
-	for _, sm := range rm.ScopeMetrics {
-		metrics += len(sm.Metrics)
-	}
-	require.Equal(t, 1, metrics, "a per-name reader sees only its own instrument")
-	require.Equal(t, "h1", rm.ScopeMetrics[0].Metrics[0].Name)
-
-	// And the percentiles are independent: no cross-contamination between the two histograms.
-	p1, ok := h1.percentile(95, time.Minute)
-	require.True(t, ok)
-	require.Equal(t, 1.0, p1)
-	p2, ok := h2.percentile(95, time.Minute)
-	require.True(t, ok)
-	require.Equal(t, 100.0, p2)
-}
-
-func TestHistogramTrackingConcurrentAccess(t *testing.T) {
-	reg := newRollingHistogramRegistry(time.Now, 0, nil)
-	tracking := reg.tracking("lat", nil)
-	_, _ = tracking.percentile(95, time.Minute) // enable before the race starts
-
-	done := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Go(func() { // writer: drive observations through the tracking instrument
-		defer close(done)
-		for i := 0; i < 2000; i++ {
-			tracking.record(context.Background(), float64(i%100))
-		}
-	})
-	for i := 0; i < 4; i++ { // concurrent readers
-		wg.Go(func() {
-			for {
-				select {
-				case <-done:
-					return
-				default:
-					_, _ = tracking.percentile(95, time.Minute)
-				}
-			}
-		})
-	}
-	wg.Wait()
-}
-
-func TestHistogramPercentileUnsupportedBackend(t *testing.T) {
-	// Backends that cannot track (e.g. NOP) still return a usable Measurement, but Percentile reports
-	// no data.
-	m := NOP.NewStat("latency", HistogramType)
-	require.NotNil(t, m)
-	m.Observe(1)
-	_, ok := m.Percentile(95, time.Minute)
-	require.False(t, ok)
-}
-
 func TestWithTrackingHistogramMaxSamples(t *testing.T) {
 	// The option sets the corresponding statsConfig field.
 	var cfg statsConfig
@@ -228,11 +214,9 @@ func TestWithTrackingHistogramMaxSamples(t *testing.T) {
 	require.Equal(t, 512, s.(*otelStats).rollingHistograms.maxSamples)
 }
 
-// TestHistogramPercentileEndToEnd is a full end-to-end test (real OTel SDK + Prometheus exporter serving
-// on :9102). It creates a counter, a histogram, a gauge and a (plain) histogram whose percentile it also
-// reads. After each round it scrapes the real /metrics HTTP endpoint to verify the exported values and
-// checks the percentile (read on demand from the exemplars). Finally it verifies the percentile empties
-// once the window elapses.
+// TestHistogramPercentileEndToEnd is a full end-to-end test with the real Prometheus exporter on :9102.
+// It confirms a histogram is exported normally while its percentile is read in-process, and that the
+// percentile empties once the window elapses.
 func TestHistogramPercentileEndToEnd(t *testing.T) {
 	const (
 		window      = time.Second
@@ -254,15 +238,16 @@ func TestHistogramPercentileEndToEnd(t *testing.T) {
 
 	tags := Tags{"foo": "bar"}
 	counter := s.NewTaggedStat("rr_counter", CountType, tags)
-	histogram := s.NewTaggedStat("rr_histogram", HistogramType, tags)
 	gauge := s.NewTaggedStat("rr_gauge", GaugeType, tags)
+	histogram := s.NewTaggedStat("rr_histogram", HistogramType, tags)
+	// tracked is observed an unpredictable number of times (percentile warm-up below), so it is kept
+	// separate from histogram, whose exported count must match the round exactly.
 	tracked := s.NewTaggedStat("rr_tracked", HistogramType, tags)
 
 	for round := 1; round <= 10; round++ {
 		counter.Increment()
-		histogram.Observe(1)
 		gauge.Gauge(round)
-		tracked.Observe(1)
+		histogram.Observe(1)
 
 		// Scrape the real /metrics endpoint until it reflects this round's cumulative values. The HTTP
 		// server starts asynchronously, hence require.Eventually.
@@ -271,11 +256,9 @@ func TestHistogramPercentileEndToEnd(t *testing.T) {
 			if err != nil {
 				return false
 			}
-			_, trackedExported := families["rr_tracked"]
 			return metricValue(families["rr_counter"], dtoCounterValue) == float64(round) &&
 				metricValue(families["rr_gauge"], dtoGaugeValue) == float64(round) &&
-				metricValue(families["rr_histogram"], dtoHistogramCount) == float64(round) &&
-				trackedExported // a tracked histogram is also a normal, exported histogram
+				metricValue(families["rr_histogram"], dtoHistogramCount) == float64(round)
 		}, eventuallyT, eventuallyI, "prometheus values not correct at round %d", round)
 
 		// Every observation is 1, so the p95 over the window is exactly 1. The first Percentile call
@@ -291,7 +274,7 @@ func TestHistogramPercentileEndToEnd(t *testing.T) {
 	require.Eventually(t, func() bool {
 		_, ok := tracked.Percentile(95, window)
 		return !ok
-	}, 5*window, eventuallyI, "tracked percentile should be empty once the window elapses")
+	}, 5*window, eventuallyI, "percentile should be empty once the window elapses")
 }
 
 // scrapePrometheus fetches and parses the Prometheus text exposition from the given URL.

@@ -112,7 +112,9 @@ func (h *otelHistogram) Observe(value float64) {
 	}
 	h.histogram.Record(context.TODO(), value, metric.WithAttributes(h.attributes...))
 	if h.tracking != nil {
-		h.tracking.record(context.TODO(), value, metric.WithAttributes(h.attributes...))
+		// No attributes: the tracking provider is private to this series, so its single data point
+		// already isolates these observations.
+		h.tracking.record(context.TODO(), value)
 	}
 }
 
