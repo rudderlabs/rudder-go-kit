@@ -277,7 +277,7 @@ func addExemplars[N int64 | float64](
 		// Convert filtered attributes to labels
 		for _, kv := range exemplar.FilteredAttributes {
 			key := strings.Map(sanitizeRune, string(kv.Key))
-			labels[key] = kv.Value.Emit()
+			labels[key] = kv.Value.String()
 		}
 
 		// Add trace context - these are the standard Prometheus exemplar labels
@@ -432,10 +432,10 @@ func getAttrs(attrs attribute.Set, ks, vs []string) ([]string, []string) {
 		kv := itr.Attribute()
 		key := strings.Map(sanitizeRune, string(kv.Key))
 		if _, ok := keysMap[key]; !ok {
-			keysMap[key] = []string{kv.Value.Emit()}
+			keysMap[key] = []string{kv.Value.String()}
 		} else {
 			// if the sanitized key is a duplicate, append to the list of keys
-			keysMap[key] = append(keysMap[key], kv.Value.Emit())
+			keysMap[key] = append(keysMap[key], kv.Value.String())
 		}
 	}
 

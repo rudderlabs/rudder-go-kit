@@ -277,6 +277,30 @@ func TestNewTrackedHistogramNonOTelBackend(t *testing.T) {
 	require.False(t, ok)
 }
 
+func TestWithTrackingHistogramOptions(t *testing.T) {
+	// The options set the corresponding statsConfig fields.
+	var cfg statsConfig
+	WithTrackingHistogramPollInterval(250 * time.Millisecond)(&cfg)
+	WithTrackingHistogramMaxEmptyPolls(7)(&cfg)
+	require.Equal(t, 250*time.Millisecond, cfg.trackingHistogramPollInterval)
+	require.Equal(t, 7, cfg.trackingHistogramMaxEmptyPolls)
+
+	// And they flow through NewStats into the rolling-histogram registry, taking precedence over the
+	// equivalent config values.
+	c := config.New()
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("OpenTelemetry.metrics.rollingHistogramPollInterval", time.Hour) // overridden by the option below
+	c.Set("OpenTelemetry.metrics.rollingHistogramMaxEmptyPolls", 99)       // overridden by the option below
+	s := NewStats(
+		c, logger.NewFactory(c), svcMetric.NewManager(),
+		WithTrackingHistogramPollInterval(250*time.Millisecond),
+		WithTrackingHistogramMaxEmptyPolls(7),
+	)
+	registry := s.(*otelStats).rollingHistograms
+	require.Equal(t, 250*time.Millisecond, registry.pollInterval)
+	require.Equal(t, 7, registry.maxEmptyPolls)
+}
+
 // TestNewTrackedHistogramRoundRobin is a full end-to-end test (real OTel SDK + Prometheus exporter
 // serving on :9102 + background poller). It creates a counter, a histogram, a gauge and a tracked
 // histogram, observes them round-robin, and after each round scrapes the real /metrics HTTP endpoint to

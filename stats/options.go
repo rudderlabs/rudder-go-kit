@@ -99,8 +99,8 @@ func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheu
 	}
 }
 
-// WithTrackingHistogramPollInterval sets how frequently in-process histogram trackers poll the
-// Prometheus reader for new histogram data. If unset, it defaults to the metrics export interval
+// WithTrackingHistogramPollInterval sets how frequently in-process histogram trackers poll their
+// dedicated reader for new histogram data. If unset, it defaults to the metrics export interval
 // (OpenTelemetry.metrics.exportInterval).
 func WithTrackingHistogramPollInterval(interval time.Duration) Option {
 	return func(c *statsConfig) {
