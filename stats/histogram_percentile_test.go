@@ -196,22 +196,22 @@ func TestWindowReservoir(t *testing.T) {
 	require.Equal(t, []float64{30, 40, 50}, vals(dest))
 }
 
-func TestWithTrackingHistogramMaxSamples(t *testing.T) {
+func TestWithHistogramPercentileMaxSamples(t *testing.T) {
 	// The option sets the corresponding statsConfig field.
 	var cfg statsConfig
-	WithTrackingHistogramMaxSamples(512)(&cfg)
-	require.Equal(t, 512, cfg.trackingHistogramMaxSamples)
+	WithHistogramPercentileMaxSamples(256)(&cfg)
+	require.Equal(t, 256, cfg.histogramPercentileMaxSamples)
 
-	// And it flows through NewStats into the rolling-histogram registry, taking precedence over the
-	// equivalent config value.
+	// And it flows through NewStats into the percentile registry, taking precedence over the equivalent
+	// config value (256 is neither the default nor the config value below, so it proves the option won).
 	c := config.New()
 	c.Set("OpenTelemetry.enabled", true)
-	c.Set("OpenTelemetry.metrics.rollingHistogramMaxSamples", 99) // overridden by the option below
+	c.Set("OpenTelemetry.metrics.histogramPercentileMaxSamples", 99) // overridden by the option below
 	s := NewStats(
 		c, logger.NewFactory(c), svcMetric.NewManager(),
-		WithTrackingHistogramMaxSamples(512),
+		WithHistogramPercentileMaxSamples(256),
 	)
-	require.Equal(t, 512, s.(*otelStats).rollingHistograms.maxSamples)
+	require.Equal(t, 256, s.(*otelStats).percentiles.maxSamples)
 }
 
 // TestHistogramPercentileEndToEnd is a full end-to-end test with the real Prometheus exporter on :9102.

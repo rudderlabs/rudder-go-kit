@@ -14,12 +14,12 @@ type statsConfig struct {
 	namespaceIdentifier string
 	excludedTags        map[string]struct{}
 
-	periodicStatsConfig         periodicStatsConfig
-	defaultHistogramBuckets     []float64
-	histogramBuckets            map[string][]float64
-	prometheusRegisterer        prometheus.Registerer
-	prometheusGatherer          prometheus.Gatherer
-	trackingHistogramMaxSamples int
+	periodicStatsConfig           periodicStatsConfig
+	defaultHistogramBuckets       []float64
+	histogramBuckets              map[string][]float64
+	prometheusRegisterer          prometheus.Registerer
+	prometheusGatherer            prometheus.Gatherer
+	histogramPercentileMaxSamples int
 
 	// Exponential histogram configuration
 	useExponentialHistogram     bool
@@ -97,12 +97,12 @@ func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheu
 	}
 }
 
-// WithTrackingHistogramMaxSamples sets how many recent observations a tracked histogram retains per
-// series. It bounds memory and caps the number of samples a percentile is computed over: for a series
-// busier than maxSamples/window, the percentile reflects the most recent maxSamples observations. Must
-// be >= 1; if unset it defaults to defaultTrackingHistogramMaxSamples.
-func WithTrackingHistogramMaxSamples(n int) Option {
+// WithHistogramPercentileMaxSamples sets how many recent observations a histogram retains per series for
+// Histogram.Percentile. It bounds memory and caps the number of samples a percentile is computed over:
+// for a series busier than maxSamples/window, the percentile reflects the most recent maxSamples
+// observations. Must be >= 1; if unset it defaults to defaultPercentileMaxSamples (512).
+func WithHistogramPercentileMaxSamples(n int) Option {
 	return func(c *statsConfig) {
-		c.trackingHistogramMaxSamples = n
+		c.histogramPercentileMaxSamples = n
 	}
 }

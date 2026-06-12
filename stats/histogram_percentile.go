@@ -20,73 +20,73 @@ import (
 )
 
 const (
-	// Tracking instruments use a fixed high-resolution exponential aggregation. Buckets are not actually
-	// read (percentiles are computed from exemplars), but a histogram aggregation is what carries the
-	// exemplars, so we keep it cheap and accurate.
-	trackingHistogramMaxSize  = 160
-	trackingHistogramMaxScale = 20
-	// defaultTrackingHistogramMaxSamples bounds how many recent observations are retained per series.
-	// It caps both memory and the number of samples a percentile is computed over.
-	defaultTrackingHistogramMaxSamples = 2048
-	rollingHistogramMeterName          = "github.com/rudderlabs/rudder-go-kit/stats/rollinghistogram"
+	// Percentile instruments use a fixed high-resolution exponential aggregation. Buckets are not
+	// actually read (percentiles are computed from exemplars), but a histogram aggregation is what
+	// carries the exemplars, so we keep it cheap and accurate.
+	percentileHistogramMaxSize  = 160
+	percentileHistogramMaxScale = 20
+	// defaultPercentileMaxSamples bounds how many recent observations (exemplars) are retained per
+	// series. It caps both memory and the number of samples a percentile is computed over.
+	defaultPercentileMaxSamples = 512
+	percentileMeterName         = "github.com/rudderlabs/rudder-go-kit/stats/percentile"
 )
 
-// rollingHistogramRegistry backs Histogram.Percentile for the OpenTelemetry stats. Per histogram series
-// it holds a small histogramTracking record, created when the measurement is created but otherwise
-// dormant: the OTel pipeline that actually retains observations (a private meter provider with an
-// exemplar reservoir) is provisioned lazily, on the first Percentile call for that series. A service
-// that never calls Percentile therefore allocates no providers, no reservoirs and does no extra
-// recording — only an atomic check per Observe.
-type rollingHistogramRegistry struct {
+// percentileRegistry backs Histogram.Percentile for the OpenTelemetry stats. Per histogram series it
+// holds a small percentileSeries record, created with the measurement but otherwise dormant: the OTel
+// pipeline that actually retains observations (a private meter provider with an exemplar reservoir) is
+// provisioned lazily, on the first Percentile call for that series. A service that never calls
+// Percentile therefore allocates no providers, no reservoirs and does no extra recording — only an
+// atomic check per Observe.
+type percentileRegistry struct {
 	mu         sync.Mutex
 	now        func() time.Time
 	maxSamples int
 	log        logger.Logger
-	series     map[string]*histogramTracking // one tracking record per series (name|tags)
+	series     map[string]*percentileSeries // one record per series (name|tags)
 }
 
-func newRollingHistogramRegistry(now func() time.Time, maxSamples int, log logger.Logger) *rollingHistogramRegistry {
+func newPercentileRegistry(now func() time.Time, maxSamples int, log logger.Logger) *percentileRegistry {
 	if now == nil {
 		now = time.Now
 	}
 	if maxSamples <= 0 {
-		maxSamples = defaultTrackingHistogramMaxSamples
+		maxSamples = defaultPercentileMaxSamples
 	}
-	return &rollingHistogramRegistry{
+	return &percentileRegistry{
 		now:        now,
 		maxSamples: maxSamples,
 		log:        log,
-		series:     make(map[string]*histogramTracking),
+		series:     make(map[string]*percentileSeries),
 	}
 }
 
-// tracking returns the shared tracking record for a series, creating it if necessary. The record is
+// seriesFor returns the shared percentileSeries for a series, creating it if necessary. The record is
 // cheap and dormant until its first Percentile call; sharing it per series means every Measurement for
-// the same series records into the same reservoir once tracking is enabled.
-func (r *rollingHistogramRegistry) tracking(name string, tags Tags) *histogramTracking {
-	if r == nil { // no registry wired (e.g. a directly-constructed otelStats): tracking is unavailable
+// the same series records into the same reservoir once it is enabled.
+func (r *percentileRegistry) seriesFor(name string, tags Tags) *percentileSeries {
+	if r == nil { // no registry wired (e.g. a directly-constructed otelStats): percentiles unavailable
 		return nil
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	key := rollingHistogramKey(name, tags)
-	ht, ok := r.series[key]
+	key := seriesKey(name, tags)
+	ps, ok := r.series[key]
 	if !ok {
-		ht = &histogramTracking{registry: r, name: name}
-		r.series[key] = ht
+		ps = &percentileSeries{registry: r, name: name}
+		r.series[key] = ps
 	}
-	return ht
+	return ps
 }
 
-// histogramTracking is the per-series state behind Histogram.Percentile, shared across all Measurements
+// percentileSeries is the per-series state behind Histogram.Percentile, shared across all Measurements
 // for the same series. It owns a private, single-instrument meter provider so that collecting its reader
-// yields exactly one data point — the series' own — with no attribute matching needed on the read path.
-// enabled gates the (lazy) pipeline: until the first Percentile call it is false and Observe does no
-// extra work; once enabled, observations are mirrored into instrument and read back from reader.
-type histogramTracking struct {
-	registry *rollingHistogramRegistry
+// yields exactly one data point — the series' own — with no attribute matching on the read path. enabled
+// gates the (lazy) pipeline: until the first Percentile call it is false and Observe does no extra work;
+// once enabled, observations are mirrored into instrument and read back from reader.
+type percentileSeries struct {
+	registry *percentileRegistry
 	name     string
 
 	once       sync.Once
@@ -95,74 +95,74 @@ type histogramTracking struct {
 	reader     sdkmetric.Reader
 }
 
-// record mirrors an observation into the tracking instrument, but only once tracking has been enabled.
-// No attributes are recorded: the provider is private to this one series, so a single data point holds
-// all of its observations.
-func (h *histogramTracking) record(ctx context.Context, value float64) {
-	if h.enabled.Load() {
-		h.instrument.Record(ctx, value)
+// record mirrors an observation into the percentile instrument, but only once the series is enabled. No
+// attributes are recorded: the provider is private to this one series, so a single data point holds all
+// of its observations.
+func (ps *percentileSeries) record(ctx context.Context, value float64) {
+	if ps.enabled.Load() {
+		ps.instrument.Record(ctx, value)
 	}
 }
 
-// percentile enables tracking on first use, then returns the p-th percentile (p in [0,100]) over the
-// last window and true when the window holds observations; (0, false) otherwise. It collects the private
+// compute enables the series on first use, then returns the p-th percentile (p in [0,100]) over the last
+// window and true when the window holds observations; (0, false) otherwise. It collects the private
 // reader, walks the series' exemplars newest → oldest stopping at now-window, and computes a nearest-rank
 // percentile. Nothing is retained between calls.
-func (h *histogramTracking) percentile(p float64, window time.Duration) (float64, bool) {
+func (ps *percentileSeries) compute(p float64, window time.Duration) (float64, bool) {
 	if p < 0 || p > 100 || math.IsNaN(p) || window <= 0 {
 		return 0, false
 	}
-	h.once.Do(h.enable)
-	if !h.enabled.Load() {
+	ps.once.Do(ps.enable)
+	if !ps.enabled.Load() {
 		return 0, false
 	}
 
 	var rm metricdata.ResourceMetrics
-	if err := h.reader.Collect(context.Background(), &rm); err != nil {
+	if err := ps.reader.Collect(context.Background(), &rm); err != nil {
 		return 0, false
 	}
-	values := windowValues(&rm, h.registry.now().Add(-window))
+	values := windowValues(&rm, ps.registry.now().Add(-window))
 	if len(values) == 0 {
 		return 0, false
 	}
 	return nearestRankPercentile(values, p), true
 }
 
-func (h *histogramTracking) enable() {
+func (ps *percentileSeries) enable() {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(reader),
 		// Record an exemplar for every observation, not only those made inside a sampled span.
 		sdkmetric.WithExemplarFilter(exemplar.AlwaysOnFilter),
 		sdkmetric.WithView(sdkmetric.NewView(
-			sdkmetric.Instrument{Name: h.name, Kind: sdkmetric.InstrumentKindHistogram},
+			sdkmetric.Instrument{Name: ps.name, Kind: sdkmetric.InstrumentKindHistogram},
 			sdkmetric.Stream{
 				Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
-					MaxSize:  trackingHistogramMaxSize,
-					MaxScale: trackingHistogramMaxScale,
+					MaxSize:  percentileHistogramMaxSize,
+					MaxScale: percentileHistogramMaxScale,
 				},
 				// Retain the most recent maxSamples observations (with their timestamps) as exemplars,
 				// so a rolling-window percentile can be read straight from them.
 				ExemplarReservoirProviderSelector: func(sdkmetric.Aggregation) exemplar.ReservoirProvider {
 					return func(attribute.Set) exemplar.Reservoir {
-						return newWindowReservoir(h.registry.maxSamples)
+						return newWindowReservoir(ps.registry.maxSamples)
 					}
 				},
 			},
 		)),
 	)
 
-	instrument, err := provider.Meter(rollingHistogramMeterName).Float64Histogram(h.name)
+	instrument, err := provider.Meter(percentileMeterName).Float64Histogram(ps.name)
 	if err != nil {
-		if h.registry.log != nil {
-			h.registry.log.Warnn("Enabling rolling histogram tracking",
-				logger.NewStringField("measurement", h.name), obskit.Error(err))
+		if ps.registry.log != nil {
+			ps.registry.log.Warnn("enabling histogram percentile tracking",
+				logger.NewStringField("measurement", ps.name), obskit.Error(err))
 		}
 		return
 	}
-	h.instrument = instrument
-	h.reader = reader
-	h.enabled.Store(true)
+	ps.instrument = instrument
+	ps.reader = reader
+	ps.enabled.Store(true)
 }
 
 // windowValues returns the values of the tracked series' exemplars made within the last window (cutoff =
@@ -216,14 +216,14 @@ func nearestRankPercentile(values []float64, p float64) float64 {
 	return values[rank]
 }
 
-func rollingHistogramKey(name string, tags Tags) string {
+func seriesKey(name string, tags Tags) string {
 	return name + "|" + tags.String()
 }
 
-// windowReservoir is a fixed-capacity ring of the most recent observations (timestamp + value),
-// exposed to OTel as an exemplar reservoir. OTel offers every observation to it (AlwaysOn filter) and
-// reads it back on Collect; the reader-side window filter (see windowValues) is what makes stale
-// observations drop out, so this only needs to bound memory. It does not embed the SDK's internal
+// windowReservoir is a fixed-capacity ring of the most recent observations (timestamp + value), exposed
+// to OTel as an exemplar reservoir. OTel offers every observation to it (AlwaysOn filter) and reads it
+// back on Collect; the reader-side window filter (see windowValues) is what makes stale observations
+// drop out, so this only needs to bound memory. It does not embed the SDK's internal
 // reservoir.ConcurrentSafe marker, so the SDK already serializes Offer/Collect — no locking is needed
 // here.
 type windowReservoir struct {

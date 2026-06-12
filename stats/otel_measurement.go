@@ -99,10 +99,10 @@ func (t *otelTimer) RecordDuration() func() {
 type otelHistogram struct {
 	*otelMeasurement
 	histogram metric.Float64Histogram
-	// tracking is the shared per-series record backing Percentile. It is dormant until the first
+	// percentile is the shared per-series record backing Percentile. It is dormant until the first
 	// Percentile call, after which Observe also mirrors observations into its reservoir. nil for
 	// disabled (no-op) measurements.
-	tracking *histogramTracking
+	percentile *percentileSeries
 }
 
 // Observe sends an observation
@@ -111,10 +111,10 @@ func (h *otelHistogram) Observe(value float64) {
 		return
 	}
 	h.histogram.Record(context.TODO(), value, metric.WithAttributes(h.attributes...))
-	if h.tracking != nil {
-		// No attributes: the tracking provider is private to this series, so its single data point
+	if h.percentile != nil {
+		// No attributes: the percentile provider is private to this series, so its single data point
 		// already isolates these observations.
-		h.tracking.record(context.TODO(), value)
+		h.percentile.record(context.TODO(), value)
 	}
 }
 
@@ -122,8 +122,8 @@ func (h *otelHistogram) Observe(value float64) {
 // unavailable or the window holds no observations. The first call enables in-process tracking for this
 // series, so percentiles become available shortly after.
 func (h *otelHistogram) Percentile(p float64, window time.Duration) (float64, bool) {
-	if h.tracking == nil {
+	if h.percentile == nil {
 		return 0, false
 	}
-	return h.tracking.percentile(p, window)
+	return h.percentile.compute(p, window)
 }

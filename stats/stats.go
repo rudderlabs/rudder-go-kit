@@ -94,9 +94,9 @@ func NewStats(
 			enableGCStats:           config.GetBoolVar(true, "RuntimeStats.enableGCStats"),
 			metricManager:           metricManager,
 		},
-		trackingHistogramMaxSamples: config.GetIntVar(
-			defaultTrackingHistogramMaxSamples, 1,
-			"OpenTelemetry.metrics.rollingHistogramMaxSamples",
+		histogramPercentileMaxSamples: config.GetIntVar(
+			defaultPercentileMaxSamples, 1,
+			"OpenTelemetry.metrics.histogramPercentileMaxSamples",
 		),
 	}
 	for _, opt := range opts {
@@ -118,9 +118,9 @@ func NewStats(
 			stopBackgroundCollection: func() {},
 			meter:                    otel.GetMeterProvider().Meter(defaultMeterName),
 			logger:                   log,
-			rollingHistograms: newRollingHistogramRegistry(
+			percentiles: newPercentileRegistry(
 				time.Now,
-				statsConfig.trackingHistogramMaxSamples,
+				statsConfig.histogramPercentileMaxSamples,
 				log,
 			),
 			prometheusRegisterer: registerer,

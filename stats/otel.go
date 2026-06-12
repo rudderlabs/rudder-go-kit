@@ -42,17 +42,17 @@ type otelStats struct {
 	tracerMap           map[string]Tracer
 	tracerMapMu         sync.Mutex
 
-	meter             metric.Meter
-	noopMeter         metric.Meter
-	counters          map[string]metric.Int64Counter
-	countersMu        sync.Mutex
-	gauges            map[string]*otelGauge
-	gaugesMu          sync.Mutex
-	timers            map[string]metric.Float64Histogram
-	timersMu          sync.Mutex
-	histograms        map[string]metric.Float64Histogram
-	histogramsMu      sync.Mutex
-	rollingHistograms *rollingHistogramRegistry
+	meter        metric.Meter
+	noopMeter    metric.Meter
+	counters     map[string]metric.Int64Counter
+	countersMu   sync.Mutex
+	gauges       map[string]*otelGauge
+	gaugesMu     sync.Mutex
+	timers       map[string]metric.Float64Histogram
+	timersMu     sync.Mutex
+	histograms   map[string]metric.Float64Histogram
+	histogramsMu sync.Mutex
+	percentiles  *percentileRegistry
 
 	otelManager              otel.Manager
 	collectorAggregator      *aggregatedCollector
@@ -364,11 +364,11 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		return &otelTimer{timer: instr, otelMeasurement: om}
 	case HistogramType:
 		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
-		// Percentile is backed by a per-series tracking record, provisioned lazily on first use.
+		// Percentile is backed by a per-series record, provisioned lazily on first use.
 		return &otelHistogram{
 			histogram:       instr,
 			otelMeasurement: om,
-			tracking:        s.rollingHistograms.tracking(name, newTags),
+			percentile:      s.percentiles.seriesFor(name, newTags),
 		}
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
