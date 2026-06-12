@@ -193,8 +193,8 @@ func (h *histogramTracking) enable() {
 // rollingHistogramTracker is immutable after creation, so it needs no locking: percentile only reads
 // the (concurrency-safe) reader and the exemplars it returns.
 type rollingHistogramTracker struct {
-	reader sdkmetric.Reader // private reader for this measurement's name; nil only in unit tests
-	name   string           // instrument name to find in the collected metrics
+	reader sdkmetric.Reader // private per-name reader; collecting it yields only this series' instrument
+	name   string           // measurement name, used to rebuild a data point's series key for tag matching
 	key    string           // name|tags identity of the exact series this tracker follows
 	now    func() time.Time
 }
@@ -223,14 +223,13 @@ func (t *rollingHistogramTracker) percentile(p float64, window time.Duration) (f
 }
 
 // windowValues finds this tracker's series among the collected metrics and returns the values of its
-// observations made within the last window.
+// observations made within the last window. The reader belongs to a private, per-name provider holding
+// a single instrument, so the collected metric is always this tracker's — no name match is needed (see
+// TestHistogramTrackingIsolatedByName); only the data point's tags are matched, in windowedExemplarValues.
 func (t *rollingHistogramTracker) windowValues(rm *metricdata.ResourceMetrics, window time.Duration) []float64 {
 	cutoff := t.now().Add(-window)
 	for _, scope := range rm.ScopeMetrics {
 		for _, m := range scope.Metrics {
-			if m.Name != t.name {
-				continue
-			}
 			switch data := m.Data.(type) {
 			case metricdata.ExponentialHistogram[float64]:
 				return windowedExemplarValues(t, data.DataPoints, cutoff)

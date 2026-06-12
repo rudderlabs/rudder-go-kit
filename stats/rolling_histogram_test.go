@@ -82,11 +82,10 @@ func TestWindowedExemplarValues(t *testing.T) {
 			Exemplars:  exs,
 		}
 	}
+	// The per-name reader only ever yields this one instrument; it may carry several data points, one
+	// per tag set, and the right one is selected by tags.
 	rm := metricdata.ResourceMetrics{ScopeMetrics: []metricdata.ScopeMetrics{{
 		Metrics: []metricdata.Metrics{
-			{Name: "other", Data: metricdata.ExponentialHistogram[float64]{ // wrong name, ignored
-				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{dp("b", ex(1, 999))},
-			}},
 			{Name: "lat", Data: metricdata.ExponentialHistogram[float64]{
 				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{
 					dp("a", ex(1, 7)), // wrong tag set, ignored
@@ -136,6 +135,41 @@ func TestHistogramTrackingInMemory(t *testing.T) {
 	}
 	_, ok = tracking.percentile(50, 0)
 	require.False(t, ok, "a non-positive window has no percentile")
+}
+
+// TestHistogramTrackingIsolatedByName proves that each tracked name has its own private provider+reader,
+// so a tracker's collect only ever yields that one instrument. That is why windowValues needs no
+// name guard: there is never a foreign metric to skip.
+func TestHistogramTrackingIsolatedByName(t *testing.T) {
+	reg := newRollingHistogramRegistry(time.Now, 0, nil)
+
+	h1 := reg.tracking("h1", nil)
+	h2 := reg.tracking("h2", nil)
+	_, _ = h1.percentile(50, time.Minute) // enable both
+	_, _ = h2.percentile(50, time.Minute)
+
+	for i := 0; i < 5; i++ {
+		h1.instrument.Record(context.Background(), 1)   // h1 only ever sees 1s
+		h2.instrument.Record(context.Background(), 100) // h2 only ever sees 100s
+	}
+
+	// h1's private reader yields exactly one instrument — its own — never h2's.
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, h1.tracker.reader.Collect(context.Background(), &rm))
+	metrics := 0
+	for _, sm := range rm.ScopeMetrics {
+		metrics += len(sm.Metrics)
+	}
+	require.Equal(t, 1, metrics, "a per-name reader sees only its own instrument")
+	require.Equal(t, "h1", rm.ScopeMetrics[0].Metrics[0].Name)
+
+	// And the percentiles are independent: no cross-contamination between the two histograms.
+	p1, ok := h1.percentile(95, time.Minute)
+	require.True(t, ok)
+	require.Equal(t, 1.0, p1)
+	p2, ok := h2.percentile(95, time.Minute)
+	require.True(t, ok)
+	require.Equal(t, 100.0, p2)
 }
 
 func TestHistogramTrackingConcurrentAccess(t *testing.T) {
