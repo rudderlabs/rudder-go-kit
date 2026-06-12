@@ -100,7 +100,8 @@ type otelHistogram struct {
 	*otelMeasurement
 	histogram metric.Float64Histogram
 	// tracker is set only for measurements created via NewTrackedHistogram. When set, histogram is the
-	// dedicated (non-exported) instrument the poller reads, and Percentile returns rolling quantiles.
+	// dedicated (non-exported) instrument the tracker reads back on demand, and Percentile returns
+	// rolling quantiles.
 	tracker *rollingHistogramTracker
 }
 

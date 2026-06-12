@@ -201,11 +201,6 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	// Starting background collection
 	var backgroundCollectionCtx context.Context
 	backgroundCollectionCtx, s.stopBackgroundCollection = context.WithCancel(context.Background())
-	// Rolling histograms poll their own dedicated reader, fed by NewTrackedHistogram measurements'
-	// observations — independent of the export path. The poller no-ops until a tracked histogram exists.
-	if s.rollingHistograms != nil {
-		s.rollingHistograms.start(backgroundCollectionCtx, goFactory, s.logger)
-	}
 
 	gaugeFunc := func(key string, val uint64) {
 		s.getMeasurement("runtime_"+key, GaugeType, nil).Gauge(val)
@@ -329,9 +324,10 @@ func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) (m Me
 
 // NewTrackedHistogram creates a histogram measurement that also maintains an in-process rolling
 // quantile tracker: observations are recorded into a dedicated, non-exported instrument that the
-// registry's poller reads (see rollingHistogramRegistry), and Measurement.Percentile returns rolling
-// quantiles over the given window. The dedicated instrument always uses a high-resolution exponential
-// aggregation, independent of how the application configures its exported histograms.
+// tracker reads back on demand when Measurement.Percentile is called (see rollingHistogramRegistry),
+// returning rolling quantiles over the given window. The dedicated instrument always uses a
+// high-resolution exponential aggregation, independent of how the application configures its exported
+// histograms.
 func (s *otelStats) NewTrackedHistogram(name string, tags Tags, window time.Duration) Measurement {
 	if !s.config.enabled.Load() {
 		return s.getNoOpMeasurement(HistogramType)
@@ -355,7 +351,7 @@ func (s *otelStats) NewTrackedHistogram(name string, tags Tags, window time.Dura
 		return &otelHistogram{histogram: instr, otelMeasurement: om}
 	}
 
-	// Record into the dedicated instrument (read by the poller); not exported to Prometheus.
+	// Record into the dedicated instrument (read on demand when Percentile is called); not exported.
 	return &otelHistogram{histogram: instrument, tracker: tracker, otelMeasurement: om}
 }
 

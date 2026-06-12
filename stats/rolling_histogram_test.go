@@ -150,86 +150,38 @@ func TestExponentialHistogramSnapshotFromDataPoint(t *testing.T) {
 	require.Equal(t, map[int32]uint64{3: 2, 4: 1}, snapshot.positiveCount)
 }
 
-func TestRollingHistogramEviction(t *testing.T) {
-	now := time.Now()
-	clock := func() time.Time { return now }
+func TestRollingHistogramFindSnapshot(t *testing.T) {
+	// A tracker extracts only its own series — matched by instrument name AND tags — from a collected
+	// snapshot that holds several datapoints. This is what replaces the old poller's routing.
+	tracker := &rollingHistogramTracker{name: "lat", key: rollingHistogramKey("lat", Tags{"dest": "b"})}
 
-	// addActiveTracker registers a tracker and feeds it two cumulative snapshots so it holds one
-	// delta sample (i.e. it is past warm-up).
-	addActiveTracker := func(r *rollingHistogramRegistry, key string) {
-		tr := &rollingHistogramTracker{window: time.Minute, now: clock}
-		r.entries[key] = tr
-		tr.observe(exponentialHistogramSnapshot{scale: 0, count: 10, positiveCount: map[int32]uint64{1: 10}}, now)
-		tr.observe(exponentialHistogramSnapshot{scale: 0, count: 20, positiveCount: map[int32]uint64{1: 20}}, now)
-	}
-
-	t.Run("warming-up trackers are never evicted", func(t *testing.T) {
-		r := newRollingHistogramRegistry(clock, time.Second, 1)
-		r.entries["k"] = &rollingHistogramTracker{window: time.Minute, now: clock}
-		r.evictEmpty()
-		require.Contains(t, r.entries, "k", "a tracker that never held data must not be evicted")
-	})
-
-	t.Run("evicted once the window empties (N=1)", func(t *testing.T) {
-		now = time.Now()
-		r := newRollingHistogramRegistry(clock, time.Second, 1)
-		addActiveTracker(r, "k")
-
-		r.evictEmpty() // window still holds the sample
-		require.Contains(t, r.entries, "k")
-
-		now = now.Add(2 * time.Minute) // sample falls out of the window
-		r.evictEmpty()
-		require.NotContains(t, r.entries, "k")
-	})
-
-	t.Run("kept until N consecutive empty polls (N=2)", func(t *testing.T) {
-		now = time.Now()
-		r := newRollingHistogramRegistry(clock, time.Second, 2)
-		addActiveTracker(r, "k")
-
-		now = now.Add(2 * time.Minute) // sample falls out of the window
-		r.evictEmpty()                 // 1st empty poll
-		require.Contains(t, r.entries, "k")
-		r.evictEmpty() // 2nd empty poll
-		require.NotContains(t, r.entries, "k")
-	})
-}
-
-func TestPollExponentialHistogramMultipleSeries(t *testing.T) {
-	now := time.Now()
-	clock := func() time.Time { return now }
-	r := newRollingHistogramRegistry(clock, time.Second, 1)
-
-	attrsA := attribute.NewSet(attribute.String("dest", "a"))
-	attrsB := attribute.NewSet(attribute.String("dest", "b"))
-	trackerA := &rollingHistogramTracker{window: time.Minute, now: clock}
-	trackerB := &rollingHistogramTracker{window: time.Minute, now: clock}
-	r.entries[rollingHistogramKey("lat", tagsFromMetricAttributes(attrsA))] = trackerA
-	r.entries[rollingHistogramKey("lat", tagsFromMetricAttributes(attrsB))] = trackerB
-
-	dp := func(attrs attribute.Set, count uint64) metricdata.ExponentialHistogramDataPoint[float64] {
+	dp := func(dest string, count uint64) metricdata.ExponentialHistogramDataPoint[float64] {
 		return metricdata.ExponentialHistogramDataPoint[float64]{
-			Attributes:     attrs,
+			Attributes:     attribute.NewSet(attribute.String("dest", dest)),
 			Scale:          0,
 			Count:          count,
 			PositiveBucket: metricdata.ExponentialBucket{Offset: 0, Counts: []uint64{count}},
 		}
 	}
-	poll := func(a, b uint64) {
-		pollExponentialHistogram(r, "lat", metricdata.ExponentialHistogram[float64]{
-			DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{dp(attrsA, a), dp(attrsB, b)},
-		}, now)
-	}
+	rm := metricdata.ResourceMetrics{ScopeMetrics: []metricdata.ScopeMetrics{{
+		Metrics: []metricdata.Metrics{
+			{Name: "other", Data: metricdata.ExponentialHistogram[float64]{
+				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{dp("b", 99)},
+			}},
+			{Name: "lat", Data: metricdata.ExponentialHistogram[float64]{
+				DataPoints: []metricdata.ExponentialHistogramDataPoint[float64]{dp("a", 7), dp("b", 4)},
+			}},
+		},
+	}}}
 
-	poll(10, 5) // baselines only
-	require.EqualValues(t, 0, trackerA.count())
-	require.EqualValues(t, 0, trackerB.count())
+	snapshot, ok := tracker.findSnapshot(&rm)
+	require.True(t, ok)
+	require.EqualValues(t, 4, snapshot.count, "must pick lat{dest=b}, not lat{dest=a} or other{dest=b}")
 
-	now = now.Add(time.Second)
-	poll(30, 8) // each datapoint is routed to its own tracker
-	require.EqualValues(t, 20, trackerA.count())
-	require.EqualValues(t, 3, trackerB.count())
+	// A series this tracker does not follow is not found.
+	missing := &rollingHistogramTracker{name: "lat", key: rollingHistogramKey("lat", Tags{"dest": "z"})}
+	_, ok = missing.findSnapshot(&rm)
+	require.False(t, ok)
 }
 
 func TestRollingHistogramConcurrentAccess(t *testing.T) {
@@ -277,35 +229,29 @@ func TestNewTrackedHistogramNonOTelBackend(t *testing.T) {
 	require.False(t, ok)
 }
 
-func TestWithTrackingHistogramOptions(t *testing.T) {
-	// The options set the corresponding statsConfig fields.
+func TestWithTrackingHistogramPollInterval(t *testing.T) {
+	// The option sets the corresponding statsConfig field.
 	var cfg statsConfig
 	WithTrackingHistogramPollInterval(250 * time.Millisecond)(&cfg)
-	WithTrackingHistogramMaxEmptyPolls(7)(&cfg)
 	require.Equal(t, 250*time.Millisecond, cfg.trackingHistogramPollInterval)
-	require.Equal(t, 7, cfg.trackingHistogramMaxEmptyPolls)
 
-	// And they flow through NewStats into the rolling-histogram registry, taking precedence over the
-	// equivalent config values.
+	// And it flows through NewStats into the rolling-histogram registry, taking precedence over the
+	// equivalent config value.
 	c := config.New()
 	c.Set("OpenTelemetry.enabled", true)
 	c.Set("OpenTelemetry.metrics.rollingHistogramPollInterval", time.Hour) // overridden by the option below
-	c.Set("OpenTelemetry.metrics.rollingHistogramMaxEmptyPolls", 99)       // overridden by the option below
 	s := NewStats(
 		c, logger.NewFactory(c), svcMetric.NewManager(),
 		WithTrackingHistogramPollInterval(250*time.Millisecond),
-		WithTrackingHistogramMaxEmptyPolls(7),
 	)
-	registry := s.(*otelStats).rollingHistograms
-	require.Equal(t, 250*time.Millisecond, registry.pollInterval)
-	require.Equal(t, 7, registry.maxEmptyPolls)
+	require.Equal(t, 250*time.Millisecond, s.(*otelStats).rollingHistograms.pollInterval)
 }
 
 // TestNewTrackedHistogramRoundRobin is a full end-to-end test (real OTel SDK + Prometheus exporter
-// serving on :9102 + background poller). It creates a counter, a histogram, a gauge and a tracked
-// histogram, observes them round-robin, and after each round scrapes the real /metrics HTTP endpoint to
-// verify the exported values and checks the tracked histogram's percentile. Finally it verifies the
-// percentile empties once the window elapses.
+// serving on :9102). It creates a counter, a histogram, a gauge and a tracked histogram, observes them
+// round-robin, and after each round scrapes the real /metrics HTTP endpoint to verify the exported
+// values and checks the tracked histogram's percentile (which lazily collects on read). Finally it
+// verifies the percentile empties once the window elapses.
 func TestNewTrackedHistogramRoundRobin(t *testing.T) {
 	const (
 		window      = time.Second
@@ -352,7 +298,7 @@ func TestNewTrackedHistogramRoundRobin(t *testing.T) {
 				!trackedExported // the tracked histogram is in-process only, never exported
 		}, eventuallyT, eventuallyI, "prometheus values not correct at round %d", round)
 
-		// The tracker updates asynchronously via the poller, and its first cumulative snapshot is only a
+		// Percentile collects lazily on read, and the tracker's first cumulative snapshot is only a
 		// baseline. Keep observing 1 until the percentile reflects it; every observation is 1, which lands
 		// in the exponential bucket whose upper bound is exactly 1, so the percentile is exactly 1.
 		require.Eventuallyf(t, func() bool {

@@ -7,7 +7,6 @@ import (
 	"net"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,7 +21,6 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/stats"
 	"github.com/rudderlabs/rudder-go-kit/stats/collectors"
 	"github.com/rudderlabs/rudder-go-kit/stats/metric"
-	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
 
 func TestStatsdMeasurementInvalidOperations(t *testing.T) {
@@ -539,11 +537,11 @@ type statsdServer struct {
 }
 
 func newStatsdServer(t *testing.T, f func(string)) *statsdServer {
-	port, err := testhelper.GetFreePort()
-	require.NoError(t, err)
-	addr := net.JoinHostPort("localhost", strconv.Itoa(port))
 	s := &statsdServer{t: t, closed: make(chan bool)}
-	laddr, err := net.ResolveUDPAddr("udp", addr)
+	// Bind to port 0 so the OS atomically assigns a free UDP port. Picking a port up front (e.g. via
+	// GetFreePort) and binding it later races with anything else grabbing that port in between, which
+	// surfaces as a flaky "bind: address already in use".
+	laddr, err := net.ResolveUDPAddr("udp", "localhost:0")
 	require.NoError(t, err)
 	conn, err := net.ListenUDP("udp", laddr)
 	require.NoError(t, err)

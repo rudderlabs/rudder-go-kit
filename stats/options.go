@@ -15,13 +15,12 @@ type statsConfig struct {
 	namespaceIdentifier string
 	excludedTags        map[string]struct{}
 
-	periodicStatsConfig            periodicStatsConfig
-	defaultHistogramBuckets        []float64
-	histogramBuckets               map[string][]float64
-	prometheusRegisterer           prometheus.Registerer
-	prometheusGatherer             prometheus.Gatherer
-	trackingHistogramPollInterval  time.Duration
-	trackingHistogramMaxEmptyPolls int
+	periodicStatsConfig           periodicStatsConfig
+	defaultHistogramBuckets       []float64
+	histogramBuckets              map[string][]float64
+	prometheusRegisterer          prometheus.Registerer
+	prometheusGatherer            prometheus.Gatherer
+	trackingHistogramPollInterval time.Duration
 
 	// Exponential histogram configuration
 	useExponentialHistogram     bool
@@ -99,20 +98,12 @@ func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheu
 	}
 }
 
-// WithTrackingHistogramPollInterval sets how frequently in-process histogram trackers poll their
-// dedicated reader for new histogram data. If unset, it defaults to the metrics export interval
-// (OpenTelemetry.metrics.exportInterval).
+// WithTrackingHistogramPollInterval sets the minimum interval between two snapshots of a tracked
+// histogram. Snapshots are taken lazily, when Measurement.Percentile is called — there is no background
+// poller — so this caps how often a read collects fresh data (and thus how granular the rolling window
+// is). If unset, it defaults to the metrics export interval (OpenTelemetry.metrics.exportInterval).
 func WithTrackingHistogramPollInterval(interval time.Duration) Option {
 	return func(c *statsConfig) {
 		c.trackingHistogramPollInterval = interval
-	}
-}
-
-// WithTrackingHistogramMaxEmptyPolls sets how many consecutive polls a histogram tracker's window may
-// stay empty (after it has held data) before the registry drops it to bound memory. Must be >= 1; if
-// unset it defaults to 1.
-func WithTrackingHistogramMaxEmptyPolls(n int) Option {
-	return func(c *statsConfig) {
-		c.trackingHistogramMaxEmptyPolls = n
 	}
 }
