@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -151,6 +152,32 @@ func (m *Measurement) Observe(value float64) {
 	m.values = append(m.values, value)
 }
 
+// Percentile implements stats.Measurement.
+// It returns the nearest-rank p-th percentile (p in [0,100]) over all observed histogram values, and true when any have
+// been observed.
+// Unlike the OTel backend memstats keeps no rolling window, so the window passed to NewTrackedHistogram is ignored.
+func (m *Measurement) Percentile(p float64) (float64, bool) {
+	if p < 0 || p > 100 || math.IsNaN(p) {
+		return 0, false
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.values) == 0 {
+		return 0, false
+	}
+	sorted := make([]float64, len(m.values))
+	copy(sorted, m.values)
+	sort.Float64s(sorted)
+
+	rank := int(math.Ceil(p/100*float64(len(sorted)))) - 1
+	if rank < 0 {
+		rank = 0
+	}
+	return sorted[rank], true
+}
+
 // Since implements stats.Measurement
 func (m *Measurement) Since(start time.Time) {
 	if m.mType != stats.TimerType {
@@ -251,6 +278,12 @@ func (ms *Store) NewStat(name, statType string) (m stats.Measurement) {
 // NewTaggedStat implements stats.Stats
 func (ms *Store) NewTaggedStat(name, statType string, tags stats.Tags) stats.Measurement {
 	return ms.NewSampledTaggedStat(name, statType, tags)
+}
+
+// NewTrackedHistogram implements stats.Stats. memstats keeps every observed value, so the returned
+// histogram measurement's Percentile is computed over all observations (the window is ignored).
+func (ms *Store) NewTrackedHistogram(name string, tags stats.Tags, _ time.Duration) stats.Measurement {
+	return ms.NewTaggedStat(name, stats.HistogramType, tags)
 }
 
 // NewSampledTaggedStat implements stats.Stats

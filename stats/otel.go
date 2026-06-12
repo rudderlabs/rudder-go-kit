@@ -201,10 +201,10 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	// Starting background collection
 	var backgroundCollectionCtx context.Context
 	backgroundCollectionCtx, s.stopBackgroundCollection = context.WithCancel(context.Background())
-	// Rolling histograms poll the Prometheus reader only; without the Prometheus exporter
-	// there is no internal reader to poll (see otelStats.TrackHistogram for the rationale).
-	if s.otelConfig.enablePrometheusExporter && s.rollingHistograms != nil {
-		s.rollingHistograms.start(backgroundCollectionCtx, goFactory, s.otelManager.PrometheusReader(), s.logger)
+	// Rolling histograms poll their own dedicated reader, fed by NewTrackedHistogram measurements'
+	// observations — independent of the export path. The poller no-ops until a tracked histogram exists.
+	if s.rollingHistograms != nil {
+		s.rollingHistograms.start(backgroundCollectionCtx, goFactory, s.logger)
 	}
 
 	gaugeFunc := func(key string, val uint64) {
@@ -327,48 +327,36 @@ func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) (m Me
 	return s.NewTaggedStat(name, statType, tags)
 }
 
-func (s *otelStats) TrackHistogram(
-	name string, tags Tags, cfg RollingHistogramConfig,
-) (tracker RollingHistogramTracker, supported bool, err error) {
-	// In-process rolling histograms are read on demand from the Prometheus reader.
-	// We deliberately do NOT register a dedicated internal reader for the OTLP-only path:
-	// a second reader would roughly double the in-process metric aggregation state and CPU for every
-	// instrument, and all production environments run OTel together with the Prometheus exporter.
-	// So when Prometheus is disabled we report the feature as unsupported and return a no-op tracker
-	// instead of panicking, letting callers degrade gracefully.
-	if !s.otelConfig.enablePrometheusExporter {
-		s.logger.Warnn(
-			"Rolling histogram tracking requires the OpenTelemetry Prometheus exporter; returning a no-op tracker",
-			logger.NewStringField("measurement", name),
-		)
-		return nopRollingHistogramTracker{}, false, nil
+// NewTrackedHistogram creates a histogram measurement that also maintains an in-process rolling
+// quantile tracker: observations are recorded into a dedicated, non-exported instrument that the
+// registry's poller reads (see rollingHistogramRegistry), and Measurement.Percentile returns rolling
+// quantiles over the given window. The dedicated instrument always uses a high-resolution exponential
+// aggregation, independent of how the application configures its exported histograms.
+func (s *otelStats) NewTrackedHistogram(name string, tags Tags, window time.Duration) Measurement {
+	if !s.config.enabled.Load() {
+		return s.getNoOpMeasurement(HistogramType)
 	}
-	// Rolling histogram tracking reads exponential (Prometheus native) histograms only.
-	// A histogram using explicit buckets is exported as a classic histogram, which the poller cannot read, so we
-	// report it as unsupported instead of handing back a tracker that would never receive data.
-	if !s.histogramIsExponential(name) {
-		s.logger.Warnn(
-			"Rolling histogram tracking requires the histogram to use exponential (native) bucketing; returning a no-op tracker",
-			logger.NewStringField("measurement", name),
-		)
-		return nopRollingHistogramTracker{}, false, nil
-	}
-	name, tags = s.canonicalMeasurementIdentity(name, tags)
-	tracker, err = s.rollingHistograms.track(name, tags, cfg)
-	return tracker, true, err
-}
 
-// histogramIsExponential reports whether the histogram with the given name is configured to use
-// exponential (Prometheus native) bucketing, mirroring the aggregation precedence applied in Start:
-// a per-histogram setting wins over the default, and exponential wins over explicit buckets.
-func (s *otelStats) histogramIsExponential(name string) bool {
-	if _, ok := s.config.exponentialHistograms[name]; ok {
-		return true
+	name, newTags := s.canonicalMeasurementIdentity(name, tags)
+	om := &otelMeasurement{
+		genericMeasurement: genericMeasurement{statType: HistogramType},
+		attributes:         newTags.otelAttributes(),
 	}
-	if _, ok := s.config.histogramBuckets[name]; ok {
-		return false
+
+	tracker, instrument, err := s.rollingHistograms.track(name, newTags, window)
+	if err != nil {
+		s.logger.Warnn(
+			"Creating tracked histogram, returning an untracked histogram",
+			logger.NewStringField("measurement", name), obskit.Error(err),
+		)
+		// Fall back to a regular exported histogram so observations are not lost; Percentile reports
+		// no data (tracker is nil).
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
+		return &otelHistogram{histogram: instr, otelMeasurement: om}
 	}
-	return s.config.useExponentialHistogram
+
+	// Record into the dedicated instrument (read by the poller); not exported to Prometheus.
+	return &otelHistogram{histogram: instrument, tracker: tracker, otelMeasurement: om}
 }
 
 func (*otelStats) getNoOpMeasurement(statType string) Measurement {

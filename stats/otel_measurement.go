@@ -99,6 +99,9 @@ func (t *otelTimer) RecordDuration() func() {
 type otelHistogram struct {
 	*otelMeasurement
 	histogram metric.Float64Histogram
+	// tracker is set only for measurements created via NewTrackedHistogram. When set, histogram is the
+	// dedicated (non-exported) instrument the poller reads, and Percentile returns rolling quantiles.
+	tracker *rollingHistogramTracker
 }
 
 // Observe sends an observation
@@ -106,4 +109,13 @@ func (h *otelHistogram) Observe(value float64) {
 	if !h.disabled {
 		h.histogram.Record(context.TODO(), value, metric.WithAttributes(h.attributes...))
 	}
+}
+
+// Percentile returns the p-th percentile over the tracked rolling window, or (0, false) when this is
+// not a tracked histogram or the window is empty.
+func (h *otelHistogram) Percentile(p float64) (float64, bool) {
+	if h.tracker == nil {
+		return 0, false
+	}
+	return h.tracker.percentile(p)
 }

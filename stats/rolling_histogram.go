@@ -2,82 +2,50 @@ package stats
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
-	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
-
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 )
 
 const (
-	defaultRollingHistogramPercentile = 99
-	defaultPollingInterval            = 5 * time.Second
+	defaultPollingInterval = 5 * time.Second
 	// defaultMaxEmptyPolls is how many consecutive polls a tracker's window may stay empty
 	// before the registry drops it to clean up memory; see rollingHistogramRegistry.poll.
 	defaultMaxEmptyPolls = 1
+	// Tracking instruments always use a fixed high-resolution exponential aggregation, regardless of how
+	// the application configures its exported histograms. See newRollingHistogramRegistry.
+	trackingHistogramMaxSize  = 160
+	trackingHistogramMaxScale = 20
 )
-
-// RollingHistogramConfig configures an in-process rolling histogram tracker.
-type RollingHistogramConfig struct {
-	// Window is the amount of recent histogram delta data retained by the tracker.
-	Window time.Duration
-	// Percentile is the percentile returned by the tracker's Percentile method.
-	// Values are expressed as 0-100. If unset, 99 is used.
-	Percentile float64
-}
-
-// RollingHistogramTracker reads quantiles from a rolling in-process histogram.
-type RollingHistogramTracker interface {
-	// Percentile returns the configured percentile and true when the window has observations.
-	Percentile() (float64, bool)
-	// Quantile returns the requested quantile and true when the window has observations.
-	Quantile(q float64) (float64, bool)
-	// Count returns the number of observations in the current rolling window.
-	Count() uint64
-	// Reset clears all observations from the tracker.
-	Reset()
-}
-
-// RollingHistogramStats is implemented by Stats backends that can vend in-process histogram quantiles.
-// Only the OpenTelemetry backend implements it; statsd, memstats and nop do not.
-// Implementing the interface does not guarantee support at runtime: the OTel backend still reports supported=false
-// when the Prometheus exporter is disabled (see otelStats.TrackHistogram), so the returned supported flag is
-// the authoritative signal.
-type RollingHistogramStats interface {
-	TrackHistogram(name string, tags Tags, cfg RollingHistogramConfig) (RollingHistogramTracker, bool, error)
-}
-
-// TrackHistogram attaches an in-process rolling quantile tracker to an OTel+Prometheus histogram.
-// supported is false when the underlying Stats backend cannot provide in-process rolling histograms
-// (a non-OTel backend, or OTel without the Prometheus exporter); in that case a no-op tracker is
-// returned so callers can degrade gracefully without checking the backend type or recovering a panic.
-func TrackHistogram(
-	s Stats, name string, tags Tags, cfg RollingHistogramConfig,
-) (tracker RollingHistogramTracker, supported bool, err error) {
-	rollingStats, ok := s.(RollingHistogramStats)
-	if !ok {
-		return nopRollingHistogramTracker{}, false, nil
-	}
-	return rollingStats.TrackHistogram(name, tags, cfg)
-}
 
 type rollingHistogramRegistry struct {
 	mu            sync.RWMutex
 	now           func() time.Time
 	pollInterval  time.Duration
 	maxEmptyPolls int
-	reader        sdkmetric.Reader
 	logger        logger.Logger
-	entries       map[string]*rollingHistogramTracker
-	started       bool
+
+	// A dedicated meter provider that holds ONLY the tracked histogram instruments: tracked stats
+	// (created via NewTrackedHistogram) record into these and the poller reads them from this provider's
+	// manual reader. This is what keeps polling O(tracked series) instead of O(all process metrics) —
+	// Collect on this reader never sees counters, gauges, timers or untracked histograms.
+	provider    *sdkmetric.MeterProvider
+	reader      sdkmetric.Reader
+	meter       metric.Meter
+	instruments map[string]metric.Float64Histogram // tracking instrument per measurement name
+
+	entries map[string]*rollingHistogramTracker
+	started bool
 
 	// collectFailing tracks whether the last poll's Collect failed, so we log the failure (and the
 	// recovery) once per episode instead of every poll. Touched only by the poll goroutine.
@@ -96,17 +64,35 @@ func newRollingHistogramRegistry(
 	if maxEmptyPolls <= 0 {
 		maxEmptyPolls = defaultMaxEmptyPolls
 	}
+
+	// A manual reader (cumulative temporality by default, which delta() relies on) on a private meter
+	// provider. The view forces exponential aggregation so quantiles are accurate regardless of how the
+	// exported histogram is bucketed.
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(reader),
+		sdkmetric.WithView(sdkmetric.NewView(
+			sdkmetric.Instrument{Kind: sdkmetric.InstrumentKindHistogram},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
+				MaxSize:  trackingHistogramMaxSize,
+				MaxScale: trackingHistogramMaxScale,
+			}},
+		)),
+	)
+
 	return &rollingHistogramRegistry{
 		now:           now,
 		pollInterval:  pollInterval,
 		maxEmptyPolls: maxEmptyPolls,
+		provider:      provider,
+		reader:        reader,
+		meter:         provider.Meter("github.com/rudderlabs/rudder-go-kit/stats/rollinghistogram"),
+		instruments:   make(map[string]metric.Float64Histogram),
 		entries:       make(map[string]*rollingHistogramTracker),
 	}
 }
 
-func (r *rollingHistogramRegistry) start(
-	ctx context.Context, goFactory GoRoutineFactory, reader sdkmetric.Reader, log logger.Logger,
-) {
+func (r *rollingHistogramRegistry) start(ctx context.Context, goFactory GoRoutineFactory, log logger.Logger) {
 	if r == nil {
 		return
 	}
@@ -115,7 +101,6 @@ func (r *rollingHistogramRegistry) start(
 		r.mu.Unlock()
 		return
 	}
-	r.reader = reader
 	r.logger = log
 	r.started = true
 	r.mu.Unlock()
@@ -136,12 +121,14 @@ func (r *rollingHistogramRegistry) start(
 	})
 }
 
-func (r *rollingHistogramRegistry) track(name string, tags Tags, cfg RollingHistogramConfig) (
-	RollingHistogramTracker, error,
-) {
-	cfg, err := validateRollingHistogramConfig(cfg)
-	if err != nil {
-		return nil, err
+// track registers (or returns the existing) tracker for the given series and returns the dedicated
+// instrument that the caller must record observations into. The instrument lives on the private meter
+// provider, so the poller — which reads only that provider — never sees any other metric.
+func (r *rollingHistogramRegistry) track(
+	name string, tags Tags, window time.Duration,
+) (*rollingHistogramTracker, metric.Float64Histogram, error) {
+	if window <= 0 {
+		return nil, nil, fmt.Errorf("rolling histogram window must be positive, got %s", window)
 	}
 
 	key := rollingHistogramKey(name, tags)
@@ -149,19 +136,25 @@ func (r *rollingHistogramRegistry) track(name string, tags Tags, cfg RollingHist
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	// Ensure the per-name tracking instrument exists on the dedicated meter (shared across tag sets).
+	instrument, ok := r.instruments[name]
+	if !ok {
+		var err error
+		instrument, err = r.meter.Float64Histogram(name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("creating rolling histogram instrument %q: %w", name, err)
+		}
+		r.instruments[name] = instrument
+	}
+
 	if entry, ok := r.entries[key]; ok {
-		return entry, nil
+		return entry, instrument, nil
 	}
 
-	tracker := &rollingHistogramTracker{
-		window:   cfg.Window,
-		quantile: cfg.Percentile / 100,
-		now:      r.now,
-	}
-
+	tracker := &rollingHistogramTracker{window: window, now: r.now}
 	r.entries[key] = tracker
 
-	return tracker, nil
+	return tracker, instrument, nil
 }
 
 func (r *rollingHistogramRegistry) poll(ctx context.Context) {
@@ -258,10 +251,9 @@ func tagsFromMetricAttributes(attrs attribute.Set) Tags {
 }
 
 type rollingHistogramTracker struct {
-	mu       sync.Mutex
-	window   time.Duration
-	quantile float64
-	now      func() time.Time
+	mu     sync.Mutex
+	window time.Duration
+	now    func() time.Time
 	// prev is the last cumulative snapshot observed for this (single) series; deltas are computed
 	// against it. A tracker only ever sees one series, so a single snapshot is enough.
 	prev    exponentialHistogramSnapshot
@@ -278,12 +270,10 @@ type timedExponentialHistogram struct {
 	snapshot exponentialHistogramSnapshot
 }
 
-func (t *rollingHistogramTracker) Percentile() (float64, bool) {
-	return t.Quantile(t.quantile)
-}
-
-func (t *rollingHistogramTracker) Quantile(q float64) (float64, bool) {
-	if q < 0 || q > 1 || math.IsNaN(q) {
+// percentile returns the p-th percentile (p in [0,100]) over the rolling window and true when the
+// window holds observations; (0, false) otherwise.
+func (t *rollingHistogramTracker) percentile(p float64) (float64, bool) {
+	if p < 0 || p > 100 || math.IsNaN(p) {
 		return 0, false
 	}
 
@@ -291,10 +281,11 @@ func (t *rollingHistogramTracker) Quantile(q float64) (float64, bool) {
 	defer t.mu.Unlock()
 
 	t.pruneLocked()
-	return quantileFromExponentialSnapshots(t.samples, q)
+	return quantileFromExponentialSnapshots(t.samples, p/100)
 }
 
-func (t *rollingHistogramTracker) Count() uint64 {
+// count returns the number of observations currently in the rolling window. Used by tests.
+func (t *rollingHistogramTracker) count() uint64 {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -304,17 +295,6 @@ func (t *rollingHistogramTracker) Count() uint64 {
 		count += sample.snapshot.count
 	}
 	return count
-}
-
-func (t *rollingHistogramTracker) Reset() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.prev = exponentialHistogramSnapshot{}
-	t.hasPrev = false
-	t.samples = nil
-	t.hadSamples = false
-	t.emptyPolls = 0
 }
 
 func (t *rollingHistogramTracker) observe(current exponentialHistogramSnapshot, now time.Time) {
@@ -506,24 +486,3 @@ func quantileFromExponentialSnapshots(samples []timedExponentialHistogram, q flo
 func exponentialBucketUpperBound(scale, index int32) float64 {
 	return math.Exp2(math.Ldexp(float64(index), int(-scale)))
 }
-
-func validateRollingHistogramConfig(cfg RollingHistogramConfig) (RollingHistogramConfig, error) {
-	if cfg.Window <= 0 {
-		return cfg, errors.New("rolling histogram window must be positive")
-	}
-	if cfg.Percentile == 0 {
-		cfg.Percentile = defaultRollingHistogramPercentile
-	}
-	if cfg.Percentile <= 0 || cfg.Percentile > 100 {
-		return cfg, errors.New("rolling histogram percentile must be greater than 0 and less than or equal to 100")
-	}
-	return cfg, nil
-}
-
-// nopRollingHistogramTracker is returned for Stats backends that do not support rolling histograms.
-type nopRollingHistogramTracker struct{}
-
-func (nopRollingHistogramTracker) Percentile() (float64, bool)        { return 0, false }
-func (nopRollingHistogramTracker) Quantile(_ float64) (float64, bool) { return 0, false }
-func (nopRollingHistogramTracker) Count() uint64                      { return 0 }
-func (nopRollingHistogramTracker) Reset()                             {}

@@ -34,9 +34,6 @@ func init() {
 // Default is the default (singleton) Stats instance
 var Default Stats
 
-// otelStats is the only backend that supports in-process rolling histograms (OTel + Prometheus).
-var _ RollingHistogramStats = (*otelStats)(nil)
-
 type GoRoutineFactory interface {
 	Go(function func())
 }
@@ -53,6 +50,12 @@ type Stats interface {
 	// Deprecated: use NewTaggedStat instead
 
 	NewSampledTaggedStat(name, statType string, tags Tags) Measurement
+
+	// NewTrackedHistogram creates a histogram Measurement that also maintains an in-process rolling
+	// quantile tracker over the given window. Call Measurement.Percentile(p) to read the p-th
+	// percentile (p in [0,100]) over that window. Only the OpenTelemetry backend computes real
+	// percentiles; other backends report no data from Percentile.
+	NewTrackedHistogram(name string, tags Tags, window time.Duration) Measurement
 
 	NewTracer(name string) Tracer
 

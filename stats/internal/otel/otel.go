@@ -30,13 +30,8 @@ var DefaultRetryConfig = RetryConfig{
 }
 
 type Manager struct {
-	tp               *sdktrace.TracerProvider
-	mp               *sdkmetric.MeterProvider
-	prometheusReader sdkmetric.Reader
-}
-
-func (m *Manager) PrometheusReader() sdkmetric.Reader {
-	return m.prometheusReader
+	tp *sdktrace.TracerProvider
+	mp *sdkmetric.MeterProvider
 }
 
 // Setup simplifies the creation of tracer and meter providers with GRPC
@@ -169,9 +164,6 @@ func (m *Manager) buildPrometheusMeterProvider(c config, res *resource.Resource)
 		return nil, fmt.Errorf("prometheus: failed to create metric exporter: %w", err)
 	}
 
-	// Adding reader to be able to read data internally
-	m.prometheusReader = exp
-
 	return sdkmetric.NewMeterProvider(m.getMeterProviderOptions(c, res, exp)...), nil
 }
 
@@ -197,10 +189,6 @@ func (m *Manager) buildOTLPMeterProvider(
 	if err != nil {
 		return nil, fmt.Errorf("otlp: failed to create metric exporter: %w", err)
 	}
-
-	// In-process rolling histograms read on demand from a manual (Prometheus) reader.
-	// The OTLP path uses a periodic reader driven by the export loop, so no internal reader is exposed here.
-	m.prometheusReader = nil
 
 	reader := sdkmetric.NewPeriodicReader(
 		exp,

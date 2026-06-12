@@ -2,6 +2,7 @@ package memstats_test
 
 import (
 	"context"
+	"math"
 	"testing"
 	"time"
 
@@ -117,6 +118,52 @@ func TestStats(t *testing.T) {
 			Tags:   commonTags,
 			Values: []float64{1.0, 2.0},
 		}}, store.GetByName(name))
+	})
+
+	t.Run("test TrackedHistogram Percentile", func(t *testing.T) {
+		name := "testTrackedHistogram"
+		store, err := memstats.New(
+			memstats.WithNow(func() time.Time {
+				return now
+			}),
+		)
+		require.NoError(t, err)
+
+		m := store.NewTrackedHistogram(name, commonTags, time.Minute)
+
+		// With no observations any percentile reports no data.
+		_, ok := m.Percentile(50)
+		require.False(t, ok)
+
+		// Observe out of order to confirm the values are sorted before ranking.
+		values := []float64{90, 33, 83, 6, 93, 41, 49, 24, 53, 63, 81, 41, 33, 49, 87, 36, 46, 29, 119, 116}
+		for _, v := range values {
+			m.Observe(v)
+		}
+
+		// A tracked histogram records like a regular histogram (values kept in observation order).
+		require.Equal(t, values, store.Get(name, commonTags).Values())
+
+		// Nearest-rank percentile over the sorted values [1, 2, 3].
+		for _, tc := range []struct {
+			p    float64
+			want float64
+		}{
+			{p: 0, want: 6},   // the lowest value
+			{p: 50, want: 49}, // the median
+			{p: 95, want: 116},
+			{p: 100, want: 119}, // the maximum
+		} {
+			got, ok := m.Percentile(tc.p)
+			require.Truef(t, ok, "p=%v", tc.p)
+			require.Equalf(t, tc.want, got, "p=%v", tc.p)
+		}
+
+		// Out-of-range or NaN percentiles report no data.
+		for _, p := range []float64{-1, 101, math.NaN()} {
+			_, ok := m.Percentile(p)
+			require.Falsef(t, ok, "p=%v must be rejected", p)
+		}
 	})
 
 	t.Run("test Timer", func(t *testing.T) {
