@@ -67,9 +67,8 @@ func TestCanonicalMeasurementIdentity(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			gotName, gotTags, gotAttrs := s.canonicalMeasurementIdentity(tc.name, tc.tags)
+			gotName, gotAttrs := s.canonicalMeasurementIdentity(tc.name, tc.tags)
 			require.Equal(t, tc.wantName, gotName)
-			require.Equal(t, Tags(tc.wantTags), gotTags, "surviving tags")
 			require.Equal(t, tc.wantTags, attrsToMap(gotAttrs), "attribute set mirrors the surviving tags")
 		})
 	}
@@ -80,10 +79,10 @@ func TestCanonicalMeasurementIdentity(t *testing.T) {
 // key cardinality is asserted).
 func TestCanonicalMeasurementIdentityDedup(t *testing.T) {
 	s := &otelStats{logger: logger.NOP}
-	_, gotTags, gotAttrs := s.canonicalMeasurementIdentity("lat", Tags{"a.b": "1", "a_b": "2"})
-	require.Len(t, gotTags, 1, "both raw keys sanitize to a_b")
-	require.Len(t, gotAttrs.ToSlice(), 1)
-	require.Contains(t, []string{"1", "2"}, gotTags["a_b"])
+	_, gotAttrs := s.canonicalMeasurementIdentity("lat", Tags{"a.b": "1", "a_b": "2"})
+	got := attrsToMap(gotAttrs)
+	require.Len(t, got, 1, "both raw keys sanitize to a_b")
+	require.Contains(t, []string{"1", "2"}, got["a_b"])
 }
 
 // TestMeasurementCacheKeyIsLossless is the core proof that the cache key (name + attribute identity)
@@ -93,7 +92,7 @@ func TestCanonicalMeasurementIdentityDedup(t *testing.T) {
 func TestMeasurementCacheKeyIsLossless(t *testing.T) {
 	s := &otelStats{logger: logger.NOP, config: statsConfig{excludedTags: map[string]struct{}{"drop": {}}}}
 	key := func(name string, tags Tags) measurementCacheKey {
-		n, _, attrs := s.canonicalMeasurementIdentity(name, tags)
+		n, attrs := s.canonicalMeasurementIdentity(name, tags)
 		return measurementCacheKey{n, attrs.Equivalent()}
 	}
 
@@ -262,7 +261,7 @@ func TestMeasurementCacheManyDistinctSeriesNoCollision(t *testing.T) {
 func TestMeasurementCacheKeyUniquenessHighCardinality(t *testing.T) {
 	s := &otelStats{logger: logger.NOP}
 	keyOf := func(tags Tags) measurementCacheKey {
-		n, _, attrs := s.canonicalMeasurementIdentity("series", tags)
+		n, attrs := s.canonicalMeasurementIdentity("series", tags)
 		return measurementCacheKey{n, attrs.Equivalent()}
 	}
 
@@ -333,8 +332,8 @@ func TestMeasurementCacheConcurrentDistinctSeries(t *testing.T) {
 
 // BenchmarkMeasurementResolve quantifies the per-call cost of re-resolving a Measurement via
 // NewTaggedStat on every observation (the common dev pattern) versus resolving it once and reusing it.
-// The gap is the canonicalMeasurementIdentity work — make(Tags) + otelAttributes + attribute.NewSet —
-// paid on every call even though it is a cache hit. Run: go test -run '^$' -bench Resolve -benchmem.
+// The gap is the canonicalMeasurementIdentity work — tag sanitization + attribute.NewSet — paid on every
+// call even though it is a cache hit. Run: go test -run '^$' -bench Resolve -benchmem.
 func BenchmarkMeasurementResolve(b *testing.B) {
 	s := newOTelStats(b)
 	tags := Tags{"destinationId": "dest-123", "destType": "WEBHOOK", "status": "succeeded"}
