@@ -28,7 +28,7 @@ func TestHistogramPercentile(t *testing.T) {
 	const window = time.Minute
 	h := newOTelStats(t).NewStat("latency", HistogramType)
 
-	// The first call enables tracking; with no observations yet there is no data.
+	// The first call enables tracking; with no observations there is no data yet.
 	_, ok := h.Percentile(50, window)
 	require.False(t, ok)
 
