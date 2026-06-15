@@ -222,9 +222,9 @@ func seriesKey(name string, tags Tags) string {
 // windowReservoir is a fixed-capacity ring of the most recent observations (timestamp + value), exposed
 // to OTel as an exemplar reservoir. OTel offers every observation to it (AlwaysOn filter) and reads it
 // back on Collect; the reader-side window filter (see windowValues) is what makes stale observations
-// drop out, so this only needs to bound memory. It does not embed the SDK's internal
-// reservoir.ConcurrentSafe marker, so the SDK already serializes Offer/Collect — no locking is needed
-// here.
+// drop out, so this only needs to bound memory.
+// It does not embed the SDK's internal reservoir.ConcurrentSafe marker, so the SDK already serializes Offer/Collect,
+// no locking is needed here.
 type windowReservoir struct {
 	times  []time.Time
 	values []exemplar.Value
@@ -251,6 +251,20 @@ func (r *windowReservoir) Offer(_ context.Context, t time.Time, v exemplar.Value
 
 // Collect emits the held observations oldest-first. It is non-destructive: state is preserved so
 // successive reads see the same (windowed) observations until they are overwritten by newer ones.
+//
+// NOTE: Exemplars are concrete example measurements that an aggregated metric keeps on the side.
+//
+// The problem they solve:
+//
+//	When you record into a histogram, the individual observations are thrown away. That's the whole point of aggregation.
+//	A bucket ends up saying "47 observations fell between 100ms and 200ms," but it has lost which 47, and any detail about them.
+//	That's great for cheap storage and dashboards, but terrible when you're staring at a spike and asking "okay, but
+//	show me an actual one of those slow requests."
+//
+//	An exemplar is the metrics SDK keeping a few real, individual observations attached to the aggregate so you don't
+//	lose that thread entirely.
+//
+//	So each exemplar is one recorded sample — not a bucket count, not an average — with its timestamp and the value.
 func (r *windowReservoir) Collect(dest *[]exemplar.Exemplar) {
 	*dest = (*dest)[:0]
 	emit := func(i int) {
