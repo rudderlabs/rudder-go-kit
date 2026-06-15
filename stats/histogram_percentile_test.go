@@ -211,7 +211,7 @@ func TestWithHistogramPercentileMaxSamples(t *testing.T) {
 		c, logger.NewFactory(c), svcMetric.NewManager(),
 		WithHistogramPercentileMaxSamples(256),
 	)
-	require.Equal(t, 256, s.(*otelStats).percentiles.maxSamples)
+	require.Equal(t, 256, s.(*otelStats).percentileRegistry.maxSamples)
 }
 
 // TestHistogramPercentileEndToEnd is a full end-to-end test with the real Prometheus exporter on :9102.

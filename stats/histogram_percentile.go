@@ -20,23 +20,22 @@ import (
 )
 
 const (
-	// Percentile instruments use a fixed high-resolution exponential aggregation. Buckets are not
-	// actually read (percentiles are computed from exemplars), but a histogram aggregation is what
+	// Percentile instruments use a fixed high-resolution exponential aggregation.
+	// Buckets are not actually read (percentiles are computed from exemplars), but a histogram aggregation is what
 	// carries the exemplars, so we keep it cheap and accurate.
 	percentileHistogramMaxSize  = 160
 	percentileHistogramMaxScale = 20
-	// defaultPercentileMaxSamples bounds how many recent observations (exemplars) are retained per
-	// series. It caps both memory and the number of samples a percentile is computed over.
+	// defaultPercentileMaxSamples bounds how many recent observations (exemplars) are retained per series.
+	// It caps both memory and the number of samples a percentile is computed over.
 	defaultPercentileMaxSamples = 512
 	percentileMeterName         = "github.com/rudderlabs/rudder-go-kit/stats/percentile"
 )
 
-// percentileRegistry backs Histogram.Percentile for the OpenTelemetry stats. Per histogram series it
-// holds a small percentileSeries record, created with the measurement but otherwise dormant: the OTel
-// pipeline that actually retains observations (a private meter provider with an exemplar reservoir) is
-// provisioned lazily, on the first Percentile call for that series. A service that never calls
-// Percentile therefore allocates no providers, no reservoirs and does no extra recording — only an
-// atomic check per Observe.
+// percentileRegistry backs Histogram.Percentile for the OpenTelemetry stats.
+// The OTel pipeline that actually retains observations (a private meter provider with an exemplar reservoir) is
+// provisioned lazily, on the first Percentile call for that series.
+// A service that never calls Percentile() therefore allocates no providers, no reservoirs and does no extra recording,
+// only an atomic check per Observe.
 type percentileRegistry struct {
 	mu         sync.Mutex
 	now        func() time.Time
@@ -60,8 +59,8 @@ func newPercentileRegistry(now func() time.Time, maxSamples int, log logger.Logg
 	}
 }
 
-// seriesFor returns the shared percentileSeries for a series, creating it if necessary. The record is
-// cheap and dormant until its first Percentile call; sharing it per series means every Measurement for
+// seriesFor returns the shared percentileSeries for a series, creating it if necessary.
+// The record is cheap and dormant until its first Percentile call; sharing it per series means every Measurement for
 // the same series records into the same reservoir once it is enabled.
 func (r *percentileRegistry) seriesFor(name string, tags Tags) *percentileSeries {
 	if r == nil { // no registry wired (e.g. a directly-constructed otelStats): percentiles unavailable
@@ -155,7 +154,7 @@ func (ps *percentileSeries) enable() {
 	instrument, err := provider.Meter(percentileMeterName).Float64Histogram(ps.name)
 	if err != nil {
 		if ps.registry.log != nil {
-			ps.registry.log.Warnn("enabling histogram percentile tracking",
+			ps.registry.log.Warnn("Enabling histogram percentile tracking",
 				logger.NewStringField("measurement", ps.name), obskit.Error(err))
 		}
 		return

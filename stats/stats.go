@@ -118,7 +118,7 @@ func NewStats(
 			stopBackgroundCollection: func() {},
 			meter:                    otel.GetMeterProvider().Meter(defaultMeterName),
 			logger:                   log,
-			percentiles: newPercentileRegistry(
+			percentileRegistry: newPercentileRegistry(
 				time.Now,
 				statsConfig.histogramPercentileMaxSamples,
 				log,

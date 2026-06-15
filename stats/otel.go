@@ -42,17 +42,17 @@ type otelStats struct {
 	tracerMap           map[string]Tracer
 	tracerMapMu         sync.Mutex
 
-	meter        metric.Meter
-	noopMeter    metric.Meter
-	counters     map[string]metric.Int64Counter
-	countersMu   sync.Mutex
-	gauges       map[string]*otelGauge
-	gaugesMu     sync.Mutex
-	timers       map[string]metric.Float64Histogram
-	timersMu     sync.Mutex
-	histograms   map[string]metric.Float64Histogram
-	histogramsMu sync.Mutex
-	percentiles  *percentileRegistry
+	meter              metric.Meter
+	noopMeter          metric.Meter
+	counters           map[string]metric.Int64Counter
+	countersMu         sync.Mutex
+	gauges             map[string]*otelGauge
+	gaugesMu           sync.Mutex
+	timers             map[string]metric.Float64Histogram
+	timersMu           sync.Mutex
+	histograms         map[string]metric.Float64Histogram
+	histogramsMu       sync.Mutex
+	percentileRegistry *percentileRegistry
 
 	otelManager              otel.Manager
 	collectorAggregator      *aggregatedCollector
@@ -368,7 +368,7 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		return &otelHistogram{
 			histogram:       instr,
 			otelMeasurement: om,
-			percentile:      s.percentiles.seriesFor(name, newTags),
+			percentile:      s.percentileRegistry.seriesFor(name, newTags),
 		}
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
