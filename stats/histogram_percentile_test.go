@@ -81,6 +81,41 @@ func TestHistogramPercentileNoCollision(t *testing.T) {
 	requirePercentile(other, 50)
 }
 
+// TestHistogramPercentileLossyTagCollision proves that two histogram series whose tag values differ
+// only by ':' vs '-' don't wrongly collide on the measurement cache key. They are genuinely distinct
+// series — otelAttributes records the raw value, so they export under different attribute values —
+// The cache key was built like Tags.String(), which replaces ':' with '-', so {dest:"a:b"} and
+// {dest:"a-b"} both map to "latency|dest,a-b".
+func TestHistogramPercentileLossyTagCollision(t *testing.T) {
+	const window = time.Minute
+	s := newOTelStats(t)
+
+	colon := s.NewTaggedStat("latency", HistogramType, Tags{"dest": "a:b"})
+	dash := s.NewTaggedStat("latency", HistogramType, Tags{"dest": "a-b"})
+
+	// Observable consequence: enable percentile tracking for both, then observe ONLY through the
+	// colon series. A correct cache gives each series its own reservoir, so dash — which got no
+	// observations of its own — must report no data. Under the bug, dash is the very same wrapper
+	// as colon and wrongly sees colon's observations.
+	_, ok := colon.Percentile(95, window) // enable
+	require.False(t, ok, "dash has no observations yet")
+	_, ok = dash.Percentile(95, window)
+	require.False(t, ok, "dash has no observations yet")
+
+	for i := 0; i < 5; i++ {
+		colon.Observe(7) // recorded only against dest="a:b"
+	}
+
+	got, ok := dash.Percentile(95, window)
+	require.Falsef(t, ok,
+		`series dest="a-b" received no observations of its own; seeing dest="a:b"'s data (p95=%v) is the cache-key collision`,
+		got)
+
+	// Root cause: the two distinct series must not resolve to the same cached wrapper.
+	require.NotSame(t, colon.(*otelHistogram), dash.(*otelHistogram),
+		`tag values "a:b" and "a-b" are distinct series and must not collide on the measurement cache key`)
+}
+
 // TestHistogramPercentileSharedAcrossLookups mirrors the common usage where callers don't cache the
 // Measurement but re-create it inline on every call. All those lookups must resolve to one shared
 // series, so observations made through one feed the percentile read through another.
