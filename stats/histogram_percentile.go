@@ -207,10 +207,7 @@ func exemplarValuesSince[N int64 | float64](
 // backends so both rank percentiles identically.
 func NearestRankPercentile(values []float64, p float64) float64 {
 	sort.Float64s(values)
-	rank := int(math.Ceil(p/100*float64(len(values)))) - 1
-	if rank < 0 {
-		rank = 0
-	}
+	rank := max(int(math.Ceil(p/100*float64(len(values))))-1, 0)
 	if rank >= len(values) {
 		rank = len(values) - 1
 	}

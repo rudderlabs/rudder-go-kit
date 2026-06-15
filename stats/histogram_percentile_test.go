@@ -66,7 +66,7 @@ func TestHistogramPercentileNoCollision(t *testing.T) {
 	for _, m := range []Measurement{a, b, other} {
 		_, _ = m.Percentile(95, window) // enable tracking for each series
 	}
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		a.Observe(1)      // latency{dest=a}: only 1s
 		b.Observe(100)    // latency{dest=b}: only 100s
 		other.Observe(50) // size: only 50s
@@ -104,7 +104,7 @@ func TestHistogramPercentileLossyTagCollision(t *testing.T) {
 	_, ok = dash.Percentile(95, window)
 	require.False(t, ok, "dash has no observations yet")
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		colon.Observe(7) // recorded only against dest="a:b"
 	}
 
@@ -129,7 +129,7 @@ func TestHistogramPercentileSharedAcrossLookups(t *testing.T) {
 	// Enable tracking via one inline lookup.
 	_, _ = s.NewTaggedStat("latency", HistogramType, tags).Percentile(95, window)
 	// Observe via separate inline lookups (no caching of the Measurement).
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		s.NewTaggedStat("latency", HistogramType, tags).Observe(7)
 	}
 	// Read via yet another inline lookup — it must see those observations.
@@ -147,11 +147,11 @@ func TestHistogramPercentileConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() { // writer
 		defer close(done)
-		for i := 0; i < 2000; i++ {
+		for i := range 2000 {
 			h.Observe(float64(i % 100))
 		}
 	})
-	for i := 0; i < 4; i++ { // concurrent readers
+	for range 4 { // concurrent readers
 		wg.Go(func() {
 			for {
 				select {
@@ -176,7 +176,7 @@ func TestTimerPercentile(t *testing.T) {
 	_, ok := timer.Percentile(95, window)
 	require.False(t, ok)
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		timer.SendTiming(2 * time.Second)
 	}
 	p, ok := timer.Percentile(95, window)
@@ -198,7 +198,7 @@ func TestHistogramPercentileShutdown(t *testing.T) {
 
 	h := s.NewTaggedStat("latency", HistogramType, Tags{"dest": "a"})
 	_, _ = h.Percentile(95, window) // enable tracking (creates the private provider)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		h.Observe(1)
 	}
 	p, ok := h.Percentile(95, window)
@@ -226,7 +226,7 @@ func TestPercentileWindowExpiry(t *testing.T) {
 
 	_, ok := ps.compute(95, window) // first call enables tracking; no data yet
 	require.False(t, ok)
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		ps.record(context.Background(), 7)
 	}
 
@@ -258,14 +258,14 @@ func TestPercentileDormantUntilFirstRead(t *testing.T) {
 	h := newOTelStats(t).NewStat("latency", HistogramType)
 
 	// Dormant: these are recorded to the exported histogram but not mirrored into the percentile reservoir.
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		h.Observe(100)
 	}
 	_, ok := h.Percentile(95, window) // first call enables tracking; the 5 earlier values are not retained
 	require.False(t, ok, "no data: observations before the first Percentile call are dropped")
 
 	// Only observations made after enabling are tracked.
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		h.Observe(1)
 	}
 	p, ok := h.Percentile(95, window)

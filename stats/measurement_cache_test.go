@@ -191,7 +191,7 @@ func TestMeasurementCacheNoCrossContamination(t *testing.T) {
 		_, _ = x.Percentile(95, window) // enable both series
 		_, ok := y.Percentile(95, window)
 		require.False(t, ok, "y has no timings yet")
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			x.SendTiming(2 * time.Second)
 		}
 		got, ok := y.Percentile(95, window)
@@ -205,7 +205,7 @@ func TestMeasurementCacheNoCrossContamination(t *testing.T) {
 		_, _ = x.Percentile(95, window) // enable both series
 		_, ok := y.Percentile(95, window)
 		require.False(t, ok, "y has no observations yet")
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			x.Observe(7)
 		}
 		got, ok := y.Percentile(95, window)
@@ -232,7 +232,7 @@ func TestMeasurementCacheManyDistinctSeriesNoCollision(t *testing.T) {
 		_, _ = s.NewTaggedStat("obs", HistogramType, series[i]).Percentile(95, window)
 	}
 	// A lot of observations, every one through a fresh NewTaggedStat.
-	for r := 0; r < perSeries; r++ {
+	for range perSeries {
 		for i := range series {
 			s.NewTaggedStat("obs", HistogramType, series[i]).Observe(value(i))
 		}
@@ -267,10 +267,11 @@ func TestMeasurementCacheKeyUniquenessHighCardinality(t *testing.T) {
 
 	const groups = 25000
 	inputs := make([]Tags, 0, 4*groups)
-	for i := 0; i < groups; i++ {
-		inputs = append(inputs,
-			Tags{"d": fmt.Sprintf("v%d:x", i)},               // ':' twin
-			Tags{"d": fmt.Sprintf("v%d-x", i)},               // '-' twin (old key == ':' twin)
+	for i := range groups {
+		inputs = append(
+			inputs,
+			Tags{"d": fmt.Sprintf("v%d:x", i)}, // ':' twin
+			Tags{"d": fmt.Sprintf("v%d-x", i)}, // '-' twin (old key == ':' twin)
 			Tags{"a": strconv.Itoa(i), "b": strconv.Itoa(i)}, // two tags
 			Tags{"a": fmt.Sprintf("%d,b,%d", i, i)},          // comma value (old key == the two-tag form)
 		)
@@ -304,13 +305,13 @@ func TestMeasurementCacheConcurrentDistinctSeries(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for g := 0; g < goroutines; g++ {
+	for g := range goroutines {
 		wg.Go(func() {
-			for i := 0; i < perGoroutine; i++ {
+			for i := range perGoroutine {
 				_, _ = s.NewTaggedStat("c", HistogramType, tagsFor(g, i)).Percentile(95, window) // enable
 			}
-			for r := 0; r < observations; r++ {
-				for i := 0; i < perGoroutine; i++ {
+			for range observations {
+				for i := range perGoroutine {
 					s.NewTaggedStat("c", HistogramType, tagsFor(g, i)).Observe(value(g, i))
 				}
 			}
@@ -318,8 +319,8 @@ func TestMeasurementCacheConcurrentDistinctSeries(t *testing.T) {
 	}
 	wg.Wait()
 
-	for g := 0; g < goroutines; g++ {
-		for i := 0; i < perGoroutine; i++ {
+	for g := range goroutines {
+		for i := range perGoroutine {
 			m := s.NewTaggedStat("c", HistogramType, tagsFor(g, i))
 			lo, ok := m.Percentile(0, window)
 			require.Truef(t, ok, "g=%d i=%d has no data", g, i)
@@ -367,8 +368,9 @@ func attrsToMap(set attribute.Set) map[string]string {
 // they must now stay distinct.
 func collidingSeriesPairs(n int) []Tags {
 	out := make([]Tags, 0, 2*n)
-	for i := 0; i < n; i++ {
-		out = append(out,
+	for i := range n {
+		out = append(
+			out,
 			Tags{"d": fmt.Sprintf("v%d:x", i)},
 			Tags{"d": fmt.Sprintf("v%d-x", i)},
 		)
