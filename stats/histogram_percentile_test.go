@@ -182,6 +182,34 @@ func TestTimerPercentile(t *testing.T) {
 	require.Equal(t, 2.0, p, "percentile is over recorded durations in seconds")
 }
 
+// TestHistogramPercentileShutdown verifies that Stop releases the per-series private meter providers and
+// that a series degrades gracefully (reports no data, no panic) once its reader is shut down.
+func TestHistogramPercentileShutdown(t *testing.T) {
+	const window = time.Minute
+	c := config.New()
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	c.Set("RuntimeStats.enabled", false)
+	reg := prometheus.NewRegistry()
+	s := NewStats(c, logger.NewFactory(c), svcMetric.NewManager(), WithPrometheusRegistry(reg, reg))
+	require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+
+	h := s.NewTaggedStat("latency", HistogramType, Tags{"dest": "a"})
+	_, _ = h.Percentile(95, window) // enable tracking (creates the private provider)
+	for i := 0; i < 5; i++ {
+		h.Observe(1)
+	}
+	p, ok := h.Percentile(95, window)
+	require.True(t, ok)
+	require.Equal(t, 1.0, p)
+
+	s.Stop() // must shut down the private percentile provider/reader
+
+	// The reader is closed now, so the percentile reports no data instead of panicking.
+	_, ok = h.Percentile(95, window)
+	require.False(t, ok, "after Stop the percentile reader is shut down")
+}
+
 func TestHistogramPercentileUnsupportedBackend(t *testing.T) {
 	// Backends that cannot track (e.g. NOP) still return a usable Measurement, but Percentile reports
 	// no data.

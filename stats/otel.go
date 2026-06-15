@@ -260,6 +260,9 @@ func (s *otelStats) Stop() {
 		s.logger.Errorn("failed to shutdown open telemetry", obskit.Error(err))
 	}
 
+	// Each enabled Histogram/Timer percentile series owns a private meter provider; release them too.
+	s.shutdownPercentileSeries(ctx)
+
 	s.stopBackgroundCollection()
 	if s.metricsStatsCollector.done != nil {
 		<-s.metricsStatsCollector.done
@@ -273,6 +276,30 @@ func (s *otelStats) Stop() {
 			s.logger.Errorn("failed to shutdown prometheus exporter", obskit.Error(err))
 		}
 		<-s.httpServerShutdownComplete
+	}
+}
+
+// shutdownPercentileSeries releases the private meter provider owned by each enabled histogram/timer
+// percentile series. The series are snapshotted under their cache locks and shut down outside the locks,
+// so a slow Shutdown does not block concurrent measurement resolution.
+func (s *otelStats) shutdownPercentileSeries(ctx context.Context) {
+	s.histogramMeasurementsMu.Lock()
+	series := make([]*percentileSeries, 0, len(s.histogramMeasurements))
+	for _, h := range s.histogramMeasurements {
+		series = append(series, h.percentile)
+	}
+	s.histogramMeasurementsMu.Unlock()
+
+	s.timerMeasurementsMu.Lock()
+	for _, t := range s.timerMeasurements {
+		series = append(series, t.percentile)
+	}
+	s.timerMeasurementsMu.Unlock()
+
+	for _, ps := range series {
+		if err := ps.shutdown(ctx); err != nil {
+			s.logger.Errorn("shutting down percentile tracking", obskit.Error(err))
+		}
 	}
 }
 

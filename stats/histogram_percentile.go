@@ -75,6 +75,7 @@ type percentileSeries struct {
 
 	once       sync.Once
 	enabled    atomic.Bool
+	provider   *sdkmetric.MeterProvider
 	instrument metric.Float64Histogram
 	reader     sdkmetric.Reader
 }
@@ -144,9 +145,20 @@ func (ps *percentileSeries) enable() {
 		}
 		return
 	}
+	ps.provider = provider
 	ps.instrument = instrument
 	ps.reader = reader
 	ps.enabled.Store(true)
+}
+
+// shutdown releases the series' private meter provider (and its reader). It is safe to call on a nil
+// series or one that was never enabled (both no-op). After shutdown the reader is closed, so compute()
+// simply reports no data rather than panicking.
+func (ps *percentileSeries) shutdown(ctx context.Context) error {
+	if ps == nil || !ps.enabled.Load() {
+		return nil
+	}
+	return ps.provider.Shutdown(ctx)
 }
 
 // windowValues returns the values of the tracked series' exemplars made within the last window (cutoff =
