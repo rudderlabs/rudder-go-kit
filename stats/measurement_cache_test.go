@@ -331,6 +331,29 @@ func TestMeasurementCacheConcurrentDistinctSeries(t *testing.T) {
 	}
 }
 
+// BenchmarkMeasurementResolve quantifies the per-call cost of re-resolving a Measurement via
+// NewTaggedStat on every observation (the common dev pattern) versus resolving it once and reusing it.
+// The gap is the canonicalMeasurementIdentity work — make(Tags) + otelAttributes + attribute.NewSet —
+// paid on every call even though it is a cache hit. Run: go test -run '^$' -bench Resolve -benchmem.
+func BenchmarkMeasurementResolve(b *testing.B) {
+	s := newOTelStats(b)
+	tags := Tags{"destinationId": "dest-123", "destType": "WEBHOOK", "status": "succeeded"}
+
+	b.Run("re-resolve per observation", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			s.NewTaggedStat("events", HistogramType, tags).Observe(1)
+		}
+	})
+	b.Run("cached measurement reused", func(b *testing.B) {
+		m := s.NewTaggedStat("events", HistogramType, tags)
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			m.Observe(1)
+		}
+	})
+}
+
 // attrsToMap renders an attribute.Set as a plain map for assertions (all our attributes are strings).
 func attrsToMap(set attribute.Set) map[string]string {
 	m := make(map[string]string, set.Len())

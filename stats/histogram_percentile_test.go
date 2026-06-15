@@ -361,7 +361,7 @@ func dtoHistogramCount(m *dto.Metric) float64 { return float64(m.GetHistogram().
 // newOTelStats returns a started OpenTelemetry stats instance. The Prometheus exporter is enabled (the
 // SDK needs at least one) but no port is set, so no HTTP server runs and the test needs no network;
 // percentile tracking is in-process and independent of the export path anyway.
-func newOTelStats(t *testing.T) Stats {
+func newOTelStats(t testing.TB) Stats {
 	t.Helper()
 	c := config.New()
 	c.Set("OpenTelemetry.enabled", true)
