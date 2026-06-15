@@ -84,6 +84,13 @@ linters:
       - path: logger/
         linters:
           - forbidigo
+      # TODO: migrate filemanager S3/DigitalOcean transfers to
+      # github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager, which superseded
+      # feature/s3/manager (deprecated in aws-sdk-go-v2 v1.42 / s3/manager v1.22).
+      - path: filemanager/
+        linters:
+          - staticcheck
+        text: 'SA1019:.*feature/s3/transfermanager'
     generated: lax
     presets:
       - comments
