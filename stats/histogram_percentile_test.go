@@ -22,22 +22,6 @@ import (
 	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
 )
 
-// newOTelStats returns a started OpenTelemetry stats instance. The Prometheus exporter is enabled (the
-// SDK needs at least one) but no port is set, so no HTTP server runs and the test needs no network;
-// percentile tracking is in-process and independent of the export path anyway.
-func newOTelStats(t *testing.T) Stats {
-	t.Helper()
-	c := config.New()
-	c.Set("OpenTelemetry.enabled", true)
-	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
-	c.Set("RuntimeStats.enabled", false)
-	reg := prometheus.NewRegistry()
-	s := NewStats(c, logger.NewFactory(c), svcMetric.NewManager(), WithPrometheusRegistry(reg, reg))
-	require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
-	t.Cleanup(s.Stop)
-	return s
-}
-
 // TestHistogramPercentile checks the exact percentiles a histogram reports over its rolling window,
 // end to end through the public API.
 func TestHistogramPercentile(t *testing.T) {
@@ -97,6 +81,26 @@ func TestHistogramPercentileNoCollision(t *testing.T) {
 	requirePercentile(other, 50)
 }
 
+// TestHistogramPercentileSharedAcrossLookups mirrors the common usage where callers don't cache the
+// Measurement but re-create it inline on every call. All those lookups must resolve to one shared
+// series, so observations made through one feed the percentile read through another.
+func TestHistogramPercentileSharedAcrossLookups(t *testing.T) {
+	const window = time.Minute
+	s := newOTelStats(t)
+	tags := Tags{"dest": "a"}
+
+	// Enable tracking via one inline lookup.
+	_, _ = s.NewTaggedStat("latency", HistogramType, tags).Percentile(95, window)
+	// Observe via separate inline lookups (no caching of the Measurement).
+	for i := 0; i < 5; i++ {
+		s.NewTaggedStat("latency", HistogramType, tags).Observe(7)
+	}
+	// Read via yet another inline lookup — it must see those observations.
+	p, ok := s.NewTaggedStat("latency", HistogramType, tags).Percentile(95, window)
+	require.True(t, ok)
+	require.Equal(t, 7.0, p)
+}
+
 func TestHistogramPercentileConcurrent(t *testing.T) {
 	const window = time.Minute
 	h := newOTelStats(t).NewTaggedStat("latency", HistogramType, Tags{"dest": "a"})
@@ -123,6 +127,24 @@ func TestHistogramPercentileConcurrent(t *testing.T) {
 		})
 	}
 	wg.Wait()
+}
+
+// TestTimerPercentile checks that timers (Float64Histogram-backed) also expose Percentile, over their
+// recorded durations in seconds.
+func TestTimerPercentile(t *testing.T) {
+	const window = time.Minute
+	timer := newOTelStats(t).NewStat("duration", TimerType)
+
+	// The first call enables tracking; with no timings yet there is no data.
+	_, ok := timer.Percentile(95, window)
+	require.False(t, ok)
+
+	for i := 0; i < 5; i++ {
+		timer.SendTiming(2 * time.Second)
+	}
+	p, ok := timer.Percentile(95, window)
+	require.True(t, ok)
+	require.Equal(t, 2.0, p, "percentile is over recorded durations in seconds")
 }
 
 func TestHistogramPercentileUnsupportedBackend(t *testing.T) {
@@ -300,3 +322,19 @@ func metricValue(mf *dto.MetricFamily, accessor func(*dto.Metric) float64) float
 func dtoCounterValue(m *dto.Metric) float64   { return m.GetCounter().GetValue() }
 func dtoGaugeValue(m *dto.Metric) float64     { return m.GetGauge().GetValue() }
 func dtoHistogramCount(m *dto.Metric) float64 { return float64(m.GetHistogram().GetSampleCount()) }
+
+// newOTelStats returns a started OpenTelemetry stats instance. The Prometheus exporter is enabled (the
+// SDK needs at least one) but no port is set, so no HTTP server runs and the test needs no network;
+// percentile tracking is in-process and independent of the export path anyway.
+func newOTelStats(t *testing.T) Stats {
+	t.Helper()
+	c := config.New()
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	c.Set("RuntimeStats.enabled", false)
+	reg := prometheus.NewRegistry()
+	s := NewStats(c, logger.NewFactory(c), svcMetric.NewManager(), WithPrometheusRegistry(reg, reg))
+	require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+	t.Cleanup(s.Stop)
+	return s
+}

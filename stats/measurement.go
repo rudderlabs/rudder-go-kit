@@ -21,8 +21,9 @@ type Histogram interface {
 	Observe(value float64)
 
 	// Percentile returns the p-th percentile (p in [0,100]) over the rolling window of the most recent
-	// observations, and true when data is available. It is supported only by the OpenTelemetry backend
-	// (which retains recent observations as exemplars); every other backend returns (0, false).
+	// observations, and true when data is available. It is supported only by the OpenTelemetry backend's
+	// histogram and timer measurements (which retain recent observations as exemplars);
+	// every other measurement returns (0, false).
 	Percentile(p float64, window time.Duration) (float64, bool)
 }
 

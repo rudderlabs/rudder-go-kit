@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -42,17 +43,24 @@ type otelStats struct {
 	tracerMap           map[string]Tracer
 	tracerMapMu         sync.Mutex
 
-	meter              metric.Meter
-	noopMeter          metric.Meter
-	counters           map[string]metric.Int64Counter
-	countersMu         sync.Mutex
-	gauges             map[string]*otelGauge
-	gaugesMu           sync.Mutex
-	timers             map[string]metric.Float64Histogram
-	timersMu           sync.Mutex
-	histograms         map[string]metric.Float64Histogram
-	histogramsMu       sync.Mutex
-	percentileRegistry *percentileRegistry
+	meter        metric.Meter
+	noopMeter    metric.Meter
+	counters     map[string]metric.Int64Counter
+	countersMu   sync.Mutex
+	gauges       map[string]*otelGauge
+	gaugesMu     sync.Mutex
+	timers       map[string]metric.Float64Histogram
+	timersMu     sync.Mutex
+	histograms   map[string]metric.Float64Histogram
+	histogramsMu sync.Mutex
+	// histogramMeasurements and timerMeasurements cache the wrapper per series (name|tags), like gauges
+	// so that repeated NewTaggedStat calls reuse the shared wrapper (and its percentile state) instead of
+	// re-allocating and re-resolving it.
+	histogramMeasurements   map[string]*otelHistogram
+	histogramMeasurementsMu sync.Mutex
+	timerMeasurements       map[string]*otelTimer
+	timerMeasurementsMu     sync.Mutex
+	percentileRegistry      *percentileRegistry
 
 	otelManager              otel.Manager
 	collectorAggregator      *aggregatedCollector
@@ -345,37 +353,78 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		return s.getNoOpMeasurement(statType)
 	}
 
-	name, newTags := s.canonicalMeasurementIdentity(name, tags)
-	attributes := newTags.otelAttributes()
-
-	om := &otelMeasurement{
-		genericMeasurement: genericMeasurement{statType: statType},
-		attributes:         attributes,
-	}
+	// canonicalMeasurementIdentity also returns the canonical tag key so that
+	// the gauge and histogram caches can reuse it instead of re-deriving from tags.String()
+	name, newTags, tagsKey := s.canonicalMeasurementIdentity(name, tags)
 
 	switch statType {
 	case CountType:
 		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger)
-		return &otelCounter{counter: instr, otelMeasurement: om}
+		return &otelCounter{counter: instr, otelMeasurement: newOTelMeasurement(statType, newTags)}
 	case GaugeType:
-		return s.getGauge(name, attributes, newTags.String())
+		return s.getGauge(name, newTags, tagsKey)
 	case TimerType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
-		return &otelTimer{timer: instr, otelMeasurement: om}
+		return s.getTimer(name, newTags, tagsKey)
 	case HistogramType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
-		// Percentile is backed by a per-series record, provisioned lazily on first use.
-		return &otelHistogram{
-			histogram:       instr,
-			otelMeasurement: om,
-			percentile:      s.percentileRegistry.seriesFor(name, newTags),
-		}
+		return s.getHistogram(name, newTags, tagsKey)
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
 	}
 }
 
-func (s *otelStats) canonicalMeasurementIdentity(name string, tags Tags) (string, Tags) {
+func newOTelMeasurement(statType string, tags Tags) *otelMeasurement {
+	return &otelMeasurement{
+		genericMeasurement: genericMeasurement{statType: statType},
+		attributes:         tags.otelAttributes(),
+	}
+}
+
+// getHistogram returns the cached otelHistogram for a series, building it on first use. Caching the
+// wrapper (like gauges) keeps repeated NewTaggedStat calls cheap and lets every caller of a series share
+// one percentile reservoir.
+func (s *otelStats) getHistogram(name string, newTags Tags, tagsKey string) *otelHistogram {
+	s.histogramMeasurementsMu.Lock()
+	defer s.histogramMeasurementsMu.Unlock()
+
+	return getCachedMeasurement(&s.histogramMeasurements, name+"|"+tagsKey, func() *otelHistogram {
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
+		om := newOTelMeasurement(HistogramType, newTags)
+		om.percentile = s.percentileRegistry.newSeries(name)
+		return &otelHistogram{histogram: instr, otelMeasurement: om}
+	})
+}
+
+// getTimer returns the cached otelTimer for a series, building it on first use. Timers are
+// Float64Histogram-backed, so they support Percentile over their recorded durations (in seconds) the
+// same way histograms do.
+func (s *otelStats) getTimer(name string, newTags Tags, tagsKey string) *otelTimer {
+	s.timerMeasurementsMu.Lock()
+	defer s.timerMeasurementsMu.Unlock()
+
+	return getCachedMeasurement(&s.timerMeasurements, name+"|"+tagsKey, func() *otelTimer {
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
+		om := newOTelMeasurement(TimerType, newTags)
+		om.percentile = s.percentileRegistry.newSeries(name)
+		return &otelTimer{timer: instr, otelMeasurement: om}
+	})
+}
+
+// getCachedMeasurement returns the wrapper cached under mapKey, the caller must hold the corresponding mutex
+func getCachedMeasurement[T any](cache *map[string]*T, mapKey string, build func() *T) *T {
+	if *cache == nil {
+		*cache = make(map[string]*T)
+	} else if m, ok := (*cache)[mapKey]; ok {
+		return m
+	}
+	m := build()
+	(*cache)[mapKey] = m
+	return m
+}
+
+// canonicalMeasurementIdentity sanitises the name and tags and, in the same pass, builds the canonical
+// tag key used to cache measurements (and percentile series). The key is identical to Tags.String() of
+// the returned tags, but computed here so callers don't have to re-iterate the tag map.
+func (s *otelStats) canonicalMeasurementIdentity(name string, tags Tags) (string, Tags, string) {
 	if strings.Trim(name, " ") == "" {
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
@@ -388,7 +437,8 @@ func (s *otelStats) canonicalMeasurementIdentity(name string, tags Tags) (string
 	}
 
 	// Clean up tags based on deployment type. No need to send workspace id tag for free tier customers.
-	newTags := make(Tags)
+	newTags := make(Tags, len(tags))
+	sortedKeys := make([]string, 0, len(tags))
 	for k, v := range tags {
 		if strings.Trim(k, " ") == "" {
 			s.logger.Warnn(
@@ -413,14 +463,27 @@ func (s *otelStats) canonicalMeasurementIdentity(name string, tags Tags) (string
 			)
 			continue
 		}
+		if _, exists := newTags[sanitizedKey]; !exists {
+			sortedKeys = append(sortedKeys, sanitizedKey)
+		}
 		newTags[sanitizedKey] = v
 	}
-	return name, newTags
+
+	// Build the canonical key (sorted, matching Tags.String()) from the surviving tags.
+	sort.Strings(sortedKeys)
+	var b strings.Builder
+	for i, k := range sortedKeys {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strings.ReplaceAll(k, ":", "-"))
+		b.WriteByte(',')
+		b.WriteString(strings.ReplaceAll(newTags[k], ":", "-"))
+	}
+	return name, newTags, b.String()
 }
 
-func (s *otelStats) getGauge(
-	name string, attributes []attribute.KeyValue, tagsKey string,
-) *otelGauge {
+func (s *otelStats) getGauge(name string, newTags Tags, tagsKey string) *otelGauge {
 	var (
 		ok     bool
 		og     *otelGauge
@@ -437,6 +500,7 @@ func (s *otelStats) getGauge(
 	}
 
 	if !ok {
+		attributes := newTags.otelAttributes()
 		og = &otelGauge{otelMeasurement: &otelMeasurement{
 			genericMeasurement: genericMeasurement{statType: GaugeType},
 			attributes:         attributes,

@@ -31,17 +31,14 @@ const (
 	percentileMeterName         = "github.com/rudderlabs/rudder-go-kit/stats/percentile"
 )
 
-// percentileRegistry backs Histogram.Percentile for the OpenTelemetry stats.
-// The OTel pipeline that actually retains observations (a private meter provider with an exemplar reservoir) is
-// provisioned lazily, on the first Percentile call for that series.
-// A service that never calls Percentile() therefore allocates no providers, no reservoirs and does no extra recording,
-// only an atomic check per Observe.
+// percentileRegistry holds the shared configuration for Histogram.Percentile and builds per-series state on demand.
+// The per-series records themselves are owned by the cached otelHistogram measurements (see otelStats.getHistogram),
+// so a service that never calls Percentile() allocates no providers, no reservoirs and does no extra recording, only an
+// atomic check per Observe.
 type percentileRegistry struct {
-	mu         sync.Mutex
 	now        func() time.Time
 	maxSamples int
 	log        logger.Logger
-	series     map[string]*percentileSeries // one record per series (name|tags)
 }
 
 func newPercentileRegistry(now func() time.Time, maxSamples int, log logger.Logger) *percentileRegistry {
@@ -55,28 +52,16 @@ func newPercentileRegistry(now func() time.Time, maxSamples int, log logger.Logg
 		now:        now,
 		maxSamples: maxSamples,
 		log:        log,
-		series:     make(map[string]*percentileSeries),
 	}
 }
 
-// seriesFor returns the shared percentileSeries for a series, creating it if necessary.
-// The record is cheap and dormant until its first Percentile call; sharing it per series means every Measurement for
-// the same series records into the same reservoir once it is enabled.
-func (r *percentileRegistry) seriesFor(name string, tags Tags) *percentileSeries {
+// newSeries builds a dormant percentileSeries. Sharing one series across every Measurement of the same
+// series is handled by the measurement cache in otelStats (keyed by name|tags).
+func (r *percentileRegistry) newSeries(name string) *percentileSeries {
 	if r == nil { // no registry wired (e.g. a directly-constructed otelStats): percentiles unavailable
 		return nil
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	key := seriesKey(name, tags)
-	ps, ok := r.series[key]
-	if !ok {
-		ps = &percentileSeries{registry: r, name: name}
-		r.series[key] = ps
-	}
-	return ps
+	return &percentileSeries{registry: r, name: name}
 }
 
 // percentileSeries is the per-series state behind Histogram.Percentile, shared across all Measurements
@@ -213,10 +198,6 @@ func nearestRankPercentile(values []float64, p float64) float64 {
 		rank = len(values) - 1
 	}
 	return values[rank]
-}
-
-func seriesKey(name string, tags Tags) string {
-	return name + "|" + tags.String()
 }
 
 // windowReservoir is a fixed-capacity ring of the most recent observations (timestamp + value), exposed

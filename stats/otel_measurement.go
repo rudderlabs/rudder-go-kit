@@ -14,6 +14,20 @@ type otelMeasurement struct {
 	genericMeasurement
 	disabled   bool
 	attributes []attribute.KeyValue
+	// percentile is set for the Float64Histogram-backed measurements that support it — histograms and timers.
+	// It is dormant until the first Percentile call. nil for counters, gauges and no-op measurements.
+	percentile *percentileSeries
+}
+
+// Percentile returns the p-th percentile over the last window for measurements that support it
+// (histograms and timers on the OpenTelemetry backend), or (0, false) otherwise or when the window is
+// empty. The first call enables in-process tracking for the series, so percentiles become available
+// shortly after.
+func (m *otelMeasurement) Percentile(p float64, window time.Duration) (float64, bool) {
+	if m.percentile == nil {
+		return 0, false
+	}
+	return m.percentile.compute(p, window)
 }
 
 // otelCounter represents a counter stat
@@ -72,8 +86,14 @@ func (t *otelTimer) Since(start time.Time) {
 
 // SendTiming sends a timing for this stat. Only applies to TimerType stats
 func (t *otelTimer) SendTiming(duration time.Duration) {
-	if !t.disabled {
-		t.timer.Record(context.TODO(), duration.Seconds(), metric.WithAttributes(t.attributes...))
+	if t.disabled {
+		return
+	}
+	t.timer.Record(context.TODO(), duration.Seconds(), metric.WithAttributes(t.attributes...))
+	if t.percentile != nil {
+		// Percentile is computed over the recorded durations in seconds (no attributes: the percentile
+		// provider is private to this series).
+		t.percentile.record(context.TODO(), duration.Seconds())
 	}
 }
 
@@ -99,10 +119,6 @@ func (t *otelTimer) RecordDuration() func() {
 type otelHistogram struct {
 	*otelMeasurement
 	histogram metric.Float64Histogram
-	// percentile is the shared per-series record backing Percentile. It is dormant until the first
-	// Percentile call, after which Observe also mirrors observations into its reservoir. nil for
-	// disabled (no-op) measurements.
-	percentile *percentileSeries
 }
 
 // Observe sends an observation
@@ -116,14 +132,4 @@ func (h *otelHistogram) Observe(value float64) {
 		// already isolates these observations.
 		h.percentile.record(context.TODO(), value)
 	}
-}
-
-// Percentile returns the p-th percentile over the last window, or (0, false) when tracking is
-// unavailable or the window holds no observations. The first call enables in-process tracking for this
-// series, so percentiles become available shortly after.
-func (h *otelHistogram) Percentile(p float64, window time.Duration) (float64, bool) {
-	if h.percentile == nil {
-		return 0, false
-	}
-	return h.percentile.compute(p, window)
 }
