@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"net/http"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
+	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
 
 // TestHistogramPercentile checks the exact percentiles a histogram reports over its rolling window,
@@ -210,6 +212,35 @@ func TestHistogramPercentileShutdown(t *testing.T) {
 	require.False(t, ok, "after Stop the percentile reader is shut down")
 }
 
+// TestPercentileWindowExpiry drives the rolling-window cutoff deterministically through the injected
+// registry clock: observations read inside the window, then age out once now() advances past it.
+// The exemplar timestamps come from the SDK's real (monotonic) clock, so the window is exercised by moving
+// the cutoff — now()-window — past them rather than by faking the observation times.
+func TestPercentileWindowExpiry(t *testing.T) {
+	const window = time.Minute
+
+	base := time.Now()
+	clock := base
+	reg := newPercentileRegistry(func() time.Time { return clock }, 0, logger.NOP)
+	ps := reg.newSeries("latency")
+
+	_, ok := ps.compute(95, window) // first call enables tracking; no data yet
+	require.False(t, ok)
+	for i := 0; i < 5; i++ {
+		ps.record(context.Background(), 7)
+	}
+
+	// now() is ~ the observation time, so the cutoff sits before the samples: they are in window.
+	got, ok := ps.compute(50, window)
+	require.True(t, ok)
+	require.Equal(t, 7.0, got)
+
+	// Advance the clock past the window: the cutoff (now-window) now sits after every observation.
+	clock = base.Add(2 * window)
+	_, ok = ps.compute(50, window)
+	require.False(t, ok, "observations should have aged out of the window")
+}
+
 func TestHistogramPercentileUnsupportedBackend(t *testing.T) {
 	// Backends that cannot track (e.g. NOP) still return a usable Measurement, but Percentile reports
 	// no data.
@@ -299,21 +330,24 @@ func TestWithHistogramPercentileMaxSamples(t *testing.T) {
 	require.Equal(t, 256, s.(*otelStats).percentileRegistry.maxSamples)
 }
 
-// TestHistogramPercentileEndToEnd is a full end-to-end test with the real Prometheus exporter on :9102.
-// It confirms a histogram is exported normally while its percentile is read in-process, and that the
-// percentile empties once the window elapses.
+// TestHistogramPercentileEndToEnd is a full end-to-end test with the real Prometheus exporter on an
+// OS-assigned free port. It confirms a histogram is exported normally while its percentile is read
+// in-process, and that the percentile empties once the window elapses.
 func TestHistogramPercentileEndToEnd(t *testing.T) {
 	const (
 		window      = time.Second
-		metricsURL  = "http://localhost:9102/metrics"
 		eventuallyT = 10 * time.Second
 		eventuallyI = 20 * time.Millisecond
 	)
 
+	port, err := testhelper.GetFreePort()
+	require.NoError(t, err)
+	metricsURL := fmt.Sprintf("http://localhost:%d/metrics", port)
+
 	c := config.New()
 	c.Set("OpenTelemetry.enabled", true)
 	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
-	c.Set("OpenTelemetry.metrics.prometheus.port", 9102)
+	c.Set("OpenTelemetry.metrics.prometheus.port", port)
 	c.Set("RuntimeStats.enabled", false) // keep the exported metric set to exactly what we create
 
 	reg := prometheus.NewRegistry()

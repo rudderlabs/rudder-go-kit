@@ -154,8 +154,10 @@ func (m *Measurement) Observe(value float64) {
 }
 
 // Percentile implements stats.Measurement.
-// It returns the nearest-rank p-th percentile (p in [0,100]) over all observed histogram values, and true when any have
-// been observed. Unlike the OTel backend memstats keeps no rolling window, so the window is ignored.
+// It returns the nearest-rank p-th percentile (p in [0,100]) and true when data is available. To match the
+// OpenTelemetry backend it is supported only for histograms (over observed values) and timers (over recorded
+// durations in seconds); every other measurement type returns (0, false). Unlike the OTel backend memstats
+// keeps no rolling window, so the window is ignored.
 func (m *Measurement) Percentile(p float64, _ time.Duration) (float64, bool) {
 	if p < 0 || p > 100 || math.IsNaN(p) {
 		return 0, false
@@ -164,18 +166,29 @@ func (m *Measurement) Percentile(p float64, _ time.Duration) (float64, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if len(m.values) == 0 {
+	var samples []float64
+	switch m.mType {
+	case stats.HistogramType:
+		samples = slices.Clone(m.values)
+	case stats.TimerType:
+		samples = make([]float64, len(m.durations))
+		for i, d := range m.durations {
+			samples[i] = d.Seconds()
+		}
+	default:
 		return 0, false
 	}
 
-	sorted := slices.Clone(m.values)
-	slices.Sort(sorted)
+	if len(samples) == 0 {
+		return 0, false
+	}
 
-	rank := int(math.Ceil(p/100*float64(len(sorted)))) - 1
+	slices.Sort(samples)
+	rank := int(math.Ceil(p/100*float64(len(samples)))) - 1
 	if rank < 0 {
 		rank = 0
 	}
-	return sorted[rank], true
+	return samples[rank], true
 }
 
 // Since implements stats.Measurement

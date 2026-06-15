@@ -166,6 +166,53 @@ func TestStats(t *testing.T) {
 		}
 	})
 
+	t.Run("test Timer Percentile", func(t *testing.T) {
+		name := "testTimerPercentile"
+		store, err := memstats.New()
+		require.NoError(t, err)
+
+		m := store.NewTaggedStat(name, stats.TimerType, commonTags)
+
+		// With no timings any percentile reports no data.
+		_, ok := m.Percentile(50, time.Minute)
+		require.False(t, ok)
+
+		// Like the OTel backend, the percentile is computed over the recorded durations in seconds.
+		for _, d := range []time.Duration{3 * time.Second, time.Second, 2 * time.Second} {
+			m.SendTiming(d)
+		}
+		for _, tc := range []struct {
+			p    float64
+			want float64
+		}{
+			{p: 0, want: 1},   // 1s
+			{p: 50, want: 2},  // 2s
+			{p: 100, want: 3}, // 3s
+		} {
+			got, ok := m.Percentile(tc.p, time.Minute)
+			require.Truef(t, ok, "p=%v", tc.p)
+			require.Equalf(t, tc.want, got, "durations in seconds, p=%v", tc.p)
+		}
+	})
+
+	t.Run("test Percentile unsupported types", func(t *testing.T) {
+		store, err := memstats.New()
+		require.NoError(t, err)
+
+		// Count and Gauge accumulate into values, but — like the OTel and nop backends — they do not
+		// support percentiles and must report no data rather than ranking those values.
+		counter := store.NewTaggedStat("c", stats.CountType, commonTags)
+		counter.Increment()
+		counter.Increment()
+		_, ok := counter.Percentile(50, time.Minute)
+		require.False(t, ok, "count does not support percentiles")
+
+		gauge := store.NewTaggedStat("g", stats.GaugeType, commonTags)
+		gauge.Gauge(42)
+		_, ok = gauge.Percentile(50, time.Minute)
+		require.False(t, ok, "gauge does not support percentiles")
+	})
+
 	t.Run("test Timer", func(t *testing.T) {
 		name := "testTimer"
 		store, err := memstats.New(
