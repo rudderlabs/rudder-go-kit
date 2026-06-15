@@ -101,6 +101,12 @@ func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheu
 // Histogram.Percentile. It bounds memory and caps the number of samples a percentile is computed over:
 // for a series busier than maxSamples/window, the percentile reflects the most recent maxSamples
 // observations. Must be >= 1; if unset it defaults to defaultPercentileMaxSamples (512).
+//
+// Memory and cardinality: the first Percentile call on a series lazily allocates a private meter provider
+// plus a ring buffer of maxSamples observations (~40 bytes each, so ~20 KB at the default 512), retained
+// until Stats.Stop. This cost is per distinct series (name + tags), so enable percentiles only on
+// low-cardinality measurements — a few important histograms or timers — never on series whose tags carry
+// unbounded values.
 func WithHistogramPercentileMaxSamples(n int) Option {
 	return func(c *statsConfig) {
 		c.histogramPercentileMaxSamples = n

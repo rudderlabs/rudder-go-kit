@@ -24,6 +24,11 @@ type Histogram interface {
 	// observations, and true when data is available. It is supported only by the OpenTelemetry backend's
 	// histogram and timer measurements (which retain recent observations as exemplars);
 	// every other measurement returns (0, false).
+	//
+	// The first call lazily enables in-process tracking for the series, which retains a bounded buffer of
+	// recent observations plus a small private meter provider until Stats.Stop (see
+	// WithHistogramPercentileMaxSamples). That cost is per distinct series (name + tags), so call
+	// Percentile only on low-cardinality, important measurements — not on high-cardinality series.
 	Percentile(p float64, window time.Duration) (float64, bool)
 }
 
