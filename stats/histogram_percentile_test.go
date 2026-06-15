@@ -251,14 +251,95 @@ func TestHistogramPercentileUnsupportedBackend(t *testing.T) {
 	require.False(t, ok)
 }
 
+// TestPercentileDormantUntilFirstRead proves the lazy/dormant contract: observations made before the
+// first Percentile call are not retained; only those made after it enables tracking are counted.
+func TestPercentileDormantUntilFirstRead(t *testing.T) {
+	const window = time.Minute
+	h := newOTelStats(t).NewStat("latency", HistogramType)
+
+	// Dormant: these are recorded to the exported histogram but not mirrored into the percentile reservoir.
+	for i := 0; i < 5; i++ {
+		h.Observe(100)
+	}
+	_, ok := h.Percentile(95, window) // first call enables tracking; the 5 earlier values are not retained
+	require.False(t, ok, "no data: observations before the first Percentile call are dropped")
+
+	// Only observations made after enabling are tracked.
+	for i := 0; i < 3; i++ {
+		h.Observe(1)
+	}
+	p, ok := h.Percentile(95, window)
+	require.True(t, ok)
+	require.Equal(t, 1.0, p, "the percentile reflects only post-enable observations, not the dropped 100s")
+}
+
+// TestPercentileMaxSamplesTruncation proves a small WithHistogramPercentileMaxSamples actually bounds the
+// rolling window: a busier series reflects only its most recent maxSamples observations.
+func TestPercentileMaxSamplesTruncation(t *testing.T) {
+	const window = time.Minute
+	c := config.New()
+	c.Set("OpenTelemetry.enabled", true)
+	c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+	c.Set("RuntimeStats.enabled", false)
+	reg := prometheus.NewRegistry()
+	s := NewStats(c, logger.NewFactory(c), svcMetric.NewManager(),
+		WithPrometheusRegistry(reg, reg), WithHistogramPercentileMaxSamples(3))
+	require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+	t.Cleanup(s.Stop)
+
+	h := s.NewStat("latency", HistogramType)
+	_, _ = h.Percentile(95, window) // enable
+	for i := 1; i <= 10; i++ {
+		h.Observe(float64(i))
+	}
+	// Capacity 3 keeps only the last three observations: 8, 9, 10.
+	lo, ok := h.Percentile(0, window)
+	require.True(t, ok)
+	require.Equal(t, 8.0, lo, "min reflects only the most recent maxSamples observations")
+	hi, _ := h.Percentile(100, window)
+	require.Equal(t, 10.0, hi)
+}
+
+// TestPercentileEnableFailure covers the enable() error branch: an invalid instrument name keeps the
+// series disabled, reporting no data without panicking, and the failure is not retried.
+func TestPercentileEnableFailure(t *testing.T) {
+	reg := newPercentileRegistry(time.Now, 0, logger.NOP)
+	ps := reg.newSeries("") // empty instrument name fails OTel's Float64Histogram validation
+
+	ps.record(context.Background(), 1) // dormant: dropped
+	_, ok := ps.compute(95, time.Minute)
+	require.False(t, ok, "a series that cannot enable reports no data")
+
+	ps.record(context.Background(), 1) // still disabled (sync.Once not retried)
+	_, ok = ps.compute(95, time.Minute)
+	require.False(t, ok)
+}
+
+// TestTimerPercentileViaSinceAndRecordDuration proves Since and RecordDuration (not just SendTiming) feed
+// the percentile reservoir.
+func TestTimerPercentileViaSinceAndRecordDuration(t *testing.T) {
+	const window = time.Minute
+	timer := newOTelStats(t).NewStat("duration", TimerType)
+	_, ok := timer.Percentile(95, window) // enable; nothing recorded yet
+	require.False(t, ok)
+
+	timer.Since(time.Now().Add(-2 * time.Second)) // ~2s, via Since
+	stop := timer.RecordDuration()
+	stop() // ~0s, via RecordDuration
+
+	hi, ok := timer.Percentile(100, window)
+	require.True(t, ok, "Since and RecordDuration must feed the percentile reservoir")
+	require.InDelta(t, 2.0, hi, 0.5, "max reflects the ~2s Since timing, in seconds")
+}
+
 func TestNearestRankPercentile(t *testing.T) {
 	values := []float64{90, 33, 83, 6, 93, 41, 49, 24, 53, 63, 81, 41, 33, 49, 87, 36, 46, 29, 119, 116}
 	cp := func() []float64 { return append([]float64(nil), values...) }
-	require.Equal(t, 6.0, nearestRankPercentile(cp(), 0))
-	require.Equal(t, 49.0, nearestRankPercentile(cp(), 50))
-	require.Equal(t, 116.0, nearestRankPercentile(cp(), 95))
-	require.Equal(t, 119.0, nearestRankPercentile(cp(), 100))
-	require.Equal(t, 7.0, nearestRankPercentile([]float64{7}, 50), "single value")
+	require.Equal(t, 6.0, NearestRankPercentile(cp(), 0))
+	require.Equal(t, 49.0, NearestRankPercentile(cp(), 50))
+	require.Equal(t, 116.0, NearestRankPercentile(cp(), 95))
+	require.Equal(t, 119.0, NearestRankPercentile(cp(), 100))
+	require.Equal(t, 7.0, NearestRankPercentile([]float64{7}, 50), "single value")
 }
 
 func TestExemplarValuesSince(t *testing.T) {
@@ -310,6 +391,36 @@ func TestWindowReservoir(t *testing.T) {
 	// Collect is non-destructive: reading again yields the same observations.
 	r.Collect(&dest)
 	require.Equal(t, []float64{30, 40, 50}, vals(dest))
+}
+
+// TestWindowReservoirCapacityOne covers the degenerate capacity-1 ring, where every Offer wraps and
+// overwrites, so Collect always returns only the single most recent observation.
+func TestWindowReservoirCapacityOne(t *testing.T) {
+	r := newWindowReservoir(1)
+	base := time.Now()
+	offer := func(i int, v float64) {
+		r.Offer(context.Background(), base.Add(time.Duration(i)*time.Second), exemplar.NewValue(v), nil)
+	}
+	vals := func(dest []exemplar.Exemplar) []float64 {
+		out := make([]float64, len(dest))
+		for i, e := range dest {
+			out[i] = e.Value.Float64()
+		}
+		return out
+	}
+
+	var dest []exemplar.Exemplar
+	offer(0, 10)
+	r.Collect(&dest)
+	require.Equal(t, []float64{10}, vals(dest))
+
+	offer(1, 20) // overwrites 10
+	r.Collect(&dest)
+	require.Equal(t, []float64{20}, vals(dest), "capacity 1 keeps only the most recent")
+
+	offer(2, 30) // overwrites 20
+	r.Collect(&dest)
+	require.Equal(t, []float64{30}, vals(dest))
 }
 
 func TestWithHistogramPercentileMaxSamples(t *testing.T) {

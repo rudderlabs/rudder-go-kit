@@ -220,8 +220,7 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 		s.state.clientsLock.Unlock()
 	}
 
-	m = s.newStatsdMeasurement(name, statType, taggedClient)
-	return m
+	return s.newStatsdMeasurement(name, statType, taggedClient)
 }
 
 func (s *statsdStats) canonicalMeasurementIdentity(name string, tags Tags) (string, Tags) {

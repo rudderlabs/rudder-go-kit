@@ -183,12 +183,7 @@ func (m *Measurement) Percentile(p float64, _ time.Duration) (float64, bool) {
 		return 0, false
 	}
 
-	slices.Sort(samples)
-	rank := int(math.Ceil(p/100*float64(len(samples)))) - 1
-	if rank < 0 {
-		rank = 0
-	}
-	return samples[rank], true
+	return stats.NearestRankPercentile(samples, p), true
 }
 
 // Since implements stats.Measurement

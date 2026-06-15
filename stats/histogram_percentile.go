@@ -110,7 +110,7 @@ func (ps *percentileSeries) compute(p float64, window time.Duration) (float64, b
 	if len(values) == 0 {
 		return 0, false
 	}
-	return nearestRankPercentile(values, p), true
+	return NearestRankPercentile(values, p), true
 }
 
 func (ps *percentileSeries) enable() {
@@ -139,8 +139,12 @@ func (ps *percentileSeries) enable() {
 
 	instrument, err := provider.Meter(percentileMeterName).Float64Histogram(ps.name)
 	if err != nil {
+		// Float64Histogram only fails on an invalid instrument name, which is deterministic for this
+		// series — there is nothing to retry, so sync.Once intentionally stays consumed and the series
+		// stays disabled. Release the provider we are not going to use.
+		_ = provider.Shutdown(context.Background())
 		if ps.registry.log != nil {
-			ps.registry.log.Warnn("Enabling histogram percentile tracking",
+			ps.registry.log.Warnn("failed to enable histogram percentile tracking",
 				logger.NewStringField("measurement", ps.name), obskit.Error(err))
 		}
 		return
@@ -198,9 +202,10 @@ func exemplarValuesSince[N int64 | float64](
 	return values
 }
 
-// nearestRankPercentile returns the p-th percentile (p in [0,100]) of values using the nearest-rank
-// method. values is sorted in place; it must be non-empty.
-func nearestRankPercentile(values []float64, p float64) float64 {
+// NearestRankPercentile returns the p-th percentile (p in [0,100]) of values using the nearest-rank
+// method. values is sorted in place and must be non-empty. It is shared by the OTel and memstats
+// backends so both rank percentiles identically.
+func NearestRankPercentile(values []float64, p float64) float64 {
 	sort.Float64s(values)
 	rank := int(math.Ceil(p/100*float64(len(values)))) - 1
 	if rank < 0 {
