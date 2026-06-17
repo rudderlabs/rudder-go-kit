@@ -163,10 +163,15 @@ func (m *Measurement) Observe(value float64) {
 // is supported for histograms (over observed values) and timers (over recorded durations in seconds); every
 // other measurement type returns (0, false).
 func (m *Measurement) Percentile(p float64, window time.Duration) (float64, bool) {
-	if m.percentileBuffer == nil {
+	// Snapshot the buffer pointer under the lock (NewTrackedStat attaches it under m.mu), then compute
+	// outside the lock — the buffer is itself concurrency-safe, so we avoid holding m.mu across the scan.
+	m.mu.Lock()
+	buf := m.percentileBuffer
+	m.mu.Unlock()
+	if buf == nil {
 		return 0, false
 	}
-	return m.percentileBuffer.Percentile(p, window)
+	return buf.Percentile(p, window)
 }
 
 // Since implements stats.Measurement
