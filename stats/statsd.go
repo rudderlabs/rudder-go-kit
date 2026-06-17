@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/alexcesaro/statsd.v2"
 
@@ -27,10 +28,10 @@ type statsdStats struct {
 	backgroundCollectionCtx    context.Context
 	backgroundCollectionCancel func()
 
-	// percentileBuffers holds one shared rolling-window ring per histogram/timer series (name + tags). The
-	// statsd backend builds a fresh measurement wrapper per NewTaggedStat call, so the buffer (not the
-	// wrapper) is what must be shared for Percentile to see every observation of a series.
-	percentileBuffers   map[string]*percentile.Buffer
+	// percentileBuffers holds one shared rolling-window ring per histogram/timer series. The statsd backend
+	// builds a fresh measurement wrapper per NewTaggedStat call, so the buffer (not the wrapper) is what must
+	// be shared for Percentile to see every observation of a series.
+	percentileBuffers   map[measurementCacheKey]*percentile.Buffer
 	percentileBuffersMu sync.Mutex
 
 	// tracing not supported when using stats with StatsD
@@ -38,15 +39,26 @@ type statsdStats struct {
 }
 
 // percentileBufferFor returns the shared rolling-window buffer for a histogram/timer series, creating it on
-// first use. Sharing is keyed by name + tags so every wrapper for the same series records into one ring.
+// first use, so every wrapper for the same series records into one ring. It keys on the same (name +
+// attribute-set identity) the OTel backend uses rather than name + tags.String(): tags.String() is both lossy
+// (it collapses ':' -> '-') and unanchored (no separator between the name and the tags), so it could merge
+// distinct series — e.g. name "ab"+tag {"c":"d"} and name "a"+tag {"bc":"d"} both stringify to "abc,d" — into
+// a single ring. attribute.NewSet sorts and de-duplicates, so the key is a canonical, order-independent identity.
 func (s *statsdStats) percentileBufferFor(name string, tags Tags) *percentile.Buffer {
-	key := name + tags.String()
+	// tracked is always true here: percentileBufferFor is only called for tracked stats. We reuse
+	// measurementCacheKey purely to share the OTel backend's collision-resistant attribute identity.
+	attrs := attribute.NewSet(tags.otelAttributes()...)
+	key := measurementCacheKey{
+		name:    name,
+		attrs:   attrs.Equivalent(),
+		tracked: true,
+	}
 
 	s.percentileBuffersMu.Lock()
 	defer s.percentileBuffersMu.Unlock()
 
 	if s.percentileBuffers == nil {
-		s.percentileBuffers = make(map[string]*percentile.Buffer)
+		s.percentileBuffers = make(map[measurementCacheKey]*percentile.Buffer)
 	}
 	if b, ok := s.percentileBuffers[key]; ok {
 		return b

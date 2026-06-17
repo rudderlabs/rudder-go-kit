@@ -119,6 +119,45 @@ func TestPercentileSharedAcrossLookups(t *testing.T) {
 	}
 }
 
+func TestPercentileSeriesIdentityNoCollision(t *testing.T) {
+	// Distinct tracked series must not share a ring. These pairs collided under the old statsd key
+	// (name + tags.String()): the boundary pair because the name and tags were concatenated without a
+	// separator, and the sanitisation pair because tags.String() collapses ':' -> '-'.
+	for backend, s := range backends(t) {
+		t.Run(backend, func(t *testing.T) {
+			t.Run("name/tag boundary", func(t *testing.T) {
+				// "ab" + {"c":"d"} and "a" + {"bc":"d"} both stringify to "abc,d".
+				a := s.NewTrackedStat("ab", HistogramType, Tags{"c": "d"})
+				b := s.NewTrackedStat("a", HistogramType, Tags{"bc": "d"})
+				a.Observe(1)
+				b.Observe(2)
+
+				gotA, ok := a.Percentile(100, percentileWindow)
+				require.True(t, ok)
+				require.Equal(t, 1.0, gotA, `series "ab"{c=d} must not see "a"{bc=d}'s observations`)
+				gotB, ok := b.Percentile(100, percentileWindow)
+				require.True(t, ok)
+				require.Equal(t, 2.0, gotB, `series "a"{bc=d} must not see "ab"{c=d}'s observations`)
+			})
+
+			t.Run("lossy tag value", func(t *testing.T) {
+				// {"d":"a:b"} and {"d":"a-b"} collide once ':' is collapsed to '-'.
+				a := s.NewTrackedStat("x", HistogramType, Tags{"d": "a:b"})
+				b := s.NewTrackedStat("x", HistogramType, Tags{"d": "a-b"})
+				a.Observe(1)
+				b.Observe(2)
+
+				gotA, ok := a.Percentile(100, percentileWindow)
+				require.True(t, ok)
+				require.Equal(t, 1.0, gotA, `series x{d=a:b} must not see x{d=a-b}'s observations`)
+				gotB, ok := b.Percentile(100, percentileWindow)
+				require.True(t, ok)
+				require.Equal(t, 2.0, gotB, `series x{d=a-b} must not see x{d=a:b}'s observations`)
+			})
+		})
+	}
+}
+
 func TestNewTrackedStatPanicsForUnsupportedTypes(t *testing.T) {
 	for name, s := range map[string]Stats{"otel": newOTelStats(t), "statsd": newStatsdStats(t), "nop": NOP} {
 		t.Run(name, func(t *testing.T) {
