@@ -93,7 +93,7 @@ func TestMeasurementCacheKeyIsLossless(t *testing.T) {
 	s := &otelStats{logger: logger.NOP, config: statsConfig{excludedTags: map[string]struct{}{"drop": {}}}}
 	key := func(name string, tags Tags) measurementCacheKey {
 		n, attrs := s.canonicalMeasurementIdentity(name, tags)
-		return measurementCacheKey{n, attrs.Equivalent()}
+		return measurementCacheKey{name: n, attrs: attrs.Equivalent()}
 	}
 
 	t.Run("':' and '-' are distinct series", func(t *testing.T) {
@@ -227,19 +227,19 @@ func TestMeasurementCacheManyDistinctSeriesNoCollision(t *testing.T) {
 	series := collidingSeriesPairs(pairs)
 	value := func(i int) float64 { return float64(i) + 0.5 } // unique per series
 
-	// The first Percentile call enables tracking for the series (inline lookup, no caching).
+	// Touch every series once via NewTrackedStat so each gets its tracking ring (inline lookup, no caching).
 	for i := range series {
-		_, _ = s.NewTaggedStat("obs", HistogramType, series[i]).Percentile(95, window)
+		_, _ = s.NewTrackedStat("obs", HistogramType, series[i]).Percentile(95, window)
 	}
 	// A lot of observations, every one through a fresh NewTaggedStat.
 	for range perSeries {
 		for i := range series {
-			s.NewTaggedStat("obs", HistogramType, series[i]).Observe(value(i))
+			s.NewTrackedStat("obs", HistogramType, series[i]).Observe(value(i))
 		}
 	}
 	// Each series must report exactly its own value at both extremes.
 	for i := range series {
-		m := s.NewTaggedStat("obs", HistogramType, series[i])
+		m := s.NewTrackedStat("obs", HistogramType, series[i])
 		lo, ok := m.Percentile(0, window)
 		require.Truef(t, ok, "series %d %v has no data", i, series[i])
 		hi, _ := m.Percentile(100, window)
@@ -262,7 +262,7 @@ func TestMeasurementCacheKeyUniquenessHighCardinality(t *testing.T) {
 	s := &otelStats{logger: logger.NOP}
 	keyOf := func(tags Tags) measurementCacheKey {
 		n, attrs := s.canonicalMeasurementIdentity("series", tags)
-		return measurementCacheKey{n, attrs.Equivalent()}
+		return measurementCacheKey{name: n, attrs: attrs.Equivalent()}
 	}
 
 	const groups = 25000
@@ -308,11 +308,11 @@ func TestMeasurementCacheConcurrentDistinctSeries(t *testing.T) {
 	for g := range goroutines {
 		wg.Go(func() {
 			for i := range perGoroutine {
-				_, _ = s.NewTaggedStat("c", HistogramType, tagsFor(g, i)).Percentile(95, window) // enable
+				_, _ = s.NewTrackedStat("c", HistogramType, tagsFor(g, i)).Percentile(95, window) // touch
 			}
 			for range observations {
 				for i := range perGoroutine {
-					s.NewTaggedStat("c", HistogramType, tagsFor(g, i)).Observe(value(g, i))
+					s.NewTrackedStat("c", HistogramType, tagsFor(g, i)).Observe(value(g, i))
 				}
 			}
 		})
@@ -321,7 +321,7 @@ func TestMeasurementCacheConcurrentDistinctSeries(t *testing.T) {
 
 	for g := range goroutines {
 		for i := range perGoroutine {
-			m := s.NewTaggedStat("c", HistogramType, tagsFor(g, i))
+			m := s.NewTrackedStat("c", HistogramType, tagsFor(g, i))
 			lo, ok := m.Percentile(0, window)
 			require.Truef(t, ok, "g=%d i=%d has no data", g, i)
 			hi, _ := m.Percentile(100, window)

@@ -24,6 +24,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/stats/internal/otel"
+	"github.com/rudderlabs/rudder-go-kit/stats/internal/percentile"
 )
 
 const (
@@ -53,12 +54,11 @@ type otelStats struct {
 	histogramsMu sync.Mutex
 	// histogramMeasurements and timerMeasurements cache the wrapper per series (name + attribute
 	// identity), like gauges, so that repeated NewTaggedStat calls reuse the shared wrapper (and its
-	// percentile state) instead of re-allocating and re-resolving it.
+	// percentile ring) instead of re-allocating and re-resolving it.
 	histogramMeasurements   map[measurementCacheKey]*otelHistogram
 	histogramMeasurementsMu sync.Mutex
 	timerMeasurements       map[measurementCacheKey]*otelTimer
 	timerMeasurementsMu     sync.Mutex
-	percentileRegistry      *percentileRegistry
 
 	otelManager              otel.Manager
 	collectorAggregator      *aggregatedCollector
@@ -205,7 +205,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	backgroundCollectionCtx, s.stopBackgroundCollection = context.WithCancel(context.Background())
 
 	gaugeFunc := func(key string, val uint64) {
-		s.getMeasurement("runtime_"+key, GaugeType, nil).Gauge(val)
+		s.getMeasurement("runtime_"+key, GaugeType, nil, false).Gauge(val)
 	}
 	s.metricsStatsCollector = newMetricStatsCollector(s, s.config.periodicStatsConfig.metricManager)
 	goFactory.Go(func() {
@@ -213,7 +213,7 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	})
 
 	gaugeTagsFunc := func(key string, tags Tags, val uint64) {
-		s.getMeasurement(key, GaugeType, tags).Gauge(val)
+		s.getMeasurement(key, GaugeType, tags, false).Gauge(val)
 	}
 	s.collectorAggregator.gaugeFunc = gaugeTagsFunc
 	goFactory.Go(func() {
@@ -260,9 +260,6 @@ func (s *otelStats) Stop() {
 		s.logger.Errorn("failed to shutdown open telemetry", obskit.Error(err))
 	}
 
-	// Each enabled Histogram/Timer percentile series owns a private meter provider; release them too.
-	s.shutdownPercentileSeries(ctx)
-
 	s.stopBackgroundCollection()
 	if s.metricsStatsCollector.done != nil {
 		<-s.metricsStatsCollector.done
@@ -276,30 +273,6 @@ func (s *otelStats) Stop() {
 			s.logger.Errorn("failed to shutdown prometheus exporter", obskit.Error(err))
 		}
 		<-s.httpServerShutdownComplete
-	}
-}
-
-// shutdownPercentileSeries releases the private meter provider owned by each enabled histogram/timer
-// percentile series. The series are snapshotted under their cache locks and shut down outside the locks,
-// so a slow Shutdown does not block concurrent measurement resolution.
-func (s *otelStats) shutdownPercentileSeries(ctx context.Context) {
-	s.histogramMeasurementsMu.Lock()
-	series := make([]*percentileSeries, 0, len(s.histogramMeasurements))
-	for _, h := range s.histogramMeasurements {
-		series = append(series, h.percentile)
-	}
-	s.histogramMeasurementsMu.Unlock()
-
-	s.timerMeasurementsMu.Lock()
-	for _, t := range s.timerMeasurements {
-		series = append(series, t.percentile)
-	}
-	s.timerMeasurementsMu.Unlock()
-
-	for _, ps := range series {
-		if err := ps.shutdown(ctx); err != nil {
-			s.logger.Errorn("shutting down percentile tracking", obskit.Error(err))
-		}
 	}
 }
 
@@ -337,18 +310,25 @@ func (s *otelStats) NewTracer(name string) Tracer {
 
 // NewStat creates a new Measurement with provided Name and Type
 func (s *otelStats) NewStat(name, statType string) (m Measurement) {
-	return s.getMeasurement(name, statType, nil)
+	return s.getMeasurement(name, statType, nil, false)
 }
 
 // NewTaggedStat creates a new Measurement with provided Name, Type and Tags
 func (s *otelStats) NewTaggedStat(name, statType string, tags Tags) (m Measurement) {
-	return s.getMeasurement(name, statType, tags)
+	return s.getMeasurement(name, statType, tags, false)
 }
 
 // NewSampledTaggedStat creates a new Measurement with provided Name, Type and Tags
 // Deprecated: use NewTaggedStat instead
 func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) (m Measurement) {
 	return s.NewTaggedStat(name, statType, tags)
+}
+
+// NewTrackedStat creates a new Measurement like NewTaggedStat that additionally retains recent observations
+// for Histogram.Percentile. It panics unless statType is TimerType or HistogramType.
+func (s *otelStats) NewTrackedStat(name, statType string, tags Tags) (m Measurement) {
+	requireTrackableType(statType)
+	return s.getMeasurement(name, statType, tags, true)
 }
 
 func (*otelStats) getNoOpMeasurement(statType string) Measurement {
@@ -369,7 +349,7 @@ func (*otelStats) getNoOpMeasurement(statType string) Measurement {
 	panic(fmt.Errorf("unsupported measurement type %s", statType))
 }
 
-func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement {
+func (s *otelStats) getMeasurement(name, statType string, tags Tags, tracked bool) Measurement {
 	if !s.config.enabled.Load() {
 		return s.getNoOpMeasurement(statType)
 	}
@@ -386,9 +366,9 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	case GaugeType:
 		return s.getGauge(name, attrs)
 	case TimerType:
-		return s.getTimer(name, attrs)
+		return s.getTimer(name, attrs, tracked)
 	case HistogramType:
-		return s.getHistogram(name, attrs)
+		return s.getHistogram(name, attrs, tracked)
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
 	}
@@ -409,6 +389,9 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 type measurementCacheKey struct {
 	name  string
 	attrs attribute.Distinct
+	// tracked distinguishes percentile-tracked wrappers (from NewTrackedStat) from plain ones, so the same
+	// series resolved both ways gets the right wrapper instead of whichever was cached first.
+	tracked bool
 }
 
 func newOTelMeasurement(statType string, attrs attribute.Set) *otelMeasurement {
@@ -420,31 +403,37 @@ func newOTelMeasurement(statType string, attrs attribute.Set) *otelMeasurement {
 }
 
 // getHistogram returns the cached otelHistogram for a series, building it on first use. Caching the
-// wrapper (like gauges) keeps repeated NewTaggedStat calls cheap and lets every caller of a series share
-// one percentile reservoir.
-func (s *otelStats) getHistogram(name string, attrs attribute.Set) *otelHistogram {
+// wrapper (like gauges) keeps repeated NewTaggedStat calls cheap and lets every caller of a tracked series
+// share one percentile ring. tracked wrappers carry that ring; plain ones do not (Percentile reports no data).
+func (s *otelStats) getHistogram(name string, attrs attribute.Set, tracked bool) *otelHistogram {
 	s.histogramMeasurementsMu.Lock()
 	defer s.histogramMeasurementsMu.Unlock()
 
-	return getCachedMeasurement(&s.histogramMeasurements, measurementCacheKey{name, attrs.Equivalent()}, func() *otelHistogram {
+	key := measurementCacheKey{name: name, attrs: attrs.Equivalent(), tracked: tracked}
+	return getCachedMeasurement(&s.histogramMeasurements, key, func() *otelHistogram {
 		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
 		om := newOTelMeasurement(HistogramType, attrs)
-		om.percentile = s.percentileRegistry.newSeries(name)
+		if tracked {
+			om.buffer = percentile.NewBuffer(s.config.histogramPercentileMaxSamples, nil)
+		}
 		return &otelHistogram{histogram: instr, otelMeasurement: om}
 	})
 }
 
 // getTimer returns the cached otelTimer for a series, building it on first use. Timers are
-// Float64Histogram-backed, so they support Percentile over their recorded durations (in seconds) the
-// same way histograms do.
-func (s *otelStats) getTimer(name string, attrs attribute.Set) *otelTimer {
+// Float64Histogram-backed, so a tracked timer supports Percentile over its recorded durations (in seconds)
+// the same way a tracked histogram does.
+func (s *otelStats) getTimer(name string, attrs attribute.Set, tracked bool) *otelTimer {
 	s.timerMeasurementsMu.Lock()
 	defer s.timerMeasurementsMu.Unlock()
 
-	return getCachedMeasurement(&s.timerMeasurements, measurementCacheKey{name, attrs.Equivalent()}, func() *otelTimer {
+	key := measurementCacheKey{name: name, attrs: attrs.Equivalent(), tracked: tracked}
+	return getCachedMeasurement(&s.timerMeasurements, key, func() *otelTimer {
 		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
 		om := newOTelMeasurement(TimerType, attrs)
-		om.percentile = s.percentileRegistry.newSeries(name)
+		if tracked {
+			om.buffer = percentile.NewBuffer(s.config.histogramPercentileMaxSamples, nil)
+		}
 		return &otelTimer{timer: instr, otelMeasurement: om}
 	})
 }
@@ -516,7 +505,7 @@ func (s *otelStats) getGauge(name string, attrs attribute.Set) *otelGauge {
 	var (
 		ok     bool
 		og     *otelGauge
-		mapKey = measurementCacheKey{name, attrs.Equivalent()}
+		mapKey = measurementCacheKey{name: name, attrs: attrs.Equivalent()}
 	)
 
 	s.gaugesMu.Lock()

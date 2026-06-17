@@ -15,6 +15,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	"github.com/rudderlabs/rudder-go-kit/stats/internal/percentile"
 	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
 )
 
@@ -50,6 +51,11 @@ type Stats interface {
 	// Deprecated: use NewTaggedStat instead
 
 	NewSampledTaggedStat(name, statType string, tags Tags) Measurement
+
+	// NewTrackedStat creates a new Measurement like NewTaggedStat that additionally retains recent
+	// observations so Measurement.Percentile reports data. statType must be TimerType or HistogramType;
+	// any other type panics. Only measurements created here are tracked — NewStat/NewTaggedStat are not.
+	NewTrackedStat(name, statType string, tags Tags) Measurement
 
 	NewTracer(name string) Tracer
 
@@ -93,7 +99,6 @@ func NewStats(
 
 	enabled := atomic.Bool{}
 	enabled.Store(config.GetBoolVar(true, "enableStats"))
-	metricsExportInterval := config.GetDurationVar(5, time.Second, "OpenTelemetry.metrics.exportInterval")
 	statsConfig := statsConfig{
 		excludedTags:        excludedTags,
 		enabled:             &enabled,
@@ -107,9 +112,10 @@ func NewStats(
 			enableGCStats:           config.GetBoolVar(true, "RuntimeStats.enableGCStats"),
 			metricManager:           metricManager,
 		},
+		// Percentile is available on every backend, so the ring capacity is read here (not gated on OTel).
+		// An explicit WithHistogramPercentileMaxSamples option (applied below) overrides this default.
 		histogramPercentileMaxSamples: config.GetIntVar(
-			defaultPercentileMaxSamples, 1,
-			"OpenTelemetry.metrics.histogramPercentileMaxSamples",
+			percentile.DefaultCapacity, 1, "Stats.histogramPercentileMaxSamples",
 		),
 	}
 	for _, opt := range opts {
@@ -125,27 +131,23 @@ func NewStats(
 		if statsConfig.prometheusGatherer != nil {
 			gatherer = statsConfig.prometheusGatherer
 		}
+
 		log := loggerFactory.NewLogger().Child("stats")
 		return &otelStats{
 			config:                   statsConfig,
 			stopBackgroundCollection: func() {},
 			meter:                    otel.GetMeterProvider().Meter(defaultMeterName),
 			logger:                   log,
-			percentileRegistry: newPercentileRegistry(
-				time.Now,
-				statsConfig.histogramPercentileMaxSamples,
-				log,
-			),
-			prometheusRegisterer: registerer,
-			prometheusGatherer:   gatherer,
-			tracerProvider:       noop.NewTracerProvider(),
+			prometheusRegisterer:     registerer,
+			prometheusGatherer:       gatherer,
+			tracerProvider:           noop.NewTracerProvider(),
 			otelConfig: otelStatsConfig{
 				tracesEndpoint:           config.GetStringVar("", "OpenTelemetry.traces.endpoint"),
 				tracingSamplingRate:      config.GetFloat64Var(0.1, "OpenTelemetry.traces.samplingRate"),
 				withTracingSyncer:        config.GetBoolVar(false, "OpenTelemetry.traces.withSyncer"),
 				withOTLPHTTP:             config.GetBoolVar(false, "OpenTelemetry.traces.withOTLPHTTP"),
 				metricsEndpoint:          config.GetStringVar("", "OpenTelemetry.metrics.endpoint"),
-				metricsExportInterval:    metricsExportInterval,
+				metricsExportInterval:    config.GetDurationVar(5, time.Second, "OpenTelemetry.metrics.exportInterval"),
 				enablePrometheusExporter: config.GetBoolVar(false, "OpenTelemetry.metrics.prometheus.enabled"),
 				prometheusMetricsPort:    config.GetIntVar(0, 1, "OpenTelemetry.metrics.prometheus.port"),
 			},

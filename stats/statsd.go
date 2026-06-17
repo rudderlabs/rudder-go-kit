@@ -15,6 +15,7 @@ import (
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	"github.com/rudderlabs/rudder-go-kit/stats/internal/percentile"
 )
 
 // statsdStats is the statsd-specific implementation of Stats
@@ -26,8 +27,33 @@ type statsdStats struct {
 	backgroundCollectionCtx    context.Context
 	backgroundCollectionCancel func()
 
+	// percentileBuffers holds one shared rolling-window ring per histogram/timer series (name + tags). The
+	// statsd backend builds a fresh measurement wrapper per NewTaggedStat call, so the buffer (not the
+	// wrapper) is what must be shared for Percentile to see every observation of a series.
+	percentileBuffers   map[string]*percentile.Buffer
+	percentileBuffersMu sync.Mutex
+
 	// tracing not supported when using stats with StatsD
 	tracer trace.Tracer
+}
+
+// percentileBufferFor returns the shared rolling-window buffer for a histogram/timer series, creating it on
+// first use. Sharing is keyed by name + tags so every wrapper for the same series records into one ring.
+func (s *statsdStats) percentileBufferFor(name string, tags Tags) *percentile.Buffer {
+	key := name + tags.String()
+
+	s.percentileBuffersMu.Lock()
+	defer s.percentileBuffersMu.Unlock()
+
+	if s.percentileBuffers == nil {
+		s.percentileBuffers = make(map[string]*percentile.Buffer)
+	}
+	if b, ok := s.percentileBuffers[key]; ok {
+		return b
+	}
+	b := percentile.NewBuffer(s.config.histogramPercentileMaxSamples, nil)
+	s.percentileBuffers[key] = b
+	return b
 }
 
 func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
@@ -172,24 +198,39 @@ func (s *statsdStats) Stop() {
 
 // NewStat creates a new Measurement with provided Name and Type
 func (s *statsdStats) NewStat(name, statType string) (m Measurement) {
-	return s.internalNewTaggedStat(name, statType, nil, 1)
+	return s.internalNewTaggedStat(name, statType, nil, 1, false)
 }
 
 func (s *statsdStats) NewTaggedStat(Name, StatType string, tags Tags) (m Measurement) {
-	return s.internalNewTaggedStat(Name, StatType, tags, 1)
+	return s.internalNewTaggedStat(Name, StatType, tags, 1, false)
 }
 
 func (s *statsdStats) NewSampledTaggedStat(Name, StatType string, tags Tags) (m Measurement) {
-	return s.internalNewTaggedStat(Name, StatType, tags, s.statsdConfig.samplingRate)
+	return s.internalNewTaggedStat(Name, StatType, tags, s.statsdConfig.samplingRate, false)
 }
 
-func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, samplingRate float32) (m Measurement) {
+// NewTrackedStat creates a new Measurement like NewTaggedStat that additionally retains recent observations
+// for Histogram.Percentile. It panics unless statType is TimerType or HistogramType.
+func (s *statsdStats) NewTrackedStat(name, statType string, tags Tags) (m Measurement) {
+	requireTrackableType(statType)
+	return s.internalNewTaggedStat(name, statType, tags, 1, true)
+}
+
+func (s *statsdStats) internalNewTaggedStat(
+	name, statType string, tags Tags, samplingRate float32, tracked bool,
+) (m Measurement) {
 	// If stats is not enabled, returning a dummy struct
 	if !s.config.enabled.Load() {
-		return s.newStatsdMeasurement(name, statType, &statsdClient{})
+		return s.newStatsdMeasurement(name, statType, &statsdClient{}, nil)
 	}
 
 	name, newTags := s.canonicalMeasurementIdentity(name, tags)
+
+	// Only tracked histograms/timers retain recent observations in a shared per-series ring for Percentile.
+	var buffer *percentile.Buffer
+	if tracked {
+		buffer = s.percentileBufferFor(name, newTags)
+	}
 
 	// key comprises the measurement type plus all tag-value pairs
 	taggedClientKey := newTags.String() + fmt.Sprintf("%f", samplingRate)
@@ -220,7 +261,7 @@ func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, sa
 		s.state.clientsLock.Unlock()
 	}
 
-	return s.newStatsdMeasurement(name, statType, taggedClient)
+	return s.newStatsdMeasurement(name, statType, taggedClient, buffer)
 }
 
 func (s *statsdStats) canonicalMeasurementIdentity(name string, tags Tags) (string, Tags) {
@@ -255,8 +296,9 @@ func (s *statsdStats) canonicalMeasurementIdentity(name string, tags Tags) (stri
 	return name, newTags
 }
 
-// newStatsdMeasurement creates a new measurement of the specific type
-func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsdClient) Measurement {
+// newStatsdMeasurement creates a new measurement of the specific type. buffer is the shared rolling-window
+// ring for histogram/timer series (nil for counters, gauges and disabled stats, which do not track percentiles).
+func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsdClient, buffer *percentile.Buffer) Measurement {
 	if strings.Trim(name, " ") == "" {
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
@@ -269,6 +311,7 @@ func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsd
 		name:               name,
 		client:             client,
 		genericMeasurement: genericMeasurement{statType: statType},
+		percentileSupport:  percentileSupport{buffer: buffer},
 	}
 	switch statType {
 	case CountType:

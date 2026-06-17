@@ -9,6 +9,8 @@ import (
 // statsdMeasurement is the statsd-specific implementation of Measurement
 type statsdMeasurement struct {
 	genericMeasurement
+	// percentileSupport supplies Percentile; its buffer is set for histograms and timers and nil otherwise.
+	percentileSupport
 	enabled bool
 	name    string
 	client  *statsdClient
@@ -96,6 +98,10 @@ func (t *statsdTimer) Since(start time.Time) {
 
 // SendTiming sends a timing for this stat. Only applies to TimerType stats
 func (t *statsdTimer) SendTiming(duration time.Duration) {
+	// Record into the rolling window first: the in-memory percentile is independent of statsd
+	// connectivity, so it should not be gated on the client being ready. Computed over durations in seconds.
+	t.observe(duration.Seconds())
+
 	t.client.statsdMu.RLock()
 	defer t.client.statsdMu.RUnlock()
 	if t.skip() {
@@ -121,6 +127,9 @@ type statsdHistogram struct {
 
 // Observe sends an observation
 func (h *statsdHistogram) Observe(value float64) {
+	// Record into the rolling window first: the in-memory percentile is independent of statsd connectivity.
+	h.observe(value)
+
 	h.client.statsdMu.RLock()
 	defer h.client.statsdMu.RUnlock()
 	if h.skip() {

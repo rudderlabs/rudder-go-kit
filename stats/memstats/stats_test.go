@@ -129,7 +129,7 @@ func TestStats(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		m := store.NewTaggedStat(name, stats.HistogramType, commonTags)
+		m := store.NewTrackedStat(name, stats.HistogramType, commonTags)
 
 		// With no observations any percentile reports no data.
 		_, ok := m.Percentile(50, time.Minute)
@@ -171,7 +171,7 @@ func TestStats(t *testing.T) {
 		store, err := memstats.New()
 		require.NoError(t, err)
 
-		m := store.NewTaggedStat(name, stats.TimerType, commonTags)
+		m := store.NewTrackedStat(name, stats.TimerType, commonTags)
 
 		// With no timings any percentile reports no data.
 		_, ok := m.Percentile(50, time.Minute)
@@ -211,6 +211,10 @@ func TestStats(t *testing.T) {
 		gauge.Gauge(42)
 		_, ok = gauge.Percentile(50, time.Minute)
 		require.False(t, ok, "gauge does not support percentiles")
+
+		// NewTrackedStat rejects non-histogram/timer types outright.
+		require.Panics(t, func() { store.NewTrackedStat("c", stats.CountType, commonTags) })
+		require.Panics(t, func() { store.NewTrackedStat("g", stats.GaugeType, commonTags) })
 	})
 
 	t.Run("test Timer", func(t *testing.T) {

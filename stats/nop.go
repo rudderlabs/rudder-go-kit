@@ -35,6 +35,11 @@ func (*nop) NewSampledTaggedStat(_, _ string, _ Tags) Measurement {
 	return &nopMeasurement{}
 }
 
+func (*nop) NewTrackedStat(_, statType string, _ Tags) Measurement {
+	requireTrackableType(statType)
+	return &nopMeasurement{}
+}
+
 func (*nop) NewTracer(_ string) Tracer { return NOPTracer }
 
 func (*nop) Start(_ context.Context, _ GoRoutineFactory) error { return nil }

@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -20,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
+	"github.com/rudderlabs/rudder-go-kit/stats/internal/percentile"
 	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
 )
 
@@ -50,6 +49,9 @@ type Measurement struct {
 	sum       float64
 	values    []float64
 	durations []time.Duration
+	// percentileBuffer is the shared rolling-window ring backing Percentile; set for histograms and timers,
+	// nil for counters and gauges (which report no percentile).
+	percentileBuffer *percentile.Buffer
 }
 
 // Metric captures the name, tags and value(s) depending on type.
@@ -151,39 +153,20 @@ func (m *Measurement) Observe(value float64) {
 	defer m.mu.Unlock()
 
 	m.values = append(m.values, value)
+	if m.percentileBuffer != nil {
+		m.percentileBuffer.Observe(value)
+	}
 }
 
-// Percentile implements stats.Measurement.
-// It returns the nearest-rank p-th percentile (p in [0,100]) and true when data is available. To match the
-// OpenTelemetry backend it is supported only for histograms (over observed values) and timers (over recorded
-// durations in seconds); every other measurement type returns (0, false). Unlike the OTel backend memstats
-// keeps no rolling window, so the window is ignored.
-func (m *Measurement) Percentile(p float64, _ time.Duration) (float64, bool) {
-	if p < 0 || p > 100 || math.IsNaN(p) {
+// Percentile implements stats.Measurement. It returns the nearest-rank p-th percentile (p in [0,100]) over
+// the observations made within the last window, and true when data is available. Like the other backends it
+// is supported for histograms (over observed values) and timers (over recorded durations in seconds); every
+// other measurement type returns (0, false).
+func (m *Measurement) Percentile(p float64, window time.Duration) (float64, bool) {
+	if m.percentileBuffer == nil {
 		return 0, false
 	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	var samples []float64
-	switch m.mType {
-	case stats.HistogramType:
-		samples = slices.Clone(m.values)
-	case stats.TimerType:
-		samples = make([]float64, len(m.durations))
-		for i, d := range m.durations {
-			samples[i] = d.Seconds()
-		}
-	default:
-		return 0, false
-	}
-
-	if len(samples) == 0 {
-		return 0, false
-	}
-
-	return stats.NearestRankPercentile(samples, p), true
+	return m.percentileBuffer.Percentile(p, window)
 }
 
 // Since implements stats.Measurement
@@ -205,6 +188,10 @@ func (m *Measurement) SendTiming(duration time.Duration) {
 	defer m.mu.Unlock()
 
 	m.durations = append(m.durations, duration)
+	if m.percentileBuffer != nil {
+		// Percentile is computed over the recorded durations in seconds, like the other backends.
+		m.percentileBuffer.Observe(duration.Seconds())
+	}
 }
 
 // RecordDuration implements stats.Measurement
@@ -306,6 +293,33 @@ func (ms *Store) NewSampledTaggedStat(name, statType string, tags stats.Tags) st
 	}
 
 	ms.byKey[ms.getKey(name, tags)] = m
+	return m
+}
+
+// NewTrackedStat implements stats.Stats. Like NewTaggedStat, but the returned measurement retains recent
+// observations (stamped with the store's clock) so Percentile reports data. statType must be HistogramType
+// or TimerType; any other type panics. Calling it for a series previously created untracked attaches the
+// ring to that same measurement.
+func (ms *Store) NewTrackedStat(name, statType string, tags stats.Tags) stats.Measurement {
+	if statType != stats.HistogramType && statType != stats.TimerType {
+		panic("NewTrackedStat only supports histogram and timer measurement types, got: " + statType)
+	}
+
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	m, found := ms.byKey[ms.getKey(name, tags)]
+	if !found {
+		m = &Measurement{name: name, tags: tags, mType: statType, now: ms.now}
+		ms.byKey[ms.getKey(name, tags)] = m
+	}
+
+	m.mu.Lock()
+	if m.percentileBuffer == nil {
+		m.percentileBuffer = percentile.NewBuffer(0, ms.now)
+	}
+	m.mu.Unlock()
+
 	return m
 }
 

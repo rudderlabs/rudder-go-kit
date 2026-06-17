@@ -11,25 +11,13 @@ import (
 // otelMeasurement is the statsd-specific implementation of Measurement
 type otelMeasurement struct {
 	genericMeasurement
+	// percentileSupport supplies Percentile; its buffer is set for histograms and timers and nil otherwise.
+	percentileSupport
 	disabled bool
 	// recordOption carries this measurement's attribute set, prebuilt once via metric.WithAttributeSet and
 	// reused on every Count/Observe/SendTiming so the OTel SDK does not rebuild the attribute Set on each
 	// call (which metric.WithAttributes would). nil for no-op (disabled) measurements, which never record.
 	recordOption metric.MeasurementOption
-	// percentile is set for the Float64Histogram-backed measurements that support it — histograms and timers.
-	// It is dormant until the first Percentile call. nil for counters, gauges and no-op measurements.
-	percentile *percentileSeries
-}
-
-// Percentile returns the p-th percentile over the last window for measurements that support it
-// (histograms and timers on the OpenTelemetry backend), or (0, false) otherwise or when the window is
-// empty. The first call enables in-process tracking for the series, so percentiles become available
-// shortly after.
-func (m *otelMeasurement) Percentile(p float64, window time.Duration) (float64, bool) {
-	if m.percentile == nil {
-		return 0, false
-	}
-	return m.percentile.compute(p, window)
 }
 
 // otelCounter represents a counter stat
@@ -92,11 +80,8 @@ func (t *otelTimer) SendTiming(duration time.Duration) {
 		return
 	}
 	t.timer.Record(context.TODO(), duration.Seconds(), t.recordOption)
-	if t.percentile != nil {
-		// Percentile is computed over the recorded durations in seconds (no attributes: the percentile
-		// provider is private to this series).
-		t.percentile.record(context.TODO(), duration.Seconds())
-	}
+	// Percentile is computed over the recorded durations in seconds.
+	t.observe(duration.Seconds())
 }
 
 // RecordDuration records the duration of time between
@@ -129,9 +114,5 @@ func (h *otelHistogram) Observe(value float64) {
 		return
 	}
 	h.histogram.Record(context.TODO(), value, h.recordOption)
-	if h.percentile != nil {
-		// No attributes: the percentile provider is private to this series, so its single data point
-		// already isolates these observations.
-		h.percentile.record(context.TODO(), value)
-	}
+	h.observe(value)
 }

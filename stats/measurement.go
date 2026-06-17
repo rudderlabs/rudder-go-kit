@@ -3,6 +3,8 @@ package stats
 import (
 	"fmt"
 	"time"
+
+	"github.com/rudderlabs/rudder-go-kit/stats/internal/percentile"
 )
 
 // Counter represents a counter metric
@@ -21,14 +23,13 @@ type Histogram interface {
 	Observe(value float64)
 
 	// Percentile returns the p-th percentile (p in [0,100]) over the rolling window of the most recent
-	// observations, and true when data is available. It is supported only by the OpenTelemetry backend's
-	// histogram and timer measurements (which retain recent observations as exemplars);
-	// every other measurement returns (0, false).
+	// observations, and true when data is available. It is supported by histogram and timer measurements on
+	// every backend (for timers the values are the recorded durations in seconds); counters, gauges and
+	// no-op measurements return (0, false).
 	//
-	// The first call lazily enables in-process tracking for the series, which retains a bounded buffer of
-	// recent observations plus a small private meter provider until Stats.Stop (see
-	// WithHistogramPercentileMaxSamples). That cost is per distinct series (name + tags), so call
-	// Percentile only on low-cardinality, important measurements — not on high-cardinality series.
+	// Observations are kept in an in-memory ring per series, bounded by WithHistogramPercentileMaxSamples.
+	// That cost is per distinct series (name + tags), so call Percentile only on low-cardinality, important
+	// measurements — not on high-cardinality series.
 	Percentile(p float64, window time.Duration) (float64, bool)
 }
 
@@ -46,6 +47,16 @@ type Measurement interface {
 	Gauge
 	Histogram
 	Timer
+}
+
+// requireTrackableType panics unless statType is one for which Percentile tracking is meaningful — a timer
+// or a histogram. It guards NewTrackedStat on every backend.
+func requireTrackableType(statType string) {
+	if statType != TimerType && statType != HistogramType {
+		panic(fmt.Errorf(
+			"NewTrackedStat only supports %q and %q measurement types, got %q", HistogramType, TimerType, statType,
+		))
+	}
 }
 
 type genericMeasurement struct {
@@ -96,8 +107,28 @@ func (m *genericMeasurement) RecordDuration() func() {
 	panic(fmt.Errorf("operation RecordDuration not supported for measurement type:%s", m.statType))
 }
 
-// Percentile default behavior is to report no data: unlike the mutating operations above this is a
-// read, so it returns (0, false) rather than panicking. Only the OpenTelemetry histogram overrides it.
-func (m *genericMeasurement) Percentile(_ float64, _ time.Duration) (float64, bool) {
-	return 0, false
+// percentileSupport gives a Measurement a rolling-window Percentile backed by an in-memory ring of recent
+// observations (see stats/internal/percentile). It is embedded by the histogram- and timer-capable
+// measurements of every backend; counters, gauges and disabled measurements leave buffer nil, so their
+// Percentile reports no data. Embedding it (rather than genericMeasurement) is what supplies Percentile, so
+// genericMeasurement deliberately does not define one — having both would make the method ambiguous.
+type percentileSupport struct {
+	buffer *percentile.Buffer
+}
+
+// observe records value into the rolling window when the measurement supports percentiles (buffer != nil).
+func (s percentileSupport) observe(value float64) {
+	if s.buffer != nil {
+		s.buffer.Observe(value)
+	}
+}
+
+// Percentile returns the p-th percentile (p in [0,100]) over the observations made within the last window,
+// and true when data is available; (0, false) otherwise or for measurements that do not support it. Unlike
+// the mutating operations on genericMeasurement this is a read, so it never panics.
+func (s percentileSupport) Percentile(p float64, window time.Duration) (float64, bool) {
+	if s.buffer == nil {
+		return 0, false
+	}
+	return s.buffer.Percentile(p, window)
 }

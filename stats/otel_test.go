@@ -1122,28 +1122,28 @@ func TestInvalidInstrument(t *testing.T) {
 	t.Run("counter", func(t *testing.T) {
 		s := newStats(t, "failed to create instrument")
 		require.NotPanics(t, func() {
-			m := s.getMeasurement("_#@!?", CountType, nil)
+			m := s.getMeasurement("_#@!?", CountType, nil, false)
 			m.Increment()
 		})
 	})
 	t.Run("gauge", func(t *testing.T) {
 		s := newStats(t, "failed to create gauge")
 		require.NotPanics(t, func() {
-			m := s.getMeasurement("_#@!?", GaugeType, nil)
+			m := s.getMeasurement("_#@!?", GaugeType, nil, false)
 			m.Gauge(123)
 		})
 	})
 	t.Run("timer", func(t *testing.T) {
 		s := newStats(t, "failed to create instrument")
 		require.NotPanics(t, func() {
-			m := s.getMeasurement("_#@!?", TimerType, nil)
+			m := s.getMeasurement("_#@!?", TimerType, nil, false)
 			m.SendTiming(123 * time.Millisecond)
 		})
 	})
 	t.Run("histogram", func(t *testing.T) {
 		s := newStats(t, "failed to create instrument")
 		require.NotPanics(t, func() {
-			m := s.getMeasurement("_#@!?", HistogramType, nil)
+			m := s.getMeasurement("_#@!?", HistogramType, nil, false)
 			m.Observe(123)
 		})
 	})
