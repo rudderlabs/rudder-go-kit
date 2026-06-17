@@ -217,6 +217,60 @@ func TestStats(t *testing.T) {
 		require.Panics(t, func() { store.NewTrackedStat("g", stats.GaugeType, commonTags) })
 	})
 
+	t.Run("test tracked and untracked handles are independent", func(t *testing.T) {
+		// Like the otel/statsd backends, only the NewTrackedStat handle feeds and reads the percentile ring;
+		// a plain NewTaggedStat handle for the same series records values but does not affect Percentile.
+		store, err := memstats.New()
+		require.NoError(t, err)
+
+		name := "indep"
+		tracked := store.NewTrackedStat(name, stats.HistogramType, commonTags)
+		untracked := store.NewTaggedStat(name, stats.HistogramType, commonTags)
+
+		// An observation through the untracked handle is recorded as a value but must not feed the ring.
+		untracked.Observe(100)
+		_, ok := tracked.Percentile(100, time.Minute)
+		require.False(t, ok, "untracked observation must not feed the tracked ring")
+
+		// The untracked handle never reports a percentile, even for a tracked series.
+		_, ok = untracked.Percentile(100, time.Minute)
+		require.False(t, ok, "untracked handle must report no percentile")
+
+		// Observations through tracked handles are visible to Percentile and share one ring across handles.
+		tracked.Observe(10)
+		store.NewTrackedStat(name, stats.HistogramType, commonTags).Observe(20)
+		got, ok := tracked.Percentile(100, time.Minute)
+		require.True(t, ok)
+		require.Equal(t, 20.0, got, "tracked ring is shared across tracked handles")
+
+		// Every handle still records values for introspection, in observation order.
+		require.Equal(t, []float64{100, 10, 20}, store.Get(name, commonTags).Values())
+	})
+
+	t.Run("test tracked timer Since and RecordDuration feed the ring", func(t *testing.T) {
+		// SendTiming, Since and RecordDuration must all feed the ring on a tracked timer (durations in
+		// seconds). Since/RecordDuration are easy to break: they route through the tracked SendTiming rather
+		// than the embedded Measurement's, which would otherwise bypass the ring.
+		now := time.Now()
+		store, err := memstats.New(memstats.WithNow(func() time.Time { return now }))
+		require.NoError(t, err)
+
+		m := store.NewTrackedStat("trackedTimer", stats.TimerType, commonTags)
+
+		m.Since(now.Add(-2 * time.Second)) // elapsed 2s
+		func() {
+			defer m.RecordDuration()() // captures start=now, stops after the clock advances 4s
+			now = now.Add(4 * time.Second)
+		}()
+
+		lo, ok := m.Percentile(0, time.Minute)
+		require.True(t, ok)
+		require.Equal(t, 2.0, lo, "Since fed 2s into the ring")
+		hi, ok := m.Percentile(100, time.Minute)
+		require.True(t, ok)
+		require.Equal(t, 4.0, hi, "RecordDuration fed 4s into the ring")
+	})
+
 	t.Run("test Timer", func(t *testing.T) {
 		name := "testTimer"
 		store, err := memstats.New(
