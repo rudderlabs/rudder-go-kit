@@ -125,7 +125,9 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	if s.config.useExponentialHistogram {
 		meterProviderOptions = append(
 			meterProviderOptions,
-			otel.WithDefaultExponentialHistogram(s.config.exponentialHistogramMaxSize),
+			otel.WithDefaultExponentialHistogram(
+				s.config.exponentialHistogramMaxSize, s.config.exponentialHistogramMaxScale,
+			),
 		)
 	} else if len(s.config.defaultHistogramBuckets) > 0 {
 		meterProviderOptions = append(
@@ -139,7 +141,9 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		for histogramName, maxSize := range s.config.exponentialHistograms {
 			meterProviderOptions = append(
 				meterProviderOptions,
-				otel.WithExponentialHistogram(histogramName, defaultMeterName, maxSize),
+				otel.WithExponentialHistogram(
+					histogramName, defaultMeterName, maxSize, s.config.exponentialHistogramMaxScale,
+				),
 			)
 		}
 	}

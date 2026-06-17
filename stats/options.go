@@ -22,9 +22,10 @@ type statsConfig struct {
 	histogramPercentileMaxSamples int
 
 	// Exponential histogram configuration
-	useExponentialHistogram     bool
-	exponentialHistogramMaxSize int32
-	exponentialHistograms       map[string]int32 // per-histogram maxSize
+	useExponentialHistogram      bool
+	exponentialHistogramMaxSize  int32
+	exponentialHistogramMaxScale int32            // starting resolution for all exponential histograms (default 0)
+	exponentialHistograms        map[string]int32 // per-histogram maxSize
 }
 
 // Option is a function used to configure the stats service.
@@ -88,15 +89,6 @@ func WithExponentialHistogram(histogramName string, maxSize int32) Option {
 	}
 }
 
-// WithPrometheusRegistry sets the prometheus registerer and gatherer for the stats service.
-// If nil is passed the default ones will be used.
-func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheus.Gatherer) Option {
-	return func(c *statsConfig) {
-		c.prometheusRegisterer = registerer
-		c.prometheusGatherer = gatherer
-	}
-}
-
 // WithHistogramPercentileMaxSamples sets how many recent observations a histogram or timer retains per
 // series for Histogram.Percentile. It bounds memory and caps the number of samples a percentile is computed
 // over: for a series busier than maxSamples/window, the percentile reflects the most recent maxSamples
@@ -110,5 +102,24 @@ func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheu
 func WithHistogramPercentileMaxSamples(n int) Option {
 	return func(c *statsConfig) {
 		c.histogramPercentileMaxSamples = n
+	}
+}
+
+// WithExponentialHistogramMaxScale sets the starting (highest) resolution — OpenTelemetry MaxScale — of the
+// exponential histograms enabled via WithDefaultExponentialHistogram / WithExponentialHistogram. Valid range
+// is [-10, 20]; the SDK does not default it, so the zero value (the default here) means scale 0, i.e. coarse
+// 2x buckets in the exported Prometheus native histograms. Raise it (up to 20) for finer resolution.
+func WithExponentialHistogramMaxScale(maxScale int32) Option {
+	return func(c *statsConfig) {
+		c.exponentialHistogramMaxScale = maxScale
+	}
+}
+
+// WithPrometheusRegistry sets the prometheus registerer and gatherer for the stats service.
+// If nil is passed the default ones will be used.
+func WithPrometheusRegistry(registerer prometheus.Registerer, gatherer prometheus.Gatherer) Option {
+	return func(c *statsConfig) {
+		c.prometheusRegisterer = registerer
+		c.prometheusGatherer = gatherer
 	}
 }

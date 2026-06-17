@@ -875,6 +875,66 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 }
 
+func TestWithExponentialHistogramMaxScale(t *testing.T) {
+	// The option sets the statsConfig field; unset, it is the coarse default of 0.
+	var cfg statsConfig
+	WithExponentialHistogramMaxScale(8)(&cfg)
+	require.EqualValues(t, 8, cfg.exponentialHistogramMaxScale)
+
+	var unset statsConfig
+	require.EqualValues(t, 0, unset.exponentialHistogramMaxScale, "MaxScale defaults to 0")
+}
+
+// TestExponentialHistogramMaxScaleApplied proves the configured MaxScale reaches the exported native
+// histogram. Observations stay within a single octave so the SDK does not auto-downscale below the
+// configured ceiling, making the exported Prometheus schema equal to the configured scale.
+func TestExponentialHistogramMaxScaleApplied(t *testing.T) {
+	gatherSchema := func(t *testing.T, opts ...Option) int32 {
+		t.Helper()
+		freePort, err := testhelper.GetFreePort()
+		require.NoError(t, err)
+		c := config.New()
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+		c.Set("OpenTelemetry.metrics.exportInterval", 20*time.Millisecond)
+		c.Set("RuntimeStats.enabled", false)
+		r := prometheus.NewRegistry()
+		s := NewStats(c, logger.NewFactory(c), metric.NewManager(),
+			append(opts, WithServiceName(t.Name()), WithPrometheusRegistry(r, r))...)
+		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+		t.Cleanup(s.Stop)
+
+		const name = "narrow_hist"
+		h := s.NewStat(name, HistogramType)
+		for v := 100.0; v <= 110.0; v++ {
+			h.Observe(v)
+		}
+
+		var schema int32
+		require.Eventually(t, func() bool {
+			mfs, err := r.Gather()
+			if err != nil {
+				return false
+			}
+			for _, mf := range mfs {
+				if mf.GetName() == name && len(mf.Metric) > 0 &&
+					mf.Metric[0].Histogram != nil && mf.Metric[0].Histogram.GetSampleCount() > 0 {
+					schema = mf.Metric[0].Histogram.GetSchema()
+					return true
+				}
+			}
+			return false
+		}, 10*time.Second, 50*time.Millisecond, "native histogram not exported")
+		return schema
+	}
+
+	// Default: MaxScale 0 -> coarse 2x buckets -> Prometheus schema 0.
+	require.EqualValues(t, 0, gatherSchema(t, WithDefaultExponentialHistogram(160)))
+	// Configured: MaxScale 8 (the Prometheus maximum) -> schema 8.
+	require.EqualValues(t, 8, gatherSchema(t, WithDefaultExponentialHistogram(160), WithExponentialHistogramMaxScale(8)))
+}
+
 func TestExponentialHistogram(t *testing.T) {
 	t.Run("with option", func(t *testing.T) {
 		freePort, err := testhelper.GetFreePort()

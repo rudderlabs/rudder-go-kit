@@ -181,7 +181,10 @@ func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries 
 // WithDefaultExponentialHistogram configures all histograms to use exponential bucketing.
 // Exponential histograms provide better accuracy and lower memory usage for high-dynamic-range metrics.
 // maxSize controls the maximum number of buckets (default: 160, min: 1, max: 160).
-func WithDefaultExponentialHistogram(maxSize int32) MeterProviderOption {
+// maxScale is the starting (highest) resolution the SDK downscales from; valid range [-10, 20]. The SDK does
+// not default it, so 0 means scale 0 (coarse 2x buckets) and 20 is full resolution.
+// See https://github.com/open-telemetry/opentelemetry-go/blob/sdk/metric/v1.43.0/sdk/metric/aggregation.go#L145-L153
+func WithDefaultExponentialHistogram(maxSize, maxScale int32) MeterProviderOption {
 	return func(c *meterProviderConfig) {
 		c.defaultHistogramBuckets = sdkmetric.NewView(
 			sdkmetric.Instrument{
@@ -189,12 +192,8 @@ func WithDefaultExponentialHistogram(maxSize int32) MeterProviderOption {
 			},
 			sdkmetric.Stream{
 				Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
-					MaxSize: maxSize,
-					// MaxScale is the starting (highest) resolution; the SDK only ever downscales from
-					// here and does NOT default it, so leaving it at the zero value pins every histogram
-					// at scale 0 (coarse 2x buckets). 20 is the SDK maximum, giving full resolution.
-					// See https://github.com/open-telemetry/opentelemetry-go/blob/sdk/metric/v1.43.0/sdk/metric/aggregation.go#L145-L153
-					MaxScale: 20,
+					MaxSize:  maxSize,
+					MaxScale: maxScale,
 				},
 			},
 		)
@@ -205,7 +204,9 @@ func WithDefaultExponentialHistogram(maxSize int32) MeterProviderOption {
 // Exponential histograms provide better accuracy and lower memory usage for high-dynamic-range metrics.
 // meterName is optional.
 // maxSize controls the maximum number of buckets (default: 160, min: 1, max: 160).
-func WithExponentialHistogram(instrumentName, meterName string, maxSize int32) MeterProviderOption {
+// maxScale is the starting (highest) resolution; valid range [-10, 20]. The SDK does not default it, so 0
+// means scale 0 (coarse 2x buckets) and 20 is full resolution. See WithDefaultExponentialHistogram.
+func WithExponentialHistogram(instrumentName, meterName string, maxSize, maxScale int32) MeterProviderOption {
 	var scope instrumentation.Scope
 	if meterName != "" {
 		scope.Name = meterName
@@ -218,10 +219,8 @@ func WithExponentialHistogram(instrumentName, meterName string, maxSize int32) M
 		},
 		sdkmetric.Stream{
 			Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
-				MaxSize: maxSize,
-				// See WithDefaultExponentialHistogram: the SDK does not default MaxScale, so it must be
-				// set or the histogram is pinned at scale 0. 20 is the SDK maximum (full resolution).
-				MaxScale: 20,
+				MaxSize:  maxSize,
+				MaxScale: maxScale,
 			},
 		},
 	)
