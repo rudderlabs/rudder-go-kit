@@ -9,14 +9,12 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/alexcesaro/statsd.v2"
 
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
-	"github.com/rudderlabs/rudder-go-kit/stats/internal/percentile"
 )
 
 // statsdStats is the statsd-specific implementation of Stats
@@ -28,44 +26,8 @@ type statsdStats struct {
 	backgroundCollectionCtx    context.Context
 	backgroundCollectionCancel func()
 
-	// percentileBuffers holds one shared rolling-window ring per histogram/timer series. The statsd backend
-	// builds a fresh measurement wrapper per NewTaggedStat call, so the buffer (not the wrapper) is what must
-	// be shared for Percentile to see every observation of a series.
-	percentileBuffers   map[measurementCacheKey]*percentile.Buffer
-	percentileBuffersMu sync.Mutex
-
 	// tracing not supported when using stats with StatsD
 	tracer trace.Tracer
-}
-
-// percentileBufferFor returns the shared rolling-window buffer for a histogram/timer series, creating it on
-// first use, so every wrapper for the same series records into one ring. It keys on the same (name +
-// attribute-set identity) the OTel backend uses rather than name + tags.String(): tags.String() is both lossy
-// (it collapses ':' -> '-') and unanchored (no separator between the name and the tags), so it could merge
-// distinct series — e.g. name "ab"+tag {"c":"d"} and name "a"+tag {"bc":"d"} both stringify to "abc,d" — into
-// a single ring. attribute.NewSet sorts and de-duplicates, so the key is a canonical, order-independent identity.
-func (s *statsdStats) percentileBufferFor(name string, tags Tags) *percentile.Buffer {
-	// tracked is always true here: percentileBufferFor is only called for tracked stats. We reuse
-	// measurementCacheKey purely to share the OTel backend's collision-resistant attribute identity.
-	attrs := attribute.NewSet(tags.otelAttributes()...)
-	key := measurementCacheKey{
-		name:    name,
-		attrs:   attrs.Equivalent(),
-		tracked: true,
-	}
-
-	s.percentileBuffersMu.Lock()
-	defer s.percentileBuffersMu.Unlock()
-
-	if s.percentileBuffers == nil {
-		s.percentileBuffers = make(map[measurementCacheKey]*percentile.Buffer)
-	}
-	if b, ok := s.percentileBuffers[key]; ok {
-		return b
-	}
-	b := percentile.NewBuffer(s.config.histogramPercentileMaxSamples, nil)
-	s.percentileBuffers[key] = b
-	return b
 }
 
 func (s *statsdStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
@@ -210,38 +172,42 @@ func (s *statsdStats) Stop() {
 
 // NewStat creates a new Measurement with provided Name and Type
 func (s *statsdStats) NewStat(name, statType string) (m Measurement) {
-	return s.internalNewTaggedStat(name, statType, nil, 1, false)
+	return s.internalNewTaggedStat(name, statType, nil, 1)
 }
 
 func (s *statsdStats) NewTaggedStat(Name, StatType string, tags Tags) (m Measurement) {
-	return s.internalNewTaggedStat(Name, StatType, tags, 1, false)
+	return s.internalNewTaggedStat(Name, StatType, tags, 1)
 }
 
 func (s *statsdStats) NewSampledTaggedStat(Name, StatType string, tags Tags) (m Measurement) {
-	return s.internalNewTaggedStat(Name, StatType, tags, s.statsdConfig.samplingRate, false)
+	return s.internalNewTaggedStat(Name, StatType, tags, s.statsdConfig.samplingRate)
 }
 
-// NewTrackedStat creates a new Measurement like NewTaggedStat that additionally retains recent observations
-// for Histogram.Percentile. It panics unless statType is TimerType or HistogramType.
-func (s *statsdStats) NewTrackedStat(name, statType string, tags Tags) (m Measurement) {
-	requireTrackableType(statType)
-	return s.internalNewTaggedStat(name, statType, tags, 1, true)
-}
-
-func (s *statsdStats) internalNewTaggedStat(
-	name, statType string, tags Tags, samplingRate float32, tracked bool,
-) (m Measurement) {
+func (s *statsdStats) internalNewTaggedStat(name, statType string, tags Tags, samplingRate float32) (m Measurement) {
 	// If stats is not enabled, returning a dummy struct
 	if !s.config.enabled.Load() {
-		return s.newStatsdMeasurement(name, statType, &statsdClient{}, nil)
+		return s.newStatsdMeasurement(name, statType, &statsdClient{})
 	}
 
-	name, newTags := s.canonicalMeasurementIdentity(name, tags)
-
-	// Only tracked histograms/timers retain recent observations in a shared per-series ring for Percentile.
-	var buffer *percentile.Buffer
-	if tracked {
-		buffer = s.percentileBufferFor(name, newTags)
+	// Clean up tags based on deployment type. No need to send workspace id tag for free tier customers.
+	newTags := make(Tags)
+	for k, v := range tags {
+		if strings.Trim(k, " ") == "" {
+			s.logger.Warnn(
+				"removing empty tag key",
+				logger.NewStringField("value", v),
+				logger.NewStringField("measurement", name),
+			)
+			continue
+		}
+		if _, ok := s.config.excludedTags[k]; ok {
+			continue
+		}
+		sanitizedKey := sanitizeTagKey(k)
+		if _, ok := s.config.excludedTags[sanitizedKey]; ok {
+			continue
+		}
+		newTags[sanitizedKey] = v
 	}
 
 	// key comprises the measurement type plus all tag-value pairs
@@ -273,44 +239,11 @@ func (s *statsdStats) internalNewTaggedStat(
 		s.state.clientsLock.Unlock()
 	}
 
-	return s.newStatsdMeasurement(name, statType, taggedClient, buffer)
+	return s.newStatsdMeasurement(name, statType, taggedClient)
 }
 
-func (s *statsdStats) canonicalMeasurementIdentity(name string, tags Tags) (string, Tags) {
-	if strings.Trim(name, " ") == "" {
-		byteArr := make([]byte, 2048)
-		n := runtime.Stack(byteArr, false)
-		stackTrace := string(byteArr[:n])
-		s.logger.Warnn("detected missing stat measurement name, using 'novalue'", logger.NewStringField("stacktrace", stackTrace))
-		name = "novalue"
-	}
-
-	// Clean up tags based on deployment type. No need to send workspace id tag for free tier customers.
-	newTags := make(Tags)
-	for k, v := range tags {
-		if strings.Trim(k, " ") == "" {
-			s.logger.Warnn(
-				"removing empty tag key",
-				logger.NewStringField("value", v),
-				logger.NewStringField("measurement", name),
-			)
-			continue
-		}
-		if _, ok := s.config.excludedTags[k]; ok {
-			continue
-		}
-		sanitizedKey := sanitizeTagKey(k)
-		if _, ok := s.config.excludedTags[sanitizedKey]; ok {
-			continue
-		}
-		newTags[sanitizedKey] = v
-	}
-	return name, newTags
-}
-
-// newStatsdMeasurement creates a new measurement of the specific type. buffer is the shared rolling-window
-// ring for histogram/timer series (nil for counters, gauges and disabled stats, which do not track percentiles).
-func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsdClient, buffer *percentile.Buffer) Measurement {
+// newStatsdMeasurement creates a new measurement of the specific type
+func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsdClient) Measurement {
 	if strings.Trim(name, " ") == "" {
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
@@ -323,7 +256,6 @@ func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsd
 		name:               name,
 		client:             client,
 		genericMeasurement: genericMeasurement{statType: statType},
-		percentileSupport:  percentileSupport{buffer: buffer},
 	}
 	switch statType {
 	case CountType:
@@ -333,7 +265,7 @@ func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsd
 	case TimerType:
 		return &statsdTimer{statsdMeasurement: baseMeasurement}
 	case HistogramType:
-		return &statsdHistogram{statsdMeasurement: baseMeasurement}
+		return &statsdHistogram{baseMeasurement}
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
 	}

@@ -14,14 +14,13 @@ type nop struct{}
 
 type nopMeasurement struct{}
 
-func (nopMeasurement) Count(_ int)                                           {}
-func (nopMeasurement) Increment()                                            {}
-func (nopMeasurement) Gauge(_ any)                                           {}
-func (nopMeasurement) Observe(_ float64)                                     {}
-func (nopMeasurement) SendTiming(_ time.Duration)                            {}
-func (nopMeasurement) Since(_ time.Time)                                     {}
-func (nopMeasurement) RecordDuration() func()                                { return func() {} }
-func (nopMeasurement) Percentile(_ float64, _ time.Duration) (float64, bool) { return 0, false }
+func (nopMeasurement) Count(_ int)                {}
+func (nopMeasurement) Increment()                 {}
+func (nopMeasurement) Gauge(_ any)                {}
+func (nopMeasurement) Observe(_ float64)          {}
+func (nopMeasurement) SendTiming(_ time.Duration) {}
+func (nopMeasurement) Since(_ time.Time)          {}
+func (nopMeasurement) RecordDuration() func()     { return func() {} }
 
 func (*nop) NewStat(_, _ string) Measurement {
 	return &nopMeasurement{}
@@ -32,11 +31,6 @@ func (*nop) NewTaggedStat(_, _ string, _ Tags) Measurement {
 }
 
 func (*nop) NewSampledTaggedStat(_, _ string, _ Tags) Measurement {
-	return &nopMeasurement{}
-}
-
-func (*nop) NewTrackedStat(_, statType string, _ Tags) Measurement {
-	requireTrackableType(statType)
 	return &nopMeasurement{}
 }
 

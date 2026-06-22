@@ -15,7 +15,6 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/logger"
-	"github.com/rudderlabs/rudder-go-kit/stats/internal/percentile"
 	svcMetric "github.com/rudderlabs/rudder-go-kit/stats/metric"
 )
 
@@ -51,11 +50,6 @@ type Stats interface {
 	// Deprecated: use NewTaggedStat instead
 
 	NewSampledTaggedStat(name, statType string, tags Tags) Measurement
-
-	// NewTrackedStat creates a new Measurement like NewTaggedStat that additionally retains recent
-	// observations so Measurement.Percentile reports data. statType must be TimerType or HistogramType;
-	// any other type panics. Only measurements created here are tracked — NewStat/NewTaggedStat are not.
-	NewTrackedStat(name, statType string, tags Tags) Measurement
 
 	NewTracer(name string) Tracer
 
@@ -112,11 +106,6 @@ func NewStats(
 			enableGCStats:           config.GetBoolVar(true, "RuntimeStats.enableGCStats"),
 			metricManager:           metricManager,
 		},
-		// Percentile is available on every backend, so the ring capacity is read here (not gated on OTel).
-		// An explicit WithHistogramPercentileMaxSamples option (applied below) overrides this default.
-		histogramPercentileMaxSamples: config.GetIntVar(
-			percentile.DefaultCapacity, 1, "Stats.histogramPercentileMaxSamples",
-		),
 	}
 	for _, opt := range opts {
 		opt(&statsConfig)

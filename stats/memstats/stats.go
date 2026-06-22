@@ -18,14 +18,12 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/rudderlabs/rudder-go-kit/stats"
-	"github.com/rudderlabs/rudder-go-kit/stats/internal/percentile"
 	"github.com/rudderlabs/rudder-go-kit/stats/testhelper/tracemodel"
 )
 
 var (
 	_ stats.Stats       = (*Store)(nil)
 	_ stats.Measurement = (*Measurement)(nil)
-	_ stats.Measurement = (*trackedMeasurement)(nil)
 )
 
 type Store struct {
@@ -50,11 +48,6 @@ type Measurement struct {
 	sum       float64
 	values    []float64
 	durations []time.Duration
-	// percentileBuffer is the shared rolling-window ring for this series, created lazily by the first
-	// NewTrackedStat call and reused by every tracked handle of the series so they share one ring. The
-	// Measurement's own (untracked) Observe/SendTiming/Percentile never touch it — only the tracked handle
-	// (trackedMeasurement) returned by NewTrackedStat feeds and reads it, mirroring the otel/statsd backends.
-	percentileBuffer *percentile.Buffer
 }
 
 // Metric captures the name, tags and value(s) depending on type.
@@ -158,13 +151,6 @@ func (m *Measurement) Observe(value float64) {
 	m.values = append(m.values, value)
 }
 
-// Percentile implements stats.Measurement. A measurement obtained from NewStat/NewTaggedStat is untracked and
-// always reports no data here, exactly like the otel/statsd backends; the percentile is reported only by the
-// tracked handle returned by NewTrackedStat (see trackedMeasurement.Percentile).
-func (m *Measurement) Percentile(float64, time.Duration) (float64, bool) {
-	return 0, false
-}
-
 // Since implements stats.Measurement
 func (m *Measurement) Since(start time.Time) {
 	if m.mType != stats.TimerType {
@@ -196,47 +182,6 @@ func (m *Measurement) RecordDuration() func() {
 	return func() {
 		m.Since(start)
 	}
-}
-
-// trackedMeasurement is the handle returned by Store.NewTrackedStat. It embeds the shared per-series
-// Measurement — so it records values/durations and supports introspection (Get/Values/Durations) like any
-// other handle — and adds the percentile ring: Observe/SendTiming also feed the ring and Percentile reads it.
-// This mirrors the otel/statsd backends, where the tracked and untracked handles are distinct objects and
-// only the tracked one carries the ring, so observations through a plain handle never affect Percentile.
-type trackedMeasurement struct {
-	*Measurement
-	buffer *percentile.Buffer
-}
-
-// Observe records the value on the underlying histogram and into the percentile ring.
-func (t *trackedMeasurement) Observe(value float64) {
-	t.Measurement.Observe(value)
-	t.buffer.Observe(value)
-}
-
-// SendTiming records the duration on the underlying timer and its seconds into the percentile ring.
-func (t *trackedMeasurement) SendTiming(duration time.Duration) {
-	t.Measurement.SendTiming(duration)
-	// Percentile is computed over the recorded durations in seconds, like the other backends.
-	t.buffer.Observe(duration.Seconds())
-}
-
-// Since records the time elapsed since start, routing through the tracked SendTiming so the ring is fed.
-func (t *trackedMeasurement) Since(start time.Time) {
-	t.SendTiming(t.now().Sub(start))
-}
-
-// RecordDuration records the elapsed time when the returned function is called, feeding the ring via Since.
-func (t *trackedMeasurement) RecordDuration() func() {
-	start := t.now()
-	return func() {
-		t.Since(start)
-	}
-}
-
-// Percentile reports the rolling-window percentile over this tracked series' observations.
-func (t *trackedMeasurement) Percentile(p float64, window time.Duration) (float64, bool) {
-	return t.buffer.Percentile(p, window)
 }
 
 type Opts func(*Store)
@@ -329,37 +274,6 @@ func (ms *Store) NewSampledTaggedStat(name, statType string, tags stats.Tags) st
 	return m
 }
 
-// NewTrackedStat implements stats.Stats. It returns a tracked handle for the series that, beyond recording
-// like NewTaggedStat, retains recent observations (stamped with the store's clock) in a per-series ring so
-// Percentile reports data. statType must be HistogramType or TimerType; any other type panics.
-//
-// As on the otel/statsd backends, only this tracked handle feeds and reads the ring: observations made through
-// a plain NewStat/NewTaggedStat handle for the same series are still recorded as values/durations (and visible
-// via Get) but are not reflected in Percentile. Repeated NewTrackedStat calls for the same series share one ring.
-func (ms *Store) NewTrackedStat(name, statType string, tags stats.Tags) stats.Measurement {
-	if statType != stats.HistogramType && statType != stats.TimerType {
-		panic("NewTrackedStat only supports histogram and timer measurement types, got: " + statType)
-	}
-
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
-	m, found := ms.byKey[ms.getKey(name, tags)]
-	if !found {
-		m = &Measurement{name: name, tags: tags, mType: statType, now: ms.now}
-		ms.byKey[ms.getKey(name, tags)] = m
-	}
-
-	m.mu.Lock()
-	if m.percentileBuffer == nil {
-		m.percentileBuffer = percentile.NewBuffer(0, ms.now)
-	}
-	buf := m.percentileBuffer
-	m.mu.Unlock()
-
-	return &trackedMeasurement{Measurement: m, buffer: buf}
-}
-
 // Get the stored measurement with the name and tags.
 // If no measurement is found, nil is returned.
 func (ms *Store) Get(name string, tags stats.Tags) *Measurement {
@@ -440,9 +354,9 @@ func (*Store) Start(_ context.Context, _ stats.GoRoutineFactory) error { return 
 // Stop implements stats.Stats
 func (*Store) Stop() {}
 
-func (ms *Store) RegisterCollector(c stats.Collector) error {
+func (s *Store) RegisterCollector(c stats.Collector) error {
 	c.Collect(func(key string, tags stats.Tags, val uint64) {
-		ms.NewTaggedStat(key, stats.GaugeType, tags).Gauge(val)
+		s.NewTaggedStat(key, stats.GaugeType, tags).Gauge(val)
 	})
 	return nil
 }

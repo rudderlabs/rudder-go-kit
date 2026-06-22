@@ -14,12 +14,11 @@ type statsConfig struct {
 	namespaceIdentifier string
 	excludedTags        map[string]struct{}
 
-	periodicStatsConfig           periodicStatsConfig
-	defaultHistogramBuckets       []float64
-	histogramBuckets              map[string][]float64
-	prometheusRegisterer          prometheus.Registerer
-	prometheusGatherer            prometheus.Gatherer
-	histogramPercentileMaxSamples int
+	periodicStatsConfig     periodicStatsConfig
+	defaultHistogramBuckets []float64
+	histogramBuckets        map[string][]float64
+	prometheusRegisterer    prometheus.Registerer
+	prometheusGatherer      prometheus.Gatherer
 
 	// Exponential histogram configuration
 	useExponentialHistogram      bool
@@ -86,22 +85,6 @@ func WithExponentialHistogram(histogramName string, maxSize int32) Option {
 			c.exponentialHistograms = make(map[string]int32)
 		}
 		c.exponentialHistograms[histogramName] = maxSize
-	}
-}
-
-// WithHistogramPercentileMaxSamples sets how many recent observations a histogram or timer retains per
-// series for Histogram.Percentile. It bounds memory and caps the number of samples a percentile is computed
-// over: for a series busier than maxSamples/window, the percentile reflects the most recent maxSamples
-// observations. Must be >= 1; if unset it defaults to percentile.DefaultCapacity (512).
-//
-// Memory and cardinality: each histogram/timer series keeps an in-memory ring of up to maxSamples
-// observations (~32 bytes each, so ~16 KB at the default 512), grown lazily and retained for the lifetime
-// of the measurement. This cost is per distinct series (name + tags), so call Percentile only on
-// low-cardinality measurements — a few important histograms or timers — never on series whose tags carry
-// unbounded values.
-func WithHistogramPercentileMaxSamples(n int) Option {
-	return func(c *statsConfig) {
-		c.histogramPercentileMaxSamples = n
 	}
 }
 

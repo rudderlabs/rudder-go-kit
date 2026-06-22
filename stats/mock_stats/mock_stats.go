@@ -98,20 +98,6 @@ func (mr *MockStatsMockRecorder) NewTracer(name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTracer", reflect.TypeOf((*MockStats)(nil).NewTracer), name)
 }
 
-// NewTrackedStat mocks base method.
-func (m *MockStats) NewTrackedStat(name, statType string, tags stats.Tags) stats.Measurement {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewTrackedStat", name, statType, tags)
-	ret0, _ := ret[0].(stats.Measurement)
-	return ret0
-}
-
-// NewTrackedStat indicates an expected call of NewTrackedStat.
-func (mr *MockStatsMockRecorder) NewTrackedStat(name, statType, tags any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTrackedStat", reflect.TypeOf((*MockStats)(nil).NewTrackedStat), name, statType, tags)
-}
-
 // RegisterCollector mocks base method.
 func (m *MockStats) RegisterCollector(c stats.Collector) error {
 	m.ctrl.T.Helper()
@@ -222,21 +208,6 @@ func (m *MockMeasurement) Observe(value float64) {
 func (mr *MockMeasurementMockRecorder) Observe(value any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Observe", reflect.TypeOf((*MockMeasurement)(nil).Observe), value)
-}
-
-// Percentile mocks base method.
-func (m *MockMeasurement) Percentile(p float64, window time.Duration) (float64, bool) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Percentile", p, window)
-	ret0, _ := ret[0].(float64)
-	ret1, _ := ret[1].(bool)
-	return ret0, ret1
-}
-
-// Percentile indicates an expected call of Percentile.
-func (mr *MockMeasurementMockRecorder) Percentile(p, window any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Percentile", reflect.TypeOf((*MockMeasurement)(nil).Percentile), p, window)
 }
 
 // RecordDuration mocks base method.

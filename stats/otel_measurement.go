@@ -11,8 +11,6 @@ import (
 // otelMeasurement is the statsd-specific implementation of Measurement
 type otelMeasurement struct {
 	genericMeasurement
-	// percentileSupport supplies Percentile; its buffer is set for histograms and timers and nil otherwise.
-	percentileSupport
 	disabled bool
 	// recordOption carries this measurement's attribute set, prebuilt once via metric.WithAttributeSet and
 	// reused on every Count/Observe/SendTiming so the OTel SDK does not rebuild the attribute Set on each
@@ -80,8 +78,6 @@ func (t *otelTimer) SendTiming(duration time.Duration) {
 		return
 	}
 	t.timer.Record(context.TODO(), duration.Seconds(), t.recordOption)
-	// Percentile is computed over the recorded durations in seconds.
-	t.observe(duration.Seconds())
 }
 
 // RecordDuration records the duration of time between
@@ -114,5 +110,4 @@ func (h *otelHistogram) Observe(value float64) {
 		return
 	}
 	h.histogram.Record(context.TODO(), value, h.recordOption)
-	h.observe(value)
 }
