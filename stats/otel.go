@@ -356,15 +356,15 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 
 	switch statType {
 	case CountType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, &s.counters, &s.countersMu, s.logger)
 		return &otelCounter{counter: instr, otelMeasurement: newOTelMeasurement(statType, attrs)}
 	case GaugeType:
 		return s.getGauge(name, attrs)
 	case TimerType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, &s.timers, &s.timersMu, s.logger)
 		return &otelTimer{timer: instr, otelMeasurement: newOTelMeasurement(statType, attrs)}
 	case HistogramType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, &s.histograms, &s.histogramsMu, s.logger)
 		return &otelHistogram{histogram: instr, otelMeasurement: newOTelMeasurement(statType, attrs)}
 	default:
 		panic(fmt.Errorf("unsupported measurement type %s", statType))
@@ -492,7 +492,7 @@ func (s *otelStats) getGauge(name string, attrs attribute.Set) *otelGauge {
 
 func buildOTelInstrument[T any](
 	meter, noopMeter metric.Meter,
-	name string, m map[string]T, mu *sync.Mutex,
+	name string, m *map[string]T, mu *sync.Mutex,
 	l logger.Logger,
 ) T {
 	var (
@@ -502,16 +502,18 @@ func buildOTelInstrument[T any](
 
 	mu.Lock()
 	defer mu.Unlock()
-	if m == nil {
-		m = make(map[string]T)
+	// m is a pointer to the cache field so the lazy make and the write-back below reach the otelStats
+	// struct (a by-value map would only mutate a local copy, leaving the cache permanently nil).
+	if *m == nil {
+		*m = make(map[string]T)
 	} else {
-		instr, ok = m[name]
+		instr, ok = (*m)[name]
 	}
 
 	if !ok {
 		var err error
 		var value any
-		switch any(m).(type) {
+		switch any(*m).(type) {
 		case map[string]metric.Int64Counter:
 			if value, err = meter.Int64Counter(name); err != nil {
 				value, _ = noopMeter.Int64Counter(name)
@@ -532,7 +534,7 @@ func buildOTelInstrument[T any](
 			)
 		}
 		instr = value.(T)
-		m[name] = instr
+		(*m)[name] = instr
 	}
 
 	return instr

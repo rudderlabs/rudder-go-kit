@@ -329,16 +329,15 @@ func TestGaugeCacheConcurrentSameSeries(t *testing.T) {
 		"one callback -> one data point with the written value")
 }
 
-// TestInstrumentCachePopulatesOnResolve asserts the intended behavior: resolving a measurement populates its
-// L1 cache, so repeat resolves of the same series are a mutex + map lookup rather than a fresh OTel SDK
-// instrument build. After resolving one series of each type, every cache must hold exactly one entry.
+// TestInstrumentCachePopulatesOnResolve asserts that resolving a measurement populates its L1 cache, so
+// repeat resolves of the same series are a mutex + map lookup rather than a fresh OTel SDK instrument build.
+// After resolving one series of each type, every cache must hold exactly one entry.
 //
-// This is written test-first (TDD): it currently FAILS for counters/timers/histograms because
-// buildOTelInstrument takes the cache map by value — `m = make(map[string]T)` and `m[name] = instr` write to
-// a throwaway local map that never reaches the otelStats field, so those caches stay nil no matter how many
-// times a series is resolved. The gauge assertion passes, because getGauge writes back to s.gauges on the
-// receiver. The red is the proof of the bug; the fix (buildOTelInstrument taking *map[string]T, or NewStats
-// pre-initializing the maps) lands later and turns this green.
+// This guards a fix to a by-value defect: buildOTelInstrument used to take the cache map by value, so its
+// `m = make(map[string]T)` and `m[name] = instr` wrote to a throwaway local map that never reached the
+// otelStats field, leaving the counter/timer/histogram caches permanently nil. It now takes *map[string]T
+// and writes back to the receiver, mirroring how getGauge populates s.gauges. If a refactor reintroduces a
+// by-value write, the counter/timer/histogram assertions below go red again.
 func TestInstrumentCachePopulatesOnResolve(t *testing.T) {
 	s := newCacheTestStats(t)
 
