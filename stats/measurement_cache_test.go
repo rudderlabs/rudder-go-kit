@@ -12,14 +12,6 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
-// newCacheTestStats returns an enabled otelStats backed by a real (in-memory) meter, enough to exercise the
-// gauge cache and canonicalMeasurementIdentity without a Prometheus exporter or Start.
-func newCacheTestStats(t testing.TB) *otelStats {
-	t.Helper()
-	_, m := newReaderWithMeter(t)
-	return &otelStats{meter: m, logger: logger.NOP, config: statsConfig{enabled: atomicBool(true)}}
-}
-
 // TestCanonicalMeasurementIdentity exercises the sanitisation/exclusion rules and proves the returned
 // attribute set preserves tag values losslessly (raw ':' and ',' survive — they are only sanitised for
 // export, never for identity).
@@ -336,4 +328,12 @@ func collidingSeriesPairs(n int) []Tags {
 		)
 	}
 	return out
+}
+
+// newCacheTestStats returns an enabled otelStats backed by a real (in-memory) meter, enough to exercise the
+// gauge cache and canonicalMeasurementIdentity without a Prometheus exporter or Start.
+func newCacheTestStats(t testing.TB) *otelStats {
+	t.Helper()
+	_, m := newReaderWithMeter(t)
+	return &otelStats{meter: m, logger: logger.NOP, config: statsConfig{enabled: atomicBool(true)}}
 }
