@@ -89,6 +89,33 @@ func TestPercentileTracker(t *testing.T) {
 		require.False(t, ok, "observations should have aged out of the window")
 	})
 
+	t.Run("only the in-window batch contributes when the window straddles two batches", func(t *testing.T) {
+		const window = time.Minute
+		clock := time.Now()
+		tr := metric.NewPercentileTracker(0, metric.WithPercentileTrackerNow(func() time.Time { return clock }))
+
+		// First batch, then advance 1.5x the window so it falls just outside it.
+		for range 5 {
+			tr.Observe(1)
+		}
+		clock = clock.Add(3 * window / 2)
+
+		// Second batch lands inside the window.
+		for range 5 {
+			tr.Observe(100)
+		}
+
+		// cutoff = now-window sits between the two batches, so only the second (100) qualifies. If the
+		// expired first batch leaked in, p0 would be 1 and the median would drop to 1 — this is the mixed
+		// case that catches an off-by-one in the cutoff comparison or the ring rotation.
+		got0, ok := tr.Percentile(0, window)
+		require.True(t, ok)
+		require.Equal(t, 100.0, got0, "smallest in-window value must come from the second batch only")
+		got50, ok := tr.Percentile(50, window)
+		require.True(t, ok)
+		require.Equal(t, 100.0, got50, "the expired first batch must not drag the median down")
+	})
+
 	t.Run("capacity bounds retained observations", func(t *testing.T) {
 		tr := metric.NewPercentileTracker(3) // keep only the 3 most recent
 		for i := 1; i <= 10; i++ {

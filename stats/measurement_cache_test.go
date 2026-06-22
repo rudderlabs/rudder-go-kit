@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
@@ -283,6 +286,49 @@ func TestGaugeCacheConcurrentDistinctSeries(t *testing.T) {
 	}
 }
 
+// TestGaugeCacheConcurrentSameSeries stresses the hazard the distinct-series test cannot: many goroutines
+// first-touching the *same* (name, tags) gauge at once, lined up on a start barrier. The cache must hand back
+// one shared wrapper and register exactly one callback, so a single write exports a single data point. A
+// broken double-checked-locking refactor — read the map lock-free, then create+register under the lock — would
+// let two goroutines both miss and both register, which this test catches but the disjoint-key test would not.
+func TestGaugeCacheConcurrentSameSeries(t *testing.T) {
+	const goroutines = 64
+	reader, m := newReaderWithMeter(t)
+	s := &otelStats{meter: m, logger: logger.NOP, config: statsConfig{enabled: atomicBool(true)}}
+
+	tags := Tags{"d": "shared"}
+	start := make(chan struct{})
+	got := make([]Measurement, goroutines)
+
+	var wg sync.WaitGroup
+	for g := range goroutines {
+		wg.Go(func() {
+			<-start // release every goroutine onto the same uninitialised key at once
+			// Capture the contended first-touch: a later resolve would just read the populated cache and
+			// hide a wrapper that was duplicated during the initial race.
+			got[g] = s.NewTaggedStat("shared_gauge", GaugeType, tags)
+		})
+	}
+	close(start)
+	wg.Wait()
+
+	// The contended first-touch must still yield exactly one shared wrapper...
+	for g := range goroutines {
+		require.Samef(t, got[0], got[g], "goroutine %d resolved a different wrapper", g)
+	}
+	// ...and a single cache entry.
+	s.gaugesMu.Lock()
+	cached := len(s.gauges)
+	s.gaugesMu.Unlock()
+	require.Equal(t, 1, cached, "the shared series must resolve to a single cache entry")
+
+	// One wrapper means one registered callback: a write is exported as exactly one data point. A second
+	// wrapper would have registered the callback twice.
+	got[0].Gauge(42.0)
+	require.Equal(t, []float64{42.0}, gaugeDataPointValues(t, reader, "shared_gauge"),
+		"one callback -> one data point with the written value")
+}
+
 // BenchmarkMeasurementResolve quantifies the per-call cost of re-resolving a Measurement via NewTaggedStat
 // on every observation (the common dev pattern) versus resolving it once and reusing it. The gap is the
 // canonicalMeasurementIdentity work — tag sanitization + attribute.NewSet — paid on every call.
@@ -304,6 +350,28 @@ func BenchmarkMeasurementResolve(b *testing.B) {
 			m.Observe(1)
 		}
 	})
+}
+
+// gaugeDataPointValues collects the manual reader and returns the float64 data-point values exported for the
+// named gauge — one entry per attribute set, so its length is the number of exported series for that metric.
+func gaugeDataPointValues(t testing.TB, rdr sdkmetric.Reader, name string) []float64 {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, rdr.Collect(context.Background(), &rm))
+	var out []float64
+	for _, sm := range rm.ScopeMetrics {
+		for _, mm := range sm.Metrics {
+			if mm.Name != name {
+				continue
+			}
+			g, ok := mm.Data.(metricdata.Gauge[float64])
+			require.Truef(t, ok, "metric %q is not a float64 gauge", name)
+			for _, dp := range g.DataPoints {
+				out = append(out, dp.Value)
+			}
+		}
+	}
+	return out
 }
 
 // attrsToMap renders an attribute.Set as a plain map for assertions (all our attributes are strings).
