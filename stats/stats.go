@@ -120,13 +120,11 @@ func NewStats(
 		if statsConfig.prometheusGatherer != nil {
 			gatherer = statsConfig.prometheusGatherer
 		}
-
-		log := loggerFactory.NewLogger().Child("stats")
 		return &otelStats{
 			config:                   statsConfig,
 			stopBackgroundCollection: func() {},
 			meter:                    otel.GetMeterProvider().Meter(defaultMeterName),
-			logger:                   log,
+			logger:                   loggerFactory.NewLogger().Child("stats"),
 			prometheusRegisterer:     registerer,
 			prometheusGatherer:       gatherer,
 			tracerProvider:           noop.NewTracerProvider(),

@@ -538,9 +538,6 @@ type statsdServer struct {
 
 func newStatsdServer(t *testing.T, f func(string)) *statsdServer {
 	s := &statsdServer{t: t, closed: make(chan bool)}
-	// Bind to port 0 so the OS atomically assigns a free UDP port. Picking a port up front (e.g. via
-	// GetFreePort) and binding it later races with anything else grabbing that port in between, which
-	// surfaces as a flaky "bind: address already in use".
 	laddr, err := net.ResolveUDPAddr("udp", "localhost:0")
 	require.NoError(t, err)
 	conn, err := net.ListenUDP("udp", laddr)
