@@ -885,11 +885,13 @@ func TestWithExponentialHistogramMaxScale(t *testing.T) {
 	require.EqualValues(t, 0, unset.exponentialHistogramMaxScale, "MaxScale defaults to 0")
 }
 
-// TestExponentialHistogramMaxScaleApplied proves the configured MaxScale reaches the exported native
-// histogram. Observations stay within a single octave so the SDK does not auto-downscale below the
-// configured ceiling, making the exported Prometheus schema equal to the configured scale.
+// TestExponentialHistogramMaxScaleApplied proves the configured MaxScale changes the exported native
+// histogram: a higher scale produces a finer Prometheus schema and spreads the same observations across more
+// buckets. Observations stay within a single octave (100..110, all in [64,128)) so the SDK does not
+// auto-downscale below the configured ceiling, making the exported Prometheus schema equal to the configured
+// scale. 8 is the highest scale Prometheus native histograms support, so it is the finest setting worth using.
 func TestExponentialHistogramMaxScaleApplied(t *testing.T) {
-	gatherSchema := func(t *testing.T, opts ...Option) int32 {
+	gatherHistogram := func(t *testing.T, opts ...Option) *promClient.Histogram {
 		t.Helper()
 		freePort, err := testhelper.GetFreePort()
 		require.NoError(t, err)
@@ -911,7 +913,7 @@ func TestExponentialHistogramMaxScaleApplied(t *testing.T) {
 			h.Observe(v)
 		}
 
-		var schema int32
+		var hist *promClient.Histogram
 		require.Eventually(t, func() bool {
 			mfs, err := r.Gather()
 			if err != nil {
@@ -920,19 +922,32 @@ func TestExponentialHistogramMaxScaleApplied(t *testing.T) {
 			for _, mf := range mfs {
 				if mf.GetName() == name && len(mf.Metric) > 0 &&
 					mf.Metric[0].Histogram != nil && mf.Metric[0].Histogram.GetSampleCount() > 0 {
-					schema = mf.Metric[0].Histogram.GetSchema()
+					hist = mf.Metric[0].Histogram
 					return true
 				}
 			}
 			return false
 		}, 10*time.Second, 50*time.Millisecond, "native histogram not exported")
-		return schema
+		return hist
 	}
 
-	// Default: MaxScale 0 -> coarse 2x buckets -> Prometheus schema 0.
-	require.EqualValues(t, 0, gatherSchema(t, WithDefaultExponentialHistogram(160)))
-	// Configured: MaxScale 8 (the Prometheus maximum) -> schema 8.
-	require.EqualValues(t, 8, gatherSchema(t, WithDefaultExponentialHistogram(160), WithExponentialHistogramMaxScale(8)))
+	// populatedPositiveBuckets is a proxy for resolution: the protobuf carries one positive delta per bucket
+	// the observations fall into, so a finer schema spreads 100..110 across more of them.
+	populatedPositiveBuckets := func(h *promClient.Histogram) int { return len(h.GetPositiveDelta()) }
+
+	t.Run("default scale 0 yields a coarse schema", func(t *testing.T) {
+		h := gatherHistogram(t, WithDefaultExponentialHistogram(160))
+		require.EqualValues(t, 0, h.GetSchema(), "MaxScale 0 -> coarse 2x buckets -> Prometheus schema 0")
+		require.Equal(t, 1, populatedPositiveBuckets(h),
+			"at schema 0 all of 100..110 collapse into the single [64,128) bucket")
+	})
+
+	t.Run("scale 8 yields a finer schema", func(t *testing.T) {
+		h := gatherHistogram(t, WithDefaultExponentialHistogram(160), WithExponentialHistogramMaxScale(8))
+		require.EqualValues(t, 8, h.GetSchema(), "MaxScale 8 (the Prometheus maximum) -> schema 8")
+		require.Greater(t, populatedPositiveBuckets(h), 1,
+			"at schema 8 the same observations resolve into multiple buckets")
+	})
 }
 
 func TestExponentialHistogram(t *testing.T) {
