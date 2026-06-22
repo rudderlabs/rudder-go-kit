@@ -329,6 +329,41 @@ func TestGaugeCacheConcurrentSameSeries(t *testing.T) {
 		"one callback -> one data point with the written value")
 }
 
+// TestInstrumentCachePopulatesOnResolve asserts the intended behavior: resolving a measurement populates its
+// L1 cache, so repeat resolves of the same series are a mutex + map lookup rather than a fresh OTel SDK
+// instrument build. After resolving one series of each type, every cache must hold exactly one entry.
+//
+// This is written test-first (TDD): it currently FAILS for counters/timers/histograms because
+// buildOTelInstrument takes the cache map by value — `m = make(map[string]T)` and `m[name] = instr` write to
+// a throwaway local map that never reaches the otelStats field, so those caches stay nil no matter how many
+// times a series is resolved. The gauge assertion passes, because getGauge writes back to s.gauges on the
+// receiver. The red is the proof of the bug; the fix (buildOTelInstrument taking *map[string]T, or NewStats
+// pre-initializing the maps) lands later and turns this green.
+func TestInstrumentCachePopulatesOnResolve(t *testing.T) {
+	s := newCacheTestStats(t)
+
+	// Resolve one series of each type. Resolving alone (no recording) is what triggers the cache path.
+	s.NewTaggedStat("c", CountType, Tags{"d": "x"})
+	s.NewTaggedStat("t", TimerType, Tags{"d": "x"})
+	s.NewTaggedStat("h", HistogramType, Tags{"d": "x"})
+	s.NewTaggedStat("g", GaugeType, Tags{"d": "x"})
+
+	cacheLen := func(mu *sync.Mutex, read func() int) int {
+		mu.Lock()
+		defer mu.Unlock()
+		return read()
+	}
+
+	require.Equal(t, 1, cacheLen(&s.countersMu, func() int { return len(s.counters) }),
+		"resolving a counter must cache it on the receiver")
+	require.Equal(t, 1, cacheLen(&s.timersMu, func() int { return len(s.timers) }),
+		"resolving a timer must cache it on the receiver")
+	require.Equal(t, 1, cacheLen(&s.histogramsMu, func() int { return len(s.histograms) }),
+		"resolving a histogram must cache it on the receiver")
+	require.Equal(t, 1, cacheLen(&s.gaugesMu, func() int { return len(s.gauges) }),
+		"resolving a gauge must cache it on the receiver")
+}
+
 // BenchmarkMeasurementResolve quantifies the per-call cost of re-resolving a Measurement via NewTaggedStat
 // on every observation (the common dev pattern) versus resolving it once and reusing it. The gap is the
 // canonicalMeasurementIdentity work — tag sanitization + attribute.NewSet — paid on every call.
