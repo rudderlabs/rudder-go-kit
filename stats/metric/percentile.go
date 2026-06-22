@@ -66,11 +66,13 @@ type percentileTracker struct {
 	mu     sync.Mutex
 	times  []time.Time
 	values []float64
-	next   int // next write position
+	next   int // next write position in the ring
+	size   int // number of slots written, saturating at capacity
 }
 
-// Observe implements PercentileTracker. It overwrites the slot at next and advances the ring; slots not yet
-// written hold the zero time, which Percentile's window filter excludes.
+// Observe implements PercentileTracker. It writes the slot at next, advances the ring, and grows size until
+// the ring is full. size — not a sentinel timestamp — is what marks a slot valid, so the tracker is correct
+// for any clock injected via WithPercentileTrackerNow, including a zero-based one.
 func (t *percentileTracker) Observe(value float64) {
 	now := t.now()
 
@@ -83,6 +85,9 @@ func (t *percentileTracker) Observe(value float64) {
 	if t.next == t.capacity {
 		t.next = 0
 	}
+	if t.size < t.capacity {
+		t.size++
+	}
 }
 
 // Percentile implements PercentileTracker.
@@ -94,9 +99,9 @@ func (t *percentileTracker) Percentile(p float64, window time.Duration) (float64
 	cutoff := t.now().Add(-window)
 
 	t.mu.Lock()
-	values := make([]float64, 0, len(t.values))
-	for i, ts := range t.times {
-		if !ts.Before(cutoff) {
+	values := make([]float64, 0, t.size)
+	for i := range t.size {
+		if !t.times[i].Before(cutoff) {
 			values = append(values, t.values[i])
 		}
 	}

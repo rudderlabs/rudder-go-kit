@@ -15,12 +15,31 @@ func TestPercentileTracker(t *testing.T) {
 	t.Run("no observations report no data", func(t *testing.T) {
 		tr := metric.NewPercentileTracker(0)
 
-		// Valid p and positive window, but nothing observed yet: every slot in the ring is an
-		// unwritten zero-time entry, so the window filter drops them all. Percentile must return
-		// (0, false) rather than rank an empty set.
+		// Valid p and positive window, but nothing observed yet: no slot is written, so there is
+		// nothing to rank. Percentile must return (0, false) rather than rank an empty set.
 		got, ok := tr.Percentile(50, time.Minute)
 		require.False(t, ok)
 		require.Zero(t, got)
+	})
+
+	t.Run("zero-based clock does not leak unwritten slots", func(t *testing.T) {
+		// WithPercentileTrackerNow with a zero-value base (a common test setup) makes the cutoff
+		// predate the zero instant. Validity must come from the written count, not from comparing
+		// the unwritten slots' zero timestamp against the cutoff — otherwise empty/unwritten slots
+		// would leak in as bogus 0.0 values.
+		clock := time.Time{}
+		tr := metric.NewPercentileTracker(8, metric.WithPercentileTrackerNow(func() time.Time { return clock }))
+
+		_, ok := tr.Percentile(50, time.Minute)
+		require.False(t, ok, "empty tracker must report no data even with a zero-based clock")
+
+		// Partially filled: only the two observed values count; the six unwritten slots must not
+		// contribute 0.0, so p0 is the smallest observed value rather than 0.
+		tr.Observe(5)
+		tr.Observe(7)
+		got, ok := tr.Percentile(0, time.Minute)
+		require.True(t, ok)
+		require.Equal(t, 5.0, got, "p0 must be the smallest observed value, not a 0.0 from an unwritten slot")
 	})
 
 	t.Run("nearest-rank over the window", func(t *testing.T) {
