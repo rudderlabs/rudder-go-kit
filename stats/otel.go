@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cast"
+	ootel "go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	noopMetric "go.opentelemetry.io/otel/metric/noop"
@@ -63,6 +64,11 @@ type otelStats struct {
 	httpServerShutdownComplete chan struct{}
 	prometheusRegisterer       prometheus.Registerer
 	prometheusGatherer         prometheus.Gatherer
+}
+
+// OtelVersion returns the version of the OpenTelemetry SDK in use.
+func OtelVersion() string {
+	return ootel.Version()
 }
 
 func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error {
