@@ -5,15 +5,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
 
 // otelMeasurement is the statsd-specific implementation of Measurement
 type otelMeasurement struct {
 	genericMeasurement
-	disabled   bool
-	attributes []attribute.KeyValue
+	disabled bool
+	// recordOption carries this measurement's attribute set, prebuilt once via metric.WithAttributeSet and
+	// reused on every Count/Observe/SendTiming so the OTel SDK does not rebuild the attribute Set on each
+	// call (which metric.WithAttributes would). nil for no-op (disabled) measurements, which never record.
+	recordOption metric.MeasurementOption
 }
 
 // otelCounter represents a counter stat
@@ -24,14 +26,14 @@ type otelCounter struct {
 
 func (c *otelCounter) Count(n int) {
 	if !c.disabled {
-		c.counter.Add(context.TODO(), int64(n), metric.WithAttributes(c.attributes...))
+		c.counter.Add(context.TODO(), int64(n), c.recordOption)
 	}
 }
 
 // Increment increases the stat by 1. Is the Equivalent of Count(1). Only applies to CountType stats
 func (c *otelCounter) Increment() {
 	if !c.disabled {
-		c.counter.Add(context.TODO(), 1, metric.WithAttributes(c.attributes...))
+		c.counter.Add(context.TODO(), 1, c.recordOption)
 	}
 }
 
@@ -72,9 +74,10 @@ func (t *otelTimer) Since(start time.Time) {
 
 // SendTiming sends a timing for this stat. Only applies to TimerType stats
 func (t *otelTimer) SendTiming(duration time.Duration) {
-	if !t.disabled {
-		t.timer.Record(context.TODO(), duration.Seconds(), metric.WithAttributes(t.attributes...))
+	if t.disabled {
+		return
 	}
+	t.timer.Record(context.TODO(), duration.Seconds(), t.recordOption)
 }
 
 // RecordDuration records the duration of time between
@@ -103,7 +106,8 @@ type otelHistogram struct {
 
 // Observe sends an observation
 func (h *otelHistogram) Observe(value float64) {
-	if !h.disabled {
-		h.histogram.Record(context.TODO(), value, metric.WithAttributes(h.attributes...))
+	if h.disabled {
+		return
 	}
+	h.histogram.Record(context.TODO(), value, h.recordOption)
 }

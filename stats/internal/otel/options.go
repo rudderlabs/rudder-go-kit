@@ -181,7 +181,11 @@ func WithHistogramBucketBoundaries(instrumentName, meterName string, boundaries 
 // WithDefaultExponentialHistogram configures all histograms to use exponential bucketing.
 // Exponential histograms provide better accuracy and lower memory usage for high-dynamic-range metrics.
 // maxSize controls the maximum number of buckets (default: 160, min: 1, max: 160).
-func WithDefaultExponentialHistogram(maxSize int32) MeterProviderOption {
+// maxScale is the starting (highest) resolution the SDK downscales from; OTel accepts [-10, 20], but the
+// Prometheus exporter caps native-histogram schema at 8 and downscales anything higher at export, so values
+// above 8 only waste aggregation work. 0 means scale 0 (coarse 2x buckets); 8 is the finest Prometheus resolution.
+// See https://github.com/open-telemetry/opentelemetry-go/blob/sdk/metric/v1.43.0/sdk/metric/aggregation.go#L145-L153
+func WithDefaultExponentialHistogram(maxSize, maxScale int32) MeterProviderOption {
 	return func(c *meterProviderConfig) {
 		c.defaultHistogramBuckets = sdkmetric.NewView(
 			sdkmetric.Instrument{
@@ -189,7 +193,8 @@ func WithDefaultExponentialHistogram(maxSize int32) MeterProviderOption {
 			},
 			sdkmetric.Stream{
 				Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
-					MaxSize: maxSize,
+					MaxSize:  maxSize,
+					MaxScale: maxScale,
 				},
 			},
 		)
@@ -200,7 +205,11 @@ func WithDefaultExponentialHistogram(maxSize int32) MeterProviderOption {
 // Exponential histograms provide better accuracy and lower memory usage for high-dynamic-range metrics.
 // meterName is optional.
 // maxSize controls the maximum number of buckets (default: 160, min: 1, max: 160).
-func WithExponentialHistogram(instrumentName, meterName string, maxSize int32) MeterProviderOption {
+// maxScale is the starting (highest) resolution; OTel accepts [-10, 20], but the Prometheus exporter caps
+// native-histogram schema at 8 and downscales anything higher at export, so values above 8 only waste
+// aggregation work. 0 means scale 0 (coarse 2x buckets); 8 is the finest Prometheus resolution.
+// See WithDefaultExponentialHistogram.
+func WithExponentialHistogram(instrumentName, meterName string, maxSize, maxScale int32) MeterProviderOption {
 	var scope instrumentation.Scope
 	if meterName != "" {
 		scope.Name = meterName
@@ -213,7 +222,8 @@ func WithExponentialHistogram(instrumentName, meterName string, maxSize int32) M
 		},
 		sdkmetric.Stream{
 			Aggregation: sdkmetric.AggregationBase2ExponentialHistogram{
-				MaxSize: maxSize,
+				MaxSize:  maxSize,
+				MaxScale: maxScale,
 			},
 		},
 	)

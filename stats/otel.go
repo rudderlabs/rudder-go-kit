@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	noopMetric "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
-	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 	"go.opentelemetry.io/otel/trace"
 
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
@@ -46,7 +46,7 @@ type otelStats struct {
 	noopMeter    metric.Meter
 	counters     map[string]metric.Int64Counter
 	countersMu   sync.Mutex
-	gauges       map[string]*otelGauge
+	gauges       map[measurementCacheKey]*otelGauge
 	gaugesMu     sync.Mutex
 	timers       map[string]metric.Float64Histogram
 	timersMu     sync.Mutex
@@ -66,6 +66,7 @@ type otelStats struct {
 	prometheusGatherer         prometheus.Gatherer
 }
 
+// OtelVersion returns the version of the OpenTelemetry SDK in use.
 func OtelVersion() string {
 	return ootel.Version()
 }
@@ -122,7 +123,9 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 	if s.config.useExponentialHistogram {
 		meterProviderOptions = append(
 			meterProviderOptions,
-			otel.WithDefaultExponentialHistogram(s.config.exponentialHistogramMaxSize),
+			otel.WithDefaultExponentialHistogram(
+				s.config.exponentialHistogramMaxSize, s.config.exponentialHistogramMaxScale,
+			),
 		)
 	} else if len(s.config.defaultHistogramBuckets) > 0 {
 		meterProviderOptions = append(
@@ -136,7 +139,9 @@ func (s *otelStats) Start(ctx context.Context, goFactory GoRoutineFactory) error
 		for histogramName, maxSize := range s.config.exponentialHistograms {
 			meterProviderOptions = append(
 				meterProviderOptions,
-				otel.WithExponentialHistogram(histogramName, defaultMeterName, maxSize),
+				otel.WithExponentialHistogram(
+					histogramName, defaultMeterName, maxSize, s.config.exponentialHistogramMaxScale,
+				),
 			)
 		}
 	}
@@ -344,6 +349,56 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 		return s.getNoOpMeasurement(statType)
 	}
 
+	// canonicalMeasurementIdentity returns the canonical OTel attribute set so the gauge cache can key on
+	// the SDK's own attribute identity (instead of a lossy string from tags.String()) and every wrapper can
+	// record against a prebuilt attribute set.
+	name, attrs := s.canonicalMeasurementIdentity(name, tags)
+
+	switch statType {
+	case CountType:
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, &s.counters, &s.countersMu, s.logger)
+		return &otelCounter{counter: instr, otelMeasurement: newOTelMeasurement(statType, attrs)}
+	case GaugeType:
+		return s.getGauge(name, attrs)
+	case TimerType:
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, &s.timers, &s.timersMu, s.logger)
+		return &otelTimer{timer: instr, otelMeasurement: newOTelMeasurement(statType, attrs)}
+	case HistogramType:
+		instr := buildOTelInstrument(s.meter, s.noopMeter, name, &s.histograms, &s.histogramsMu, s.logger)
+		return &otelHistogram{histogram: instr, otelMeasurement: newOTelMeasurement(statType, attrs)}
+	default:
+		panic(fmt.Errorf("unsupported measurement type %s", statType))
+	}
+}
+
+// measurementCacheKey identifies a cached gauge by name + attribute identity. It uses attribute.Distinct
+// (a 64-bit hash of the attribute set), the map key the OTel SDK recommends. Keying on a uint64 keeps the
+// lookup cheap; the full attribute.Set is built either way (Distinct is just Set.Equivalent()), so this
+// only changes the per-lookup map cost, not the per-call set construction.
+//
+// A hash collision would merge two distinct series, but its probability is governed by the number of distinct series in
+// this process, not the call rate (~k^2/2^65); for our bounded cardinality it is < 1e-12.
+// If a caller ever needs an absolute guarantee against untrusted, unbounded tag values, key on
+// attribute.Set instead — its == compares the full attribute array — but note such tags would blow
+// up the (unbounded) cache long before they could collide.
+type measurementCacheKey struct {
+	name  string
+	attrs attribute.Distinct
+}
+
+func newOTelMeasurement(statType string, attrs attribute.Set) *otelMeasurement {
+	return &otelMeasurement{
+		genericMeasurement: genericMeasurement{statType: statType},
+		// Prebuild the attribute option once; it is reused on every record so the SDK never rebuilds the Set.
+		recordOption: metric.WithAttributeSet(attrs),
+	}
+}
+
+// canonicalMeasurementIdentity sanitises the name and tags and, in the same pass, builds the OTel
+// attribute set used both to record the measurement and to key its cache. Keying the cache on the
+// attribute set's identity (attribute.Distinct) keeps distinct series distinct — unlike the
+// export-oriented Tags.String(), whose ':'→'-' sanitisation is lossy and can merge "a:b" with "a-b".
+func (s *otelStats) canonicalMeasurementIdentity(name string, tags Tags) (string, attribute.Set) {
 	if strings.Trim(name, " ") == "" {
 		byteArr := make([]byte, 2048)
 		n := runtime.Stack(byteArr, false)
@@ -356,7 +411,10 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 	}
 
 	// Clean up tags based on deployment type. No need to send workspace id tag for free tier customers.
-	newTags := make(Tags)
+	// Surviving tags are collected straight into attribute.KeyValues; attribute.NewSet sorts and
+	// de-duplicates them, so the resulting Set (and its Equivalent()) is a canonical, order-independent
+	// identity used both to record the measurement and to key its cache.
+	attrs := make([]attribute.KeyValue, 0, len(tags))
 	for k, v := range tags {
 		if strings.Trim(k, " ") == "" {
 			s.logger.Warnn(
@@ -381,54 +439,30 @@ func (s *otelStats) getMeasurement(name, statType string, tags Tags) Measurement
 			)
 			continue
 		}
-		newTags[sanitizedKey] = v
+		attrs = append(attrs, attribute.String(sanitizedKey, v))
 	}
 
-	om := &otelMeasurement{
-		genericMeasurement: genericMeasurement{statType: statType},
-		attributes:         newTags.otelAttributes(),
-	}
-
-	switch statType {
-	case CountType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.counters, &s.countersMu, s.logger)
-		return &otelCounter{counter: instr, otelMeasurement: om}
-	case GaugeType:
-		return s.getGauge(name, om.attributes, newTags.String())
-	case TimerType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.timers, &s.timersMu, s.logger)
-		return &otelTimer{timer: instr, otelMeasurement: om}
-	case HistogramType:
-		instr := buildOTelInstrument(s.meter, s.noopMeter, name, s.histograms, &s.histogramsMu, s.logger)
-		return &otelHistogram{histogram: instr, otelMeasurement: om}
-	default:
-		panic(fmt.Errorf("unsupported measurement type %s", statType))
-	}
+	return name, attribute.NewSet(attrs...)
 }
 
-func (s *otelStats) getGauge(
-	name string, attributes []attribute.KeyValue, tagsKey string,
-) *otelGauge {
+func (s *otelStats) getGauge(name string, attrs attribute.Set) *otelGauge {
 	var (
 		ok     bool
 		og     *otelGauge
-		mapKey = name + "|" + tagsKey
+		mapKey = measurementCacheKey{name: name, attrs: attrs.Equivalent()}
 	)
 
 	s.gaugesMu.Lock()
 	defer s.gaugesMu.Unlock()
 
 	if s.gauges == nil {
-		s.gauges = make(map[string]*otelGauge)
+		s.gauges = make(map[measurementCacheKey]*otelGauge)
 	} else {
 		og, ok = s.gauges[mapKey]
 	}
 
 	if !ok {
-		og = &otelGauge{otelMeasurement: &otelMeasurement{
-			genericMeasurement: genericMeasurement{statType: GaugeType},
-			attributes:         attributes,
-		}}
+		og = &otelGauge{otelMeasurement: newOTelMeasurement(GaugeType, attrs)}
 
 		g, err := s.meter.Float64ObservableGauge(name)
 		if err != nil {
@@ -441,7 +475,7 @@ func (s *otelStats) getGauge(
 		} else {
 			_, err = s.meter.RegisterCallback(func(ctx context.Context, o metric.Observer) error {
 				if value := og.getValue(); value != nil {
-					o.ObserveFloat64(g, cast.ToFloat64(value), metric.WithAttributes(attributes...))
+					o.ObserveFloat64(g, cast.ToFloat64(value), og.recordOption)
 				}
 				return nil
 			}, g)
@@ -458,7 +492,7 @@ func (s *otelStats) getGauge(
 
 func buildOTelInstrument[T any](
 	meter, noopMeter metric.Meter,
-	name string, m map[string]T, mu *sync.Mutex,
+	name string, m *map[string]T, mu *sync.Mutex,
 	l logger.Logger,
 ) T {
 	var (
@@ -468,16 +502,18 @@ func buildOTelInstrument[T any](
 
 	mu.Lock()
 	defer mu.Unlock()
-	if m == nil {
-		m = make(map[string]T)
+	// m is a pointer to the cache field so the lazy make and the write-back below reach the otelStats
+	// struct (a by-value map would only mutate a local copy, leaving the cache permanently nil).
+	if *m == nil {
+		*m = make(map[string]T)
 	} else {
-		instr, ok = m[name]
+		instr, ok = (*m)[name]
 	}
 
 	if !ok {
 		var err error
 		var value any
-		switch any(m).(type) {
+		switch any(*m).(type) {
 		case map[string]metric.Int64Counter:
 			if value, err = meter.Int64Counter(name); err != nil {
 				value, _ = noopMeter.Int64Counter(name)
@@ -498,7 +534,7 @@ func buildOTelInstrument[T any](
 			)
 		}
 		instr = value.(T)
-		m[name] = instr
+		(*m)[name] = instr
 	}
 
 	return instr

@@ -21,9 +21,10 @@ type statsConfig struct {
 	prometheusGatherer      prometheus.Gatherer
 
 	// Exponential histogram configuration
-	useExponentialHistogram     bool
-	exponentialHistogramMaxSize int32
-	exponentialHistograms       map[string]int32 // per-histogram maxSize
+	useExponentialHistogram      bool
+	exponentialHistogramMaxSize  int32
+	exponentialHistogramMaxScale int32            // starting resolution for all exponential histograms (default 0)
+	exponentialHistograms        map[string]int32 // per-histogram maxSize
 }
 
 // Option is a function used to configure the stats service.
@@ -84,6 +85,20 @@ func WithExponentialHistogram(histogramName string, maxSize int32) Option {
 			c.exponentialHistograms = make(map[string]int32)
 		}
 		c.exponentialHistograms[histogramName] = maxSize
+	}
+}
+
+// WithExponentialHistogramMaxScale sets the starting (highest) resolution — OpenTelemetry MaxScale — of the
+// exponential histograms enabled via WithDefaultExponentialHistogram / WithExponentialHistogram. The zero
+// value (the default here) means scale 0, i.e. coarse 2x buckets.
+//
+// OpenTelemetry accepts [-10, 20], but this library exports through Prometheus native histograms, which cap
+// schema at 8: anything higher is downscaled at export (see stats/internal/otel/prometheus), so the extra
+// resolution is discarded while the SDK still pays to aggregate the finer buckets that get merged away. Use
+// 8 for the finest Prometheus resolution; values above 8 only add cost without changing the export.
+func WithExponentialHistogramMaxScale(maxScale int32) Option {
+	return func(c *statsConfig) {
+		c.exponentialHistogramMaxScale = maxScale
 	}
 }
 

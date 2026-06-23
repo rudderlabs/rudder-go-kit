@@ -875,6 +875,81 @@ func TestPrometheusDuplicatedAttributes(t *testing.T) {
 	), metrics[metricName].Metric[0].Label, "Got %+v", metrics[metricName].Metric[0].Label)
 }
 
+func TestWithExponentialHistogramMaxScale(t *testing.T) {
+	// The option sets the statsConfig field; unset, it is the coarse default of 0.
+	var cfg statsConfig
+	WithExponentialHistogramMaxScale(8)(&cfg)
+	require.EqualValues(t, 8, cfg.exponentialHistogramMaxScale)
+
+	var unset statsConfig
+	require.EqualValues(t, 0, unset.exponentialHistogramMaxScale, "MaxScale defaults to 0")
+}
+
+// TestExponentialHistogramMaxScaleApplied proves the configured MaxScale changes the exported native
+// histogram: a higher scale produces a finer Prometheus schema and spreads the same observations across more
+// buckets. Observations stay within a single octave (100..110, all in [64,128)) so the SDK does not
+// auto-downscale below the configured ceiling, making the exported Prometheus schema equal to the configured
+// scale. 8 is the highest scale Prometheus native histograms support, so it is the finest setting worth using.
+func TestExponentialHistogramMaxScaleApplied(t *testing.T) {
+	gatherHistogram := func(t *testing.T, opts ...Option) *promClient.Histogram {
+		t.Helper()
+		freePort, err := testhelper.GetFreePort()
+		require.NoError(t, err)
+		c := config.New()
+		c.Set("OpenTelemetry.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.enabled", true)
+		c.Set("OpenTelemetry.metrics.prometheus.port", freePort)
+		c.Set("OpenTelemetry.metrics.exportInterval", 20*time.Millisecond)
+		c.Set("RuntimeStats.enabled", false)
+		r := prometheus.NewRegistry()
+		s := NewStats(c, logger.NewFactory(c), metric.NewManager(),
+			append(opts, WithServiceName(t.Name()), WithPrometheusRegistry(r, r))...)
+		require.NoError(t, s.Start(context.Background(), DefaultGoRoutineFactory))
+		t.Cleanup(s.Stop)
+
+		const name = "narrow_hist"
+		h := s.NewStat(name, HistogramType)
+		for v := 100.0; v <= 110.0; v++ {
+			h.Observe(v)
+		}
+
+		var hist *promClient.Histogram
+		require.Eventually(t, func() bool {
+			mfs, err := r.Gather()
+			if err != nil {
+				return false
+			}
+			for _, mf := range mfs {
+				if mf.GetName() == name && len(mf.Metric) > 0 &&
+					mf.Metric[0].Histogram != nil && mf.Metric[0].Histogram.GetSampleCount() > 0 {
+					hist = mf.Metric[0].Histogram
+					return true
+				}
+			}
+			return false
+		}, 10*time.Second, 50*time.Millisecond, "native histogram not exported")
+		return hist
+	}
+
+	// populatedPositiveBuckets is a proxy for resolution: the protobuf carries one positive delta per bucket
+	// the observations fall into, so a finer schema spreads 100..110 across more of them.
+	populatedPositiveBuckets := func(h *promClient.Histogram) int { return len(h.GetPositiveDelta()) }
+
+	t.Run("default scale 0 yields a coarse schema", func(t *testing.T) {
+		h := gatherHistogram(t, WithDefaultExponentialHistogram(160))
+		require.EqualValues(t, 0, h.GetSchema(), "MaxScale 0 -> coarse 2x buckets -> Prometheus schema 0")
+		require.Equal(t, 1, populatedPositiveBuckets(h),
+			"at schema 0 all of 100..110 collapse into the single [64,128) bucket")
+	})
+
+	t.Run("scale 8 yields a finer schema", func(t *testing.T) {
+		h := gatherHistogram(t, WithDefaultExponentialHistogram(160), WithExponentialHistogramMaxScale(8))
+		require.EqualValues(t, 8, h.GetSchema(), "MaxScale 8 (the Prometheus maximum) -> schema 8")
+		require.Greater(t, populatedPositiveBuckets(h), 1,
+			"at schema 8 the same observations resolve into multiple buckets")
+	})
+}
+
 func TestExponentialHistogram(t *testing.T) {
 	t.Run("with option", func(t *testing.T) {
 		freePort, err := testhelper.GetFreePort()
@@ -1174,7 +1249,7 @@ func newAttributesSet(t *testing.T, attrs ...attribute.KeyValue) *attribute.Set 
 	return &set
 }
 
-func newReaderWithMeter(t *testing.T) (sdkmetric.Reader, otelMetric.Meter) {
+func newReaderWithMeter(t testing.TB) (sdkmetric.Reader, otelMetric.Meter) {
 	t.Helper()
 	manualRdr := sdkmetric.NewManualReader()
 	meterProvider := sdkmetric.NewMeterProvider(

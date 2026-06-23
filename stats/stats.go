@@ -68,7 +68,20 @@ type loggerFactory interface {
 	NewLogger() logger.Logger
 }
 
-// NewStats create a new Stats instance using the provided config, logger factory and metric manager as dependencies
+// NewStats creates a new Stats instance using the provided config, logger factory and metric manager as
+// dependencies.
+//
+// Performance: NewStat/NewTaggedStat resolve and cache a Measurement per series, but resolving still costs
+// tag sanitization, an attribute-set construction and a map lookup on every call. On hot paths (e.g. one
+// observation per request) resolve the Measurement once and reuse it rather than calling NewTaggedStat for
+// every observation:
+//
+//	m := stat.NewTaggedStat("events_total", stats.CountType, tags) // resolve once
+//	for range events {
+//		m.Increment() // hot loop: no per-observation resolve
+//	}
+//
+// instead of stat.NewTaggedStat("events_total", stats.CountType, tags).Increment() on every iteration.
 func NewStats(
 	config *config.Config, loggerFactory loggerFactory, metricManager svcMetric.Manager, opts ...Option,
 ) Stats {
