@@ -23,7 +23,6 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/internal"
-	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
 const (
@@ -60,7 +59,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	}
 
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository:   registry.ImagePath("ghcr.io/gubernator-io/gubernator"),
+		// gubernator is only published on ghcr.io, which is not proxied through the DockerHub registry mirror,
+		// so the image is pulled directly (anonymously) without the mirror credentials. Passing the mirror's
+		// auth here would make ghcr.io reject the pull with "denied".
+		Repository:   "ghcr.io/gubernator-io/gubernator",
 		Tag:          c.tag,
 		ExposedPorts: []string{grpcPort + "/tcp", httpPort + "/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{grpcPort, httpPort}),
@@ -74,7 +76,6 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 			"GUBER_MEMBERLIST_KNOWN_NODES=127.0.0.1:7946",
 		},
 		NetworkID: networkID,
-		Auth:      registry.AuthConfiguration(),
 	}, internal.DefaultHostConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot run gubernator container: %w", err)
