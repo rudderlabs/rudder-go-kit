@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.77.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.77.0...v0.77.1) (2026-06-26)
+
+
+### Miscellaneous
+
+* gubernator docker helper ([#1160](https://github.com/rudderlabs/rudder-go-kit/issues/1160)) ([08597f0](https://github.com/rudderlabs/rudder-go-kit/commit/08597f0ee999ec5c15a05e2a09b1e3517f231790))
+
 ## [0.77.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.76.2...v0.77.0) (2026-06-23)
 
 
