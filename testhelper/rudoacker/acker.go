@@ -46,24 +46,44 @@ func (b *Builder[T]) WithEventListener(listener func(key string, value T)) *Buil
 	return b
 }
 
+// WithJobsDBs configures, per node index, the JobsDBs that the node declares when acknowledging a
+// migration request. It only affects the migration acker (NewMigrationAcker); nodes whose index is
+// not present in the map ack without declaring JobsDBs (the legacy behaviour). Use this to simulate
+// source nodes that opt into per-JobsDB migration fan-out.
+func (b *Builder[T]) WithJobsDBs(jobsDBsByNode map[int][]string) *Builder[T] {
+	b.jobsDBsByNode = jobsDBsByNode
+	return b
+}
+
 // NewMigrationAcker creates a builder that watches for new migration requests under the given namespace
 // and acks them after a random delay to simulate processor nodes acknowledging migration requests.
+// By default nodes ack without declaring JobsDBs; use WithJobsDBs to simulate source nodes that opt
+// into per-JobsDB migration fan-out.
 func NewMigrationAcker(ctx context.Context, g *errgroup.Group,
 	client *clientv3.Client, namespace string,
 ) *Builder[clustertypes.PartitionMigration] {
 	prefix := "/" + namespace + "/migration/request/"
-	return newBuilder(ctx, g, client, prefix, func(_ string, migration clustertypes.PartitionMigration) []ackEntry {
+	b := newBuilder[clustertypes.PartitionMigration](ctx, g, client, prefix, nil, nil)
+	b.mapFn = func(_ string, migration clustertypes.PartitionMigration) []ackEntry {
+		sourceNodes := lo.SliceToMap(migration.SourceNodes(), func(idx int) (int, struct{}) {
+			return idx, struct{}{}
+		})
 		involvedNodes := lo.Union(migration.SourceNodes(), migration.TargetNodes())
 		entries := make([]ackEntry, 0, len(involvedNodes))
 		for _, nodeIdx := range involvedNodes {
 			nodeName := fmt.Sprintf("node-%d", nodeIdx)
+			var jobsdbs []string
+			if _, isSource := sourceNodes[nodeIdx]; isSource && migration.Features.JobsDBFanout {
+				jobsdbs = b.jobsDBsByNode[nodeIdx]
+			}
 			entries = append(entries, ackEntry{
 				Key:   migration.AckKey(nodeName),
-				Value: migration.Ack(nodeIdx, nodeName),
+				Value: migration.AckWithJobsDBs(nodeIdx, nodeName, jobsdbs),
 			})
 		}
 		return entries
-	}, nil)
+	}
+	return b
 }
 
 // NewGatewayAcker creates a builder that watches for reload gateway requests under the given namespace
@@ -178,6 +198,7 @@ type Builder[T any] struct {
 
 	eventListener func(key string, value T)
 	ackListener   func(ackKey string)
+	jobsDBsByNode map[int][]string
 	minDelay      time.Duration
 	maxDelay      time.Duration
 }
