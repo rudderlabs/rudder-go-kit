@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.77.1...v0.78.0) (2026-07-02)
+
+
+### Features
+
+* make migration rudoacker JobsDBs-configurable ([#1162](https://github.com/rudderlabs/rudder-go-kit/issues/1162)) ([b8fb5cd](https://github.com/rudderlabs/rudder-go-kit/commit/b8fb5cd693c6927a62ec6cec86aea1cc1c275435))
+
 ## [0.77.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.77.0...v0.77.1) (2026-06-26)
 
 
