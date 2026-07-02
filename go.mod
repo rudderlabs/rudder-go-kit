@@ -39,7 +39,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.68.1
 	github.com/rudderlabs/rudder-observability-kit v0.0.7
-	github.com/rudderlabs/rudder-schemas v0.11.0
+	github.com/rudderlabs/rudder-schemas v0.12.0
 	github.com/rudderlabs/sonnet v1.0.2
 	github.com/samber/lo v1.53.0
 	github.com/segmentio/kafka-go v0.4.51
