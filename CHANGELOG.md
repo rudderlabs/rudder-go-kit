@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.1...v0.78.2) (2026-07-28)
+
+
+### Miscellaneous
+
+* flaky limiter test when race enabled ([#1186](https://github.com/rudderlabs/rudder-go-kit/issues/1186)) ([c132eec](https://github.com/rudderlabs/rudder-go-kit/commit/c132eec37a01b8033a7782abc07f33cef2f7e28d))
+
 ## [0.78.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.0...v0.78.1) (2026-07-28)
 
 
