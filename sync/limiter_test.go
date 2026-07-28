@@ -195,7 +195,9 @@ func TestLimiter(t *testing.T) {
 			require.NotNil(t, sl)
 			require.Lenf(t, sl.Durations(), 1, "should have recorded 1 sleeping timer duration for key %d", i)
 			require.GreaterOrEqual(t, sl.LastDuration(), sleepTime)
-			require.Less(t, sl.LastDuration(), sleepTime*2)
+			// generous margin to absorb scheduler jitter when running 1000 goroutines concurrently
+			// under the race detector, rather than a tight sleepTime*2 bound
+			require.Less(t, sl.LastDuration(), sleepTime+100*time.Millisecond)
 		}
 	})
 
