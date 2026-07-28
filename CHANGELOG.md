@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.78.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.0...v0.78.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* gcs manager allowing non-service account credentials ([#1183](https://github.com/rudderlabs/rudder-go-kit/issues/1183)) ([2618717](https://github.com/rudderlabs/rudder-go-kit/commit/2618717ba63104083fa2bacd1607b9d4d66992bc))
+
 ## [0.78.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.77.1...v0.78.0) (2026-07-02)
 
 
