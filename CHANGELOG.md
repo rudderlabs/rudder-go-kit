@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.78.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.0...v0.78.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* gcs manager allowing non-service account credentials ([#1183](https://github.com/rudderlabs/rudder-go-kit/issues/1183)) ([2618717](https://github.com/rudderlabs/rudder-go-kit/commit/2618717ba63104083fa2bacd1607b9d4d66992bc))
+
+## [0.78.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.77.1...v0.78.0) (2026-07-02)
+
+
+### Features
+
+* make migration rudoacker JobsDBs-configurable ([#1162](https://github.com/rudderlabs/rudder-go-kit/issues/1162)) ([b8fb5cd](https://github.com/rudderlabs/rudder-go-kit/commit/b8fb5cd693c6927a62ec6cec86aea1cc1c275435))
+
 ## [0.77.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.77.0...v0.77.1) (2026-06-26)
 
 
