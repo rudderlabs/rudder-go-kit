@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.78.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.1...v0.78.2) (2026-08-25)
+
+
+### Miscellaneous
+
+* **deps:** bump actions/labeler from 6.1.0 to 7.0.0 ([#1189](https://github.com/rudderlabs/rudder-go-kit/issues/1189)) ([0505065](https://github.com/rudderlabs/rudder-go-kit/commit/05050650da8a471e2348b61450c6d70c34510b44))
+* **deps:** bump actions/setup-go from 6.4.0 to 7.0.0 ([#1190](https://github.com/rudderlabs/rudder-go-kit/issues/1190)) ([06bd631](https://github.com/rudderlabs/rudder-go-kit/commit/06bd6317aeeb822715da5057f7dbd7e5ce2b33ca))
+* **deps:** bump github.com/opencontainers/runc from 1.3.3 to 1.3.6 ([#1158](https://github.com/rudderlabs/rudder-go-kit/issues/1158)) ([fffe0d9](https://github.com/rudderlabs/rudder-go-kit/commit/fffe0d95f38f9f106af63bbda1d7cfe0344ac043))
+* **deps:** bump the frequent group across 1 directory with 2 updates ([#1171](https://github.com/rudderlabs/rudder-go-kit/issues/1171)) ([606516c](https://github.com/rudderlabs/rudder-go-kit/commit/606516ccb2ce2536bc9a58c580e314926356cc79))
+* **deps:** bump the opentelemetry group with 9 updates ([#1192](https://github.com/rudderlabs/rudder-go-kit/issues/1192)) ([6cebdde](https://github.com/rudderlabs/rudder-go-kit/commit/6cebdde42892870cd1b8719eeefe27275f27dccd))
+* flaky limiter test when race enabled ([#1186](https://github.com/rudderlabs/rudder-go-kit/issues/1186)) ([c132eec](https://github.com/rudderlabs/rudder-go-kit/commit/c132eec37a01b8033a7782abc07f33cef2f7e28d))
+
 ## [0.78.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.0...v0.78.1) (2026-07-28)
 
 
