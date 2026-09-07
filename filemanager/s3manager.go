@@ -131,8 +131,7 @@ func (m *S3Manager) Download(ctx context.Context, output io.WriterAt, key string
 	if err == nil {
 		return nil
 	}
-	var nsk *types.NoSuchKey
-	if errors.As(err, &nsk) {
+	if _, ok := errors.AsType[*types.NoSuchKey](err); ok {
 		return ErrKeyNotFound
 	}
 	return fmt.Errorf("failed to download from S3: %w", err)
@@ -175,8 +174,7 @@ func (m *S3Manager) UploadReader(ctx context.Context, objName string, rdr io.Rea
 	if err == nil {
 		return UploadedFile{Location: output.Location, ObjectName: objName}, nil
 	}
-	var regionError *aws.MissingRegionError
-	if errors.As(err, &regionError) {
+	if regionError, ok := errors.AsType[*aws.MissingRegionError](err); ok {
 		err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
 	}
 	return UploadedFile{}, err
@@ -207,8 +205,7 @@ func (m *S3Manager) Delete(ctx context.Context, keys []string) error {
 		})
 		cancel()
 		if err != nil {
-			var apiErr smithy.APIError
-			if errors.As(err, &apiErr) {
+			if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
 				m.logger.Errorn(
 					"Error while deleting S3 objects",
 					obskit.Error(err), logger.NewStringField("error_code", apiErr.ErrorCode()),

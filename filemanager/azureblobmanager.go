@@ -164,8 +164,7 @@ func (m *AzureBlobManager) GetDownloadKeyFromFileLocation(location string) strin
 
 func (m *AzureBlobManager) suppressMinorErrors(err error) error {
 	if err != nil {
-		var storageError azblob.StorageError
-		if errors.As(err, &storageError) { // This error is a Service-specific
+		if storageError, ok := errors.AsType[azblob.StorageError](err); ok { // This error is a Service-specific
 			switch storageError.ServiceCode() { // Compare serviceCode to ServiceCodeXxx constants
 			case azblob.ServiceCodeContainerAlreadyExists:
 				m.logger.Debugn("Received 409. Container already exists")

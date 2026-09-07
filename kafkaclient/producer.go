@@ -169,8 +169,10 @@ func isErrTemporary(err error) bool {
 	if isTransientNetworkError {
 		return true
 	}
-	var tempError interface{ Temporary() bool }
-	if errors.As(err, &tempError) {
+	if tempError, ok := errors.AsType[interface {
+		error
+		Temporary() bool
+	}](err); ok {
 		return tempError.Temporary()
 	}
 	if os.IsTimeout(err) {
@@ -180,8 +182,7 @@ func isErrTemporary(err error) bool {
 }
 
 func IsProducerErrTemporary(err error) bool {
-	var we kafka.WriteErrors
-	if errors.As(err, &we) {
+	if we, ok := errors.AsType[kafka.WriteErrors](err); ok {
 		return slices.ContainsFunc(we, isErrTemporary)
 	}
 	return isErrTemporary(err)

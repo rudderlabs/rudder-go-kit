@@ -35,7 +35,7 @@ func StatMiddleware(ctx context.Context, s stats.Stats, component string, option
 	for _, option := range options {
 		option(&conf)
 	}
-	var concurrentRequests int32
+	var concurrentRequests atomic.Int32
 	activeClientCount := s.NewStat(fmt.Sprintf("%s.concurrent_requests_count", component), stats.GaugeType)
 	go func() {
 		for {
@@ -43,7 +43,7 @@ func StatMiddleware(ctx context.Context, s stats.Stats, component string, option
 			case <-ctx.Done():
 				return
 			case <-time.After(10 * time.Second):
-				activeClientCount.Gauge(atomic.LoadInt32(&concurrentRequests))
+				activeClientCount.Gauge(concurrentRequests.Load())
 			}
 		}
 	}()
@@ -64,8 +64,8 @@ func StatMiddleware(ctx context.Context, s stats.Stats, component string, option
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			sw := newStatusCapturingWriter(w)
 			start := time.Now()
-			atomic.AddInt32(&concurrentRequests, 1)
-			defer atomic.AddInt32(&concurrentRequests, -1)
+			concurrentRequests.Add(1)
+			defer concurrentRequests.Add(-1)
 
 			next.ServeHTTP(sw, r)
 			s.NewSampledTaggedStat(

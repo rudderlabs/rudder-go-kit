@@ -328,8 +328,8 @@ func (s *otelStats) NewSampledTaggedStat(name, statType string, tags Tags) (m Me
 
 func (*otelStats) getNoOpMeasurement(statType string) Measurement {
 	om := &otelMeasurement{
-		genericMeasurement: genericMeasurement{statType: statType},
-		disabled:           true,
+		statType: statType,
+		disabled: true,
 	}
 	switch statType {
 	case CountType:
@@ -388,7 +388,7 @@ type measurementCacheKey struct {
 
 func newOTelMeasurement(statType string, attrs attribute.Set) *otelMeasurement {
 	return &otelMeasurement{
-		genericMeasurement: genericMeasurement{statType: statType},
+		statType: statType,
 		// Prebuild the attribute option once; it is reused on every record so the SDK never rebuilds the Set.
 		recordOption: metric.WithAttributeSet(attrs),
 	}

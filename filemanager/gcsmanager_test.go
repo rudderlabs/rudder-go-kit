@@ -39,11 +39,9 @@ func TestGCSManager(t *testing.T) {
 			server, err := fakestorage.NewServerWithOptions(fakestorage.Options{
 				InitialObjects: []fakestorage.Object{
 					{
-						ObjectAttrs: fakestorage.ObjectAttrs{
-							BucketName: "test-bucket",
-							Name:       "test-prefix/testFile",
-						},
-						Content: []byte("inside the file"),
+						BucketName: "test-bucket",
+						Name:       "test-prefix/testFile",
+						Content:    []byte("inside the file"),
 					},
 				},
 				Scheme: "http",

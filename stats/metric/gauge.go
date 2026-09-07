@@ -38,13 +38,13 @@ func NewGauge() Gauge {
 }
 
 type gauge struct {
-	valBits uint64
+	valBits atomic.Uint64
 
 	now func() time.Time // To mock out time.Now() for testing.
 }
 
 func (g *gauge) Set(val float64) {
-	atomic.StoreUint64(&g.valBits, math.Float64bits(val))
+	g.valBits.Store(math.Float64bits(val))
 }
 
 func (g *gauge) SetToCurrentTime() {
@@ -61,9 +61,9 @@ func (g *gauge) Dec() {
 
 func (g *gauge) Add(val float64) {
 	for {
-		oldBits := atomic.LoadUint64(&g.valBits)
+		oldBits := g.valBits.Load()
 		newBits := math.Float64bits(math.Float64frombits(oldBits) + val)
-		if atomic.CompareAndSwapUint64(&g.valBits, oldBits, newBits) {
+		if g.valBits.CompareAndSwap(oldBits, newBits) {
 			return
 		}
 	}
@@ -74,7 +74,7 @@ func (g *gauge) Sub(val float64) {
 }
 
 func (g *gauge) Value() float64 {
-	return math.Float64frombits(atomic.LoadUint64(&g.valBits))
+	return math.Float64frombits(g.valBits.Load())
 }
 
 func (g *gauge) IntValue() int {

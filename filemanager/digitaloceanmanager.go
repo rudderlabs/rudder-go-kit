@@ -156,8 +156,7 @@ func (m *digitalOceanManager) Download(ctx context.Context, output io.WriterAt, 
 
 	_, err = downloader.Download(ctx, output, getObjectInput)
 	if err != nil {
-		var nsk *types.NoSuchKey
-		if errors.As(err, &nsk) {
+		if _, ok := errors.AsType[*types.NoSuchKey](err); ok {
 			return ErrKeyNotFound
 		}
 		return fmt.Errorf("failed to download from DigitalOcean Spaces: %w", err)
@@ -193,8 +192,7 @@ func (m *digitalOceanManager) UploadReader(ctx context.Context, fileName string,
 
 	output, err := uploader.Upload(ctx, uploadInput)
 	if err != nil {
-		var regionError *aws.MissingRegionError
-		if errors.As(err, &regionError) {
+		if regionError, ok := errors.AsType[*aws.MissingRegionError](err); ok {
 			err = fmt.Errorf(`missing region for bucket %q: %w`, m.config.Bucket, regionError)
 		}
 		return UploadedFile{}, fmt.Errorf("failed to upload to DigitalOcean Spaces: %w", err)
@@ -230,8 +228,7 @@ func (m *digitalOceanManager) Delete(ctx context.Context, keys []string) error {
 		})
 		cancel()
 		if err != nil {
-			var apiErr smithy.APIError
-			if errors.As(err, &apiErr) {
+			if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
 				m.logger.Errorn(
 					"Error while deleting DigitalOcean Spaces objects",
 					logger.NewStringField("error_code", apiErr.ErrorCode()),
