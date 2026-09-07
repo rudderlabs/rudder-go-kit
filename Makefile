@@ -5,7 +5,7 @@ LDFLAGS?=-s -w
 TESTFILE=_testok
 
 # go tools versions
-GOLANGCI=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.9.0
+GOLANGCI=github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.13.2
 gofumpt=mvdan.cc/gofumpt@latest
 govulncheck=golang.org/x/vuln/cmd/govulncheck@latest
 gci=github.com/daixiang0/gci@v0.13.7
