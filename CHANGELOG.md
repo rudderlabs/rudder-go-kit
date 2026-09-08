@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.79.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.2...v0.79.0) (2026-09-08)
+
+
+### Features
+
+* bump go modules and actions ([#1205](https://github.com/rudderlabs/rudder-go-kit/issues/1205)) ([fbddbc2](https://github.com/rudderlabs/rudder-go-kit/commit/fbddbc2bfc49594c08a19247de2718279b824967))
+
 ## [0.78.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.1...v0.78.2) (2026-08-25)
 
 
