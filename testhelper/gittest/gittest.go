@@ -122,7 +122,7 @@ func (s *Server) GetLatestCommitHash(t testing.TB, referenceType, ref string) st
 	cmd := exec.Command("git", "-c", "http.sslVerify=false", "ls-remote", s.URL, fmt.Sprintf("refs/%s/%s", refType, ref))
 	out, err := cmd.Output()
 	require.NoError(t, err, "should be able to run the ls-remote command")
-	commitHash := strings.Split(string(out), "\t")[0]
+	commitHash, _, _ := strings.Cut(string(out), "\t")
 	return commitHash
 }
 

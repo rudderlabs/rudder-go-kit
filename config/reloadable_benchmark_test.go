@@ -118,16 +118,16 @@ func (a *reloadableValue[T]) Store(v T) {
 
 type reloadableCustomMutex[T comparable] struct {
 	value T
-	mutex int32
+	mutex atomic.Int32
 }
 
 func (a *reloadableCustomMutex[T]) lock() {
-	for atomic.CompareAndSwapInt32(&a.mutex, 0, 1) {
+	for a.mutex.CompareAndSwap(0, 1) {
 	}
 }
 
 func (a *reloadableCustomMutex[T]) unlock() {
-	for atomic.CompareAndSwapInt32(&a.mutex, 1, 0) {
+	for a.mutex.CompareAndSwap(1, 0) {
 	}
 }
 

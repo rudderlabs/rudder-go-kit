@@ -252,10 +252,10 @@ func (s *statsdStats) newStatsdMeasurement(name, statType string, client *statsd
 		name = "novalue"
 	}
 	baseMeasurement := &statsdMeasurement{
-		enabled:            s.config.enabled.Load(),
-		name:               name,
-		client:             client,
-		genericMeasurement: genericMeasurement{statType: statType},
+		enabled:  s.config.enabled.Load(),
+		name:     name,
+		client:   client,
+		statType: statType,
 	}
 	switch statType {
 	case CountType:

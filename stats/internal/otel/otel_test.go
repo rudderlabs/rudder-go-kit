@@ -582,7 +582,6 @@ func requireHistogramEqual(t *testing.T, mf *promClient.MetricFamily, h histogra
 	require.ElementsMatch(t, h.labels, mf.Metric[0].Label)
 }
 
-//go:fix inline
 func ptr[T any](v T) *T {
 	return new(v)
 }

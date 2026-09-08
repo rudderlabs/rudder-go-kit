@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	pprof "net/http/pprof"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -17,8 +18,10 @@ import (
 func StartServer(ctx context.Context, port int) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Path = "/debug/pprof/"
-		http.Redirect(w, r, r.URL.String(), http.StatusMovedPermanently)
+		// Build the target from scratch: reusing r.URL would carry over the Host
+		// that Go populates for absolute-form request lines, allowing an off-site redirect.
+		redirectURL := url.URL{Path: "/debug/pprof/", RawQuery: r.URL.RawQuery}
+		http.Redirect(w, r, redirectURL.String(), http.StatusMovedPermanently)
 	})
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)

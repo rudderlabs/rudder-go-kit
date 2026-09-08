@@ -139,8 +139,8 @@ func TestMeasurementCacheKeyUniquenessHighCardinality(t *testing.T) {
 	for i := range groups {
 		inputs = append(
 			inputs,
-			Tags{"d": fmt.Sprintf("v%d:x", i)}, // ':' twin
-			Tags{"d": fmt.Sprintf("v%d-x", i)}, // '-' twin (old key == ':' twin)
+			Tags{"d": fmt.Sprintf("v%d:x", i)},               // ':' twin
+			Tags{"d": fmt.Sprintf("v%d-x", i)},               // '-' twin (old key == ':' twin)
 			Tags{"a": strconv.Itoa(i), "b": strconv.Itoa(i)}, // two tags
 			Tags{"a": fmt.Sprintf("%d,b,%d", i, i)},          // comma value (old key == the two-tag form)
 		)
