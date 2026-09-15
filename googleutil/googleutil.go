@@ -3,6 +3,7 @@ package googleutil
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"golang.org/x/oauth2/google"
 
@@ -50,10 +51,10 @@ func CompatibleServiceAccountJSON(jsonKey []byte) error {
 // itself carry a `service_account_impersonation_url`, letting a workload authenticate
 // through an external identity provider (AWS, Azure, OIDC, SAML) and impersonate a
 // GCP service account for short-lived tokens, without ever holding a static private key.
-var federatedCredentialTypes = map[string]bool{
-	"service_account":                  true,
-	"external_account":                 true,
-	"external_account_authorized_user": true,
+var federatedCredentialTypes = []string{
+	"service_account",
+	"external_account",
+	"external_account_authorized_user",
 }
 
 // CompatibleFederatedCredentialsJSON validates that jsonKey is either a static service
@@ -75,7 +76,7 @@ func CompatibleFederatedCredentialsJSON(jsonKey []byte) error {
 	if err != nil {
 		return err
 	}
-	if !federatedCredentialTypes[credType] {
+	if !slices.Contains(federatedCredentialTypes, credType) {
 		return fmt.Errorf("unsupported credential type %q: only service account or workload identity federation credentials are supported", credType)
 	}
 	return nil
