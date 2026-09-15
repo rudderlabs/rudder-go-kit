@@ -795,7 +795,7 @@ func startMinioContainer(t *testing.T) (minioHostPort, s3Endpoint string) {
 
 	// running minio container on docker
 	minioResource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: registry.ImagePath("minio/minio"),
+		Repository: registry.ImagePath("pgsty/minio"),
 		Tag:        "latest",
 		Cmd:        []string{"server", "/data"},
 		Env: []string{

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.79.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.79.0...v0.79.1) (2026-09-14)
+
+
+### Miscellaneous
+
+* switch to community-maintained fork of minio ([#1218](https://github.com/rudderlabs/rudder-go-kit/issues/1218)) ([c842e89](https://github.com/rudderlabs/rudder-go-kit/commit/c842e89408b5d1254b33448227b6e5e5a622a4b0))
+
 ## [0.79.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.78.2...v0.79.0) (2026-09-08)
 
 
