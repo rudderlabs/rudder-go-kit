@@ -287,7 +287,7 @@ func gcsConfig(config map[string]any) *GCSConfig {
 		}
 	}
 	authMethod, _ := config["authMethod"].(string)
-	targetServiceAccount, _ := config["targetServiceAccount"].(string)
+	targetServiceAccount, _ := config["workloadIdentityTargetServiceAccount"].(string)
 	wifProjectNumber, _ := config["workloadIdentityProjectNumber"].(string)
 	wifPoolID, _ := config["workloadIdentityPoolId"].(string)
 	wifProviderID, _ := config["workloadIdentityProviderId"].(string)
