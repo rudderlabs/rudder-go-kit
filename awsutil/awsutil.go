@@ -29,6 +29,7 @@ type SessionConfig struct {
 	RoleBasedAuth       bool           `mapstructure:"roleBasedAuth"`
 	IAMRoleARN          string         `mapstructure:"iamRoleARN"`
 	ExternalID          string         `mapstructure:"externalID"`
+	RoleSessionName     string         `mapstructure:"roleSessionName"`
 	WorkspaceID         string         `mapstructure:"workspaceID"`
 	Service             string         `mapstructure:"service"`
 	Timeout             *time.Duration `mapstructure:"timeout"`
@@ -148,11 +149,19 @@ func createV2CredentialsForRole(ctx context.Context, httpClient *http.Client, co
 	// Create role options
 	roleOptions := func(o *stscreds.AssumeRoleOptions) {
 		o.ExternalID = aws.String(config.ExternalID)
-		o.RoleSessionName = createRoleSessionName(config.Service)
+		o.RoleSessionName = roleSessionName(config)
 	}
 
 	// Return role credentials provider
 	return stscreds.NewAssumeRoleProvider(client, config.IAMRoleARN, roleOptions), nil
+}
+
+// roleSessionName is config.RoleSessionName when set, else the per-service default.
+func roleSessionName(config *SessionConfig) string {
+	if config.RoleSessionName != "" {
+		return config.RoleSessionName
+	}
+	return createRoleSessionName(config.Service)
 }
 
 func createRoleSessionName(serviceName string) string {

@@ -96,3 +96,29 @@ func TestGCSManager(t *testing.T) {
 		})
 	}
 }
+
+// A BigQuery destination stages load files through this manager with the same destination config,
+// so workload identity federation must be honoured here too, without falling back to the credentials field.
+func TestGCSManagerWorkloadIdentityFederation(t *testing.T) {
+	fm, err := New(&Settings{Provider: "GCS", Logger: logger.NOP, Conf: config.New(), Config: map[string]any{
+		"bucketName":                    "test-bucket",
+		"authMethod":                    "workloadIdentityFederation",
+		"workloadIdentityProjectNumber": "799415897419",
+		"workloadIdentityPoolId":        "wif-pool",
+		"workloadIdentityProviderId":    "rudderstack-aws",
+		"targetServiceAccount":          "rudderstack-bq@acme.iam.gserviceaccount.com",
+		"externalID":                    "30bK6N9S6Ca7C0SGITpgVsmRlIs",
+		"federationRegion":              "us-east-1",
+		"credentials":                   "", // must not be needed
+	}})
+	require.NoError(t, err)
+	m, ok := fm.(*GcsManager)
+	require.True(t, ok)
+	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", m.config.ExternalID)
+	require.Equal(t, "us-east-1", m.config.FederationRegion)
+
+	// every destination value and the workspace ID were read; only the server-injected role is absent
+	_, err = m.getClient(t.Context())
+	require.EqualError(t, err, "workload identity federation: AWS role ARN is required")
+	require.NotContains(t, err.Error(), "invalid credentials JSON")
+}

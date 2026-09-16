@@ -14,3 +14,8 @@ func TestGetRegionFromBucket(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "us-east-1", region)
 }
+
+func TestRoleSessionName(t *testing.T) {
+	require.Equal(t, "rudderstack-aws-s3-access", roleSessionName(&SessionConfig{Service: "S3"}))
+	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", roleSessionName(&SessionConfig{Service: "S3", RoleSessionName: "30bK6N9S6Ca7C0SGITpgVsmRlIs"}))
+}

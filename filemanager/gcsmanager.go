@@ -30,6 +30,17 @@ type GCSConfig struct {
 	DisableSSL       *bool
 	JSONReads        bool
 	UploadIfNotExist bool
+
+	// AuthMethod googleutil.AuthMethodWorkloadIdentityFederation authenticates through the customer's
+	// workload identity pool instead of Credentials, impersonating TargetServiceAccount.
+	AuthMethod                    string
+	TargetServiceAccount          string
+	WorkloadIdentityProjectNumber string
+	WorkloadIdentityPoolID        string
+	WorkloadIdentityProviderID    string
+	ExternalID                    string // workspace ID, the AWS role session name
+	FederationRoleARN             string // RudderStack's AWS federation role, injected by the server
+	FederationRegion              string
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
@@ -181,7 +192,21 @@ func (m *GcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 	if m.config.EndPoint != nil && *m.config.EndPoint != "" {
 		options = append(options, option.WithEndpoint(*m.config.EndPoint))
 	}
-	if !googleutil.ShouldSkipCredentialsInit(m.config.Credentials) {
+	if m.config.AuthMethod == googleutil.AuthMethodWorkloadIdentityFederation {
+		ts, err := googleutil.AWSFederatedTokenSource(ctx, googleutil.AWSFederationConfig{
+			ProjectNumber:        m.config.WorkloadIdentityProjectNumber,
+			PoolID:               m.config.WorkloadIdentityPoolID,
+			ProviderID:           m.config.WorkloadIdentityProviderID,
+			TargetServiceAccount: m.config.TargetServiceAccount,
+			WorkspaceID:          m.config.ExternalID,
+			RoleARN:              m.config.FederationRoleARN,
+			Region:               m.config.FederationRegion,
+		}, []string{storage.ScopeFullControl})
+		if err != nil {
+			return m.client, err
+		}
+		options = append(options, option.WithTokenSource(ts))
+	} else if !googleutil.ShouldSkipCredentialsInit(m.config.Credentials) {
 		if err := googleutil.CompatibleServiceAccountJSON([]byte(m.config.Credentials)); err != nil {
 			return m.client, err
 		}
@@ -261,6 +286,14 @@ func gcsConfig(config map[string]any) *GCSConfig {
 			uploadIfNotExist = tmp
 		}
 	}
+	authMethod, _ := config["authMethod"].(string)
+	targetServiceAccount, _ := config["targetServiceAccount"].(string)
+	wifProjectNumber, _ := config["workloadIdentityProjectNumber"].(string)
+	wifPoolID, _ := config["workloadIdentityPoolId"].(string)
+	wifProviderID, _ := config["workloadIdentityProviderId"].(string)
+	externalID, _ := config["externalID"].(string)
+	federationRoleARN, _ := config["federationRoleARN"].(string)
+	federationRegion, _ := config["federationRegion"].(string)
 	return &GCSConfig{
 		Bucket:           bucketName,
 		Prefix:           prefix,
@@ -270,6 +303,15 @@ func gcsConfig(config map[string]any) *GCSConfig {
 		DisableSSL:       disableSSL,
 		JSONReads:        jsonReads,
 		UploadIfNotExist: uploadIfNotExist,
+
+		AuthMethod:                    authMethod,
+		TargetServiceAccount:          targetServiceAccount,
+		WorkloadIdentityProjectNumber: wifProjectNumber,
+		WorkloadIdentityPoolID:        wifPoolID,
+		WorkloadIdentityProviderID:    wifProviderID,
+		ExternalID:                    externalID,
+		FederationRoleARN:             federationRoleARN,
+		FederationRegion:              federationRegion,
 	}
 }
 
