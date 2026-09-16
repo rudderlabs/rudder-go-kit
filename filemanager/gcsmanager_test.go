@@ -117,8 +117,10 @@ func TestGCSManagerWorkloadIdentityFederation(t *testing.T) {
 	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", m.config.ExternalID)
 	require.Equal(t, "us-east-1", m.config.FederationRegion)
 
-	// every destination value and the workspace ID were read; only the server-injected role is absent
+	// every destination value and the workspace ID were read; only the AWS role is absent
+	t.Setenv("AWS_ROLE_ARN", "")
+	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
 	_, err = m.getClient(t.Context())
-	require.EqualError(t, err, "workload identity federation: AWS role ARN is required")
+	require.EqualError(t, err, "workload identity federation: AWS role ARN is required, or IRSA (AWS_ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE)")
 	require.NotContains(t, err.Error(), "invalid credentials JSON")
 }

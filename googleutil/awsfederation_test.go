@@ -1,14 +1,21 @@
 package googleutil
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	ststypes "github.com/aws/aws-sdk-go-v2/service/sts/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,8 +77,48 @@ func TestAWSFederatedTokenSource(t *testing.T) {
 
 	t.Run("reports a missing field before calling AWS", func(t *testing.T) {
 		missing := cfg
-		missing.RoleARN = ""
+		missing.WorkspaceID = ""
 		_, err := AWSFederatedTokenSource(t.Context(), missing, []string{"scope"})
-		require.EqualError(t, err, "workload identity federation: AWS role ARN is required")
+		require.EqualError(t, err, "workload identity federation: workspace id is required")
 	})
+
+	t.Run("without a dedicated role, requires IRSA", func(t *testing.T) {
+		t.Setenv("AWS_ROLE_ARN", "")
+		t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", "")
+		noRole := cfg
+		noRole.RoleARN = ""
+		_, err := AWSFederatedTokenSource(t.Context(), noRole, []string{"scope"})
+		require.EqualError(t, err, "workload identity federation: AWS role ARN is required, or IRSA (AWS_ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE)")
+	})
+}
+
+type fakeAssumeRole struct {
+	calls int
+	input *sts.AssumeRoleWithWebIdentityInput
+}
+
+func (f *fakeAssumeRole) AssumeRoleWithWebIdentity(_ context.Context, in *sts.AssumeRoleWithWebIdentityInput, _ ...func(*sts.Options)) (*sts.AssumeRoleWithWebIdentityOutput, error) {
+	f.calls++
+	f.input = in
+	return &sts.AssumeRoleWithWebIdentityOutput{Credentials: &ststypes.Credentials{
+		AccessKeyId: aws.String("ASIAKEY"), SecretAccessKey: aws.String("secret"),
+		SessionToken: aws.String("session-token"), Expiration: aws.Time(time.Now().Add(time.Hour)),
+	}}, nil
+}
+
+func TestWebIdentityCredentials(t *testing.T) {
+	tokenFile := filepath.Join(t.TempDir(), "token")
+	require.NoError(t, os.WriteFile(tokenFile, []byte("irsa-jwt"), 0o600))
+	fake := &fakeAssumeRole{}
+	creds := webIdentityCredentials(fake, "arn:aws:iam::422074288268:role/data-plane-service-account", tokenFile, "30bK6N9S6Ca7C0SGITpgVsmRlIs")
+
+	for range 3 {
+		c, err := creds.Retrieve(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, "ASIAKEY", c.AccessKeyID)
+	}
+	require.Equal(t, 1, fake.calls, "credentials are cached until expiry")
+	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", aws.ToString(fake.input.RoleSessionName))
+	require.Equal(t, "arn:aws:iam::422074288268:role/data-plane-service-account", aws.ToString(fake.input.RoleArn))
+	require.Equal(t, "irsa-jwt", aws.ToString(fake.input.WebIdentityToken))
 }
