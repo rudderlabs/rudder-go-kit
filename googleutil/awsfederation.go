@@ -43,9 +43,13 @@ var awsFederationEndpoints = struct{ stsURL, impersonationURL string }{
 // No credential material is stored in the destination config.
 func AWSFederatedTokenSource(ctx context.Context, cfg AWSFederationConfig, scopes []string) (oauth2.TokenSource, error) {
 	for _, f := range [][2]string{
-		{"project number", cfg.ProjectNumber}, {"pool id", cfg.PoolID}, {"provider id", cfg.ProviderID},
-		{"target service account", cfg.TargetServiceAccount}, {"workspace id", cfg.WorkspaceID},
-		{"AWS role ARN", cfg.RoleARN}, {"AWS region", cfg.Region},
+		{"project number", cfg.ProjectNumber},
+		{"pool id", cfg.PoolID},
+		{"provider id", cfg.ProviderID},
+		{"target service account", cfg.TargetServiceAccount},
+		{"workspace id", cfg.WorkspaceID},
+		{"AWS role ARN", cfg.RoleARN},
+		{"AWS region", cfg.Region},
 	} {
 		if f[1] == "" {
 			return nil, fmt.Errorf("workload identity federation: %s is required", f[0])
