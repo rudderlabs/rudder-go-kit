@@ -71,6 +71,14 @@ func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, er
 		awsconfig.WithCredentialsProvider(awsCredentials),
 	}
 
+	// Without a role or static keys the SDK default credential chain is used; on EKS that is IRSA web
+	// identity, which then assumes its role with RoleSessionName as the session name.
+	if !config.RoleBasedAuth && config.RoleSessionName != "" {
+		optFuncs = append(optFuncs, awsconfig.WithWebIdentityRoleCredentialOptions(func(o *stscreds.WebIdentityRoleOptions) {
+			o.RoleSessionName = config.RoleSessionName
+		}))
+	}
+
 	// Add shared config profile if specified
 	if config.SharedConfigProfile != "" {
 		optFuncs = append(optFuncs, awsconfig.WithSharedConfigProfile(config.SharedConfigProfile))

@@ -32,7 +32,7 @@ type GCSConfig struct {
 	UploadIfNotExist bool
 
 	// AuthMethod googleutil.AuthMethodWorkloadIdentityFederation authenticates through the customer's
-	// workload identity pool instead of Credentials, impersonating TargetServiceAccount.
+	// workload identity pool instead of Credentials, impersonating TargetServiceAccount when set.
 	AuthMethod                    string
 	TargetServiceAccount          string
 	WorkloadIdentityProjectNumber string
