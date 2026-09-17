@@ -202,7 +202,7 @@ func (m *GcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 			WorkspaceID:          m.config.WorkspaceID,
 			RoleARN:              m.config.WorkloadIdentityAWSRoleARN,
 			Region:               m.config.WorkloadIdentityAWSRegion,
-		}, []string{storage.ScopeFullControl})
+		}, []string{storage.ScopeReadWrite})
 		if err != nil {
 			return m.client, err
 		}
