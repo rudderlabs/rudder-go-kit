@@ -26,6 +26,7 @@ func TestAWSFederatedTokenSource(t *testing.T) {
 	// fakeGoogle serves the STS token exchange and service account impersonation endpoints, recording
 	// the requests they receive. The returned context routes Google API calls to it.
 	type exchange struct {
+		err          error // first request handling problem, checked by the test after the exchange
 		audience     string
 		impersonated string
 		subject      struct {
@@ -37,21 +38,31 @@ func TestAWSFederatedTokenSource(t *testing.T) {
 		var ex exchange
 		mux := http.NewServeMux()
 		mux.HandleFunc("sts.googleapis.com/v1/token", func(w http.ResponseWriter, r *http.Request) {
-			require.NoError(t, r.ParseForm())
+			if err := r.ParseForm(); err != nil {
+				ex.err = err
+				return
+			}
 			ex.audience = r.Form.Get("audience")
 			raw, err := url.QueryUnescape(r.Form.Get("subject_token"))
-			require.NoError(t, err)
-			require.NoError(t, json.Unmarshal([]byte(raw), &ex.subject))
+			if err == nil {
+				err = json.Unmarshal([]byte(raw), &ex.subject)
+			}
+			if err != nil {
+				ex.err = err
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
-			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			ex.err = json.NewEncoder(w).Encode(map[string]any{
 				"access_token": "federated", "token_type": "Bearer", "expires_in": 3600,
 				"issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
-			}))
+			})
 		})
 		mux.HandleFunc("iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/{account}", func(w http.ResponseWriter, r *http.Request) {
 			ex.impersonated = strings.TrimSuffix(r.PathValue("account"), ":generateAccessToken")
 			w.Header().Set("Content-Type", "application/json")
-			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"accessToken": "sa-token", "expireTime": "2030-01-01T00:00:00Z"}))
+			if err := json.NewEncoder(w).Encode(map[string]any{"accessToken": "sa-token", "expireTime": "2030-01-01T00:00:00Z"}); err != nil {
+				ex.err = err
+			}
 		})
 		srv := httptest.NewServer(mux)
 		t.Cleanup(srv.Close)
@@ -72,6 +83,7 @@ func TestAWSFederatedTokenSource(t *testing.T) {
 		require.NoError(t, err)
 		tok, err := ts.Token()
 		require.NoError(t, err)
+		require.NoError(t, ex.err)
 		require.Equal(t, "sa-token", tok.AccessToken)
 
 		require.Contains(t, ex.subject.URL, "sts.us-east-1.amazonaws.com")
@@ -93,6 +105,7 @@ func TestAWSFederatedTokenSource(t *testing.T) {
 		require.NoError(t, err)
 		tok, err := ts.Token()
 		require.NoError(t, err)
+		require.NoError(t, ex.err)
 		require.Equal(t, "federated", tok.AccessToken)
 		require.Empty(t, ex.impersonated)
 	})

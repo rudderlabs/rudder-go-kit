@@ -26,8 +26,8 @@ type AWSFederationConfig struct {
 	// so the customer grants roles to the pool principal instead of a service account.
 	TargetServiceAccount string
 	// WorkspaceID is the AWS role session name, so the ARN Google sees is
-	// arn:aws:sts::<account>:assumed-role/<role>/<workspaceID>. Customers bind their service
-	// account to it, scoping the grant to one workspace like an AWS External ID.
+	// arn:aws:sts::<account>:assumed-role/<role>/<workspaceID>. Customers scope their grant (service
+	// account impersonation or direct resource access) to it, like an AWS External ID.
 	WorkspaceID string
 	// RoleARN is RudderStack's dedicated federation role, assumed from the workload's own identity.
 	// When empty, the workload's IRSA role (AWS_ROLE_ARN) is assumed via web identity instead.
@@ -85,6 +85,8 @@ func awsFederationCredentials(ctx context.Context, cfg AWSFederationConfig) (aws
 		RoleSessionName: cfg.WorkspaceID,
 	}
 	if roleBased {
+		// awsutil requires an External ID for role-based auth; the workspace ID binds the dedicated role's
+		// sessions to the workspace as well, so its trust policy must not expect a fixed value.
 		sessionConfig.ExternalID = cfg.WorkspaceID
 	}
 	awsCfg, err := awsutil.CreateAWSConfig(ctx, sessionConfig)
@@ -92,8 +94,10 @@ func awsFederationCredentials(ctx context.Context, cfg AWSFederationConfig) (aws
 		return nil, fmt.Errorf("creating AWS config for workload identity federation: %w", err)
 	}
 	if roleBased {
-		return awsCfg.Credentials, nil // already cached by the AWS config
+		// AssumeRole sets the workspace ID as session name explicitly, whatever the source of its base credentials.
+		return awsCfg.Credentials, nil
 	}
+	// The default chain may fall back to static keys or the node role, which lack the workspace ID.
 	return webIdentityCredentials{awsCfg.Credentials}, nil
 }
 

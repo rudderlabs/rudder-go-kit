@@ -28,15 +28,17 @@ func TestRoleSessionName(t *testing.T) {
 // RoleSessionName must become its session name.
 func TestCreateAWSConfigWebIdentitySessionName(t *testing.T) {
 	var gotSessionName, gotRoleARN string
+	var handlerErr error // checked after the request, since require must not run in the handler goroutine
 	sts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, r.ParseForm())
+		if handlerErr = r.ParseForm(); handlerErr != nil {
+			return
+		}
 		gotSessionName, gotRoleARN = r.Form.Get("RoleSessionName"), r.Form.Get("RoleArn")
 		w.Header().Set("Content-Type", "text/xml")
-		_, err := w.Write([]byte(`<AssumeRoleWithWebIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
+		_, handlerErr = w.Write([]byte(`<AssumeRoleWithWebIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/">
 <AssumeRoleWithWebIdentityResult><Credentials><AccessKeyId>ASIAKEY</AccessKeyId><SecretAccessKey>secret</SecretAccessKey>
 <SessionToken>token</SessionToken><Expiration>2099-01-01T00:00:00Z</Expiration></Credentials></AssumeRoleWithWebIdentityResult>
 </AssumeRoleWithWebIdentityResponse>`))
-		require.NoError(t, err)
 	}))
 	t.Cleanup(sts.Close)
 
@@ -57,8 +59,9 @@ func TestCreateAWSConfigWebIdentitySessionName(t *testing.T) {
 
 	cfg, err := CreateAWSConfig(t.Context(), &SessionConfig{Region: "us-east-1", RoleSessionName: "30bK6N9S6Ca7C0SGITpgVsmRlIs"})
 	require.NoError(t, err)
-	creds, err := cfg.Credentials.Retrieve(context.Background())
+	creds, err := cfg.Credentials.Retrieve(t.Context())
 	require.NoError(t, err)
+	require.NoError(t, handlerErr)
 	require.Equal(t, "ASIAKEY", creds.AccessKeyID)
 	require.Equal(t, stscreds.WebIdentityProviderName, creds.Source)
 	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", gotSessionName)

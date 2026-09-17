@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/googleutil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
@@ -114,8 +115,14 @@ func TestGCSManagerWorkloadIdentityFederation(t *testing.T) {
 	require.NoError(t, err)
 	m, ok := fm.(*GcsManager)
 	require.True(t, ok)
-	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", m.config.WorkspaceID)
-	require.Equal(t, "us-east-1", m.config.WorkloadIdentityAWSRegion)
+	require.Equal(t, googleutil.AWSFederationConfig{
+		ProjectNumber:        "799415897419",
+		PoolID:               "wif-pool",
+		ProviderID:           "rudderstack-aws",
+		TargetServiceAccount: "rudderstack-bq@acme.iam.gserviceaccount.com",
+		WorkspaceID:          "30bK6N9S6Ca7C0SGITpgVsmRlIs",
+		Region:               "us-east-1",
+	}, m.config.WorkloadIdentity)
 
 	// empty credentials would fail as a service account key; the federation path never reads them.
 	// AWS credentials resolve lazily on the first request, so building the client succeeds.

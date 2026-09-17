@@ -31,17 +31,10 @@ type GCSConfig struct {
 	JSONReads        bool
 	UploadIfNotExist bool
 
-	// AuthMethod googleutil.AuthMethodWorkloadIdentityFederation authenticates through the customer's
-	// workload identity pool instead of Credentials, impersonating WorkloadIdentityTargetServiceAccount when set.
-	AuthMethod                           string
-	WorkloadIdentityProjectNumber        string
-	WorkloadIdentityPoolID               string
-	WorkloadIdentityProviderID           string
-	WorkloadIdentityTargetServiceAccount string
-	// Injected by the server, not entered by the customer.
-	WorkspaceID                string // AWS role session name
-	WorkloadIdentityAWSRoleARN string // RudderStack's federation role; empty uses the pod's IRSA role
-	WorkloadIdentityAWSRegion  string
+	// AuthMethod googleutil.AuthMethodWorkloadIdentityFederation authenticates through WorkloadIdentity
+	// instead of Credentials.
+	AuthMethod       string
+	WorkloadIdentity googleutil.AWSFederationConfig
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
@@ -194,15 +187,7 @@ func (m *GcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 		options = append(options, option.WithEndpoint(*m.config.EndPoint))
 	}
 	if m.config.AuthMethod == googleutil.AuthMethodWorkloadIdentityFederation {
-		ts, err := googleutil.AWSFederatedTokenSource(ctx, googleutil.AWSFederationConfig{
-			ProjectNumber:        m.config.WorkloadIdentityProjectNumber,
-			PoolID:               m.config.WorkloadIdentityPoolID,
-			ProviderID:           m.config.WorkloadIdentityProviderID,
-			TargetServiceAccount: m.config.WorkloadIdentityTargetServiceAccount,
-			WorkspaceID:          m.config.WorkspaceID,
-			RoleARN:              m.config.WorkloadIdentityAWSRoleARN,
-			Region:               m.config.WorkloadIdentityAWSRegion,
-		}, []string{storage.ScopeReadWrite})
+		ts, err := googleutil.AWSFederatedTokenSource(ctx, m.config.WorkloadIdentity, []string{storage.ScopeReadWrite})
 		if err != nil {
 			return m.client, err
 		}
@@ -288,13 +273,15 @@ func gcsConfig(config map[string]any) *GCSConfig {
 		}
 	}
 	authMethod, _ := config["authMethod"].(string)
-	wifProjectNumber, _ := config["workloadIdentityProjectNumber"].(string)
-	wifPoolID, _ := config["workloadIdentityPoolId"].(string)
-	wifProviderID, _ := config["workloadIdentityProviderId"].(string)
-	wifTargetServiceAccount, _ := config["workloadIdentityTargetServiceAccount"].(string)
-	workspaceID, _ := config["workspaceID"].(string)
-	wifAWSRoleARN, _ := config["workloadIdentityAWSRoleARN"].(string)
-	wifAWSRegion, _ := config["workloadIdentityAWSRegion"].(string)
+	var workloadIdentity googleutil.AWSFederationConfig
+	workloadIdentity.ProjectNumber, _ = config["workloadIdentityProjectNumber"].(string)
+	workloadIdentity.PoolID, _ = config["workloadIdentityPoolId"].(string)
+	workloadIdentity.ProviderID, _ = config["workloadIdentityProviderId"].(string)
+	workloadIdentity.TargetServiceAccount, _ = config["workloadIdentityTargetServiceAccount"].(string)
+	// injected by the server, not entered by the customer
+	workloadIdentity.WorkspaceID, _ = config["workspaceID"].(string)
+	workloadIdentity.RoleARN, _ = config["workloadIdentityAWSRoleARN"].(string)
+	workloadIdentity.Region, _ = config["workloadIdentityAWSRegion"].(string)
 	return &GCSConfig{
 		Bucket:           bucketName,
 		Prefix:           prefix,
@@ -305,14 +292,8 @@ func gcsConfig(config map[string]any) *GCSConfig {
 		JSONReads:        jsonReads,
 		UploadIfNotExist: uploadIfNotExist,
 
-		AuthMethod:                           authMethod,
-		WorkloadIdentityProjectNumber:        wifProjectNumber,
-		WorkloadIdentityPoolID:               wifPoolID,
-		WorkloadIdentityProviderID:           wifProviderID,
-		WorkloadIdentityTargetServiceAccount: wifTargetServiceAccount,
-		WorkspaceID:                          workspaceID,
-		WorkloadIdentityAWSRoleARN:           wifAWSRoleARN,
-		WorkloadIdentityAWSRegion:            wifAWSRegion,
+		AuthMethod:       authMethod,
+		WorkloadIdentity: workloadIdentity,
 	}
 }
 
