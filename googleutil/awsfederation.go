@@ -35,34 +35,42 @@ type AWSFederationConfig struct {
 	Region  string
 }
 
-// awsSubjectType identifies the subject as a signed AWS GetCallerIdentity request.
-const awsSubjectType = "urn:ietf:params:aws:token-type:aws4_request"
-
-var awsFederationEndpoints = struct{ stsURL, impersonationURL string }{
-	stsURL:           "https://sts.googleapis.com/v1/token",
-	impersonationURL: "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%s:generateAccessToken",
-}
+const (
+	// awsSubjectType identifies the subject as a signed AWS GetCallerIdentity request.
+	awsSubjectType   = "urn:ietf:params:aws:token-type:aws4_request"
+	stsURL           = "https://sts.googleapis.com/v1/token"
+	impersonationURL = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/%s:generateAccessToken"
+)
 
 // AWSFederatedTokenSource assumes an AWS role with the workspace ID as session name and exchanges those
 // credentials through the customer's pool, returning tokens for cfg.TargetServiceAccount when set or the
 // federated identity itself otherwise. No credential material is stored in the destination config.
 func AWSFederatedTokenSource(ctx context.Context, cfg AWSFederationConfig, scopes []string) (oauth2.TokenSource, error) {
-	for _, f := range [][2]string{
-		{"project number", cfg.ProjectNumber},
-		{"pool id", cfg.PoolID},
-		{"provider id", cfg.ProviderID},
-		{"workspace id", cfg.WorkspaceID},
-		{"AWS region", cfg.Region},
-	} {
-		if f[1] == "" {
-			return nil, fmt.Errorf("workload identity federation: %s is required", f[0])
-		}
+	if field := cfg.missingField(); field != "" {
+		return nil, fmt.Errorf("workload identity federation: %s is required", field)
 	}
 	creds, err := awsFederationCredentials(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 	return awsFederatedTokenSource(ctx, cfg, scopes, creds)
+}
+
+// missingField names the first required field that is empty, or returns "" when all are set.
+func (cfg AWSFederationConfig) missingField() string {
+	switch {
+	case cfg.ProjectNumber == "":
+		return "project number"
+	case cfg.PoolID == "":
+		return "pool id"
+	case cfg.ProviderID == "":
+		return "provider id"
+	case cfg.WorkspaceID == "":
+		return "workspace id"
+	case cfg.Region == "":
+		return "AWS region"
+	}
+	return ""
 }
 
 // awsFederationCredentials returns cached AWS credentials whose session name is the workspace ID: from
@@ -114,12 +122,12 @@ func awsFederatedTokenSource(ctx context.Context, cfg AWSFederationConfig, scope
 		Audience: fmt.Sprintf("//iam.googleapis.com/projects/%s/locations/global/workloadIdentityPools/%s/providers/%s",
 			cfg.ProjectNumber, cfg.PoolID, cfg.ProviderID),
 		SubjectTokenType:               awsSubjectType,
-		TokenURL:                       awsFederationEndpoints.stsURL,
+		TokenURL:                       stsURL,
 		Scopes:                         scopes,
 		AwsSecurityCredentialsSupplier: &awsCredentialsSupplier{region: cfg.Region, creds: creds},
 	}
 	if cfg.TargetServiceAccount != "" {
-		conf.ServiceAccountImpersonationURL = fmt.Sprintf(awsFederationEndpoints.impersonationURL, cfg.TargetServiceAccount)
+		conf.ServiceAccountImpersonationURL = fmt.Sprintf(impersonationURL, cfg.TargetServiceAccount)
 	}
 	ts, err := externalaccount.NewTokenSource(ctx, conf)
 	if err != nil {

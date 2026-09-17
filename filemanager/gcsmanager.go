@@ -32,15 +32,16 @@ type GCSConfig struct {
 	UploadIfNotExist bool
 
 	// AuthMethod googleutil.AuthMethodWorkloadIdentityFederation authenticates through the customer's
-	// workload identity pool instead of Credentials, impersonating TargetServiceAccount when set.
-	AuthMethod                    string
-	TargetServiceAccount          string
-	WorkloadIdentityProjectNumber string
-	WorkloadIdentityPoolID        string
-	WorkloadIdentityProviderID    string
-	ExternalID                    string // workspace ID, the AWS role session name
-	FederationRoleARN             string // RudderStack's AWS federation role, injected by the server
-	FederationRegion              string
+	// workload identity pool instead of Credentials, impersonating WorkloadIdentityTargetServiceAccount when set.
+	AuthMethod                           string
+	WorkloadIdentityProjectNumber        string
+	WorkloadIdentityPoolID               string
+	WorkloadIdentityProviderID           string
+	WorkloadIdentityTargetServiceAccount string
+	// Injected by the server, not entered by the customer.
+	WorkspaceID                string // AWS role session name
+	WorkloadIdentityAWSRoleARN string // RudderStack's federation role; empty uses the pod's IRSA role
+	WorkloadIdentityAWSRegion  string
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
@@ -197,10 +198,10 @@ func (m *GcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 			ProjectNumber:        m.config.WorkloadIdentityProjectNumber,
 			PoolID:               m.config.WorkloadIdentityPoolID,
 			ProviderID:           m.config.WorkloadIdentityProviderID,
-			TargetServiceAccount: m.config.TargetServiceAccount,
-			WorkspaceID:          m.config.ExternalID,
-			RoleARN:              m.config.FederationRoleARN,
-			Region:               m.config.FederationRegion,
+			TargetServiceAccount: m.config.WorkloadIdentityTargetServiceAccount,
+			WorkspaceID:          m.config.WorkspaceID,
+			RoleARN:              m.config.WorkloadIdentityAWSRoleARN,
+			Region:               m.config.WorkloadIdentityAWSRegion,
 		}, []string{storage.ScopeFullControl})
 		if err != nil {
 			return m.client, err
@@ -287,13 +288,13 @@ func gcsConfig(config map[string]any) *GCSConfig {
 		}
 	}
 	authMethod, _ := config["authMethod"].(string)
-	targetServiceAccount, _ := config["workloadIdentityTargetServiceAccount"].(string)
 	wifProjectNumber, _ := config["workloadIdentityProjectNumber"].(string)
 	wifPoolID, _ := config["workloadIdentityPoolId"].(string)
 	wifProviderID, _ := config["workloadIdentityProviderId"].(string)
-	externalID, _ := config["externalID"].(string)
-	federationRoleARN, _ := config["federationRoleARN"].(string)
-	federationRegion, _ := config["federationRegion"].(string)
+	wifTargetServiceAccount, _ := config["workloadIdentityTargetServiceAccount"].(string)
+	workspaceID, _ := config["workspaceID"].(string)
+	wifAWSRoleARN, _ := config["workloadIdentityAWSRoleARN"].(string)
+	wifAWSRegion, _ := config["workloadIdentityAWSRegion"].(string)
 	return &GCSConfig{
 		Bucket:           bucketName,
 		Prefix:           prefix,
@@ -304,14 +305,14 @@ func gcsConfig(config map[string]any) *GCSConfig {
 		JSONReads:        jsonReads,
 		UploadIfNotExist: uploadIfNotExist,
 
-		AuthMethod:                    authMethod,
-		TargetServiceAccount:          targetServiceAccount,
-		WorkloadIdentityProjectNumber: wifProjectNumber,
-		WorkloadIdentityPoolID:        wifPoolID,
-		WorkloadIdentityProviderID:    wifProviderID,
-		ExternalID:                    externalID,
-		FederationRoleARN:             federationRoleARN,
-		FederationRegion:              federationRegion,
+		AuthMethod:                           authMethod,
+		WorkloadIdentityProjectNumber:        wifProjectNumber,
+		WorkloadIdentityPoolID:               wifPoolID,
+		WorkloadIdentityProviderID:           wifProviderID,
+		WorkloadIdentityTargetServiceAccount: wifTargetServiceAccount,
+		WorkspaceID:                          workspaceID,
+		WorkloadIdentityAWSRoleARN:           wifAWSRoleARN,
+		WorkloadIdentityAWSRegion:            wifAWSRegion,
 	}
 }
 

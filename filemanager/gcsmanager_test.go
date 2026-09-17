@@ -107,15 +107,15 @@ func TestGCSManagerWorkloadIdentityFederation(t *testing.T) {
 		"workloadIdentityPoolId":               "wif-pool",
 		"workloadIdentityProviderId":           "rudderstack-aws",
 		"workloadIdentityTargetServiceAccount": "rudderstack-bq@acme.iam.gserviceaccount.com",
-		"externalID":                           "30bK6N9S6Ca7C0SGITpgVsmRlIs",
-		"federationRegion":                     "us-east-1",
+		"workspaceID":                          "30bK6N9S6Ca7C0SGITpgVsmRlIs",
+		"workloadIdentityAWSRegion":            "us-east-1",
 		"credentials":                          "", // must not be needed
 	}})
 	require.NoError(t, err)
 	m, ok := fm.(*GcsManager)
 	require.True(t, ok)
-	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", m.config.ExternalID)
-	require.Equal(t, "us-east-1", m.config.FederationRegion)
+	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", m.config.WorkspaceID)
+	require.Equal(t, "us-east-1", m.config.WorkloadIdentityAWSRegion)
 
 	// empty credentials would fail as a service account key; the federation path never reads them.
 	// AWS credentials resolve lazily on the first request, so building the client succeeds.
