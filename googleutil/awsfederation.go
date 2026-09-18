@@ -133,7 +133,8 @@ func awsFederatedTokenSource(ctx context.Context, cfg AWSFederationConfig, scope
 	if cfg.TargetServiceAccount != "" {
 		conf.ServiceAccountImpersonationURL = fmt.Sprintf(impersonationURL, cfg.TargetServiceAccount)
 	}
-	ts, err := externalaccount.NewTokenSource(ctx, conf)
+	// the token source refreshes long after this call, so it must not hold a request-scoped context
+	ts, err := externalaccount.NewTokenSource(context.WithoutCancel(ctx), conf)
 	if err != nil {
 		return nil, fmt.Errorf("building workload identity federation credentials: %w", err)
 	}

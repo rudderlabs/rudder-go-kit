@@ -22,6 +22,14 @@ func TestGetRegionFromBucket(t *testing.T) {
 func TestRoleSessionName(t *testing.T) {
 	require.Equal(t, "rudderstack-aws-s3-access", roleSessionName(&SessionConfig{Service: "S3"}))
 	require.Equal(t, "30bK6N9S6Ca7C0SGITpgVsmRlIs", roleSessionName(&SessionConfig{Service: "S3", RoleSessionName: "30bK6N9S6Ca7C0SGITpgVsmRlIs"}))
+
+	// the session name identifies the workspace to a customer's grant, so it must stay server-controlled
+	sessionConfig, err := NewSimpleSessionConfig(map[string]any{
+		"region":          "us-east-1",
+		"roleSessionName": "another-workspace",
+	}, "S3")
+	require.NoError(t, err)
+	require.Empty(t, sessionConfig.RoleSessionName)
 }
 
 // Without a role or static keys the default chain resolves IRSA web identity from the environment, and

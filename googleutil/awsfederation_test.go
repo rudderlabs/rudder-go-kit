@@ -110,6 +110,19 @@ func TestAWSFederatedTokenSource(t *testing.T) {
 		require.Empty(t, ex.impersonated)
 	})
 
+	t.Run("refreshes the token after the calling context is cancelled", func(t *testing.T) {
+		ctx, ex := fakeGoogle(t)
+		ctx, cancel := context.WithCancel(ctx)
+		ts, err := awsFederatedTokenSource(ctx, cfg, []string{"scope"}, creds)
+		require.NoError(t, err)
+		cancel() // the file manager caches the client long after the first request is done
+
+		tok, err := ts.Token()
+		require.NoError(t, err)
+		require.NoError(t, ex.err)
+		require.Equal(t, "sa-token", tok.AccessToken)
+	})
+
 	t.Run("reports a missing field before calling AWS", func(t *testing.T) {
 		missing := cfg
 		missing.WorkspaceID = ""

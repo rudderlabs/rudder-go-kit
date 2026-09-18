@@ -29,7 +29,7 @@ type SessionConfig struct {
 	RoleBasedAuth       bool           `mapstructure:"roleBasedAuth"`
 	IAMRoleARN          string         `mapstructure:"iamRoleARN"`
 	ExternalID          string         `mapstructure:"externalID"`
-	RoleSessionName     string         `mapstructure:"roleSessionName"`
+	RoleSessionName     string         `mapstructure:"-"` // set in code only, never from destination config
 	WorkspaceID         string         `mapstructure:"workspaceID"`
 	Service             string         `mapstructure:"service"`
 	Timeout             *time.Duration `mapstructure:"timeout"`
@@ -169,11 +169,7 @@ func roleSessionName(config *SessionConfig) string {
 	if config.RoleSessionName != "" {
 		return config.RoleSessionName
 	}
-	return createRoleSessionName(config.Service)
-}
-
-func createRoleSessionName(serviceName string) string {
-	return fmt.Sprintf("rudderstack-aws-%s-access", strings.ToLower(strings.ReplaceAll(serviceName, " ", "-")))
+	return fmt.Sprintf("rudderstack-aws-%s-access", strings.ToLower(strings.ReplaceAll(config.Service, " ", "-")))
 }
 
 // NewSimpleSessionConfig creates a new session config using the provided config map
