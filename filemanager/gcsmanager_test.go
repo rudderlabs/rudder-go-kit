@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/rudderlabs/rudder-go-kit/config"
+	"github.com/rudderlabs/rudder-go-kit/googleutil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
 	"github.com/rudderlabs/rudder-go-kit/testhelper"
 )
@@ -95,4 +96,36 @@ func TestGCSManager(t *testing.T) {
 			})
 		})
 	}
+}
+
+// A BigQuery destination stages load files through this manager with the same destination config,
+// so workload identity federation must be honoured here too, without falling back to the credentials field.
+func TestGCSManagerWorkloadIdentityFederation(t *testing.T) {
+	fm, err := New(&Settings{Provider: "GCS", Logger: logger.NOP, Conf: config.New(), Config: map[string]any{
+		"bucketName":                           "test-bucket",
+		"authMethod":                           "workloadIdentityFederation",
+		"workloadIdentityProjectNumber":        "799415897419",
+		"workloadIdentityPoolId":               "wif-pool",
+		"workloadIdentityProviderId":           "rudderstack-aws",
+		"workloadIdentityTargetServiceAccount": "rudderstack-bq@acme.iam.gserviceaccount.com",
+		"workspaceID":                          "30bK6N9S6Ca7C0SGITpgVsmRlIs",
+		"workloadIdentityAWSRegion":            "us-east-1",
+		"credentials":                          "", // must not be needed
+	}})
+	require.NoError(t, err)
+	m, ok := fm.(*GcsManager)
+	require.True(t, ok)
+	require.Equal(t, googleutil.AWSFederationConfig{
+		ProjectNumber:        "799415897419",
+		PoolID:               "wif-pool",
+		ProviderID:           "rudderstack-aws",
+		TargetServiceAccount: "rudderstack-bq@acme.iam.gserviceaccount.com",
+		WorkspaceID:          "30bK6N9S6Ca7C0SGITpgVsmRlIs",
+		Region:               "us-east-1",
+	}, m.config.WorkloadIdentity)
+
+	// empty credentials would fail as a service account key; the federation path never reads them.
+	// AWS credentials resolve lazily on the first request, so building the client succeeds.
+	_, err = m.getClient(t.Context())
+	require.NoError(t, err)
 }
