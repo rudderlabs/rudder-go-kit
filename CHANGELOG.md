@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.80.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.79.1...v0.80.0) (2026-09-21)
+
+
+### Features
+
+* authenticate to GCP via AWS workload identity federation ([#1214](https://github.com/rudderlabs/rudder-go-kit/issues/1214)) ([d15c847](https://github.com/rudderlabs/rudder-go-kit/commit/d15c847f0a3f673cd8a8f5521ee60748d6f6601c))
+
 ## [0.79.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.79.0...v0.79.1) (2026-09-14)
 
 
