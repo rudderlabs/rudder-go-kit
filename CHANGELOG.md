@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.80.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.80.0...v0.80.1) (2026-09-28)
+
+
+### Miscellaneous
+
+* **deps:** bump aws-actions/amazon-ecr-login from 2.1.5 to 2.1.7 ([#1210](https://github.com/rudderlabs/rudder-go-kit/issues/1210)) ([9d6bf81](https://github.com/rudderlabs/rudder-go-kit/commit/9d6bf81b6a7e6d2dbe3ebea9a6401d23062b50e0))
+* **deps:** bump aws-actions/configure-aws-credentials from 6.2.3 to 6.2.4 ([#1216](https://github.com/rudderlabs/rudder-go-kit/issues/1216)) ([23835d7](https://github.com/rudderlabs/rudder-go-kit/commit/23835d73ef331d64f06ea053f145d1648eb61343))
+* **deps:** bump codecov/codecov-action from 7.0.0 to 7.1.0 ([#1225](https://github.com/rudderlabs/rudder-go-kit/issues/1225)) ([cae651c](https://github.com/rudderlabs/rudder-go-kit/commit/cae651c6512c4eedafe56dcd97abe718b734ad13))
+* **deps:** bump golangci/golangci-lint-action from 9.2.0 to 9.3.0 ([#1211](https://github.com/rudderlabs/rudder-go-kit/issues/1211)) ([66774e4](https://github.com/rudderlabs/rudder-go-kit/commit/66774e4a78080b3416fb6fff59065e169ee338b3))
+* **deps:** bump step-security/harden-runner from 2.21.0 to 2.21.1 ([#1215](https://github.com/rudderlabs/rudder-go-kit/issues/1215)) ([0f550c3](https://github.com/rudderlabs/rudder-go-kit/commit/0f550c35cbf435dc77b2e1e1697408d8dd0584b0))
+* **deps:** bump the all group across 1 directory with 21 updates ([#1226](https://github.com/rudderlabs/rudder-go-kit/issues/1226)) ([3368a23](https://github.com/rudderlabs/rudder-go-kit/commit/3368a23574492fab5410b0b7f572b0c90032e54b))
+* **deps:** bump the frequent group across 1 directory with 2 updates ([#1203](https://github.com/rudderlabs/rudder-go-kit/issues/1203)) ([4257b63](https://github.com/rudderlabs/rudder-go-kit/commit/4257b634df65e33ad36dfd1284a6f067e76122ea))
+* **deps:** bump the opentelemetry group across 1 directory with 9 updates ([#1206](https://github.com/rudderlabs/rudder-go-kit/issues/1206)) ([a31e304](https://github.com/rudderlabs/rudder-go-kit/commit/a31e30422a9c3dde4e41e94de2ce3ef3d2a134f9))
+
 ## [0.80.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.79.1...v0.80.0) (2026-09-21)
 
 
