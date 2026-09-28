@@ -30,6 +30,11 @@ type GCSConfig struct {
 	DisableSSL       *bool
 	JSONReads        bool
 	UploadIfNotExist bool
+
+	// AuthMethod googleutil.AuthMethodWorkloadIdentityFederation authenticates through WorkloadIdentity
+	// instead of Credentials.
+	AuthMethod       string
+	WorkloadIdentity googleutil.AWSFederationConfig
 }
 
 // NewGCSManager creates a new file manager for Google Cloud Storage
@@ -181,7 +186,13 @@ func (m *GcsManager) getClient(ctx context.Context) (*storage.Client, error) {
 	if m.config.EndPoint != nil && *m.config.EndPoint != "" {
 		options = append(options, option.WithEndpoint(*m.config.EndPoint))
 	}
-	if !googleutil.ShouldSkipCredentialsInit(m.config.Credentials) {
+	if m.config.AuthMethod == googleutil.AuthMethodWorkloadIdentityFederation {
+		ts, err := googleutil.AWSFederatedTokenSource(ctx, m.config.WorkloadIdentity, []string{storage.ScopeReadWrite})
+		if err != nil {
+			return m.client, err
+		}
+		options = append(options, option.WithTokenSource(ts))
+	} else if !googleutil.ShouldSkipCredentialsInit(m.config.Credentials) {
 		if err := googleutil.CompatibleServiceAccountJSON([]byte(m.config.Credentials)); err != nil {
 			return m.client, err
 		}
@@ -261,6 +272,16 @@ func gcsConfig(config map[string]any) *GCSConfig {
 			uploadIfNotExist = tmp
 		}
 	}
+	authMethod, _ := config["authMethod"].(string)
+	var workloadIdentity googleutil.AWSFederationConfig
+	workloadIdentity.ProjectNumber, _ = config["workloadIdentityProjectNumber"].(string)
+	workloadIdentity.PoolID, _ = config["workloadIdentityPoolId"].(string)
+	workloadIdentity.ProviderID, _ = config["workloadIdentityProviderId"].(string)
+	workloadIdentity.TargetServiceAccount, _ = config["workloadIdentityTargetServiceAccount"].(string)
+	// injected by the server, not entered by the customer
+	workloadIdentity.WorkspaceID, _ = config["workspaceID"].(string)
+	workloadIdentity.RoleARN, _ = config["workloadIdentityAWSRoleARN"].(string)
+	workloadIdentity.Region, _ = config["workloadIdentityAWSRegion"].(string)
 	return &GCSConfig{
 		Bucket:           bucketName,
 		Prefix:           prefix,
@@ -270,6 +291,9 @@ func gcsConfig(config map[string]any) *GCSConfig {
 		DisableSSL:       disableSSL,
 		JSONReads:        jsonReads,
 		UploadIfNotExist: uploadIfNotExist,
+
+		AuthMethod:       authMethod,
+		WorkloadIdentity: workloadIdentity,
 	}
 }
 

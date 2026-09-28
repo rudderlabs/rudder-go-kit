@@ -62,7 +62,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	}
 
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: registry.ImagePath("minio/minio"),
+		Repository: registry.ImagePath("pgsty/minio"),
 		Tag:        c.Tag,
 		NetworkID:  networkID,
 		Cmd:        []string{"server", "/data"},

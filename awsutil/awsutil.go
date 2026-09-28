@@ -29,6 +29,7 @@ type SessionConfig struct {
 	RoleBasedAuth       bool           `mapstructure:"roleBasedAuth"`
 	IAMRoleARN          string         `mapstructure:"iamRoleARN"`
 	ExternalID          string         `mapstructure:"externalID"`
+	RoleSessionName     string         `mapstructure:"-"` // set in code only, never from destination config
 	WorkspaceID         string         `mapstructure:"workspaceID"`
 	Service             string         `mapstructure:"service"`
 	Timeout             *time.Duration `mapstructure:"timeout"`
@@ -68,6 +69,14 @@ func CreateAWSConfig(ctx context.Context, config *SessionConfig) (aws.Config, er
 		awsconfig.WithRegion(config.Region),
 		awsconfig.WithHTTPClient(httpClient),
 		awsconfig.WithCredentialsProvider(awsCredentials),
+	}
+
+	// Without a role or static keys the SDK default credential chain is used; on EKS that is IRSA web
+	// identity, which then assumes its role with RoleSessionName as the session name.
+	if !config.RoleBasedAuth && config.RoleSessionName != "" {
+		optFuncs = append(optFuncs, awsconfig.WithWebIdentityRoleCredentialOptions(func(o *stscreds.WebIdentityRoleOptions) {
+			o.RoleSessionName = config.RoleSessionName
+		}))
 	}
 
 	// Add shared config profile if specified
@@ -148,15 +157,19 @@ func createV2CredentialsForRole(ctx context.Context, httpClient *http.Client, co
 	// Create role options
 	roleOptions := func(o *stscreds.AssumeRoleOptions) {
 		o.ExternalID = aws.String(config.ExternalID)
-		o.RoleSessionName = createRoleSessionName(config.Service)
+		o.RoleSessionName = roleSessionName(config)
 	}
 
 	// Return role credentials provider
 	return stscreds.NewAssumeRoleProvider(client, config.IAMRoleARN, roleOptions), nil
 }
 
-func createRoleSessionName(serviceName string) string {
-	return fmt.Sprintf("rudderstack-aws-%s-access", strings.ToLower(strings.ReplaceAll(serviceName, " ", "-")))
+// roleSessionName is config.RoleSessionName when set, else the per-service default.
+func roleSessionName(config *SessionConfig) string {
+	if config.RoleSessionName != "" {
+		return config.RoleSessionName
+	}
+	return fmt.Sprintf("rudderstack-aws-%s-access", strings.ToLower(strings.ReplaceAll(config.Service, " ", "-")))
 }
 
 // NewSimpleSessionConfig creates a new session config using the provided config map
