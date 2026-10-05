@@ -384,6 +384,10 @@ func writeConfig(dir string, config Config, nodes []*Node, index int, certPEM, k
 		if err := os.WriteFile(path, []byte(file.content), 0o644); err != nil {
 			return nil, err
 		}
+		// The umask can clear the read bits, and the server reads the bind-mounted file as uid 101.
+		if err := os.Chmod(path, 0o644); err != nil {
+			return nil, err
+		}
 		mounts = append(mounts, path+":"+file.destination+":ro")
 	}
 	return mounts, nil
