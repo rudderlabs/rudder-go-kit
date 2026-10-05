@@ -97,15 +97,15 @@ func (node *Node) OpenDB(protocol ch.Protocol) (*sql.DB, error) {
 // Setup starts the resource and registers its cleanup with d only after it succeeds.
 // The caller must wait for Setup to return before the test ends.
 func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource, err error) {
+	if pool == nil || d == nil {
+		return nil, fmt.Errorf("pool and cleaner must not be nil")
+	}
 	config := defaultConfig()
 	for _, option := range opts {
 		option(&config)
 	}
 	if err := config.validate(); err != nil {
 		return nil, err
-	}
-	if pool == nil || d == nil {
-		return nil, fmt.Errorf("pool and cleaner must not be nil")
 	}
 	dir, err := os.MkdirTemp("", "clickhouse-resource-")
 	if err != nil {

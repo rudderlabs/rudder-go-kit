@@ -17,6 +17,8 @@ import (
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
+
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource"
 )
 
 func dockerPool(t *testing.T) *dockertest.Pool {
@@ -344,4 +346,23 @@ func TestSetupFailureRegistersNoCleanup(t *testing.T) {
 	entries, err := os.ReadDir(tmp)
 	require.NoError(t, err)
 	require.Empty(t, entries, "a failed Setup removes its configuration directory")
+}
+
+func TestSetupRejectsNilPoolOrCleanerBeforeOptions(t *testing.T) {
+	pool, err := dockertest.NewPool("tcp://127.0.0.1:1")
+	require.NoError(t, err)
+	for name, args := range map[string]struct {
+		pool    *dockertest.Pool
+		cleaner resource.Cleaner
+	}{
+		"nil pool":    {cleaner: &countingCleaner{}},
+		"nil cleaner": {pool: pool},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var applied bool
+			_, err := Setup(args.pool, args.cleaner, func(*Config) { applied = true })
+			require.EqualError(t, err, "pool and cleaner must not be nil")
+			require.False(t, applied, "Setup checks its arguments before it applies options")
+		})
+	}
 }
