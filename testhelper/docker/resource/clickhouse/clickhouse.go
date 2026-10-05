@@ -135,6 +135,14 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, e
 				d.Log("Purging ClickHouse container:", err)
 			}
 		}
+		for index := len(result.Nodes) - 1; index >= 0; index-- {
+			node := result.Nodes[index]
+			if node.ContainerName != "" && node.ContainerID == "" {
+				if err := pool.RemoveContainerByName(node.ContainerName); err != nil {
+					d.Log("Purging incomplete ClickHouse container:", err)
+				}
+			}
+		}
 		if network != nil {
 			if err := pool.RemoveNetwork(network); err != nil {
 				d.Log("Removing ClickHouse network:", err)
@@ -191,6 +199,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, e
 		if config.TLS {
 			httpPort, nativePort = "8443", "9440"
 		}
+		node.ContainerName = node.Hostname
 		container, err := pool.RunWithOptions(&dockertest.RunOptions{
 			Repository: repository, Tag: tag, Auth: registry.AuthConfiguration(),
 			Name: node.Hostname, Hostname: node.Hostname, NetworkID: result.NetworkID,
@@ -204,6 +213,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, e
 		if err != nil {
 			orphan, inspectErr := pool.Client.InspectContainer(node.Hostname)
 			if inspectErr == nil {
+				node.ContainerID = orphan.ID
 				containers = append(containers, &dockertest.Resource{Container: orphan})
 			} else {
 				d.Log("Inspecting incomplete ClickHouse startup:", inspectErr)
@@ -301,8 +311,40 @@ func clusterReady(result *Resource) error {
 			return fmt.Errorf("replicated table on %s is not ready", node.Hostname)
 		}
 	}
+	marker := uint64(time.Now().UnixNano())
+	insert := "INSERT INTO " + table + " (id) VALUES (?)"
+	seenShards := make(map[string]bool)
+	for _, node := range result.Nodes {
+		if seenShards[node.Macros.Shard] {
+			continue
+		}
+		seenShards[node.Macros.Shard] = true
+		if _, err := node.DB.ExecContext(ctx, insert, marker); err != nil {
+			return fmt.Errorf("inserting ClickHouse readiness row on %s: %w", node.Hostname, err)
+		}
+	}
+	for _, node := range result.Nodes {
+		if err := waitForReadinessRow(ctx, node, table, marker); err != nil {
+			return err
+		}
+	}
 	_, err := result.DB.ExecContext(ctx, "DROP TABLE IF EXISTS "+table+" ON CLUSTER "+result.ClusterName+" SYNC")
 	return err
+}
+
+func waitForReadinessRow(ctx context.Context, node *Node, table string, marker uint64) error {
+	query := "SELECT count() FROM " + table + " WHERE id = ?"
+	for {
+		var count uint64
+		if err := node.DB.QueryRowContext(ctx, query, marker).Scan(&count); err == nil && count == 1 {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for ClickHouse readiness row on replica %s: %w", node.Hostname, ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }
 
 func quoteIdentifier(value string) string {

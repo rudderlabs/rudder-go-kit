@@ -31,6 +31,13 @@ func TestConfig(t *testing.T) {
 	}
 }
 
+func TestTLSRequiresPassword(t *testing.T) {
+	config := defaultConfig()
+	WithTLS()(&config)
+	WithPassword("")(&config)
+	require.ErrorContains(t, config.validate(), "TLS requires a non-empty password")
+}
+
 func verifyCertificate(t *testing.T, certificate tls.Certificate, config *tls.Config, hostname string) {
 	t.Helper()
 	leaf, err := x509.ParseCertificate(certificate.Certificate[0])

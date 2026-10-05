@@ -107,6 +107,9 @@ func (config Config) validate() error {
 	if config.User == "" || config.Database == "" {
 		return fmt.Errorf("user and database must not be empty")
 	}
+	if config.TLS && config.Password == "" {
+		return fmt.Errorf("ClickHouse TLS requires a non-empty password")
+	}
 	if config.Memory < 0 {
 		return fmt.Errorf("memory must not be negative")
 	}

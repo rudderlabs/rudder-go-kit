@@ -179,19 +179,28 @@ func (roundTrip roundTripFunc) RoundTrip(request *http.Request) (*http.Response,
 	return roundTrip(request)
 }
 
-func TestReadinessQueriesConfiguredDatabase(t *testing.T) {
-	db, mock, err := sqlmock.New()
+func mockNode(t *testing.T) (*Node, sqlmock.Sqlmock) {
+	t.Helper()
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	t.Cleanup(func() {
+		mock.ExpectClose()
+		require.NoError(t, db.Close())
+		require.NoError(t, mock.ExpectationsWereMet())
+	})
+	return &Node{DB: db}, mock
+}
+
+func TestReadinessQueriesSQLAfterPing(t *testing.T) {
+	node, mock := mockNode(t)
+	node.Host, node.HTTPPort = "127.0.0.1", "8123"
 	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("Ok.\n"))}, nil
 	})}
 	mock.ExpectQuery("SELECT 1").WillReturnRows(sqlmock.NewRows([]string{"one"}).AddRow(1))
-	require.NoError(t, ready(client, &Node{DB: db, Host: "127.0.0.1", HTTPPort: "8123"}))
+	require.NoError(t, ready(client, node))
 	mock.ExpectQuery("SELECT 1").WillReturnError(context.DeadlineExceeded)
-	require.ErrorIs(t, ready(client, &Node{DB: db, Host: "127.0.0.1", HTTPPort: "8123"}), context.DeadlineExceeded)
-	require.NoError(t, mock.ExpectationsWereMet())
-	mock.ExpectClose()
+	require.ErrorIs(t, ready(client, node), context.DeadlineExceeded)
 }
 
 func TestOpenDBInvalidProtocol(t *testing.T) {
@@ -202,52 +211,57 @@ func TestOpenDBInvalidProtocol(t *testing.T) {
 
 func TestClusterReadiness(t *testing.T) {
 	config := defaultConfig()
-	WithCluster(1, 2)(&config)
+	WithCluster(2, 2)(&config)
 	result := &Resource{Nodes: topology("fixture", config), ClusterName: clusterName}
 	result.Node = result.Nodes[0]
 	mocks := make([]sqlmock.Sqlmock, 0, len(result.Nodes))
 	for _, node := range result.Nodes {
-		db, mock, err := sqlmock.New()
-		require.NoError(t, err)
-		node.DB = db
-		t.Cleanup(func() { require.NoError(t, db.Close()) })
-		mock.ExpectQuery("SELECT count\\(\\) FROM system.clusters").WithArgs(clusterName).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
+		mocked, mock := mockNode(t)
+		node.DB = mocked.DB
+		mock.ExpectQuery("SELECT count() FROM system.clusters WHERE cluster = ?").WithArgs(clusterName).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(4))
 		mocks = append(mocks, mock)
 	}
-	mocks[0].ExpectExec("CREATE TABLE IF NOT EXISTS.*ON CLUSTER rudder_cluster.*ReplicatedMergeTree").WillReturnResult(sqlmock.NewResult(0, 0))
+	table := "`rudderdb`.`__dockertest_readiness`"
+	mocks[0].ExpectExec("CREATE TABLE IF NOT EXISTS " + table + " ON CLUSTER " + clusterName + " (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id").WillReturnResult(sqlmock.NewResult(0, 0))
 	for _, mock := range mocks {
-		mock.ExpectQuery("SELECT count\\(\\) FROM system.replicas").WithArgs(config.Database).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+		mock.ExpectQuery("SELECT count() FROM system.replicas WHERE database = ? AND table = '__dockertest_readiness' AND is_readonly = 0 AND is_session_expired = 0").WithArgs(config.Database).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	}
-	mocks[0].ExpectExec("DROP TABLE IF EXISTS.*ON CLUSTER rudder_cluster SYNC").WillReturnResult(sqlmock.NewResult(0, 0))
+	mocks[0].ExpectExec("INSERT INTO " + table + " (id) VALUES (?)").WithArgs(sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
+	mocks[2].ExpectExec("INSERT INTO " + table + " (id) VALUES (?)").WithArgs(sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
+	for index, mock := range mocks {
+		if index == 1 {
+			mock.ExpectQuery("SELECT count() FROM " + table + " WHERE id = ?").WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+		}
+		mock.ExpectQuery("SELECT count() FROM " + table + " WHERE id = ?").WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	}
+	mocks[0].ExpectExec("DROP TABLE IF EXISTS " + table + " ON CLUSTER " + clusterName + " SYNC").WillReturnResult(sqlmock.NewResult(0, 0))
 	require.NoError(t, clusterReady(result))
-	for _, mock := range mocks {
-		require.NoError(t, mock.ExpectationsWereMet())
-		mock.ExpectClose()
-	}
+}
+
+func TestReadinessRowTimesOutForReplica(t *testing.T) {
+	node, mock := mockNode(t)
+	node.Hostname = "replica-2"
+	mock.ExpectQuery("SELECT count() FROM `fixture`.`readiness` WHERE id = ?").WithArgs(uint64(42)).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	err := waitForReadinessRow(ctx, node, "`fixture`.`readiness`", 42)
+	require.ErrorContains(t, err, "replica-2")
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
 func TestClusterReadinessRejectsIncompleteTopology(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	node := &Node{DB: db}
-	mock.ExpectQuery("SELECT count\\(\\) FROM system.clusters").WithArgs(clusterName).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	node, mock := mockNode(t)
+	mock.ExpectQuery("SELECT count() FROM system.clusters WHERE cluster = ?").WithArgs(clusterName).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	require.ErrorContains(t, clusterReady(&Resource{Node: node, Nodes: []*Node{node, {}}, ClusterName: clusterName}), "expected 2")
-	require.NoError(t, mock.ExpectationsWereMet())
-	mock.ExpectClose()
 }
 
 func TestClusterReadinessRejectsReadOnlyReplica(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	node := &Node{DB: db, Database: "fixture", Hostname: "node"}
-	mock.ExpectQuery("SELECT count\\(\\) FROM system.clusters").WithArgs(clusterName).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	mock.ExpectExec("CREATE TABLE IF NOT EXISTS").WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT count\\(\\) FROM system.replicas").WithArgs(node.Database).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	node, mock := mockNode(t)
+	node.Database, node.Hostname = "fixture", "node"
+	mock.ExpectQuery("SELECT count() FROM system.clusters WHERE cluster = ?").WithArgs(clusterName).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS `fixture`.`__dockertest_readiness` ON CLUSTER " + clusterName + " (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery("SELECT count() FROM system.replicas WHERE database = ? AND table = '__dockertest_readiness' AND is_readonly = 0 AND is_session_expired = 0").WithArgs(node.Database).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 	require.ErrorContains(t, clusterReady(&Resource{Node: node, Nodes: []*Node{node}, ClusterName: clusterName}), "not ready")
-	require.NoError(t, mock.ExpectationsWereMet())
-	mock.ExpectClose()
 }
 
 func TestQuoteIdentifier(t *testing.T) {
