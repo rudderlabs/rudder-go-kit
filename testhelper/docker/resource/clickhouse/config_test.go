@@ -22,13 +22,75 @@ func TestConfig(t *testing.T) {
 	require.Equal(t, "clickhouse/clickhouse-server:25.8", config.Image)
 	WithImage("localhost:5000/clickhouse:test")(&config)
 	require.Equal(t, "localhost:5000/clickhouse:test", config.Image)
-	WithCluster(2, 2)(&config)
-	require.NoError(t, config.validate())
-	for _, option := range []Opt{WithCluster(0, 0), WithCluster(0, 2), WithCluster(2, 0), WithCluster(-1, 1), WithMemory(-1), WithUser(""), WithDatabase(""), WithConfig("<broken>"), WithUsersConfig("<users/>"), WithEnv("CLICKHOUSE_USER=other"), WithImage("not an image")} {
-		invalid := defaultConfig()
-		option(&invalid)
-		require.Error(t, invalid.validate())
+
+	valid := map[string][]Opt{
+		"cluster":       {WithCluster(2, 2)},
+		"tls":           {WithTLS()},
+		"env":           {WithEnv("TZ=UTC", "EMPTY=")},
+		"config xml":    {WithConfig("<?xml version=\"1.0\"?><clickhouse><timezone>UTC</timezone></clickhouse>")},
+		"users xml":     {WithUsersConfig("<clickhouse><profiles/></clickhouse>")},
+		"names":         {WithUser("user-1_x"), WithDatabase("_db_1")},
+		"no password":   {WithPassword("")},
+		"custom digest": {WithImage("localhost:5000/clickhouse@sha256:810861a2e2d0188744f5f23b2d3ec9ff95812bcb9ddbb8fed13a377a7f305893")},
 	}
+	for name, options := range valid {
+		t.Run("valid "+name, func(t *testing.T) {
+			config := defaultConfig()
+			for _, option := range options {
+				option(&config)
+			}
+			require.NoError(t, config.validate())
+		})
+	}
+
+	invalid := []struct {
+		name   string
+		option Opt
+		err    string
+	}{
+		{"no cluster", WithCluster(0, 0), "shards and replicas"},
+		{"no shards", WithCluster(0, 2), "shards and replicas"},
+		{"no replicas", WithCluster(2, 0), "shards and replicas"},
+		{"negative shards", WithCluster(-1, 1), "shards and replicas"},
+		{"node overflow", WithCluster(2, int(^uint(0)>>1)), "overflows"},
+		{"negative memory", WithMemory(-1), "memory"},
+		{"empty user", WithUser(""), "user"},
+		{"user with at sign", WithUser("user@x"), "user"},
+		{"user with dot", WithUser("user.x"), "user"},
+		{"user with leading digit", WithUser("1user"), "user"},
+		{"empty database", WithDatabase(""), "database"},
+		{"database with hyphen", WithDatabase("my-db"), "database"},
+		{"database with space", WithDatabase("my db"), "database"},
+		{"config root", WithConfig("<yandex/>"), "root must be clickhouse"},
+		{"users root", WithUsersConfig("<users/>"), "root must be clickhouse"},
+		{"two roots", WithConfig("<clickhouse/><clickhouse/>"), "one clickhouse document root"},
+		{"empty document", WithConfig("<!-- only -->"), "one clickhouse document root"},
+		{"text outside root", WithConfig("text<clickhouse/>"), "text outside"},
+		{"env without value", WithEnv("TZ"), "KEY=value"},
+		{"env without key", WithEnv("=UTC"), "KEY=value"},
+		{"env user", WithEnv("CLICKHOUSE_USER=other"), "CLICKHOUSE_USER"},
+		{"env password", WithEnv("CLICKHOUSE_PASSWORD=other"), "CLICKHOUSE_PASSWORD"},
+		{"env database", WithEnv("CLICKHOUSE_DB=other"), "CLICKHOUSE_DB"},
+		{"env access management", WithEnv("CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=0"), "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT"},
+		{"env skip user setup", WithEnv("CLICKHOUSE_SKIP_USER_SETUP=1"), "CLICKHOUSE_SKIP_USER_SETUP"},
+		{"image", WithImage("not an image"), "parsing ClickHouse image"},
+	}
+	for _, tc := range invalid {
+		t.Run("invalid "+tc.name, func(t *testing.T) {
+			config := defaultConfig()
+			tc.option(&config)
+			require.ErrorContains(t, config.validate(), tc.err)
+		})
+	}
+
+	t.Run("invalid xml syntax", func(t *testing.T) {
+		for _, option := range []Opt{WithConfig("<clickhouse>"), WithUsersConfig("<clickhouse></users>")} {
+			config := defaultConfig()
+			option(&config)
+			var syntaxErr *xml.SyntaxError
+			require.ErrorAs(t, config.validate(), &syntaxErr)
+		}
+	})
 }
 
 func TestTLSRequiresPassword(t *testing.T) {
@@ -47,15 +109,23 @@ func verifyCertificate(t *testing.T, certificate tls.Certificate, config *tls.Co
 }
 
 func TestImageReference(t *testing.T) {
-	for _, image := range []string{DefaultImage, "localhost:5000/clickhouse:test", "clickhouse/clickhouse-server@sha256:810861a2e2d0188744f5f23b2d3ec9ff95812bcb9ddbb8fed13a377a7f305893", "clickhouse/clickhouse-server"} {
+	const digest = "sha256:810861a2e2d0188744f5f23b2d3ec9ff95812bcb9ddbb8fed13a377a7f305893"
+	// A digest-only reference keeps tag "latest" on purpose: dockertest joins Repository and Tag with ":",
+	// Docker ignores the tag once a digest is present, and verifyImage checks the digest.
+	for image, want := range map[string][2]string{
+		DefaultImage:                               {"clickhouse/clickhouse-server", "26.3@" + digest},
+		"localhost:5000/clickhouse:test":           {"localhost:5000/clickhouse", "test"},
+		"localhost:5000/clickhouse":                {"localhost:5000/clickhouse", "latest"},
+		"clickhouse/clickhouse-server":             {"clickhouse/clickhouse-server", "latest"},
+		"clickhouse/clickhouse-server@" + digest:   {"clickhouse/clickhouse-server", "latest@" + digest},
+		"localhost:5000/clickhouse:test@" + digest: {"localhost:5000/clickhouse", "test@" + digest},
+	} {
 		repository, tag, err := splitImage(image)
-		require.NoError(t, err)
-		require.NotEmpty(t, repository)
-		require.NotEmpty(t, tag)
-		if strings.Contains(image, "@") {
-			require.Contains(t, repository+":"+tag, "@sha256:")
-		}
+		require.NoError(t, err, image)
+		require.Equal(t, want, [2]string{repository, tag}, image)
 	}
+	_, _, err := splitImage("clickhouse/clickhouse-server@sha256:short")
+	require.ErrorContains(t, err, "parsing ClickHouse image")
 }
 
 func TestDigestRepositoryAliases(t *testing.T) {

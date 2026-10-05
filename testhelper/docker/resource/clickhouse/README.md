@@ -46,7 +46,10 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
   published when TLS is enabled: only HTTPS 8443 and secure native 9440 are bound.
 - `WithUser`, `WithPassword`, `WithDatabase` configure the fixture administrator
   and database. Defaults: `rudder`, `password`, `rudderdb`. Scoped accounts and
-  application-specific grants remain the caller's responsibility.
+  application-specific grants remain the caller's responsibility. The image
+  entrypoint uses the database name unquoted in SQL and the user name as an XML
+  element, so `Setup` rejects a database outside `[A-Za-z_][A-Za-z0-9_]*` and a
+  user outside `[A-Za-z_][A-Za-z0-9_-]*`.
 - `WithTLS()` generates a throwaway CA/server certificate valid for localhost,
   loopback, the configured bind IP and the Docker node hostnames.
 - `WithCluster(shards, replicas)` requires positive dimensions. For one shard
@@ -78,8 +81,10 @@ on an untrusted shared network. Test keys must be readable by the container UID.
 Readiness uses `pool.Retry`: authenticated `/ping` and native `SELECT 1` on every
 node, every node's `system.clusters` membership, and a temporary
 `ReplicatedMergeTree` created `ON CLUSTER`, checked writable on every node and
-dropped before returning. `d.Cleanup` handles successful and partial setups,
-closing clients, purging nodes, removing owned networks and deleting files.
+dropped before returning. A failed `Setup` tears down its partial state before it
+returns and registers nothing with `d`. A successful `Setup` registers one
+`d.Cleanup` that closes clients, purges nodes, removes owned networks and deletes
+files. Wait for `Setup` to return before the test ends.
 Set `pool.MaxWait` before `Setup` if a different retry budget is needed.
 
 ## Verification

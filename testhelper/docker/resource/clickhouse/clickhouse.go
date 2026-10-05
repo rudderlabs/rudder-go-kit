@@ -94,7 +94,9 @@ func (node *Node) OpenDB(protocol ch.Protocol) (*sql.DB, error) {
 	return ch.OpenDB(options), nil
 }
 
-func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, error) {
+// Setup starts the resource and registers its cleanup with d only after it succeeds.
+// The caller must wait for Setup to return before the test ends.
+func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource, err error) {
 	config := defaultConfig()
 	for _, option := range opts {
 		option(&config)
@@ -113,9 +115,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, e
 	var network *dockertest.Network
 	var client *http.Client
 	result := &Resource{NetworkID: config.NetworkID}
-	setupFailed := true
-	d.Cleanup(func() {
-		if config.PrintLogsOnError && (setupFailed || d.Failed()) {
+	teardown := func(failed bool) {
+		if config.PrintLogsOnError && failed {
 			for _, container := range containers {
 				printLogs(pool, d, container)
 			}
@@ -150,7 +151,13 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, e
 		if err := os.RemoveAll(dir); err != nil {
 			d.Log("Removing ClickHouse configuration:", err)
 		}
-	})
+	}
+	// Setup may run outside the test goroutine, so it registers no cleanup until all state is written.
+	defer func() {
+		if err != nil {
+			teardown(true)
+		}
+	}()
 	if err := os.Chmod(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("making ClickHouse configuration readable: %w", err)
 	}
@@ -250,7 +257,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, e
 			return nil, fmt.Errorf("waiting for ClickHouse cluster: %w", err)
 		}
 	}
-	setupFailed = false
+	d.Cleanup(func() { teardown(d.Failed()) })
 	return result, nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 
 	"github.com/distribution/reference"
@@ -11,6 +12,13 @@ import (
 )
 
 const DefaultImage = "clickhouse/clickhouse-server:26.3@sha256:810861a2e2d0188744f5f23b2d3ec9ff95812bcb9ddbb8fed13a377a7f305893"
+
+// The image entrypoint uses CLICKHOUSE_DB unquoted in CREATE DATABASE and CLICKHOUSE_USER as an XML element name
+// whose dots ClickHouse would read as path separators. Other names make the container fail to start.
+var (
+	databasePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+	userPattern     = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)
+)
 
 type Opt func(*Config)
 
@@ -104,8 +112,11 @@ func (config Config) validate() error {
 	if _, _, err := splitImage(config.Image); err != nil {
 		return err
 	}
-	if config.User == "" || config.Database == "" {
-		return fmt.Errorf("user and database must not be empty")
+	if !userPattern.MatchString(config.User) {
+		return fmt.Errorf("user %q must match %s", config.User, userPattern)
+	}
+	if !databasePattern.MatchString(config.Database) {
+		return fmt.Errorf("database %q must match %s", config.Database, databasePattern)
 	}
 	if config.TLS && config.Password == "" {
 		return fmt.Errorf("ClickHouse TLS requires a non-empty password")
@@ -127,7 +138,7 @@ func (config Config) validate() error {
 	for _, env := range config.Env {
 		key, _, found := strings.Cut(env, "=")
 		if !found || key == "" {
-			return fmt.Errorf("environment variable must have KEY=value form")
+			return fmt.Errorf("environment variable %q must have KEY=value form", env)
 		}
 		switch key {
 		case "CLICKHOUSE_USER", "CLICKHOUSE_PASSWORD", "CLICKHOUSE_DB", "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT", "CLICKHOUSE_SKIP_USER_SETUP":
