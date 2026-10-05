@@ -348,6 +348,18 @@ func TestSetupFailureRegistersNoCleanup(t *testing.T) {
 	require.Empty(t, entries, "a failed Setup removes its configuration directory")
 }
 
+func TestSetupPanicTearsDownAndRepanics(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	cleaner := &countingCleaner{}
+	// A pool without a client panics at the first Docker call, after Setup has created its directory.
+	require.Panics(t, func() { _, _ = Setup(&dockertest.Pool{}, cleaner) })
+	require.Zero(t, cleaner.cleanups, "a panicking Setup tears down in place")
+	entries, err := os.ReadDir(tmp)
+	require.NoError(t, err)
+	require.Empty(t, entries, "a panicking Setup removes its configuration directory")
+}
+
 func TestSetupRejectsNilPoolOrCleanerBeforeOptions(t *testing.T) {
 	pool, err := dockertest.NewPool("tcp://127.0.0.1:1")
 	require.NoError(t, err)

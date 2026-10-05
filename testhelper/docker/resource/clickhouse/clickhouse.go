@@ -153,7 +153,12 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 		}
 	}
 	// Setup may run outside the test goroutine, so it registers no cleanup until all state is written.
+	// A panic leaves err nil, so it tears down before the panic continues.
 	defer func() {
+		if r := recover(); r != nil {
+			teardown(true)
+			panic(r)
+		}
 		if err != nil {
 			teardown(true)
 		}

@@ -141,7 +141,8 @@ func (config Config) validate() error {
 			return fmt.Errorf("environment variable %q must have KEY=value form", env)
 		}
 		switch key {
-		case "CLICKHOUSE_USER", "CLICKHOUSE_PASSWORD", "CLICKHOUSE_DB", "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT", "CLICKHOUSE_SKIP_USER_SETUP":
+		case "CLICKHOUSE_USER", "CLICKHOUSE_PASSWORD", "CLICKHOUSE_PASSWORD_FILE", "CLICKHOUSE_DB",
+			"CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT", "CLICKHOUSE_SKIP_USER_SETUP":
 			return fmt.Errorf("use credential options instead of environment variable %s", key)
 		}
 	}

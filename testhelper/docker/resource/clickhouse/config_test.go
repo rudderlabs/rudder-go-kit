@@ -70,6 +70,7 @@ func TestConfig(t *testing.T) {
 		{"env without key", WithEnv("=UTC"), "KEY=value"},
 		{"env user", WithEnv("CLICKHOUSE_USER=other"), "CLICKHOUSE_USER"},
 		{"env password", WithEnv("CLICKHOUSE_PASSWORD=other"), "CLICKHOUSE_PASSWORD"},
+		{"env password file", WithEnv("CLICKHOUSE_PASSWORD_FILE=/run/secrets/password"), "CLICKHOUSE_PASSWORD_FILE"},
 		{"env database", WithEnv("CLICKHOUSE_DB=other"), "CLICKHOUSE_DB"},
 		{"env access management", WithEnv("CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=0"), "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT"},
 		{"env skip user setup", WithEnv("CLICKHOUSE_SKIP_USER_SETUP=1"), "CLICKHOUSE_SKIP_USER_SETUP"},
