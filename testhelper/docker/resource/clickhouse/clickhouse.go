@@ -297,7 +297,7 @@ func clusterReady(result *Resource) error {
 		}
 	}
 	table := quoteIdentifier(result.Database) + ".`__dockertest_readiness`"
-	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ON CLUSTER %s (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id", table, result.ClusterName)
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ON CLUSTER %s (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id", table, quoteIdentifier(result.ClusterName))
 	if _, err := result.DB.ExecContext(ctx, query); err != nil {
 		return err
 	}
@@ -327,7 +327,7 @@ func clusterReady(result *Resource) error {
 			return err
 		}
 	}
-	_, err := result.DB.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s ON CLUSTER %s SYNC", table, result.ClusterName))
+	_, err := result.DB.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s ON CLUSTER %s SYNC", table, quoteIdentifier(result.ClusterName)))
 	return err
 }
 

@@ -209,6 +209,9 @@ func TestOpenDBInvalidProtocol(t *testing.T) {
 	require.Nil(t, db)
 }
 
+// quotedCluster is the exact form the readiness DDL must contain.
+const quotedCluster = "`" + clusterName + "`"
+
 func TestClusterReadiness(t *testing.T) {
 	config := defaultConfig()
 	WithCluster(2, 2)(&config)
@@ -222,7 +225,7 @@ func TestClusterReadiness(t *testing.T) {
 		mocks = append(mocks, mock)
 	}
 	table := "`rudderdb`.`__dockertest_readiness`"
-	mocks[0].ExpectExec("CREATE TABLE IF NOT EXISTS " + table + " ON CLUSTER " + clusterName + " (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id").WillReturnResult(sqlmock.NewResult(0, 0))
+	mocks[0].ExpectExec("CREATE TABLE IF NOT EXISTS " + table + " ON CLUSTER " + quotedCluster + " (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id").WillReturnResult(sqlmock.NewResult(0, 0))
 	for _, mock := range mocks {
 		mock.ExpectQuery("SELECT count() FROM system.replicas WHERE database = ? AND table = '__dockertest_readiness' AND is_readonly = 0 AND is_session_expired = 0").WithArgs(config.Database).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	}
@@ -234,7 +237,7 @@ func TestClusterReadiness(t *testing.T) {
 		}
 		mock.ExpectQuery("SELECT count() FROM " + table + " WHERE id = ?").WithArgs(sqlmock.AnyArg()).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	}
-	mocks[0].ExpectExec("DROP TABLE IF EXISTS " + table + " ON CLUSTER " + clusterName + " SYNC").WillReturnResult(sqlmock.NewResult(0, 0))
+	mocks[0].ExpectExec("DROP TABLE IF EXISTS " + table + " ON CLUSTER " + quotedCluster + " SYNC").WillReturnResult(sqlmock.NewResult(0, 0))
 	require.NoError(t, clusterReady(result))
 }
 
@@ -259,7 +262,7 @@ func TestClusterReadinessRejectsReadOnlyReplica(t *testing.T) {
 	node, mock := mockNode(t)
 	node.Database, node.Hostname = "fixture", "node"
 	mock.ExpectQuery("SELECT count() FROM system.clusters WHERE cluster = ?").WithArgs(clusterName).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	mock.ExpectExec("CREATE TABLE IF NOT EXISTS `fixture`.`__dockertest_readiness` ON CLUSTER " + clusterName + " (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec("CREATE TABLE IF NOT EXISTS `fixture`.`__dockertest_readiness` ON CLUSTER " + quotedCluster + " (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id").WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectQuery("SELECT count() FROM system.replicas WHERE database = ? AND table = '__dockertest_readiness' AND is_readonly = 0 AND is_session_expired = 0").WithArgs(node.Database).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 	require.ErrorContains(t, clusterReady(&Resource{Node: node, Nodes: []*Node{node}, ClusterName: clusterName}), "not ready")
 }
