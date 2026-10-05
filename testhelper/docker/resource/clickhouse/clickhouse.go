@@ -130,13 +130,12 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (*Resource, e
 		if client != nil {
 			client.CloseIdleConnections()
 		}
-		for index := len(containers) - 1; index >= 0; index-- {
-			if err := pool.Purge(containers[index]); err != nil {
+		for _, container := range slices.Backward(containers) {
+			if err := pool.Purge(container); err != nil {
 				d.Log("Purging ClickHouse container:", err)
 			}
 		}
-		for index := len(result.Nodes) - 1; index >= 0; index-- {
-			node := result.Nodes[index]
+		for _, node := range slices.Backward(result.Nodes) {
 			if node.ContainerName != "" && node.ContainerID == "" {
 				if err := pool.RemoveContainerByName(node.ContainerName); err != nil {
 					d.Log("Purging incomplete ClickHouse container:", err)
@@ -298,7 +297,7 @@ func clusterReady(result *Resource) error {
 		}
 	}
 	table := quoteIdentifier(result.Database) + ".`__dockertest_readiness`"
-	query := "CREATE TABLE IF NOT EXISTS " + table + " ON CLUSTER " + result.ClusterName + " (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id"
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ON CLUSTER %s (id UInt64) ENGINE = ReplicatedMergeTree('/clickhouse/tables/{shard}/dockertest_readiness', '{replica}') ORDER BY id", table, result.ClusterName)
 	if _, err := result.DB.ExecContext(ctx, query); err != nil {
 		return err
 	}
@@ -312,7 +311,7 @@ func clusterReady(result *Resource) error {
 		}
 	}
 	marker := uint64(time.Now().UnixNano())
-	insert := "INSERT INTO " + table + " (id) VALUES (?)"
+	insert := fmt.Sprintf("INSERT INTO %s (id) VALUES (?)", table) //nolint:gosec // table is quoteIdentifier output
 	seenShards := make(map[string]bool)
 	for _, node := range result.Nodes {
 		if seenShards[node.Macros.Shard] {
@@ -328,12 +327,12 @@ func clusterReady(result *Resource) error {
 			return err
 		}
 	}
-	_, err := result.DB.ExecContext(ctx, "DROP TABLE IF EXISTS "+table+" ON CLUSTER "+result.ClusterName+" SYNC")
+	_, err := result.DB.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s ON CLUSTER %s SYNC", table, result.ClusterName))
 	return err
 }
 
 func waitForReadinessRow(ctx context.Context, node *Node, table string, marker uint64) error {
-	query := "SELECT count() FROM " + table + " WHERE id = ?"
+	query := fmt.Sprintf("SELECT count() FROM %s WHERE id = ?", table) //nolint:gosec // table is quoteIdentifier output
 	for {
 		var count uint64
 		if err := node.DB.QueryRowContext(ctx, query, marker).Scan(&count); err == nil && count == 1 {
