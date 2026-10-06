@@ -37,6 +37,8 @@ type Config struct {
 	UsersXML         string
 	Env              []string
 	Memory           int64
+	// ProductionDefaults keeps ClickHouse's own sizing and every system log table instead of the test tuning.
+	ProductionDefaults bool
 
 	cluster bool
 }
@@ -102,6 +104,12 @@ func WithEnv(env ...string) Opt {
 
 func WithMemory(memory int64) Opt {
 	return func(config *Config) { config.Memory = memory }
+}
+
+// WithProductionDefaults turns off the test tuning, for tests that depend on ClickHouse's default pool sizes,
+// caches or system log tables such as part_log.
+func WithProductionDefaults() Opt {
+	return func(config *Config) { config.ProductionDefaults = true }
 }
 
 func defaultConfig() Config {

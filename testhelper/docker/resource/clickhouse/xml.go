@@ -9,6 +9,35 @@ import (
 
 const clusterName = "rudder_cluster"
 
+// testTuningXML sizes the server for short-lived tests: about 70% less RSS, 85% fewer threads and a third of
+// the idle CPU on 26.3 (ACT2-1049). It lives in resource.xml, which sorts before the caller's zz_extra.xml,
+// so WithConfig still overrides any value.
+//
+// Constraints found by measurement:
+//   - background_pool_size × background_merges_mutations_concurrency_ratio must be at least 25, or the server
+//     aborts at startup while the container stays up.
+//   - max_thread_pool_size is not set: below about 2000 the server hangs at startup.
+//   - max_server_memory_usage is not set: ClickHouse derives it from the container limit, and a fixed value
+//     trips during startup or breaks WithMemory(0).
+//   - query_log stays enabled, because tests read it after SYSTEM FLUSH LOGS.
+const testTuningXML = `<background_pool_size>5</background_pool_size>` +
+	`<background_merges_mutations_concurrency_ratio>5</background_merges_mutations_concurrency_ratio>` +
+	`<background_schedule_pool_size>4</background_schedule_pool_size>` +
+	`<background_move_pool_size>1</background_move_pool_size>` +
+	`<background_fetches_pool_size>1</background_fetches_pool_size>` +
+	`<background_common_pool_size>2</background_common_pool_size>` +
+	`<background_distributed_schedule_pool_size>1</background_distributed_schedule_pool_size>` +
+	`<mark_cache_size>16777216</mark_cache_size>` +
+	`<uncompressed_cache_size>0</uncompressed_cache_size>` +
+	`<index_mark_cache_size>0</index_mark_cache_size>` +
+	`<asynchronous_metrics_update_period_s>600</asynchronous_metrics_update_period_s>` +
+	`<asynchronous_heavy_metrics_update_period_s>600</asynchronous_heavy_metrics_update_period_s>` +
+	`<mlock_executable>false</mlock_executable>` +
+	`<metric_log remove="1"/><trace_log remove="1"/><text_log remove="1"/><asynchronous_metric_log remove="1"/>` +
+	`<part_log remove="1"/><processors_profile_log remove="1"/><opentelemetry_span_log remove="1"/>` +
+	`<query_thread_log remove="1"/><query_views_log remove="1"/><crash_log remove="1"/>` +
+	`<background_schedule_pool_log remove="1"/>`
+
 type Macros struct {
 	Cluster string `xml:"cluster"`
 	Shard   string `xml:"shard"`
@@ -45,6 +74,9 @@ func escapeXML(value string) string {
 func serverConfig(config Config, nodes []*Node, index int) string {
 	var document strings.Builder
 	document.WriteString(`<clickhouse><logger><level>warning</level><console>1</console></logger>`)
+	if !config.ProductionDefaults {
+		document.WriteString(testTuningXML)
+	}
 	if config.TLS {
 		document.WriteString(`<https_port>8443</https_port><tcp_port_secure>9440</tcp_port_secure><openSSL><server><certificateFile>/etc/clickhouse-server/certs/server.pem</certificateFile><privateKeyFile>/etc/clickhouse-server/certs/server.key</privateKeyFile><verificationMode>none</verificationMode><loadDefaultCAFile>false</loadDefaultCAFile><disableProtocols>sslv2,sslv3,tlsv1,tlsv1_1</disableProtocols></server></openSSL>`)
 	}

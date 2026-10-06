@@ -62,6 +62,31 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
   Credential/initialization variables are rejected; use the explicit options.
 - `WithMemory(bytes)` sets Docker memory per server (zero uses Docker's default).
   `WithPrintLogsOnError(bool)` prints state and logs on test or setup failure.
+- `WithProductionDefaults()` turns off the test tuning described below. Use it
+  when a test depends on ClickHouse's default pool sizes, caches or system log
+  tables such as `system.part_log`.
+
+## Test tuning
+
+Each server is sized for short-lived tests by default. On 26.3 this cuts the
+idle RSS of one server from about 650 MiB to about 160 MiB, its threads from
+about 680 to about 100, and its idle CPU by about two thirds.
+
+- Background pools: `background_pool_size` 5 with
+  `background_merges_mutations_concurrency_ratio` 5, schedule 4, common 2, and
+  move, fetches and distributed schedule 1 each. Mutations and `OPTIMIZE` need
+  pool size × ratio of at least 25, so keep that product when you override them.
+- Caches: a 16 MiB mark cache, and no uncompressed or index mark cache.
+- Asynchronous metrics refresh every 600 s instead of every second.
+- These system log tables are disabled: `metric_log`, `trace_log`, `text_log`,
+  `asynchronous_metric_log`, `part_log`, `processors_profile_log`,
+  `opentelemetry_span_log`, `query_thread_log`, `query_views_log`, `crash_log`
+  and `background_schedule_pool_log`. `query_log` stays enabled.
+
+The tuning sets no global thread pool limit, because ClickHouse hangs at startup
+below about 2000 threads. It sets no `max_server_memory_usage` either, because
+ClickHouse derives it from the container memory limit. The tuning lives in the
+generated resource configuration, so a `WithConfig` document overrides any value.
 
 ## Cluster and lifecycle
 
