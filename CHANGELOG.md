@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.81.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.80.1...v0.81.0) (2026-10-06)
+
+
+### Features
+
+* **testhelper:** add a ClickHouse docker resource ([#1234](https://github.com/rudderlabs/rudder-go-kit/issues/1234)) ([90f093c](https://github.com/rudderlabs/rudder-go-kit/commit/90f093cd83b991e6d304b56b7afd22a67d4589fe))
+
+
+### Miscellaneous
+
+* **deps:** bump aws-actions/configure-aws-credentials from 6.2.4 to 6.3.0 ([#1229](https://github.com/rudderlabs/rudder-go-kit/issues/1229)) ([072fd00](https://github.com/rudderlabs/rudder-go-kit/commit/072fd00d4eb1aebf3de5669792dff5fe23267608))
+
 ## [0.80.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.80.0...v0.80.1) (2026-09-28)
 
 
