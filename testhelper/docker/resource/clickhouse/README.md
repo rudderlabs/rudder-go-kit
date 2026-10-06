@@ -35,6 +35,8 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
   handles; `Setup` closes the native `DB` on each node automatically.
 - `TLSConfig` and `CAPEM` expose per-resource trust for other clients. No global
   TLS registration, environment-based root replacement, or skip-verification.
+- `PlainHTTPPort` is the published plain HTTP port 8123. Without TLS it equals
+  `HTTPPort`. With TLS it is empty unless `WithPlainHTTPPort()` is set.
 
 ## Options
 
@@ -43,7 +45,8 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
   digests. Later options win. Docker Hub mirror configuration is respected.
 - `WithNetwork(network)` reuses a caller-owned network; `WithBindIP(ip)` controls
   published addresses (default `127.0.0.1`). Container-internal ports are not
-  published when TLS is enabled: only HTTPS 8443 and secure native 9440 are bound.
+  published when TLS is enabled: only HTTPS 8443 and secure native 9440 are bound,
+  plus plain HTTP 8123 with `WithPlainHTTPPort()`.
 - `WithUser`, `WithPassword`, `WithDatabase` configure the fixture administrator
   and database. Defaults: `rudder`, `password`, `rudderdb`. Scoped accounts and
   application-specific grants remain the caller's responsibility. The image
@@ -52,6 +55,16 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
   user outside `[A-Za-z_][A-Za-z0-9_-]*`.
 - `WithTLS()` generates a throwaway CA/server certificate valid for localhost,
   loopback, the configured bind IP and the Docker node hostnames.
+- `WithCertificateAuthority(certPEM, keyPEM)` signs the server certificate with
+  the caller's CA instead of a throwaway CA. `CAPEM` and `TLSConfig` then return
+  that CA. Use it when one process trusts one CA for every fixture, for example
+  through `SSL_CERT_DIR`. The certificate must be a CA with the certSign key
+  usage. It requires `WithTLS()`.
+- `WithPlainHTTPPort()` also publishes plain HTTP 8123 in TLS mode, for tests
+  that must reach the server's plain listener.
+- `WithoutIPSANs()` leaves the loopback and bind IP addresses off the server
+  certificate. `TLSConfig` then sets `ServerName` to `localhost`. A client that
+  verifies the dialed IP address fails. It requires `WithTLS()`.
 - `WithCluster(shards, replicas)` requires positive dimensions. For one shard
   with multiple replicas use `WithCluster(1, n)`; no redundant replicas option.
 - `WithConfig(xml)` and `WithUsersConfig(xml)` mount additional complete
@@ -117,6 +130,10 @@ Generated `remote_servers` entries use native 9000 and interserver replication
 uses HTTP 9009 on the private Docker network. TLS secures published client ports,
 not node-to-node traffic. Do not use this fixture with production credentials or
 on an untrusted shared network. Test keys must be readable by the container UID.
+
+Docker Desktop can report a started container before its port bindings. `Setup`
+inspects the container again with a short backoff, for at most 15 seconds, until
+every published port has a binding.
 
 Readiness uses `pool.Retry`: authenticated `/ping` and native `SELECT 1` on every
 node, every node's `system.clusters` membership, and a temporary

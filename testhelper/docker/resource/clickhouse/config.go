@@ -39,6 +39,13 @@ type Config struct {
 	Memory           int64
 	// DisableTestTuning keeps the image's stock sizing and every system log table instead of the test tuning.
 	DisableTestTuning bool
+	// CACertPEM and CAKeyPEM hold the caller CA that signs the server certificate. Empty means a throwaway CA.
+	CACertPEM []byte
+	CAKeyPEM  []byte
+	// PlainHTTPPort also publishes the plain HTTP port 8123 in TLS mode.
+	PlainHTTPPort bool
+	// NoIPSANs leaves loopback and bind IP addresses off the server certificate.
+	NoIPSANs bool
 
 	cluster bool
 }
@@ -128,6 +135,9 @@ func (config Config) validate() error {
 	}
 	if config.TLS && config.Password == "" {
 		return fmt.Errorf("ClickHouse TLS requires a non-empty password")
+	}
+	if err := config.validateTLSOptions(); err != nil {
+		return err
 	}
 	if config.Memory < 0 {
 		return fmt.Errorf("memory must not be negative")

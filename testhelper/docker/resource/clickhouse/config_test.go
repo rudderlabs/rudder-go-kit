@@ -246,7 +246,7 @@ func TestServerConfigWithoutTestTuning(t *testing.T) {
 }
 
 func TestTLSFixture(t *testing.T) {
-	config, caPEM, certPEM, keyPEM, err := newTLSFixture("127.0.0.2", []string{"fixture-s1-r1"})
+	config, caPEM, certPEM, keyPEM, err := newTLSFixture(nil, "127.0.0.2", []string{"fixture-s1-r1"}, true)
 	require.NoError(t, err)
 	require.NotEmpty(t, caPEM)
 	require.Equal(t, uint16(tls.VersionTLS12), config.MinVersion)

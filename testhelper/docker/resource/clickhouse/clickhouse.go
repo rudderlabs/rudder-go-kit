@@ -40,6 +40,8 @@ type Node struct {
 	ContainerID   string
 	Macros        Macros
 	TLSConfig     *tls.Config
+	// PlainHTTPPort is the published plain HTTP port 8123. In TLS mode it is empty without WithPlainHTTPPort.
+	PlainHTTPPort string
 
 	secure bool
 }
@@ -185,7 +187,13 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 		for _, node := range result.Nodes {
 			hostnames = append(hostnames, node.Hostname)
 		}
-		result.TLSConfig, result.CAPEM, certPEM, keyPEM, err = newTLSFixture(config.BindIP, hostnames)
+		var ca *tls.Certificate
+		if config.CACertPEM != nil || config.CAKeyPEM != nil {
+			if ca, err = parseCertificateAuthority(config.CACertPEM, config.CAKeyPEM); err != nil {
+				return nil, err
+			}
+		}
+		result.TLSConfig, result.CAPEM, certPEM, keyPEM, err = newTLSFixture(ca, config.BindIP, hostnames, !config.NoIPSANs)
 		if err != nil {
 			return nil, fmt.Errorf("generating ClickHouse TLS certificates: %w", err)
 		}
@@ -210,6 +218,10 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 		if config.TLS {
 			httpPort, nativePort = "8443", "9440"
 		}
+		ports := []string{httpPort, nativePort}
+		if config.TLS && config.PlainHTTPPort {
+			ports = append(ports, "8123")
+		}
 		node.ContainerName = node.Hostname
 		container, err := pool.RunWithOptions(&dockertest.RunOptions{
 			Repository: repository, Tag: tag, Auth: registry.AuthConfiguration(),
@@ -218,8 +230,8 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 				"CLICKHOUSE_USER=" + config.User, "CLICKHOUSE_PASSWORD=" + config.Password,
 				"CLICKHOUSE_DB=" + config.Database, "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1",
 			}, config.Env...),
-			Mounts: mounts, ExposedPorts: []string{httpPort + "/tcp", nativePort + "/tcp"},
-			PortBindings: internal.IPv4PortBindings([]string{httpPort, nativePort}, internal.WithBindIP(config.BindIP)),
+			Mounts: mounts, ExposedPorts: exposedPorts(ports),
+			PortBindings: internal.IPv4PortBindings(ports, internal.WithBindIP(config.BindIP)),
 		}, internal.DefaultHostConfig, func(host *docker.HostConfig) { host.Memory = config.Memory })
 		if err != nil {
 			orphan, inspectErr := pool.Client.InspectContainer(node.Hostname)
@@ -232,6 +244,9 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 			return nil, fmt.Errorf("starting ClickHouse node %s: %w", node.Hostname, err)
 		}
 		containers = append(containers, container)
+		if container.Container, err = waitForPortBindings(context.Background(), pool.Client.InspectContainer, container.Container, ports, portBindingsTimeout); err != nil {
+			return nil, err
+		}
 		node.Host = container.GetBoundIP(httpPort + "/tcp")
 		if address := net.ParseIP(node.Host); address != nil && address.IsUnspecified() {
 			node.Host = "127.0.0.1"
@@ -240,6 +255,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 			}
 		}
 		node.HTTPPort, node.NativePort = container.GetPort(httpPort+"/tcp"), container.GetPort(nativePort+"/tcp")
+		node.PlainHTTPPort = container.GetPort("8123/tcp")
 		node.ContainerName, node.ContainerID = strings.TrimPrefix(container.Container.Name, "/"), container.Container.ID
 		if node.Host == "" || node.HTTPPort == "" || node.NativePort == "" {
 			return nil, fmt.Errorf("reading ClickHouse node port bindings")
