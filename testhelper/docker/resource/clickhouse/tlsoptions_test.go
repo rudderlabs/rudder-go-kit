@@ -196,6 +196,27 @@ func TestWaitForPortBindings(t *testing.T) {
 		require.Positive(t, inspects)
 		require.Less(t, inspects, 10, "the backoff grows between inspects")
 	})
+
+	t.Run("deadline reports the last inspect error", func(t *testing.T) {
+		_, err := waitForPortBindings(context.Background(), func(string) (*docker.Container, error) {
+			return nil, errors.New("no such container: fixture")
+		}, &docker.Container{ID: "fixture"}, ports, 300*time.Millisecond)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.ErrorContains(t, err, "no such container: fixture")
+	})
+
+	t.Run("a later successful inspect clears the inspect error", func(t *testing.T) {
+		calls := 0
+		_, err := waitForPortBindings(context.Background(), func(string) (*docker.Container, error) {
+			calls++
+			if calls == 1 {
+				return nil, errors.New("transient inspect failure")
+			}
+			return &docker.Container{ID: "fixture"}, nil
+		}, &docker.Container{ID: "fixture"}, ports, 300*time.Millisecond)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+		require.NotContains(t, err.Error(), "transient inspect failure")
+	})
 }
 
 func getPing(t *testing.T, client *http.Client, url string) error {

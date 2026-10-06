@@ -27,19 +27,28 @@ func waitForPortBindings(ctx context.Context, inspect func(string) (*docker.Cont
 	defer cancel()
 	id := container.ID
 	delay := 50 * time.Millisecond
+	// lastInspectErr keeps a persistent Docker failure visible when the deadline passes.
+	var lastInspectErr error
 	for {
 		if hasPortBindings(container, ports) {
 			return container, nil
 		}
 		select {
 		case <-ctx.Done():
+			if lastInspectErr != nil {
+				return nil, fmt.Errorf("reading ClickHouse node port bindings: %w (last inspect: %w)", ctx.Err(), lastInspectErr)
+			}
 			return nil, fmt.Errorf("reading ClickHouse node port bindings: %w", ctx.Err())
 		case <-time.After(delay):
 		}
 		delay = min(2*delay, time.Second)
-		if latest, err := inspect(id); err == nil {
-			container = latest
+		latest, err := inspect(id)
+		if err != nil {
+			lastInspectErr = err
+			continue
 		}
+		lastInspectErr = nil
+		container = latest
 	}
 }
 
