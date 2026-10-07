@@ -55,13 +55,53 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
 - `WithCluster(shards, replicas)` requires positive dimensions. For one shard
   with multiple replicas use `WithCluster(1, n)`; no redundant replicas option.
 - `WithConfig(xml)` and `WithUsersConfig(xml)` mount additional complete
-  `<clickhouse>...</clickhouse>` documents in `config.d` and `users.d`. They
-  preserve image defaults and load after the generated resource configuration.
-  Do not override resource-managed ports, credentials, topology or TLS paths.
+  `<clickhouse>...</clickhouse>` documents in `config.d` and `users.d`. They load
+  after the generated resource configuration, so they merge on top of the image
+  defaults and the test tuning. Do not override resource-managed ports,
+  credentials, topology or TLS paths.
 - `WithEnv(env...)` supplies additional environment variables (e.g. `TZ=UTC`).
   Credential/initialization variables are rejected; use the explicit options.
 - `WithMemory(bytes)` sets Docker memory per server (zero uses Docker's default).
   `WithPrintLogsOnError(bool)` prints state and logs on test or setup failure.
+- `WithoutTestTuning()` turns off the test tuning described below and keeps the
+  image's stock configuration. Use it when a test depends on ClickHouse's
+  default pool sizes or caches. To bring back one system log table, add it with
+  `WithConfig`, for example `WithConfig("<clickhouse><part_log/></clickhouse>")`.
+  The rest of the tuning stays. The table then uses ClickHouse's built-in
+  defaults, not the image's TTL and partitioning.
+
+## Test tuning
+
+Each server is sized for short-lived tests by default. On 26.3, for one server
+with a 1 GiB memory limit, the tuning cuts idle container memory by about 70%,
+threads by about 85% and idle CPU by about two thirds. The figures vary by host.
+
+- Background pools: `background_pool_size` 5 with
+  `background_merges_mutations_concurrency_ratio` 10, fetches 4, schedule 4,
+  common 2 and move 1. The fetch pool limit is server-wide, so a smaller fetch
+  pool makes replicas lag behind inserts in cluster mode. The distributed
+  schedule pool keeps its default of 16: a pool of 1 logs "Temporarily pause
+  scheduling of tasks" on every distributed send of async inserts.
+- ClickHouse refuses to start when pool size × ratio is below 25. `Setup` then
+  times out after `pool.MaxWait`; `WithPrintLogsOnError(true)` shows the cause.
+  The ratio sizes only the task queue, not the threads.
+- Caches: a 16 MiB mark cache, and no uncompressed or index mark cache.
+- Asynchronous metrics refresh every 600 s
+  (`asynchronous_metrics_update_period_s`, default 1 s), so
+  `system.asynchronous_metrics` can be up to 10 minutes old. Run
+  `SYSTEM RELOAD ASYNCHRONOUS METRICS` to refresh it.
+- These system log tables are disabled: `metric_log`, `trace_log`, `text_log`,
+  `asynchronous_metric_log`, `asynchronous_insert_log`, `part_log`,
+  `processors_profile_log`, `opentelemetry_span_log`, `query_thread_log`,
+  `query_views_log`, `crash_log` and `background_schedule_pool_log`.
+  `query_log` stays enabled. Without `trace_log` the server starts no trace
+  collector, so the query and global profilers are off too.
+
+The tuning sets no global thread pool limit. ClickHouse creates threads on
+demand, and a cap below the server's idle thread need hangs startup. It sets no
+`max_server_memory_usage` either, because ClickHouse derives it from the
+container memory limit. The tuning lives in the generated resource
+configuration, so a `WithConfig` document overrides any value.
 
 ## Cluster and lifecycle
 
@@ -94,6 +134,12 @@ go build ./...
 go vet ./testhelper/docker/resource/clickhouse/...
 go test -short ./testhelper/docker/resource/clickhouse/...
 go test -v ./testhelper/docker/resource/clickhouse/...
+```
+
+Before you move the image pin, run the tuning test against the new image:
+
+```sh
+CLICKHOUSE_TEST_IMAGE=clickhouse/clickhouse-server:<tag> go test -run TestTuningApplied ./testhelper/docker/resource/clickhouse/
 ```
 
 Unit tests cover configuration validation, DSN parsing, topology XML, certificate

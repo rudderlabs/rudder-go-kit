@@ -37,6 +37,8 @@ type Config struct {
 	UsersXML         string
 	Env              []string
 	Memory           int64
+	// DisableTestTuning keeps the image's stock sizing and every system log table instead of the test tuning.
+	DisableTestTuning bool
 
 	cluster bool
 }
@@ -102,6 +104,12 @@ func WithEnv(env ...string) Opt {
 
 func WithMemory(memory int64) Opt {
 	return func(config *Config) { config.Memory = memory }
+}
+
+// WithoutTestTuning turns off the test tuning and keeps the image's stock configuration, for tests that depend on
+// ClickHouse's default pool sizes, caches or system log tables.
+func WithoutTestTuning() Opt {
+	return func(config *Config) { config.DisableTestTuning = true }
 }
 
 func defaultConfig() Config {

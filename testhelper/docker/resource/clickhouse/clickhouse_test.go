@@ -149,6 +149,73 @@ func TestDigestOnlyImage(t *testing.T) {
 	require.True(t, strings.HasPrefix(version, "26.3."), version)
 }
 
+// TestTuningApplied checks the default tuning on a real server. CLICKHOUSE_TEST_IMAGE runs it against
+// another image, for example a newer tag before the pin moves.
+func TestTuningApplied(t *testing.T) {
+	pool := dockerPool(t)
+	image := DefaultImage
+	if override := os.Getenv("CLICKHOUSE_TEST_IMAGE"); override != "" {
+		image = override
+	}
+
+	t.Run("tuned", func(t *testing.T) {
+		const callerMarkCache = "33554432"
+		result, err := Setup(pool, t, WithImage(image), WithMemory(1<<30), WithPrintLogsOnError(true),
+			WithConfig("<clickhouse><mark_cache_size>"+callerMarkCache+"</mark_cache_size></clickhouse>"))
+		require.NoError(t, err)
+		db := result.DB
+
+		for _, setting := range testTuningSettings {
+			value := setting.value
+			if setting.name == "mark_cache_size" {
+				value = callerMarkCache
+			}
+			var actual string
+			require.NoError(t, db.QueryRow("SELECT value FROM system.server_settings WHERE name = ?", setting.name).Scan(&actual), setting.name)
+			require.Equal(t, value, actual, "%s comes from the test tuning, and WithConfig overrides it", setting.name)
+		}
+
+		_, err = db.Exec("CREATE TABLE tuning_smoke (id UInt64, value UInt64) ENGINE = MergeTree ORDER BY id")
+		require.NoError(t, err)
+		_, err = db.Exec("INSERT INTO tuning_smoke SELECT number, number % 7 FROM numbers(100000)")
+		require.NoError(t, err)
+		_, err = db.Exec("ALTER TABLE tuning_smoke UPDATE value = value + 1 WHERE id % 2 = 0 SETTINGS mutations_sync = 2")
+		require.NoError(t, err, "mutations run with the reduced background pool")
+		_, err = db.Exec("OPTIMIZE TABLE tuning_smoke FINAL")
+		require.NoError(t, err, "OPTIMIZE FINAL runs with the reduced background pool")
+		var rows uint64
+		require.NoError(t, db.QueryRow("SELECT count() FROM tuning_smoke").Scan(&rows))
+		require.EqualValues(t, 100000, rows)
+
+		_, err = db.Exec("SYSTEM FLUSH LOGS")
+		require.NoError(t, err)
+		// SYSTEM FLUSH LOGS creates every enabled log table, so a missing table here means the tuning removed it.
+		for _, table := range testTuningRemovedLogs {
+			var count uint64
+			require.NoError(t, db.QueryRow("SELECT count() FROM system.tables WHERE database = 'system' AND name = ?", table).Scan(&count))
+			require.Zero(t, count, "system.%s is disabled", table)
+		}
+
+		var queries uint64
+		require.NoError(t, db.QueryRow("SELECT count() FROM system.query_log WHERE query LIKE '%tuning_smoke%'").Scan(&queries))
+		require.NotZero(t, queries, "system.query_log stays enabled")
+	})
+
+	// The absence check above also passes for a name ClickHouse never creates, so the stock server must create
+	// every listed table.
+	t.Run("without test tuning", func(t *testing.T) {
+		result, err := Setup(pool, t, WithImage(image), WithoutTestTuning(), WithMemory(1<<30), WithPrintLogsOnError(true))
+		require.NoError(t, err)
+		_, err = result.DB.Exec("SYSTEM FLUSH LOGS")
+		require.NoError(t, err)
+		for _, table := range testTuningRemovedLogs {
+			var count uint64
+			require.NoError(t, result.DB.QueryRow("SELECT count() FROM system.tables WHERE database = 'system' AND name = ?", table).Scan(&count))
+			require.EqualValues(t, 1, count, "the stock server creates system.%s", table)
+		}
+	})
+}
+
 func TestProvidedNetwork(t *testing.T) {
 	pool := dockerPool(t)
 	network, err := pool.CreateNetwork("clickhouse-test-" + filepath.Base(t.TempDir()))
