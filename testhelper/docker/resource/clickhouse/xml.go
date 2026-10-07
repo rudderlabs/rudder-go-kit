@@ -20,13 +20,14 @@ const clusterName = "rudder_cluster"
 //   - max_server_memory_usage is not set: ClickHouse derives it from the container limit, and a fixed value
 //     trips during startup or breaks WithMemory(0).
 //   - query_log stays enabled, because tests read it after SYSTEM FLUSH LOGS.
+//   - background_distributed_schedule_pool_size is not set: below the default of 16, Distributed tables with
+//     async inserts make the server log "Temporarily pause scheduling of tasks" without end.
 const testTuningXML = `<background_pool_size>5</background_pool_size>` +
 	`<background_merges_mutations_concurrency_ratio>5</background_merges_mutations_concurrency_ratio>` +
 	`<background_schedule_pool_size>4</background_schedule_pool_size>` +
 	`<background_move_pool_size>1</background_move_pool_size>` +
 	`<background_fetches_pool_size>1</background_fetches_pool_size>` +
 	`<background_common_pool_size>2</background_common_pool_size>` +
-	`<background_distributed_schedule_pool_size>1</background_distributed_schedule_pool_size>` +
 	`<mark_cache_size>16777216</mark_cache_size>` +
 	`<uncompressed_cache_size>0</uncompressed_cache_size>` +
 	`<index_mark_cache_size>0</index_mark_cache_size>` +

@@ -172,12 +172,6 @@ func TestTestTuningApplied(t *testing.T) {
 		require.Equal(t, value, actual, "%s comes from the test tuning, and WithConfig overrides it", name)
 	}
 
-	for _, table := range testTuningRemovedLogs {
-		var count uint64
-		require.NoError(t, db.QueryRow("SELECT count() FROM system.tables WHERE database = 'system' AND name = ?", table).Scan(&count))
-		require.Zero(t, count, "system.%s is disabled", table)
-	}
-
 	_, err = db.Exec("CREATE TABLE tuning_smoke (id UInt64, value UInt64) ENGINE = MergeTree ORDER BY id")
 	require.NoError(t, err)
 	_, err = db.Exec("INSERT INTO tuning_smoke SELECT number, number % 7 FROM numbers(100000)")
@@ -192,6 +186,13 @@ func TestTestTuningApplied(t *testing.T) {
 
 	_, err = db.Exec("SYSTEM FLUSH LOGS")
 	require.NoError(t, err)
+	// SYSTEM FLUSH LOGS creates every enabled log table, so a missing table here means the tuning removed it.
+	for _, table := range testTuningRemovedLogs {
+		var count uint64
+		require.NoError(t, db.QueryRow("SELECT count() FROM system.tables WHERE database = 'system' AND name = ?", table).Scan(&count))
+		require.Zero(t, count, "system.%s is disabled", table)
+	}
+
 	var queries uint64
 	require.NoError(t, db.QueryRow("SELECT count() FROM system.query_log WHERE query LIKE '%tuning_smoke%'").Scan(&queries))
 	require.NotZero(t, queries, "system.query_log stays enabled")

@@ -69,15 +69,23 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
 ## Test tuning
 
 Each server is sized for short-lived tests by default. On 26.3 this cuts the
-idle RSS of one server from about 650 MiB to about 160 MiB, its threads from
-about 680 to about 100, and its idle CPU by about two thirds.
+idle container memory of one server from about 650 MiB to about 160 MiB, its
+threads from about 680 to about 100, and its idle CPU by about two thirds.
 
 - Background pools: `background_pool_size` 5 with
   `background_merges_mutations_concurrency_ratio` 5, schedule 4, common 2, and
-  move, fetches and distributed schedule 1 each. Mutations and `OPTIMIZE` need
-  pool size × ratio of at least 25, so keep that product when you override them.
+  move and fetches 1 each. Mutations and `OPTIMIZE` need pool size × ratio of
+  at least 25, so keep that product when you override them. The distributed
+  schedule pool keeps its default of 16: a smaller pool makes the server log
+  "Temporarily pause scheduling of tasks" for Distributed tables with async
+  inserts.
 - Caches: a 16 MiB mark cache, and no uncompressed or index mark cache.
-- Asynchronous metrics refresh every 600 s instead of every second.
+- Asynchronous metrics refresh every 600 s
+  (`asynchronous_metrics_update_period_s`, default 1 s), and heavy asynchronous
+  metrics every 600 s (`asynchronous_heavy_metrics_update_period_s`, default
+  120 s).
+- `mlock_executable` is false, so the server does not lock its binary in
+  memory.
 - These system log tables are disabled: `metric_log`, `trace_log`, `text_log`,
   `asynchronous_metric_log`, `part_log`, `processors_profile_log`,
   `opentelemetry_span_log`, `query_thread_log`, `query_views_log`, `crash_log`

@@ -208,7 +208,6 @@ var testTuningSettings = map[string]string{
 	"background_move_pool_size":                     "1",
 	"background_fetches_pool_size":                  "1",
 	"background_common_pool_size":                   "2",
-	"background_distributed_schedule_pool_size":     "1",
 	"mark_cache_size":                               "16777216",
 	"uncompressed_cache_size":                       "0",
 	"index_mark_cache_size":                         "0",
