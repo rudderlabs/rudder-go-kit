@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -628,9 +629,7 @@ func oneLakeLiveConfig(t *testing.T) map[string]any {
 
 func cloneOneLakeConfig(config map[string]any) map[string]any {
 	clone := make(map[string]any, len(config))
-	for key, value := range config {
-		clone[key] = value
-	}
+	maps.Copy(clone, config)
 	return clone
 }
 

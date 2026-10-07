@@ -22,8 +22,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azdatalake/filesystem"
 	"github.com/google/uuid"
 
-	"github.com/rudderlabs/rudder-go-kit/logger"
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
+
+	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
 const oneLakeEndpoint = "https://onelake.dfs.fabric.microsoft.com"
@@ -215,7 +216,7 @@ func (m *OneLakeManager) prepareUpload(ctx context.Context, objectName string, c
 	parent := path.Dir(objectName)
 	if parent != "." {
 		current := m.filesRoot()
-		for _, segment := range strings.Split(parent, "/") {
+		for segment := range strings.SplitSeq(parent, "/") {
 			current = path.Join(current, segment)
 			_, err := m.filesystem.NewDirectoryClient(current).Create(ctx, nil)
 			if err != nil && !datalakeerror.HasCode(err, datalakeerror.PathAlreadyExists) {
@@ -359,7 +360,7 @@ func (m *OneLakeManager) objectNameFromLocation(location string) (string, error)
 	if parsed.RawQuery != "" || parsed.Fragment != "" {
 		return "", errors.New("onelake: location contains unsupported URL components")
 	}
-	for _, segment := range strings.Split(strings.TrimPrefix(parsed.EscapedPath(), "/"), "/") {
+	for segment := range strings.SplitSeq(strings.TrimPrefix(parsed.EscapedPath(), "/"), "/") {
 		decoded, decodeErr := url.PathUnescape(segment)
 		if decodeErr != nil || strings.Contains(decoded, "/") {
 			return "", errors.New("onelake: location contains an invalid escaped path segment")
@@ -439,7 +440,7 @@ func validateOneLakeObjectName(objectName string) error {
 	if strings.Contains(objectName, `\`) {
 		return errors.New("onelake: object name cannot contain a backslash")
 	}
-	for _, segment := range strings.Split(objectName, "/") {
+	for segment := range strings.SplitSeq(objectName, "/") {
 		if segment == "" || segment == "." || segment == ".." {
 			return errors.New("onelake: object name contains an invalid path segment")
 		}
@@ -474,10 +475,7 @@ func (s *oneLakeListSession) Next() ([]*FileInfo, error) {
 	results := make([]*FileInfo, 0, s.maxItems)
 	for len(results) < int(s.maxItems) {
 		if len(s.pending) > 0 {
-			remaining := int(s.maxItems) - len(results)
-			if remaining > len(s.pending) {
-				remaining = len(s.pending)
-			}
+			remaining := min(int(s.maxItems)-len(results), len(s.pending))
 			results = append(results, s.pending[:remaining]...)
 			s.pending = s.pending[remaining:]
 			if len(results) == int(s.maxItems) {
