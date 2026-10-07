@@ -52,8 +52,7 @@ func waitForPortBindings(ctx context.Context, inspect func(context.Context, stri
 		delay = min(2*delay, time.Second)
 		latest, err := inspect(ctx, id)
 		if err != nil {
-			var missing *docker.NoSuchContainer
-			if errors.As(err, &missing) {
+			if _, ok := errors.AsType[*docker.NoSuchContainer](err); ok {
 				return nil, fmt.Errorf("reading ClickHouse node port bindings: %w", err)
 			}
 			lastInspectErr = err
