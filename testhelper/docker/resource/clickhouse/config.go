@@ -42,10 +42,10 @@ type Config struct {
 	// CACertPEM and CAKeyPEM hold the caller CA that signs the server certificate. Empty means a throwaway CA.
 	CACertPEM []byte
 	CAKeyPEM  []byte
-	// PlainHTTPPort also publishes the plain HTTP port 8123 in TLS mode.
-	PlainHTTPPort bool
-	// NoIPSANs leaves loopback and bind IP addresses off the server certificate.
-	NoIPSANs bool
+	// PublishPlainHTTPPort also publishes the plain HTTP port 8123 in TLS mode.
+	PublishPlainHTTPPort bool
+	// WithoutIPSANs leaves loopback and bind IP addresses off the server certificate.
+	WithoutIPSANs bool
 
 	cluster bool
 }

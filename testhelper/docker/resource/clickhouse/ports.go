@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -20,9 +21,10 @@ func exposedPorts(ports []string) []string {
 }
 
 // waitForPortBindings returns a container state that has a host binding for every port.
-// Docker Desktop can return a started container before it reports the bindings, so the state is inspected
-// again with a short backoff until the bindings appear or timeout passes.
-func waitForPortBindings(ctx context.Context, inspect func(string) (*docker.Container, error), container *docker.Container, ports []string, timeout time.Duration) (*docker.Container, error) {
+// dockertest re-inspects a container only while a port has an empty binding list, so a state with no port keys
+// at all is inspected again here with a short backoff until the bindings appear or timeout passes.
+// An exited or removed container ends the wait at once.
+func waitForPortBindings(ctx context.Context, inspect func(context.Context, string) (*docker.Container, error), container *docker.Container, ports []string, timeout time.Duration) (*docker.Container, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	id := container.ID
@@ -33,17 +35,27 @@ func waitForPortBindings(ctx context.Context, inspect func(string) (*docker.Cont
 		if hasPortBindings(container, ports) {
 			return container, nil
 		}
+		// A status check keeps a zero State, which a fake inspect returns, waiting.
+		if status := container.State.Status; status == "exited" || status == "dead" {
+			return nil, fmt.Errorf("reading ClickHouse node port bindings: container %s is %s (exit code %d, OOM killed: %t)",
+				id, status, container.State.ExitCode, container.State.OOMKilled)
+		}
 		select {
 		case <-ctx.Done():
+			err := fmt.Errorf("reading ClickHouse node port bindings: Docker still reports no host binding for every port of container %s, check the Docker port forwarding: %w", id, ctx.Err())
 			if lastInspectErr != nil {
-				return nil, fmt.Errorf("reading ClickHouse node port bindings: %w (last inspect: %w)", ctx.Err(), lastInspectErr)
+				return nil, fmt.Errorf("%w (last inspect: %w)", err, lastInspectErr)
 			}
-			return nil, fmt.Errorf("reading ClickHouse node port bindings: %w", ctx.Err())
+			return nil, err
 		case <-time.After(delay):
 		}
 		delay = min(2*delay, time.Second)
-		latest, err := inspect(id)
+		latest, err := inspect(ctx, id)
 		if err != nil {
+			var missing *docker.NoSuchContainer
+			if errors.As(err, &missing) {
+				return nil, fmt.Errorf("reading ClickHouse node port bindings: %w", err)
+			}
 			lastInspectErr = err
 			continue
 		}

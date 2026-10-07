@@ -40,7 +40,8 @@ type Node struct {
 	ContainerID   string
 	Macros        Macros
 	TLSConfig     *tls.Config
-	// PlainHTTPPort is the published plain HTTP port 8123. In TLS mode it is empty without WithPlainHTTPPort.
+	// PlainHTTPPort is the host port that the plain HTTP port 8123 is published on. In TLS mode it is empty
+	// without WithPlainHTTPPort.
 	PlainHTTPPort string
 
 	secure bool
@@ -193,7 +194,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 				return nil, err
 			}
 		}
-		result.TLSConfig, result.CAPEM, certPEM, keyPEM, err = newTLSFixture(ca, config.BindIP, hostnames, !config.NoIPSANs)
+		result.TLSConfig, result.CAPEM, certPEM, keyPEM, err = newTLSFixture(ca, config.BindIP, hostnames, !config.WithoutIPSANs)
 		if err != nil {
 			return nil, fmt.Errorf("generating ClickHouse TLS certificates: %w", err)
 		}
@@ -219,7 +220,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 			httpPort, nativePort = "8443", "9440"
 		}
 		ports := []string{httpPort, nativePort}
-		if config.TLS && config.PlainHTTPPort {
+		if config.TLS && config.PublishPlainHTTPPort {
 			ports = append(ports, "8123")
 		}
 		node.ContainerName = node.Hostname
@@ -244,9 +245,15 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 			return nil, fmt.Errorf("starting ClickHouse node %s: %w", node.Hostname, err)
 		}
 		containers = append(containers, container)
-		if container.Container, err = waitForPortBindings(context.Background(), pool.Client.InspectContainer, container.Container, ports, portBindingsTimeout); err != nil {
+		inspect := func(ctx context.Context, id string) (*docker.Container, error) {
+			return pool.Client.InspectContainerWithContext(id, ctx)
+		}
+		// container stays in containers for teardown, so its state changes only after a successful wait.
+		bound, err := waitForPortBindings(context.Background(), inspect, container.Container, ports, portBindingsTimeout)
+		if err != nil {
 			return nil, err
 		}
+		container.Container = bound
 		node.Host = container.GetBoundIP(httpPort + "/tcp")
 		if address := net.ParseIP(node.Host); address != nil && address.IsUnspecified() {
 			node.Host = "127.0.0.1"

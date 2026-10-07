@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"time"
@@ -27,13 +28,9 @@ func newTLSFixture(ca *tls.Certificate, bindIP string, hostnames []string, ipSAN
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	// Fixtures that share a caller CA must not reuse a serial number.
-	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 127))
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
+	// A nil SerialNumber gets a random serial, so fixtures that share a caller CA do not reuse one.
 	server := &x509.Certificate{
-		SerialNumber: serial, Subject: pkix.Name{CommonName: "localhost"},
+		Subject:   pkix.Name{CommonName: "localhost"},
 		DNSNames:  append([]string{"localhost"}, hostnames...),
 		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(7 * 24 * time.Hour),
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
@@ -48,12 +45,21 @@ func newTLSFixture(ca *tls.Certificate, bindIP string, hostnames []string, ipSAN
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	keyDER, err := x509.MarshalPKCS8PrivateKey(serverKey)
+	leaf, err := x509.ParseCertificate(serverDER)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	roots := x509.NewCertPool()
 	roots.AddCert(ca.Leaf)
+	// A caller CA that is expired, limited to other key usages or name-constrained signs a certificate that
+	// every client rejects, so Setup fails here instead of after pool.MaxWait.
+	if _, err := leaf.Verify(x509.VerifyOptions{Roots: roots, DNSName: "localhost", CurrentTime: now}); err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("verifying the server certificate against the ClickHouse certificate authority: %w", err)
+	}
+	keyDER, err := x509.MarshalPKCS8PrivateKey(serverKey)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	config := &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
 	if !ipSANs {
 		// A client dials an IP address, so it verifies the DNS name instead.
