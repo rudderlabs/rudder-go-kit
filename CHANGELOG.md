@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.82.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.81.0...v0.82.0) (2026-10-07)
+
+
+### Features
+
+* **testhelper:** add caller CA and plain HTTP port to the ClickHouse resource ([#1237](https://github.com/rudderlabs/rudder-go-kit/issues/1237)) ([4d0627e](https://github.com/rudderlabs/rudder-go-kit/commit/4d0627ea7c65155ee27177c6d4cfeaa0afc65eca))
+* **testhelper:** size the ClickHouse resource for tests by default ([#1236](https://github.com/rudderlabs/rudder-go-kit/issues/1236)) ([ec89896](https://github.com/rudderlabs/rudder-go-kit/commit/ec89896adc31b51963a7cbc8c4661dda35a9b560))
+
 ## [0.81.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.80.1...v0.81.0) (2026-10-06)
 
 
