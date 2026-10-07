@@ -8,54 +8,85 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"time"
 )
 
-func newTLSFixture(bindIP string, hostnames []string) (*tls.Config, []byte, []byte, []byte, error) {
-	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
+// newTLSFixture issues a server certificate signed by ca, or by a new throwaway CA when ca is nil.
+// It returns the client configuration, the CA certificate, the server certificate and the server key.
+func newTLSFixture(ca *tls.Certificate, bindIP string, hostnames []string, ipSANs bool) (*tls.Config, []byte, []byte, []byte, error) {
 	now := time.Now()
-	ca := &x509.Certificate{
-		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "rudder-go-kit ClickHouse test CA"},
-		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(7 * 24 * time.Hour),
-		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
+	if ca == nil {
+		var err error
+		if ca, err = newCertificateAuthority(now); err != nil {
+			return nil, nil, nil, nil, err
+		}
 	}
-	caDER, err := x509.CreateCertificate(rand.Reader, ca, ca, &caKey.PublicKey, caKey)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
 	serverKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	// A nil SerialNumber gets a random serial, so fixtures that share a caller CA do not reuse one.
 	server := &x509.Certificate{
-		SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: "localhost"},
-		DNSNames:    append([]string{"localhost"}, hostnames...),
-		IPAddresses: []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")},
-		NotBefore:   now.Add(-time.Hour), NotAfter: now.Add(7 * 24 * time.Hour),
+		Subject:   pkix.Name{CommonName: "localhost"},
+		DNSNames:  append([]string{"localhost"}, hostnames...),
+		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(7 * 24 * time.Hour),
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
-	if address := net.ParseIP(bindIP); address != nil && !address.IsUnspecified() {
-		server.IPAddresses = append(server.IPAddresses, address)
+	if ipSANs {
+		server.IPAddresses = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::1")}
+		if address := net.ParseIP(bindIP); address != nil && !address.IsUnspecified() {
+			server.IPAddresses = append(server.IPAddresses, address)
+		}
 	}
-	serverDER, err := x509.CreateCertificate(rand.Reader, server, ca, &serverKey.PublicKey, caKey)
+	serverDER, err := x509.CreateCertificate(rand.Reader, server, ca.Leaf, &serverKey.PublicKey, ca.PrivateKey)
 	if err != nil {
 		return nil, nil, nil, nil, err
+	}
+	leaf, err := x509.ParseCertificate(serverDER)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(ca.Leaf)
+	// A caller CA that is expired, limited to other key usages or name-constrained signs a certificate that
+	// every client rejects, so Setup fails here instead of after pool.MaxWait.
+	if _, err := leaf.Verify(x509.VerifyOptions{Roots: roots, DNSName: "localhost", CurrentTime: now}); err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("verifying the server certificate against the ClickHouse certificate authority: %w", err)
 	}
 	keyDER, err := x509.MarshalPKCS8PrivateKey(serverKey)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	roots := x509.NewCertPool()
-	if !roots.AppendCertsFromPEM(caPEM) {
-		return nil, nil, nil, nil, x509.SystemRootsError{}
+	config := &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
+	if !ipSANs {
+		// A client dials an IP address, so it verifies the DNS name instead.
+		config.ServerName = "localhost"
 	}
-	return &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}, caPEM,
+	return config, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ca.Leaf.Raw}),
 		pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverDER}),
 		pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}), nil
+}
+
+func newCertificateAuthority(now time.Time) (*tls.Certificate, error) {
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "rudder-go-kit ClickHouse test CA"},
+		NotBefore: now.Add(-time.Hour), NotAfter: now.Add(7 * 24 * time.Hour),
+		IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, template, template, &caKey.PublicKey, caKey)
+	if err != nil {
+		return nil, err
+	}
+	leaf, err := x509.ParseCertificate(caDER)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Certificate{Certificate: [][]byte{caDER}, PrivateKey: caKey, Leaf: leaf}, nil
 }

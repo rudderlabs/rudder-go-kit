@@ -31,10 +31,15 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
 - `NativeDSN()` and `HTTPDSN()` escape credentials and database names. With TLS,
   they select secure native/HTTPS connections, but do not embed CA trust.
   `OpenDB(ch.Native)` / `OpenDB(ch.HTTP)` return standard `*sql.DB` handles using
-  clickhouse-go/v2 and the generated CA. Callers must close these additional
+  clickhouse-go/v2 and the resource CA. Callers must close these additional
   handles; `Setup` closes the native `DB` on each node automatically.
-- `TLSConfig` and `CAPEM` expose per-resource trust for other clients. No global
-  TLS registration, environment-based root replacement, or skip-verification.
+- `TLSConfig` and `CAPEM` expose the resource CA for other clients: a throwaway
+  CA per `Setup`, or the caller CA from `WithCertificateAuthority`, which every
+  fixture that uses it shares. No global TLS registration, environment-based
+  root replacement, or skip-verification.
+- `PlainHTTPPort` is the host port that the plain HTTP port 8123 is published
+  on. Without TLS it equals `HTTPPort`. With TLS it is empty unless
+  `WithPlainHTTPPort()` is set.
 
 ## Options
 
@@ -43,7 +48,8 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
   digests. Later options win. Docker Hub mirror configuration is respected.
 - `WithNetwork(network)` reuses a caller-owned network; `WithBindIP(ip)` controls
   published addresses (default `127.0.0.1`). Container-internal ports are not
-  published when TLS is enabled: only HTTPS 8443 and secure native 9440 are bound.
+  published when TLS is enabled: only HTTPS 8443 and secure native 9440 are bound,
+  plus plain HTTP 8123 with `WithPlainHTTPPort()`.
 - `WithUser`, `WithPassword`, `WithDatabase` configure the fixture administrator
   and database. Defaults: `rudder`, `password`, `rudderdb`. Scoped accounts and
   application-specific grants remain the caller's responsibility. The image
@@ -52,6 +58,21 @@ require.NoError(t, r.DB.QueryRow("SELECT 1").Scan(&one))
   user outside `[A-Za-z_][A-Za-z0-9_-]*`.
 - `WithTLS()` generates a throwaway CA/server certificate valid for localhost,
   loopback, the configured bind IP and the Docker node hostnames.
+- `WithCertificateAuthority(certPEM, keyPEM)` signs the server certificate with
+  the caller's CA instead of a throwaway CA. `CAPEM` and `TLSConfig` then return
+  that CA. Use it when one process trusts one CA for every fixture, for example
+  through `SSL_CERT_DIR`. It requires `WithTLS()`. The certificate PEM must
+  hold one CA certificate with the certSign key usage, valid now, that may issue
+  serverAuth certificates for `localhost`. `Setup` rejects any other CA before it
+  starts a container. The server key is readable by the container user, so use
+  a test-only CA.
+- `WithPlainHTTPPort()` also publishes plain HTTP 8123 in TLS mode, for tests
+  that must reach the server's plain listener. The plain port carries the
+  administrator credentials in clear text, so with a non-loopback `WithBindIP`
+  anyone on that network can read them.
+- `WithoutIPSANs()` leaves the loopback and bind IP addresses off the server
+  certificate. `TLSConfig` then sets `ServerName` to `localhost`. A client that
+  verifies the dialed IP address fails. It requires `WithTLS()`.
 - `WithCluster(shards, replicas)` requires positive dimensions. For one shard
   with multiple replicas use `WithCluster(1, n)`; no redundant replicas option.
 - `WithConfig(xml)` and `WithUsersConfig(xml)` mount additional complete
@@ -118,6 +139,10 @@ uses HTTP 9009 on the private Docker network. TLS secures published client ports
 not node-to-node traffic. Do not use this fixture with production credentials or
 on an untrusted shared network. Test keys must be readable by the container UID.
 
+If Docker reports a started container without a host binding for a published
+port, `Setup` inspects it again with a short backoff, for at most 15 seconds.
+It fails at once when the container exits or is removed.
+
 Readiness uses `pool.Retry`: authenticated `/ping` and native `SELECT 1` on every
 node, every node's `system.clusters` membership, and a temporary
 `ReplicatedMergeTree` created `ON CLUSTER`, checked writable on every node and
@@ -146,7 +171,9 @@ Unit tests cover configuration validation, DSN parsing, topology XML, certificat
 verification and mounted files. Docker tests cover native and HTTP queries,
 verified TLS (including untrusted-CA rejection), a two-shard/two-replica cluster,
 distributed DDL, replica writes/reads, shard isolation and caller-owned network
-cleanup. Integration tests skip with `-short` or when Docker cannot be reached;
+cleanup, a caller CA shared by two fixtures, and the plain HTTP port in TLS mode.
+A fake Docker daemon drives `Setup` through late port bindings and an exited
+container without Docker. Integration tests skip with `-short` or when Docker cannot be reached;
 image/startup/query failures on an accessible daemon fail rather than skip.
 
 The implementation adds upstream `github.com/ClickHouse/clickhouse-go/v2 v2.48.0`
