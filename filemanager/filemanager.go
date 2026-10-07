@@ -132,6 +132,8 @@ func New(settings *Settings) (FileManager, error) {
 		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "AZURE_BLOB":
 		return NewAzureBlobManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+	case "ONELAKE":
+		return NewOneLakeManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "MINIO":
 		return NewMinioManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "DIGITAL_OCEAN_SPACES":
