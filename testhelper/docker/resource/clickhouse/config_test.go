@@ -199,54 +199,50 @@ func TestClusterConfig(t *testing.T) {
 	}
 }
 
-// testTuningSettings are the server settings the resource sizes for tests by default.
-// TestTestTuningApplied reads the same values back from system.server_settings.
-var testTuningSettings = map[string]string{
-	"background_pool_size":                          "5",
-	"background_merges_mutations_concurrency_ratio": "5",
-	"background_schedule_pool_size":                 "4",
-	"background_move_pool_size":                     "1",
-	"background_fetches_pool_size":                  "1",
-	"background_common_pool_size":                   "2",
-	"mark_cache_size":                               "16777216",
-	"uncompressed_cache_size":                       "0",
-	"index_mark_cache_size":                         "0",
-	"asynchronous_metrics_update_period_s":          "600",
-	"asynchronous_heavy_metrics_update_period_s":    "600",
-}
-
-// testTuningRemovedLogs are the system log tables the resource disables by default. query_log stays,
-// because tests read it after SYSTEM FLUSH LOGS.
-var testTuningRemovedLogs = []string{
-	"metric_log", "trace_log", "text_log", "asynchronous_metric_log", "part_log", "processors_profile_log",
-	"opentelemetry_span_log", "query_thread_log", "query_views_log", "crash_log", "background_schedule_pool_log",
+// topLevelElements returns the name of every element under <clickhouse> and the names that carry remove="1".
+func topLevelElements(t *testing.T, data string) (names, removed []string) {
+	t.Helper()
+	var parsed struct {
+		Elements []struct {
+			XMLName xml.Name
+			Remove  string `xml:"remove,attr"`
+		} `xml:",any"`
+	}
+	require.NoError(t, xml.Unmarshal([]byte(data), &parsed))
+	for _, element := range parsed.Elements {
+		names = append(names, element.XMLName.Local)
+		if element.Remove == "1" {
+			removed = append(removed, element.XMLName.Local)
+		}
+	}
+	return names, removed
 }
 
 func TestServerConfigTestTuning(t *testing.T) {
 	config := defaultConfig()
 	data := serverConfig(config, topology("fixture", config), 0)
 	require.NoError(t, validateXML(data))
-	for name, value := range testTuningSettings {
-		require.Contains(t, data, "<"+name+">"+value+"</"+name+">", "the default config sets %s for tests", name)
+	expected := []string{"logger"}
+	for _, setting := range testTuningSettings {
+		require.Contains(t, data, "<"+setting.name+">"+setting.value+"</"+setting.name+">")
+		expected = append(expected, setting.name)
 	}
-	require.Contains(t, data, "<mlock_executable>false</mlock_executable>")
-	for _, table := range testTuningRemovedLogs {
-		require.Contains(t, data, "<"+table+` remove="1"/>`, "the default config disables system.%s", table)
-	}
-	require.NotContains(t, data, "<query_log", "tests read system.query_log, so the default config keeps it")
-	require.NotContains(t, data, "max_thread_pool_size", "ClickHouse hangs at startup when the global thread pool is capped below its idle need")
-	require.NotContains(t, data, "max_server_memory_usage", "ClickHouse already derives the limit from the container memory")
+	expected = append(expected, testTuningRemovedLogs...)
+	names, removed := topLevelElements(t, data)
+	require.ElementsMatch(t, expected, names, "the default config holds only the logger and the listed tuning")
+	require.ElementsMatch(t, testTuningRemovedLogs, removed)
+	require.NotContains(t, names, "query_log", "tests read system.query_log, so the default config keeps it")
+	require.NotContains(t, names, "max_thread_pool_size", "a cap below the server's idle thread need hangs startup")
+	require.NotContains(t, names, "max_server_memory_usage", "ClickHouse already derives the limit from the container memory")
 }
 
-func TestServerConfigProductionDefaults(t *testing.T) {
+func TestServerConfigWithoutTestTuning(t *testing.T) {
 	config := defaultConfig()
-	WithProductionDefaults()(&config)
+	WithoutTestTuning()(&config)
 	data := serverConfig(config, topology("fixture", config), 0)
 	require.NoError(t, validateXML(data))
-	for name := range testTuningSettings {
-		require.NotContains(t, data, "<"+name+">", "WithProductionDefaults keeps the ClickHouse default for %s", name)
-	}
-	require.NotContains(t, data, `remove="1"`, "WithProductionDefaults keeps every system log table")
+	names, _ := topLevelElements(t, data)
+	require.Equal(t, []string{"logger"}, names, "WithoutTestTuning keeps the image's stock configuration")
 }
 
 func TestTLSFixture(t *testing.T) {
