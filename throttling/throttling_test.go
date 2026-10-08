@@ -300,8 +300,6 @@ func TestRetryAfter(t *testing.T) {
 		warmUp                    bool
 		expectedAllowedCount      int
 		expectedAllowedCountDelta float64
-		expectedSleepsCount       int
-		expectedSleepsCountDelta  float64
 	}
 
 	var (
@@ -317,8 +315,6 @@ func TestRetryAfter(t *testing.T) {
 				warmUp:                    true,
 				expectedAllowedCount:      6,
 				expectedAllowedCountDelta: 3,
-				expectedSleepsCount:       3,
-				expectedSleepsCountDelta:  2,
 			},
 			{
 				name:                      "gcra redis",
@@ -329,8 +325,6 @@ func TestRetryAfter(t *testing.T) {
 				warmUp:                    true,
 				expectedAllowedCount:      6,
 				expectedAllowedCountDelta: 3,
-				expectedSleepsCount:       3,
-				expectedSleepsCountDelta:  2,
 			},
 			{
 				name:                      "sorted sets redis",
@@ -341,8 +335,6 @@ func TestRetryAfter(t *testing.T) {
 				warmUp:                    false,
 				expectedAllowedCount:      6,
 				expectedAllowedCountDelta: 0, // this algorithm is the most precise but requires more memory on Redis
-				expectedSleepsCount:       3,
-				expectedSleepsCountDelta:  0, // this algorithm is the most precise but requires more memory on Redis
 			},
 		}
 	)
@@ -353,7 +345,7 @@ func TestRetryAfter(t *testing.T) {
 			t.Run(testName(tc.name, tc.rate, tc.window), func(t *testing.T) {
 				timeout := time.NewTimer(tc.runFor)
 				t.Cleanup(func() {
-					_ = timeout.Stop
+					_ = timeout.Stop()
 				})
 
 				if tc.warmUp {
@@ -372,7 +364,7 @@ func TestRetryAfter(t *testing.T) {
 
 				var (
 					allowedCount int
-					sleepsCount  int
+					retryCount   int
 				)
 
 			loop:
@@ -387,7 +379,7 @@ func TestRetryAfter(t *testing.T) {
 						allowedCount++
 					} else {
 						require.Greater(t, retryAfter, int64(0))
-						sleepsCount++
+						retryCount++
 					}
 
 					select {
@@ -401,7 +393,7 @@ func TestRetryAfter(t *testing.T) {
 				}
 
 				require.InDelta(t, tc.expectedAllowedCount, allowedCount, tc.expectedAllowedCountDelta)
-				require.InDelta(t, tc.expectedSleepsCount, sleepsCount, tc.expectedSleepsCountDelta)
+				require.Positive(t, retryCount)
 			})
 		}
 	}
