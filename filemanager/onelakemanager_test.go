@@ -3,6 +3,7 @@ package filemanager
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -97,17 +98,24 @@ func (f *oneLakeFakeServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		f.objects[objectPath] = []byte{}
 		f.mu.Unlock()
 		w.WriteHeader(http.StatusCreated)
-	case r.Method == http.MethodPatch && r.URL.Query().Get("action") == "append" && r.URL.Query().Get("position") == "0":
-		f.mu.Lock()
-		f.objects[objectPath] = nil
-		f.mu.Unlock()
-		fallthrough
 	case r.Method == http.MethodPatch && r.URL.Query().Get("action") == "append":
+		// Like OneLake, appends require an existing file (only create truncates) and a non-empty body.
 		body, err := io.ReadAll(r.Body)
 		require.NoError(f.t, err)
+		if len(body) == 0 {
+			writeOneLakeError(w, http.StatusBadRequest, "InvalidInput")
+			return
+		}
 		f.mu.Lock()
-		f.objects[objectPath] = append(f.objects[objectPath], body...)
+		existing, found := f.objects[objectPath]
+		if found {
+			f.objects[objectPath] = append(existing, body...)
+		}
 		f.mu.Unlock()
+		if !found {
+			writeOneLakeError(w, http.StatusNotFound, "PathNotFound")
+			return
+		}
 		w.WriteHeader(http.StatusAccepted)
 	case r.Method == http.MethodPatch && r.URL.Query().Get("action") == "flush":
 		w.WriteHeader(http.StatusOK)
@@ -142,11 +150,7 @@ func (f *oneLakeFakeServer) serveDownload(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("ETag", `"test-etag"`)
 	w.Header().Set("Accept-Ranges", "bytes")
-	rangeHeader := r.Header.Get("Range")
-	if rangeHeader == "" {
-		rangeHeader = r.Header.Get("x-ms-range")
-	}
-	if rangeHeader != "" {
+	if rangeHeader := requestRange(r); rangeHeader != "" {
 		var start, end int
 		if strings.HasSuffix(rangeHeader, "-") {
 			_, err := fmt.Sscanf(rangeHeader, "bytes=%d-", &start)
@@ -184,27 +188,16 @@ func (f *oneLakeFakeServer) serveList(w http.ResponseWriter, r *http.Request) {
 	if page+1 < len(f.listPages) {
 		w.Header().Set("x-ms-continuation", "page-"+strconv.Itoa(page+1))
 	}
-	var body strings.Builder
-	body.WriteString(`{"paths":[`)
-	for i, item := range f.listPages[page] {
-		if i > 0 {
-			body.WriteByte(',')
-		}
-		body.WriteString(`{"name":"`)
-		body.WriteString(item.name)
-		body.WriteString(`","isDirectory":"`)
-		body.WriteString(strconv.FormatBool(item.isDirectory))
-		body.WriteByte('"')
-		if item.lastModified != "" {
-			body.WriteString(`,"lastModified":"`)
-			body.WriteString(item.lastModified)
-			body.WriteByte('"')
-		}
-		body.WriteByte('}')
+	type listedPath struct {
+		Name         string `json:"name"`
+		IsDirectory  string `json:"isDirectory"`
+		LastModified string `json:"lastModified,omitempty"`
 	}
-	body.WriteString(`]}`)
-	_, err := io.WriteString(w, body.String())
-	require.NoError(f.t, err)
+	paths := make([]listedPath, 0, len(f.listPages[page]))
+	for _, item := range f.listPages[page] {
+		paths = append(paths, listedPath{Name: item.name, IsDirectory: strconv.FormatBool(item.isDirectory), LastModified: item.lastModified})
+	}
+	require.NoError(f.t, json.NewEncoder(w).Encode(map[string]any{"paths": paths}))
 }
 
 func writeOneLakeError(w http.ResponseWriter, status int, code string) {
@@ -519,7 +512,8 @@ func TestOneLakeLocations(t *testing.T) {
 	require.Equal(t, objectName, manager.GetDownloadKeyFromFileLocation(location))
 
 	for _, objectName := range []string{"dir/a?b#c.parquet", "dir/a b.parquet", "dir/a%b.parquet", "dir/a%2Fb.parquet"} {
-		uploaded := manager.uploadedFile(objectName)
+		uploaded, err := manager.UploadReader(context.Background(), objectName, strings.NewReader("x"))
+		require.NoError(t, err)
 		parsed, err := url.Parse(uploaded.Location)
 		require.NoError(t, err)
 		require.Equal(t, "", parsed.RawQuery)

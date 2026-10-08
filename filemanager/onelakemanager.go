@@ -57,9 +57,12 @@ var oneLakeCredentialCache sync.Map
 // OneLakeManager manages files in a Microsoft Fabric Lakehouse's Files area.
 type OneLakeManager struct {
 	*baseManager
-	config     oneLakeConfig
 	credential azcore.TokenCredential
 	filesystem *filesystem.Client
+	// filesRoot is the Lakehouse Files directory within the workspace filesystem: "<lakehouseId>/Files".
+	filesRoot string
+	// locationPath is the URL path prefix of every object location: "/<workspaceId>/<lakehouseId>/Files/".
+	locationPath string
 }
 
 var _ FileManager = (*OneLakeManager)(nil)
@@ -100,27 +103,21 @@ func newOneLakeManager(config map[string]any, log logger.Logger, defaultTimeout 
 			logger:         log,
 			defaultTimeout: defaultTimeout,
 		},
-		config:     oneLakeConfig,
-		credential: credential,
-		filesystem: client,
+		credential:   credential,
+		filesystem:   client,
+		filesRoot:    oneLakeConfig.lakehouseID + "/Files",
+		locationPath: "/" + oneLakeConfig.workspaceID + "/" + oneLakeConfig.lakehouseID + "/Files/",
 	}, nil
 }
 
 func parseOneLakeConfig(config map[string]any) (oneLakeConfig, error) {
-	workspaceID, err := requiredOneLakeString(config, "fabricWorkspaceId")
+	workspaceID, err := requiredOneLakeGUID(config, "fabricWorkspaceId")
 	if err != nil {
 		return oneLakeConfig{}, err
 	}
-	if parsed, parseErr := uuid.Parse(workspaceID); parseErr != nil || parsed.String() != workspaceID {
-		return oneLakeConfig{}, errors.New("onelake: invalid fabricWorkspaceId")
-	}
-
-	lakehouseID, err := requiredOneLakeString(config, "lakehouseId")
+	lakehouseID, err := requiredOneLakeGUID(config, "lakehouseId")
 	if err != nil {
 		return oneLakeConfig{}, err
-	}
-	if parsed, parseErr := uuid.Parse(lakehouseID); parseErr != nil || parsed.String() != lakehouseID {
-		return oneLakeConfig{}, errors.New("onelake: invalid lakehouseId")
 	}
 
 	tenantID, err := requiredOneLakeString(config, "tenantId")
@@ -153,6 +150,18 @@ func requiredOneLakeString(config map[string]any, key string) (string, error) {
 	return value, nil
 }
 
+// requiredOneLakeGUID returns a required value that must be a canonical lowercase GUID.
+func requiredOneLakeGUID(config map[string]any, key string) (string, error) {
+	value, err := requiredOneLakeString(config, key)
+	if err != nil {
+		return "", err
+	}
+	if parsed, parseErr := uuid.Parse(value); parseErr != nil || parsed.String() != value {
+		return "", fmt.Errorf("onelake: invalid %s", key)
+	}
+	return value, nil
+}
+
 func getOneLakeCredential(config oneLakeConfig) (azcore.TokenCredential, error) {
 	key := oneLakeCredentialKey{
 		tenantID:   config.tenantID,
@@ -173,35 +182,32 @@ func getOneLakeCredential(config oneLakeConfig) (azcore.TokenCredential, error) 
 
 // Upload uploads a file to OneLake.
 func (m *OneLakeManager) Upload(ctx context.Context, input *os.File, prefixes ...string) (UploadedFile, error) {
-	segments := append(append([]string{}, prefixes...), path.Base(input.Name()))
-	objectName := path.Join(segments...)
-	if err := validateOneLakeObjectName(objectName); err != nil {
-		return UploadedFile{}, err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
-	defer cancel()
-
+	objectName := path.Join(path.Join(prefixes...), path.Base(input.Name()))
 	stat, err := input.Stat()
 	if err != nil {
 		return UploadedFile{}, fmt.Errorf("onelake: uploading %s: %w", objectName, err)
 	}
-	client := m.fileClient(objectName)
-	if err := m.createFile(ctx, objectName, client); err != nil {
-		return UploadedFile{}, err
-	}
-	// createFile already left an empty file; UploadFile rejects zero-length bodies.
-	if stat.Size() == 0 {
-		return m.uploadedFile(objectName), nil
-	}
-	if err := client.UploadFile(ctx, input, nil); err != nil {
-		return UploadedFile{}, fmt.Errorf("onelake: uploading %s: %w", objectName, err)
-	}
-	return m.uploadedFile(objectName), nil
+	return m.upload(ctx, objectName, func(ctx context.Context, client *file.Client) error {
+		// The SDK always sends at least one append chunk, which OneLake rejects when empty;
+		// the preceding Create already left an empty file.
+		if stat.Size() == 0 {
+			return nil
+		}
+		return client.UploadFile(ctx, input, nil)
+	})
 }
 
 // UploadReader streams data from a reader into OneLake.
 func (m *OneLakeManager) UploadReader(ctx context.Context, objectName string, reader io.Reader) (UploadedFile, error) {
+	return m.upload(ctx, objectName, func(ctx context.Context, client *file.Client) error {
+		return client.UploadStream(ctx, reader, nil)
+	})
+}
+
+// upload creates (or truncates) the file and then writes its contents with write.
+// OneLake's create overwrites an existing file in place and creates missing parent directories,
+// and the SDK's upload helpers only append and flush, so the create is required.
+func (m *OneLakeManager) upload(ctx context.Context, objectName string, write func(context.Context, *file.Client) error) (UploadedFile, error) {
 	if err := validateOneLakeObjectName(objectName); err != nil {
 		return UploadedFile{}, err
 	}
@@ -210,21 +216,14 @@ func (m *OneLakeManager) UploadReader(ctx context.Context, objectName string, re
 	defer cancel()
 
 	client := m.fileClient(objectName)
-	if err := m.createFile(ctx, objectName, client); err != nil {
-		return UploadedFile{}, err
+	if _, err := client.Create(ctx, nil); err != nil {
+		return UploadedFile{}, fmt.Errorf("onelake: creating %s: %w", objectName, err)
 	}
-	if err := client.UploadStream(ctx, reader, nil); err != nil {
+	if err := write(ctx, client); err != nil {
 		return UploadedFile{}, fmt.Errorf("onelake: uploading %s: %w", objectName, err)
 	}
-	return m.uploadedFile(objectName), nil
-}
-
-// createFile creates (or truncates) the file. OneLake creates missing parent directories and overwrites an existing file in place.
-func (m *OneLakeManager) createFile(ctx context.Context, objectName string, client *file.Client) error {
-	if _, err := client.Create(ctx, nil); err != nil {
-		return fmt.Errorf("onelake: creating %s: %w", objectName, err)
-	}
-	return nil
+	location := oneLakeEndpoint + m.locationPath + escapeOneLakeObjectName(objectName)
+	return UploadedFile{Location: location, ObjectName: objectName}, nil
 }
 
 // Download retrieves a OneLake file and writes it to output.
@@ -304,7 +303,8 @@ func (m *OneLakeManager) ListFilesWithPrefix(ctx context.Context, startAfter, pr
 		err:       err,
 	}
 	if err == nil && maxItems > 0 {
-		pageSize := int32(min(maxItems, 5000))
+		// Names are filtered client-side, so request full pages rather than maxItems-sized ones.
+		pageSize := int32(5000)
 		session.pager = m.filesystem.NewListPathsPager(true, &filesystem.ListPathsOptions{
 			Prefix:     &directory,
 			MaxResults: &pageSize,
@@ -356,11 +356,10 @@ func (m *OneLakeManager) objectNameFromLocation(location string) (string, error)
 		}
 	}
 
-	root := "/" + m.config.workspaceID + "/" + m.config.lakehouseID + "/Files/"
-	if !strings.HasPrefix(parsed.Path, root) {
+	objectName, ok := strings.CutPrefix(parsed.Path, m.locationPath)
+	if !ok {
 		return "", errors.New("onelake: location is outside the configured Lakehouse Files area")
 	}
-	objectName := strings.TrimPrefix(parsed.Path, root)
 	if err := validateOneLakeObjectName(objectName); err != nil {
 		return "", err
 	}
@@ -377,16 +376,7 @@ func (m *OneLakeManager) GetDownloadKeyFromFileLocation(location string) string 
 }
 
 func (m *OneLakeManager) fileClient(objectName string) *file.Client {
-	return m.filesystem.NewFileClient(path.Join(m.filesRoot(), objectName))
-}
-
-func (m *OneLakeManager) filesRoot() string {
-	return path.Join(m.config.lakehouseID, "Files")
-}
-
-func (m *OneLakeManager) uploadedFile(objectName string) UploadedFile {
-	location := oneLakeEndpoint + "/" + m.config.workspaceID + "/" + m.config.lakehouseID + "/Files/" + escapeOneLakeObjectName(objectName)
-	return UploadedFile{Location: location, ObjectName: objectName}
+	return m.filesystem.NewFileClient(m.filesRoot + "/" + objectName)
 }
 
 func escapeOneLakeObjectName(objectName string) string {
@@ -401,14 +391,8 @@ func (m *OneLakeManager) listDirectory(prefix string) (string, error) {
 	if err := validateOneLakePrefix(prefix); err != nil {
 		return "", err
 	}
-	directory := prefix
-	if !strings.HasSuffix(prefix, "/") {
-		directory = path.Dir(prefix)
-	}
-	if directory == "." || directory == "" {
-		return m.filesRoot(), nil
-	}
-	return path.Join(m.filesRoot(), strings.TrimSuffix(directory, "/")), nil
+	// The directory of a name prefix: "dir/" and "dir/file_" both list "dir", "" lists the Files root.
+	return path.Join(m.filesRoot, path.Dir(prefix+"x")), nil
 }
 
 func validateOneLakePrefix(prefix string) error {
@@ -450,38 +434,26 @@ type oneLakeListSession struct {
 func (s *oneLakeListSession) Next() ([]*FileInfo, error) {
 	if s.err != nil {
 		err := s.err
-		s.err = nil
-		s.exhausted = true
+		s.err, s.exhausted = nil, true
 		return nil, err
 	}
-	if s.exhausted || s.maxItems == 0 {
+	if s.maxItems == 0 {
 		return nil, nil
 	}
 
 	ctx, cancel := context.WithTimeout(s.ctx, s.manager.getTimeout())
 	defer cancel()
 
-	results := make([]*FileInfo, 0, s.maxItems)
-	for len(results) < int(s.maxItems) {
-		if len(s.pending) > 0 {
-			remaining := min(int(s.maxItems)-len(results), len(s.pending))
-			results = append(results, s.pending[:remaining]...)
-			s.pending = s.pending[remaining:]
-			if len(results) == int(s.maxItems) {
-				return results, nil
-			}
-		}
-
+	for !s.exhausted && int64(len(s.pending)) < s.maxItems {
 		if !s.pager.More() {
 			s.exhausted = true
 			break
 		}
 		page, err := s.pager.NextPage(ctx)
 		if err != nil {
-			s.pending = append(results, s.pending...)
 			if datalakeerror.HasCode(err, datalakeerror.PathNotFound) {
 				s.exhausted = true
-				return nil, nil
+				break
 			}
 			s.manager.logger.Errorn("OneLake listing page failed", logger.NewStringField("directory", s.directory), obskit.Error(err))
 			return nil, fmt.Errorf("onelake: listing %s: %w", s.directory, err)
@@ -491,8 +463,8 @@ func (s *oneLakeListSession) Next() ([]*FileInfo, error) {
 			if item == nil || item.Name == nil || (item.IsDirectory != nil && *item.IsDirectory) {
 				continue
 			}
-			objectName := strings.TrimPrefix(*item.Name, s.manager.filesRoot()+"/")
-			if objectName == *item.Name || !strings.HasPrefix(objectName, s.prefix) || strings.Compare(objectName, s.startAfter) <= 0 {
+			objectName, ok := strings.CutPrefix(*item.Name, s.manager.filesRoot+"/")
+			if !ok || !strings.HasPrefix(objectName, s.prefix) || objectName <= s.startAfter {
 				continue
 			}
 			lastModified, err := oneLakeLastModified(item.LastModified)
@@ -502,9 +474,13 @@ func (s *oneLakeListSession) Next() ([]*FileInfo, error) {
 			s.pending = append(s.pending, &FileInfo{Key: objectName, LastModified: lastModified})
 		}
 	}
-	if len(results) == 0 {
+
+	n := min(int(s.maxItems), len(s.pending))
+	if n == 0 {
 		return nil, nil
 	}
+	results := s.pending[:n:n]
+	s.pending = s.pending[n:]
 	return results, nil
 }
 
