@@ -58,7 +58,6 @@ var oneLakeCredentialCache sync.Map
 // OneLakeManager manages files in a Microsoft Fabric Lakehouse's Files area.
 type OneLakeManager struct {
 	*baseManager
-	credential azcore.TokenCredential
 	filesystem *filesystem.Client
 	// filesRoot is the Lakehouse Files directory within the workspace filesystem: "<lakehouseId>/Files".
 	filesRoot string
@@ -91,7 +90,7 @@ func newOneLakeManager(config map[string]any, log logger.Logger, defaultTimeout 
 	if endpoint == "" {
 		endpoint = oneLakeEndpoint
 	}
-	filesystemURL := strings.TrimRight(endpoint, "/") + "/" + oneLakeConfig.workspaceID
+	filesystemURL := endpoint + "/" + oneLakeConfig.workspaceID
 	client, err := filesystem.NewClient(filesystemURL, credential, &filesystem.ClientOptions{
 		ClientOptions: options.clientOptions,
 	})
@@ -104,7 +103,6 @@ func newOneLakeManager(config map[string]any, log logger.Logger, defaultTimeout 
 			logger:         log,
 			defaultTimeout: defaultTimeout,
 		},
-		credential:   credential,
 		filesystem:   client,
 		filesRoot:    oneLakeConfig.lakehouseID + "/Files",
 		locationPath: "/" + oneLakeConfig.workspaceID + "/" + oneLakeConfig.lakehouseID + "/Files/",
@@ -233,10 +231,9 @@ func (m *OneLakeManager) Download(ctx context.Context, output io.WriterAt, key s
 	}
 
 	downloadOptions := applyDownloadOptions(opts...)
-	sdkOptions := &file.DownloadStreamOptions{Range: &file.HTTPRange{}}
+	sdkOptions := &file.DownloadStreamOptions{}
 	if downloadOptions.isRangeRequest {
-		sdkOptions.Range.Offset = downloadOptions.offset
-		sdkOptions.Range.Count = downloadOptions.length
+		sdkOptions.Range = &file.HTTPRange{Offset: downloadOptions.offset, Count: downloadOptions.length}
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
@@ -250,7 +247,10 @@ func (m *OneLakeManager) Download(ctx context.Context, output io.WriterAt, key s
 		return fmt.Errorf("onelake: downloading %s: %w", key, err)
 	}
 
-	body := response.NewRetryReader(ctx, &file.RetryReaderOptions{})
+	body := response.Body
+	if downloadOptions.isRangeRequest {
+		body = response.NewRetryReader(ctx, &file.RetryReaderOptions{})
+	}
 	_, copyErr := io.Copy(io.NewOffsetWriter(output, 0), body)
 	closeErr := body.Close()
 	if copyErr != nil {
@@ -284,12 +284,6 @@ func (m *OneLakeManager) Delete(ctx context.Context, keys []string) error {
 // ListFilesWithPrefix starts a recursive OneLake listing session.
 func (m *OneLakeManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix string, maxItems int64) ListSession {
 	directory, err := m.listDirectory(prefix)
-	if err == nil && startAfter != "" {
-		err = validateOneLakeObjectName(startAfter)
-	}
-	if maxItems < 0 {
-		err = errors.New("onelake: maxItems cannot be negative")
-	}
 
 	session := &oneLakeListSession{
 		baseListSession: &baseListSession{
@@ -343,17 +337,8 @@ func (m *OneLakeManager) objectNameFromLocation(location string) (string, error)
 	if parsed.Scheme != "https" {
 		return "", errors.New("onelake: location must use https")
 	}
-	if parsed.User != nil || parsed.Host != oneLakeHost {
+	if parsed.Host != oneLakeHost {
 		return "", errors.New("onelake: location has an invalid host")
-	}
-	if parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", errors.New("onelake: location contains unsupported URL components")
-	}
-	for segment := range strings.SplitSeq(strings.TrimPrefix(parsed.EscapedPath(), "/"), "/") {
-		decoded, decodeErr := url.PathUnescape(segment)
-		if decodeErr != nil || strings.Contains(decoded, "/") {
-			return "", errors.New("onelake: location contains an invalid escaped path segment")
-		}
 	}
 
 	objectName, ok := strings.CutPrefix(parsed.Path, m.locationPath)
@@ -437,7 +422,7 @@ func (s *oneLakeListSession) Next() ([]*FileInfo, error) {
 		s.err, s.exhausted = nil, true
 		return nil, err
 	}
-	if s.maxItems == 0 {
+	if s.maxItems <= 0 {
 		return nil, nil
 	}
 

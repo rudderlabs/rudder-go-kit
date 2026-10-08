@@ -281,17 +281,18 @@ func TestNewOneLakeManager(t *testing.T) {
 	t.Run("credential cache", func(t *testing.T) {
 		oneLakeCredentialCache.Clear()
 		t.Cleanup(oneLakeCredentialCache.Clear)
-		first, err := NewOneLakeManager(testOneLakeConfig(), logger.NOP, nil)
+		config, err := parseOneLakeConfig(testOneLakeConfig())
 		require.NoError(t, err)
-		second, err := NewOneLakeManager(testOneLakeConfig(), logger.NOP, nil)
+		first, err := getOneLakeCredential(config)
 		require.NoError(t, err)
-		require.Same(t, first.credential, second.credential)
+		second, err := getOneLakeCredential(config)
+		require.NoError(t, err)
+		require.Same(t, first, second)
 
-		changed := testOneLakeConfig()
-		changed["clientSecret"] = "different-secret"
-		third, err := NewOneLakeManager(changed, logger.NOP, nil)
+		config.clientSecret = "different-secret"
+		third, err := getOneLakeCredential(config)
 		require.NoError(t, err)
-		require.NotSame(t, first.credential, third.credential)
+		require.NotSame(t, first, third)
 	})
 }
 
@@ -387,6 +388,7 @@ func TestOneLakeDownload(t *testing.T) {
 	var output bytesWriterAt
 	require.NoError(t, manager.Download(context.Background(), &output, key))
 	require.Equal(t, "0123456789abcdefghij", output.String())
+	require.Empty(t, requestRange(fake.requests[len(fake.requests)-1]))
 
 	output = bytesWriterAt{}
 	require.NoError(t, manager.Download(context.Background(), &output, key, WithDownloadOffSetAndLength(5, 10)))
@@ -482,6 +484,22 @@ func TestOneLakeListFilesWithPrefix(t *testing.T) {
 		require.Equal(t, []string{"dir/file_2", "dir/file_3"}, fileInfoKeys(files))
 	})
 
+	t.Run("unusual start after", func(t *testing.T) {
+		fake := newOneLakeFakeServer(t)
+		fake.listPages = [][]oneLakeFakePath{{{name: root + "dir/file_1"}}}
+		manager := newTestOneLakeManager(t, fake)
+		files, err := manager.ListFilesWithPrefix(context.Background(), `a\b`, "dir/file_", 3).Next()
+		require.NoError(t, err)
+		require.Equal(t, []string{"dir/file_1"}, fileInfoKeys(files))
+	})
+
+	t.Run("negative max items", func(t *testing.T) {
+		manager := newTestOneLakeManager(t, newOneLakeFakeServer(t))
+		files, err := manager.ListFilesWithPrefix(context.Background(), "", "dir/", -1).Next()
+		require.NoError(t, err)
+		require.Nil(t, files)
+	})
+
 	t.Run("missing directory", func(t *testing.T) {
 		fake := newOneLakeFakeServer(t)
 		fake.listMissing = true
@@ -506,6 +524,18 @@ func TestOneLakeLocations(t *testing.T) {
 	require.Equal(t, objectName, actual)
 	require.Equal(t, objectName, manager.GetDownloadKeyFromFileLocation(location))
 
+	accepted := map[string]string{
+		location + "?sig=secret": objectName,
+		location + "#fragment":   objectName,
+		"https://user@" + oneLakeHost + "/" + testOneLakeWorkspace + "/" + testOneLakeLakehouse + "/Files/x": "x",
+		oneLakeEndpoint + "/" + testOneLakeWorkspace + "/" + testOneLakeLakehouse + "/Files/a%2Fb":           "a/b",
+	}
+	for value, expected := range accepted {
+		actual, err := manager.GetObjectNameFromLocation(value)
+		require.NoError(t, err)
+		require.Equal(t, expected, actual)
+	}
+
 	for _, objectName := range []string{"dir/a?b#c.parquet", "dir/a b.parquet", "dir/a%b.parquet", "dir/a%2Fb.parquet"} {
 		uploaded, err := manager.UploadReader(context.Background(), objectName, strings.NewReader("x"))
 		require.NoError(t, err)
@@ -525,8 +555,6 @@ func TestOneLakeLocations(t *testing.T) {
 		oneLakeEndpoint + "/" + testOneLakeWorkspace + "/33333333-3333-3333-3333-333333333333/Files/x",
 		oneLakeEndpoint + "/" + testOneLakeWorkspace + "/" + testOneLakeLakehouse + "/Tables/x",
 		oneLakeEndpoint + "/" + testOneLakeWorkspace + "/" + testOneLakeLakehouse + "/Files/../Tables/x",
-		oneLakeEndpoint + "/" + testOneLakeWorkspace + "/" + testOneLakeLakehouse + "/Files/x?sig=secret",
-		oneLakeEndpoint + "/" + testOneLakeWorkspace + "/" + testOneLakeLakehouse + "/Files/a%2Fb",
 	}
 	for _, value := range invalid {
 		_, err := manager.GetObjectNameFromLocation(value)
