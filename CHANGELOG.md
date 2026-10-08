@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.83.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.83.0...v0.83.1) (2026-10-08)
+
+
+### Miscellaneous
+
+* **deps:** bump codecov/codecov-action from 7.1.0 to 7.1.1 ([#1228](https://github.com/rudderlabs/rudder-go-kit/issues/1228)) ([d2bf9a1](https://github.com/rudderlabs/rudder-go-kit/commit/d2bf9a1f94f1c7ce57221c58a780a06800e0d137))
+* **deps:** bump google.golang.org/api from 0.298.0 to 0.299.0 in the frequent group across 1 directory ([#1233](https://github.com/rudderlabs/rudder-go-kit/issues/1233)) ([131615b](https://github.com/rudderlabs/rudder-go-kit/commit/131615bb868ca4f75d86bc346cf201807f9fb279))
+* **deps:** bump the all group across 1 directory with 11 updates ([#1241](https://github.com/rudderlabs/rudder-go-kit/issues/1241)) ([b9188ff](https://github.com/rudderlabs/rudder-go-kit/commit/b9188fff843bcc8bc6f1a739b5d6376a5bb9508a))
+
 ## [0.83.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.82.0...v0.83.0) (2026-10-08)
 
 
