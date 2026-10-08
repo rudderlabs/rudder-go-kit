@@ -20,7 +20,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azdatalake/datalakeerror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azdatalake/file"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azdatalake/filesystem"
-	"github.com/google/uuid"
 
 	obskit "github.com/rudderlabs/rudder-observability-kit/go/labels"
 
@@ -113,11 +112,11 @@ func newOneLakeManager(config map[string]any, log logger.Logger, defaultTimeout 
 }
 
 func parseOneLakeConfig(config map[string]any) (oneLakeConfig, error) {
-	workspaceID, err := requiredOneLakeGUID(config, "fabricWorkspaceId")
+	workspaceID, err := requiredOneLakeString(config, "fabricWorkspaceId")
 	if err != nil {
 		return oneLakeConfig{}, err
 	}
-	lakehouseID, err := requiredOneLakeGUID(config, "lakehouseId")
+	lakehouseID, err := requiredOneLakeString(config, "lakehouseId")
 	if err != nil {
 		return oneLakeConfig{}, err
 	}
@@ -148,18 +147,6 @@ func requiredOneLakeString(config map[string]any, key string) (string, error) {
 	value, ok := config[key].(string)
 	if !ok || strings.TrimSpace(value) == "" {
 		return "", fmt.Errorf("onelake: missing or blank %s", key)
-	}
-	return value, nil
-}
-
-// requiredOneLakeGUID returns a required value that must be a canonical lowercase GUID.
-func requiredOneLakeGUID(config map[string]any, key string) (string, error) {
-	value, err := requiredOneLakeString(config, key)
-	if err != nil {
-		return "", err
-	}
-	if parsed, parseErr := uuid.Parse(value); parseErr != nil || parsed.String() != value {
-		return "", fmt.Errorf("onelake: invalid %s", key)
 	}
 	return value, nil
 }

@@ -268,17 +268,6 @@ func TestNewOneLakeManager(t *testing.T) {
 		}
 	})
 
-	t.Run("canonical ids", func(t *testing.T) {
-		for _, key := range []string{"fabricWorkspaceId", "lakehouseId"} {
-			for _, invalid := range []string{"AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "{aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"} {
-				config := testOneLakeConfig()
-				config[key] = invalid
-				_, err := NewOneLakeManager(config, logger.NOP, nil)
-				require.ErrorContains(t, err, key)
-			}
-		}
-	})
-
 	t.Run("unknown config ignored", func(t *testing.T) {
 		config := testOneLakeConfig()
 		config["prefix"] = "ignored"
