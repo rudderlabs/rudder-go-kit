@@ -30,6 +30,8 @@ import (
 const (
 	oneLakeHost     = "onelake.dfs.fabric.microsoft.com"
 	oneLakeEndpoint = "https://" + oneLakeHost
+	// oneLakeCleanupTimeout bounds deleting a partially uploaded file after a failed write.
+	oneLakeCleanupTimeout = 10 * time.Second
 )
 
 type oneLakeConfig struct {
@@ -207,6 +209,8 @@ func (m *OneLakeManager) UploadReader(ctx context.Context, objectName string, re
 // upload creates (or truncates) the file and then writes its contents with write.
 // OneLake's create overwrites an existing file in place and creates missing parent directories,
 // and the SDK's upload helpers only append and flush, so the create is required.
+// A failed write deletes the file, so a failed overwrite loses the previous contents;
+// writing to a temporary name and renaming it into place would avoid that.
 func (m *OneLakeManager) upload(ctx context.Context, objectName string, write func(context.Context, *file.Client) error) (UploadedFile, error) {
 	if err := validateOneLakeObjectName(objectName); err != nil {
 		return UploadedFile{}, err
@@ -222,11 +226,13 @@ func (m *OneLakeManager) upload(ctx context.Context, objectName string, write fu
 	if err := write(ctx, client); err != nil {
 		// Create already left an empty file at objectName; remove it so a failed upload
 		// does not leave a zero-byte object behind for listings and readers to pick up.
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), m.getTimeout())
-		if _, deleteErr := client.Delete(cleanupCtx, nil); deleteErr != nil && !datalakeerror.HasCode(deleteErr, datalakeerror.PathNotFound, datalakeerror.BlobNotFound) {
+		// It runs even when the caller's context is done, with a short budget of its own.
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), min(m.getTimeout(), oneLakeCleanupTimeout))
+		defer cleanupCancel()
+		_, deleteErr := client.Delete(cleanupCtx, nil)
+		if deleteErr != nil && !isOneLakeNotFound(deleteErr) {
 			m.logger.Warnn("OneLake cleanup after failed upload failed", logger.NewStringField("objectName", objectName), obskit.Error(deleteErr))
 		}
-		cleanupCancel()
 		return UploadedFile{}, fmt.Errorf("onelake: uploading %s: %w", objectName, err)
 	}
 	location := oneLakeEndpoint + m.locationPath + escapeOneLakeObjectName(objectName)
@@ -251,7 +257,7 @@ func (m *OneLakeManager) Download(ctx context.Context, output io.WriterAt, key s
 
 	response, err := m.fileClient(key).DownloadStream(ctx, sdkOptions)
 	if err != nil {
-		if datalakeerror.HasCode(err, datalakeerror.PathNotFound, datalakeerror.BlobNotFound) {
+		if isOneLakeNotFound(err) {
 			return ErrKeyNotFound
 		}
 		return fmt.Errorf("onelake: downloading %s: %w", key, err)
@@ -279,7 +285,7 @@ func (m *OneLakeManager) Delete(ctx context.Context, keys []string) error {
 		deleteCtx, cancel := context.WithTimeout(ctx, m.getTimeout())
 		_, err := m.fileClient(key).Delete(deleteCtx, nil)
 		cancel()
-		if err == nil || datalakeerror.HasCode(err, datalakeerror.PathNotFound, datalakeerror.BlobNotFound) {
+		if err == nil || isOneLakeNotFound(err) {
 			continue
 		}
 		m.logger.Errorn("OneLake object delete failed", logger.NewStringField("objectName", key), obskit.Error(err))
@@ -500,4 +506,10 @@ func oneLakeLastModified(value *string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("parsing last modified: %w", err)
 	}
 	return lastModified, nil
+}
+
+// isOneLakeNotFound reports whether err means the path does not exist. Downloads go through
+// the Blob endpoint, which reports BlobNotFound rather than PathNotFound.
+func isOneLakeNotFound(err error) bool {
+	return datalakeerror.HasCode(err, datalakeerror.PathNotFound, datalakeerror.BlobNotFound)
 }
