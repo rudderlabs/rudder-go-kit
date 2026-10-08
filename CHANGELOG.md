@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.83.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.82.0...v0.83.0) (2026-10-08)
+
+
+### Features
+
+* add OneLake provider ([#1238](https://github.com/rudderlabs/rudder-go-kit/issues/1238)) ([316a9ef](https://github.com/rudderlabs/rudder-go-kit/commit/316a9ef4f11d4ca0da74de31ea8db5c207e8da5f))
+
 ## [0.82.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.81.0...v0.82.0) (2026-10-07)
 
 
