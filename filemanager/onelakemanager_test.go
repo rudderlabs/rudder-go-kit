@@ -508,6 +508,18 @@ func TestOneLakeListFilesWithPrefix(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, files)
 	})
+
+	t.Run("unparseable last modified", func(t *testing.T) {
+		fake := newOneLakeFakeServer(t)
+		fake.listPages = [][]oneLakeFakePath{{
+			{name: testOneLakeLakehouse + "/Files/dir/bad.parquet", lastModified: "not a date"},
+		}}
+		manager := newTestOneLakeManager(t, fake)
+		files, err := manager.ListFilesWithPrefix(context.Background(), "", "dir/", 3).Next()
+		require.NoError(t, err)
+		require.Equal(t, []string{"dir/bad.parquet"}, fileInfoKeys(files))
+		require.True(t, files[0].LastModified.IsZero())
+	})
 }
 
 func TestOneLakeLocations(t *testing.T) {
@@ -623,7 +635,7 @@ func TestOneLakeLiveErrors(t *testing.T) {
 	config := oneLakeLiveConfig(t)
 
 	t.Run("wrong secret", func(t *testing.T) {
-		config := cloneOneLakeConfig(config)
+		config := maps.Clone(config)
 		config["clientSecret"] = testOneLakeSecret
 		manager, err := NewOneLakeManager(config, logger.NOP, func() time.Duration { return 30 * time.Second })
 		require.NoError(t, err)
@@ -633,7 +645,7 @@ func TestOneLakeLiveErrors(t *testing.T) {
 	})
 
 	t.Run("missing lakehouse", func(t *testing.T) {
-		config := cloneOneLakeConfig(config)
+		config := maps.Clone(config)
 		config["lakehouseId"] = uuid.NewString()
 		manager, err := NewOneLakeManager(config, logger.NOP, func() time.Duration { return 30 * time.Second })
 		require.NoError(t, err)
@@ -660,12 +672,6 @@ func oneLakeLiveConfig(t *testing.T) map[string]any {
 		}
 	}
 	return config
-}
-
-func cloneOneLakeConfig(config map[string]any) map[string]any {
-	clone := make(map[string]any, len(config))
-	maps.Copy(clone, config)
-	return clone
 }
 
 type bytesWriterAt struct {

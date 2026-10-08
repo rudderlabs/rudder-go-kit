@@ -295,7 +295,7 @@ func (m *OneLakeManager) ListFilesWithPrefix(ctx context.Context, startAfter, pr
 		directory: directory,
 		err:       err,
 	}
-	if err == nil && maxItems > 0 {
+	if err == nil {
 		// Names are filtered client-side, so request full pages rather than maxItems-sized ones.
 		pageSize := int32(5000)
 		session.pager = m.filesystem.NewListPathsPager(true, &filesystem.ListPathsOptions{
@@ -428,6 +428,7 @@ func (s *oneLakeListSession) Next() ([]*FileInfo, error) {
 	ctx, cancel := context.WithTimeout(s.ctx, s.manager.getTimeout())
 	defer cancel()
 
+	filesPrefix := s.manager.filesRoot + "/"
 	for !s.exhausted && int64(len(s.pending)) < s.maxItems {
 		if !s.pager.More() {
 			s.exhausted = true
@@ -447,15 +448,11 @@ func (s *oneLakeListSession) Next() ([]*FileInfo, error) {
 			if item == nil || item.Name == nil || (item.IsDirectory != nil && *item.IsDirectory) {
 				continue
 			}
-			objectName, ok := strings.CutPrefix(*item.Name, s.manager.filesRoot+"/")
+			objectName, ok := strings.CutPrefix(*item.Name, filesPrefix)
 			if !ok || !strings.HasPrefix(objectName, s.prefix) || objectName <= s.startAfter {
 				continue
 			}
-			lastModified, err := oneLakeLastModified(item.LastModified)
-			if err != nil {
-				return nil, fmt.Errorf("onelake: listing %s: %w", s.directory, err)
-			}
-			s.pending = append(s.pending, &FileInfo{Key: objectName, LastModified: lastModified})
+			s.pending = append(s.pending, &FileInfo{Key: objectName, LastModified: s.lastModified(item.LastModified)})
 		}
 	}
 
@@ -468,15 +465,19 @@ func (s *oneLakeListSession) Next() ([]*FileInfo, error) {
 	return results, nil
 }
 
-func oneLakeLastModified(value *string) (time.Time, error) {
+// lastModified parses a listed path's HTTP-date timestamp. A missing or unparseable value
+// yields the zero time rather than failing the listing.
+func (s *oneLakeListSession) lastModified(value *string) time.Time {
 	if value == nil || *value == "" {
-		return time.Time{}, nil
+		return time.Time{}
 	}
 	lastModified, err := http.ParseTime(*value)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("parsing last modified: %w", err)
+		s.manager.logger.Warnn("OneLake listed path has an unparseable lastModified",
+			logger.NewStringField("lastModified", *value), obskit.Error(err))
+		return time.Time{}
 	}
-	return lastModified, nil
+	return lastModified
 }
 
 // isOneLakeNotFound reports whether err means the path does not exist. Downloads go through
