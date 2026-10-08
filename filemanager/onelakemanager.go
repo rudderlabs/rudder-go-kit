@@ -27,7 +27,10 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/logger"
 )
 
-const oneLakeEndpoint = "https://onelake.dfs.fabric.microsoft.com"
+const (
+	oneLakeHost     = "onelake.dfs.fabric.microsoft.com"
+	oneLakeEndpoint = "https://" + oneLakeHost
+)
 
 type oneLakeConfig struct {
 	workspaceID  string
@@ -168,10 +171,6 @@ func getOneLakeCredential(config oneLakeConfig) (azcore.TokenCredential, error) 
 	return actual.(azcore.TokenCredential), nil
 }
 
-func resetOneLakeCredentialCache() {
-	oneLakeCredentialCache = sync.Map{}
-}
-
 // Upload uploads a file to OneLake.
 func (m *OneLakeManager) Upload(ctx context.Context, input *os.File, prefixes ...string) (UploadedFile, error) {
 	segments := append(append([]string{}, prefixes...), path.Base(input.Name()))
@@ -183,9 +182,17 @@ func (m *OneLakeManager) Upload(ctx context.Context, input *os.File, prefixes ..
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
+	stat, err := input.Stat()
+	if err != nil {
+		return UploadedFile{}, fmt.Errorf("onelake: uploading %s: %w", objectName, err)
+	}
 	client := m.fileClient(objectName)
-	if err := m.prepareUpload(ctx, objectName, client); err != nil {
+	if err := m.createFile(ctx, objectName, client); err != nil {
 		return UploadedFile{}, err
+	}
+	// createFile already left an empty file; UploadFile rejects zero-length bodies.
+	if stat.Size() == 0 {
+		return m.uploadedFile(objectName), nil
 	}
 	if err := client.UploadFile(ctx, input, nil); err != nil {
 		return UploadedFile{}, fmt.Errorf("onelake: uploading %s: %w", objectName, err)
@@ -203,7 +210,7 @@ func (m *OneLakeManager) UploadReader(ctx context.Context, objectName string, re
 	defer cancel()
 
 	client := m.fileClient(objectName)
-	if err := m.prepareUpload(ctx, objectName, client); err != nil {
+	if err := m.createFile(ctx, objectName, client); err != nil {
 		return UploadedFile{}, err
 	}
 	if err := client.UploadStream(ctx, reader, nil); err != nil {
@@ -212,28 +219,10 @@ func (m *OneLakeManager) UploadReader(ctx context.Context, objectName string, re
 	return m.uploadedFile(objectName), nil
 }
 
-func (m *OneLakeManager) prepareUpload(ctx context.Context, objectName string, client *file.Client) error {
-	parent := path.Dir(objectName)
-	if parent != "." {
-		current := m.filesRoot()
-		for segment := range strings.SplitSeq(parent, "/") {
-			current = path.Join(current, segment)
-			_, err := m.filesystem.NewDirectoryClient(current).Create(ctx, nil)
-			if err != nil && !datalakeerror.HasCode(err, datalakeerror.PathAlreadyExists) {
-				return fmt.Errorf("onelake: creating parent for %s: %w", objectName, err)
-			}
-		}
-	}
+// createFile creates (or truncates) the file. OneLake creates missing parent directories and overwrites an existing file in place.
+func (m *OneLakeManager) createFile(ctx context.Context, objectName string, client *file.Client) error {
 	if _, err := client.Create(ctx, nil); err != nil {
-		if !datalakeerror.HasCode(err, datalakeerror.PathAlreadyExists) {
-			return fmt.Errorf("onelake: creating %s: %w", objectName, err)
-		}
-		if _, deleteErr := client.Delete(ctx, nil); deleteErr != nil && !datalakeerror.HasCode(deleteErr, datalakeerror.PathNotFound, datalakeerror.BlobNotFound) {
-			return fmt.Errorf("onelake: replacing %s: %w", objectName, deleteErr)
-		}
-		if _, createErr := client.Create(ctx, nil); createErr != nil {
-			return fmt.Errorf("onelake: creating %s: %w", objectName, createErr)
-		}
+		return fmt.Errorf("onelake: creating %s: %w", objectName, err)
 	}
 	return nil
 }
@@ -354,7 +343,7 @@ func (m *OneLakeManager) objectNameFromLocation(location string) (string, error)
 	if parsed.Scheme != "https" {
 		return "", errors.New("onelake: location must use https")
 	}
-	if parsed.User != nil || parsed.Host != "onelake.dfs.fabric.microsoft.com" {
+	if parsed.User != nil || parsed.Host != oneLakeHost {
 		return "", errors.New("onelake: location has an invalid host")
 	}
 	if parsed.RawQuery != "" || parsed.Fragment != "" {

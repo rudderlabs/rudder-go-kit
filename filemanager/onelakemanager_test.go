@@ -91,19 +91,11 @@ func (f *oneLakeFakeServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	objectPath := strings.TrimPrefix(r.URL.Path, "/"+testOneLakeWorkspace+"/")
 	switch {
-	case r.Method == http.MethodPut && r.URL.Query().Get("resource") == "directory":
-		w.WriteHeader(http.StatusCreated)
 	case r.Method == http.MethodPut && r.URL.Query().Get("resource") == "file":
+		// Like OneLake, creating an existing file truncates it.
 		f.mu.Lock()
-		_, found := f.objects[objectPath]
-		if !found {
-			f.objects[objectPath] = nil
-		}
+		f.objects[objectPath] = []byte{}
 		f.mu.Unlock()
-		if found {
-			writeOneLakeError(w, http.StatusConflict, "PathAlreadyExists")
-			return
-		}
 		w.WriteHeader(http.StatusCreated)
 	case r.Method == http.MethodPatch && r.URL.Query().Get("action") == "append" && r.URL.Query().Get("position") == "0":
 		f.mu.Lock()
@@ -157,11 +149,11 @@ func (f *oneLakeFakeServer) serveDownload(w http.ResponseWriter, r *http.Request
 	if rangeHeader != "" {
 		var start, end int
 		if strings.HasSuffix(rangeHeader, "-") {
-			_, err := fmtSscanf(rangeHeader, "bytes=%d-", &start)
+			_, err := fmt.Sscanf(rangeHeader, "bytes=%d-", &start)
 			require.NoError(f.t, err)
 			end = len(data) - 1
 		} else {
-			_, err := fmtSscanf(rangeHeader, "bytes=%d-%d", &start, &end)
+			_, err := fmt.Sscanf(rangeHeader, "bytes=%d-%d", &start, &end)
 			require.NoError(f.t, err)
 		}
 		w.Header().Set("Content-Range", "bytes 0-0/1")
@@ -181,7 +173,7 @@ func (f *oneLakeFakeServer) serveList(w http.ResponseWriter, r *http.Request) {
 	}
 	page := 0
 	if marker := r.URL.Query().Get("continuation"); marker != "" {
-		_, err := fmtSscanf(marker, "page-%d", &page)
+		_, err := fmt.Sscanf(marker, "page-%d", &page)
 		require.NoError(f.t, err)
 	}
 	if page >= len(f.listPages) {
@@ -190,7 +182,7 @@ func (f *oneLakeFakeServer) serveList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if page+1 < len(f.listPages) {
-		w.Header().Set("x-ms-continuation", "page-"+strconvItoa(page+1))
+		w.Header().Set("x-ms-continuation", "page-"+strconv.Itoa(page+1))
 	}
 	var body strings.Builder
 	body.WriteString(`{"paths":[`)
@@ -201,7 +193,7 @@ func (f *oneLakeFakeServer) serveList(w http.ResponseWriter, r *http.Request) {
 		body.WriteString(`{"name":"`)
 		body.WriteString(item.name)
 		body.WriteString(`","isDirectory":"`)
-		body.WriteString(strconvFormatBool(item.isDirectory))
+		body.WriteString(strconv.FormatBool(item.isDirectory))
 		body.WriteByte('"')
 		if item.lastModified != "" {
 			body.WriteString(`,"lastModified":"`)
@@ -304,8 +296,8 @@ func TestNewOneLakeManager(t *testing.T) {
 	})
 
 	t.Run("credential cache", func(t *testing.T) {
-		resetOneLakeCredentialCache()
-		t.Cleanup(resetOneLakeCredentialCache)
+		oneLakeCredentialCache.Clear()
+		t.Cleanup(oneLakeCredentialCache.Clear)
 		first, err := NewOneLakeManager(testOneLakeConfig(), logger.NOP, nil)
 		require.NoError(t, err)
 		second, err := NewOneLakeManager(testOneLakeConfig(), logger.NOP, nil)
@@ -339,6 +331,14 @@ func TestOneLakeUploadAndValidation(t *testing.T) {
 	require.Equal(t, expectedName, uploaded.ObjectName)
 	require.Equal(t, oneLakeEndpoint+"/"+testOneLakeWorkspace+"/"+testOneLakeLakehouse+"/Files/"+expectedName, uploaded.Location)
 	require.Equal(t, []byte("uploaded file"), fake.objects[path.Join(testOneLakeLakehouse, "Files", expectedName)])
+
+	empty, err := os.Create(path.Join(t.TempDir(), "empty.parquet"))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, empty.Close()) }()
+	uploaded, err = manager.Upload(context.Background(), empty, "a")
+	require.NoError(t, err)
+	require.Equal(t, "a/empty.parquet", uploaded.ObjectName)
+	require.Equal(t, []byte{}, fake.objects[path.Join(testOneLakeLakehouse, "Files", "a/empty.parquet")])
 
 	readSide, writeSide := io.Pipe()
 	done := make(chan error, 1)
@@ -580,7 +580,25 @@ func TestOneLakeLive(t *testing.T) {
 	require.NoError(t, manager.Download(context.Background(), &output, key, WithDownloadOffSetAndLength(5, 10)))
 	require.Equal(t, contents[5:15], output.Bytes())
 
-	require.NoError(t, manager.Delete(context.Background(), []string{key}))
+	uploaded, err = manager.UploadReader(context.Background(), key, strings.NewReader("replaced"))
+	require.NoError(t, err)
+	output = bytesWriterAt{}
+	require.NoError(t, manager.Download(context.Background(), &output, key))
+	require.Equal(t, "replaced", output.String())
+
+	empty, err := os.Create(path.Join(t.TempDir(), "empty.txt"))
+	require.NoError(t, err)
+	defer func() { require.NoError(t, empty.Close()) }()
+	uploaded, err = manager.Upload(context.Background(), empty, prefix)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = manager.Delete(context.Background(), []string{uploaded.ObjectName}) })
+	name, err := manager.GetObjectNameFromLocation(uploaded.Location)
+	require.NoError(t, err)
+	output = bytesWriterAt{}
+	require.NoError(t, manager.Download(context.Background(), &output, name))
+	require.Zero(t, output.Len())
+
+	require.NoError(t, manager.Delete(context.Background(), []string{key, uploaded.ObjectName}))
 	require.ErrorIs(t, manager.Download(context.Background(), &output, key), ErrKeyNotFound)
 }
 
@@ -658,9 +676,3 @@ func fileInfoKeys(files []*FileInfo) []string {
 	}
 	return keys
 }
-
-var (
-	fmtSscanf         = func(value, format string, args ...any) (int, error) { return fmt.Sscanf(value, format, args...) }
-	strconvItoa       = strconv.Itoa
-	strconvFormatBool = strconv.FormatBool
-)
