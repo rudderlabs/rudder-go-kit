@@ -220,6 +220,13 @@ func (m *OneLakeManager) upload(ctx context.Context, objectName string, write fu
 		return UploadedFile{}, fmt.Errorf("onelake: creating %s: %w", objectName, err)
 	}
 	if err := write(ctx, client); err != nil {
+		// Create already left an empty file at objectName; remove it so a failed upload
+		// does not leave a zero-byte object behind for listings and readers to pick up.
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), m.getTimeout())
+		if _, deleteErr := client.Delete(cleanupCtx, nil); deleteErr != nil && !datalakeerror.HasCode(deleteErr, datalakeerror.PathNotFound, datalakeerror.BlobNotFound) {
+			m.logger.Warnn("OneLake cleanup after failed upload failed", logger.NewStringField("objectName", objectName), obskit.Error(deleteErr))
+		}
+		cleanupCancel()
 		return UploadedFile{}, fmt.Errorf("onelake: uploading %s: %w", objectName, err)
 	}
 	location := oneLakeEndpoint + m.locationPath + escapeOneLakeObjectName(objectName)

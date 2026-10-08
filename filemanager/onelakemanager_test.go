@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -358,6 +359,11 @@ func TestOneLakeUploadAndValidation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "partial/data.parquet", uploaded.ObjectName)
 	require.Equal(t, []byte("retry payload"), fake.objects[path.Join(testOneLakeLakehouse, "Files", uploaded.ObjectName)])
+
+	failedReader := io.MultiReader(strings.NewReader("partial"), iotest.ErrReader(errors.New("source failed")))
+	_, err = manager.UploadReader(context.Background(), "failed/data.parquet", failedReader)
+	require.ErrorContains(t, err, "source failed")
+	require.NotContains(t, fake.objects, path.Join(testOneLakeLakehouse, "Files", "failed/data.parquet"), "failed upload must not leave an empty file behind")
 
 	requestsBefore := len(fake.requests)
 	for _, invalid := range []string{"", "/x", `a\b`, "a//b", "a/./b", "a/../b"} {
