@@ -231,9 +231,11 @@ func (m *OneLakeManager) Download(ctx context.Context, output io.WriterAt, key s
 	}
 
 	downloadOptions := applyDownloadOptions(opts...)
-	sdkOptions := &file.DownloadStreamOptions{}
+	// NewRetryReader dereferences Range; its zero value still sends no range header for full downloads.
+	sdkOptions := &file.DownloadStreamOptions{Range: &file.HTTPRange{}}
 	if downloadOptions.isRangeRequest {
-		sdkOptions.Range = &file.HTTPRange{Offset: downloadOptions.offset, Count: downloadOptions.length}
+		sdkOptions.Range.Offset = downloadOptions.offset
+		sdkOptions.Range.Count = downloadOptions.length
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
@@ -247,10 +249,7 @@ func (m *OneLakeManager) Download(ctx context.Context, output io.WriterAt, key s
 		return fmt.Errorf("onelake: downloading %s: %w", key, err)
 	}
 
-	body := response.Body
-	if downloadOptions.isRangeRequest {
-		body = response.NewRetryReader(ctx, &file.RetryReaderOptions{})
-	}
+	body := response.NewRetryReader(ctx, &file.RetryReaderOptions{})
 	_, copyErr := io.Copy(io.NewOffsetWriter(output, 0), body)
 	closeErr := body.Close()
 	if copyErr != nil {
