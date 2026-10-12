@@ -12,6 +12,41 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/keygen"
 )
 
+// recordingCleaner collects cleanups so a test can run them inside require.NotPanics.
+type recordingCleaner struct {
+	*testing.T
+	cleanups []func()
+}
+
+func (c *recordingCleaner) Cleanup(f func()) { c.cleanups = append(c.cleanups, f) }
+
+func TestSetupFailedStart(t *testing.T) {
+	t.Parallel()
+	pool, err := dockertest.NewPool("tcp://127.0.0.1:1")
+	require.NoError(t, err)
+	cleaner := &recordingCleaner{T: t}
+
+	res, err := Setup(pool, cleaner, WithDockerNetwork(&dc.Network{ID: "unreachable"}))
+	require.Error(t, err)
+	require.Nil(t, res)
+	require.NotPanics(t, func() {
+		for i := len(cleaner.cleanups) - 1; i >= 0; i-- {
+			cleaner.cleanups[i]()
+		}
+	})
+}
+
+func TestTwoSetupsWithoutNetwork(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	for range 2 {
+		res, err := Setup(pool, t)
+		require.NoError(t, err)
+		require.NotZero(t, res.Port)
+	}
+}
+
 func TestCredentials(t *testing.T) {
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err)
