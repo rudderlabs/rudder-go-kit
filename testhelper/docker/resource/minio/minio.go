@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"log"
@@ -31,6 +32,11 @@ type Resource struct {
 	Endpoint        string
 	Region          string
 	Client          *minio.Client
+	// ContainerName is unique per Setup, so parallel tests on one network do not collide.
+	ContainerName string
+	// NetworkEndpoint is "<ContainerName>:9000". Only containers on the WithNetwork network can dial it.
+	// It is empty without WithNetwork, because the default bridge has no name resolution.
+	NetworkEndpoint string
 }
 
 type File struct {
@@ -60,10 +66,13 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	if c.Network != nil {
 		networkID = c.Network.ID
 	}
+	containerName := "minio-" + strings.ToLower(rand.Text())
 
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: registry.ImagePath("pgsty/minio"),
 		Tag:        c.Tag,
+		Name:       containerName,
+		Hostname:   containerName,
 		NetworkID:  networkID,
 		Cmd:        []string{"server", "/data"},
 		Auth:       registry.AuthConfiguration(),
@@ -116,7 +125,14 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		return nil, fmt.Errorf("could not create bucket %q: %w", bucket, err)
 	}
 
+	var networkEndpoint string
+	if c.Network != nil {
+		networkEndpoint = containerName + ":9000"
+	}
+
 	return &Resource{
+		ContainerName:   containerName,
+		NetworkEndpoint: networkEndpoint,
 		BucketName:      bucket,
 		AccessKeyID:     accessKeyId,
 		AccessKeySecret: secretAccessKey,
