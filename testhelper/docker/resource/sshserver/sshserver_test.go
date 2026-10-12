@@ -1,6 +1,7 @@
 package sshserver
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/melbahja/goph"
@@ -30,8 +31,8 @@ func TestSetupFailedStart(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, res)
 	require.NotPanics(t, func() {
-		for i := len(cleaner.cleanups) - 1; i >= 0; i-- {
-			cleaner.cleanups[i]()
+		for _, v := range slices.Backward(cleaner.cleanups) {
+			v()
 		}
 	})
 }
