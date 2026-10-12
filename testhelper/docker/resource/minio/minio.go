@@ -24,6 +24,13 @@ import (
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
+// Silo is the maintained fork of MinIO: MinIO deleted its community images in September 2026, and pgsty/minio stopped
+// at the rename to Silo. The tag pins the multi-arch index digest, so amd64 and arm64 hosts run the same release.
+const (
+	Repository = "pgsty/silo"
+	DefaultTag = "RELEASE.2026-09-16T00-00-00Z@sha256:635197cb9f36d01bee221d34d1c7d7960f6a95c48b0b6c01d99cd13bdae51a46"
+)
+
 type Resource struct {
 	BucketName      string
 	AccessKeyID     string
@@ -49,7 +56,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 	)
 
 	c := &Config{
-		Tag:     "latest",
+		Tag:     DefaultTag,
 		Options: []string{},
 	}
 	for _, opt := range opts {
@@ -61,8 +68,13 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...func(*Config)) (*R
 		networkID = c.Network.ID
 	}
 
+	repository := registry.ImagePath(Repository)
+	if err := internal.PullImage(pool, repository, c.Tag); err != nil {
+		return nil, fmt.Errorf("pulling minio image: %w", err)
+	}
+
 	minioContainer, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: registry.ImagePath("pgsty/minio"),
+		Repository: repository,
 		Tag:        c.Tag,
 		NetworkID:  networkID,
 		Cmd:        []string{"server", "/data"},

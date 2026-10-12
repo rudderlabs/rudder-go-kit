@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -24,7 +23,6 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/ory/dockertest/v3"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -33,8 +31,8 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/filemanager"
-	"github.com/rudderlabs/rudder-go-kit/httputil"
 	"github.com/rudderlabs/rudder-go-kit/logger"
+	miniotest "github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/minio"
 	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/registry"
 )
 
@@ -789,59 +787,18 @@ func TestS3Manager_SelectObjects(t *testing.T) {
 }
 
 func startMinioContainer(t *testing.T) (minioHostPort, s3Endpoint string) {
-	// docker pool setup
 	pool, err := dockertest.NewPool("")
 	require.NoError(t, err, "could not connect to docker")
 
-	// running minio container on docker
-	minioResource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Repository: registry.ImagePath("pgsty/minio"),
-		Tag:        "latest",
-		Cmd:        []string{"server", "/data"},
-		Env: []string{
-			fmt.Sprintf("MINIO_ACCESS_KEY=%s", accessKeyId),
-			fmt.Sprintf("MINIO_SECRET_KEY=%s", secretAccessKey),
-			fmt.Sprintf("MINIO_SITE_REGION=%s", region),
-			"MINIO_API_SELECT_PARQUET=on",
-		},
-		Auth: registry.AuthConfiguration(),
-	})
+	minioResource, err := miniotest.Setup(pool, t)
 	require.NoError(t, err, "could not start minio container")
-	t.Cleanup(func() {
-		if err := pool.Purge(minioResource); err != nil {
-			t.Logf("Could not purge resource: %s \n", err)
-		}
-	})
+	require.Equal(t, accessKeyId, minioResource.AccessKeyID)
+	require.Equal(t, secretAccessKey, minioResource.AccessKeySecret)
 
-	minioHostPort = fmt.Sprintf("localhost:%s", minioResource.GetPort("9000/tcp"))
-	s3Endpoint = fmt.Sprintf("http://%s", minioHostPort)
-
-	// check if minio server is up & running.
-	err = pool.Retry(func() error {
-		url := fmt.Sprintf("%s/minio/health/live", s3Endpoint)
-		resp, err := http.Get(url)
-		if err != nil {
-			return err
-		}
-		defer func() { httputil.CloseResponse(resp) }()
-
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("status code not OK")
-		}
-		return nil
-	})
-	require.NoError(t, err, "minio container not responding in time")
-
-	minioClient, err := minio.New(minioHostPort, &minio.Options{
-		Creds:  credentials.NewStaticV4(accessKeyId, secretAccessKey, ""),
-		Secure: false, // no SSL
-	})
-	require.NoError(t, err, "should create minio client successfully")
-
-	// creating bucket inside minio where testing will happen.
-	err = minioClient.MakeBucket(context.Background(), bucket, minio.MakeBucketOptions{Region: "us-east-1"})
+	// The resource creates its own bucket; these tests use theirs.
+	err = minioResource.Client.MakeBucket(context.Background(), bucket, minio.MakeBucketOptions{Region: region})
 	require.NoError(t, err, "should create bucket successfully")
-	return minioHostPort, s3Endpoint
+	return minioResource.Endpoint, "http://" + minioResource.Endpoint
 }
 
 func startAzuriteContainer(t *testing.T) (endpoint, tokens string) {
