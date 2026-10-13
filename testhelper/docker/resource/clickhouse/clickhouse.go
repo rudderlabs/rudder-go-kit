@@ -206,7 +206,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Opt) (_ *Resource,
 		return nil, err
 	}
 	repository = registry.ImagePath(repository)
-	if err := pullImage(pool, repository, tag); err != nil {
+	if err := internal.PullImage(pool, repository, tag); err != nil {
 		return nil, fmt.Errorf("pulling ClickHouse image: %w", err)
 	}
 	for index, node := range result.Nodes {
@@ -419,16 +419,6 @@ func writeConfig(dir string, config Config, nodes []*Node, index int, certPEM, k
 		mounts = append(mounts, path+":"+file.destination+":ro")
 	}
 	return mounts, nil
-}
-
-func pullImage(pool *dockertest.Pool, repository, tag string) error {
-	if _, err := pool.Client.InspectImage(repository + ":" + tag); err == nil {
-		return nil
-	}
-	if _, digest, pinned := strings.Cut(tag, "@"); pinned {
-		return pool.Client.PullImage(docker.PullImageOptions{Repository: repository + "@" + digest}, registry.AuthConfiguration())
-	}
-	return pool.Client.PullImage(docker.PullImageOptions{Repository: repository, Tag: tag}, registry.AuthConfiguration())
 }
 
 func verifyImage(pool *dockertest.Pool, container *dockertest.Resource, repository, tag string) error {
