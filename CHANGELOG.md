@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.84.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.83.0...v0.84.0) (2026-10-13)
+
+
+### Features
+
+* **testhelper:** expose the MinIO in-network endpoint ([#1245](https://github.com/rudderlabs/rudder-go-kit/issues/1245)) ([ffcc7f2](https://github.com/rudderlabs/rudder-go-kit/commit/ffcc7f2587b9a10e025f854ee5a48c181e8aac71))
+
+
+### Bug Fixes
+
+* **testhelper:** stop the SSH server resource from panicking on cleanup ([#1246](https://github.com/rudderlabs/rudder-go-kit/issues/1246)) ([6bef617](https://github.com/rudderlabs/rudder-go-kit/commit/6bef61786a5a67eba23c552e28f85c966e2eb32e))
+
+
+### Miscellaneous
+
+* **ci:** bump golang.org/x/net, Go to 1.27.2 and golangci-lint to v2.14.0 ([#1247](https://github.com/rudderlabs/rudder-go-kit/issues/1247)) ([c93911b](https://github.com/rudderlabs/rudder-go-kit/commit/c93911b8a76f933e819d9dcfb852c0f7afdb3b0d))
+* **deps:** bump codecov/codecov-action from 7.1.0 to 7.1.1 ([#1228](https://github.com/rudderlabs/rudder-go-kit/issues/1228)) ([d2bf9a1](https://github.com/rudderlabs/rudder-go-kit/commit/d2bf9a1f94f1c7ce57221c58a780a06800e0d137))
+* **deps:** bump google.golang.org/api from 0.298.0 to 0.299.0 in the frequent group across 1 directory ([#1233](https://github.com/rudderlabs/rudder-go-kit/issues/1233)) ([131615b](https://github.com/rudderlabs/rudder-go-kit/commit/131615bb868ca4f75d86bc346cf201807f9fb279))
+* **deps:** bump the all group across 1 directory with 11 updates ([#1241](https://github.com/rudderlabs/rudder-go-kit/issues/1241)) ([b9188ff](https://github.com/rudderlabs/rudder-go-kit/commit/b9188fff843bcc8bc6f1a739b5d6376a5bb9508a))
+* **deps:** bump the all group across 1 directory with 9 updates ([#1249](https://github.com/rudderlabs/rudder-go-kit/issues/1249)) ([512e7b0](https://github.com/rudderlabs/rudder-go-kit/commit/512e7b02a6071121d030f0c9181e40f18ea73c87))
+* **testhelper:** pin the minio resource to Silo by digest ([#1248](https://github.com/rudderlabs/rudder-go-kit/issues/1248)) ([49479e5](https://github.com/rudderlabs/rudder-go-kit/commit/49479e512a7f0899ebe6c5f7711e944eaa3f80fc))
+
 ## [0.83.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.82.0...v0.83.0) (2026-10-08)
 
 
