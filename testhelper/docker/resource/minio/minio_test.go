@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/minio/minio-go/v7"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/rudderlabs/rudder-go-kit/config"
 	"github.com/rudderlabs/rudder-go-kit/filemanager"
+	"github.com/rudderlabs/rudder-go-kit/testhelper/docker/resource/clickhouse"
 )
 
 func TestMinioResource(t *testing.T) {
@@ -25,6 +28,10 @@ func TestMinioResource(t *testing.T) {
 
 	minioResource, err := Setup(pool, t)
 	require.NoError(t, err)
+	require.Empty(t, minioResource.NetworkEndpoint, "the default bridge has no name resolution")
+	container, err := pool.Client.InspectContainer(minioResource.ContainerName)
+	require.NoError(t, err)
+	require.Equal(t, minioResource.ContainerName, container.Config.Hostname)
 
 	_, err = minioResource.Client.FPutObject(
 		context.Background(),
@@ -61,6 +68,35 @@ func TestMinioResource(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 	})
+}
+
+func TestNetworkEndpoint(t *testing.T) {
+	t.Parallel()
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+	network, err := pool.CreateNetwork("minio-test-" + filepath.Base(t.TempDir()))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, pool.RemoveNetwork(network)) })
+
+	minioResource, err := Setup(pool, t, WithNetwork(network.Network))
+	require.NoError(t, err)
+	require.Equal(t, minioResource.ContainerName+":9000", minioResource.NetworkEndpoint)
+	_, err = minioResource.Client.PutObject(
+		context.Background(),
+		minioResource.BucketName, "numbers.csv", bytes.NewBufferString("1\n2\n3\n"), -1, minio.PutObjectOptions{},
+	)
+	require.NoError(t, err)
+
+	clickhouseResource, err := clickhouse.Setup(pool, t, clickhouse.WithNetwork(network.Network))
+	require.NoError(t, err)
+	var sum uint64
+	err = clickhouseResource.DB.QueryRow(
+		"SELECT sum(n) FROM s3(?, ?, ?, 'CSV', 'n UInt64')",
+		fmt.Sprintf("http://%s/%s/numbers.csv", minioResource.NetworkEndpoint, minioResource.BucketName),
+		minioResource.AccessKeyID, minioResource.AccessKeySecret,
+	).Scan(&sum)
+	require.NoError(t, err)
+	require.EqualValues(t, 6, sum)
 }
 
 func TestMinioContents(t *testing.T) {
