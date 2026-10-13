@@ -2,6 +2,7 @@ package sshserver
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"strconv"
 	"strings"
@@ -62,13 +63,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 	network := c.network
 	if c.network == nil {
 		var err error
-		network, err = pool.Client.CreateNetwork(dc.CreateNetworkOptions{Name: "sshserver_network"})
+		// A random name lets parallel setups each own a network.
+		network, err = pool.Client.CreateNetwork(dc.CreateNetworkOptions{Name: "sshserver-" + strings.ToLower(rand.Text())})
 		if err != nil {
 			return nil, fmt.Errorf("could not create docker network: %w", err)
 		}
 		cln.Cleanup(func() {
 			if err := pool.Client.RemoveNetwork(network.ID); err != nil {
-				cln.Log(fmt.Sprintf("could not remove sshserver_network: %v", err))
+				cln.Log(fmt.Sprintf("could not remove network %s: %v", network.Name, err))
 			}
 		})
 	}
@@ -110,14 +112,14 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		Env:    envVars,
 		Mounts: mounts,
 	}, internal.DefaultHostConfig)
+	if err != nil {
+		return nil, err
+	}
 	cln.Cleanup(func() {
 		if err := pool.Purge(container); err != nil {
 			cln.Log("Could not purge resource", err)
 		}
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	var (
 		buf     *bytes.Buffer
