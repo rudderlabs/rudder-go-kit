@@ -499,13 +499,11 @@ func TestOSSRoleCredentialsProviderConcurrencyAndNilExpires(t *testing.T) {
 	errs := make(chan error, workers)
 	var wg sync.WaitGroup
 	for range workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			credentials, err := provider.GetCredentials(context.Background())
 			results <- credentials
 			errs <- err
-		}()
+		})
 	}
 	wg.Wait()
 	close(results)

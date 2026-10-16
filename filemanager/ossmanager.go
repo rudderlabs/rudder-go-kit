@@ -165,11 +165,11 @@ func newOSSManager(
 		if ossConfig.ExternalID == "" {
 			return nil, errors.New("externalID is required for IAM role")
 		}
-		callerAccessKeyID := kitconf.GetString("FileManager.ALIBABA_OSS.callerAccessKeyID", "")
+		callerAccessKeyID := kitconf.GetStringVar("", "FileManager.ALIBABA_OSS.callerAccessKeyID")
 		if callerAccessKeyID == "" {
 			return nil, errors.New("FileManager.ALIBABA_OSS.callerAccessKeyID is required for IAM role")
 		}
-		callerAccessKeySecret := kitconf.GetString("FileManager.ALIBABA_OSS.callerAccessKeySecret", "")
+		callerAccessKeySecret := kitconf.GetStringVar("", "FileManager.ALIBABA_OSS.callerAccessKeySecret")
 		if callerAccessKeySecret == "" {
 			return nil, errors.New("FileManager.ALIBABA_OSS.callerAccessKeySecret is required for IAM role")
 		}
@@ -187,7 +187,7 @@ func newOSSManager(
 				SetTimeout(ossCredentialTimeoutSeconds(defaultTimeout, ossRoleSTSReadTimeoutMaxSeconds)).
 				SetConnectTimeout(ossCredentialTimeoutSeconds(defaultTimeout, ossRoleSTSConnectTimeoutMaxSeconds))
 			credentialConfig.ExternalId = &ossConfig.ExternalID
-			if endpoint := kitconf.GetString("FileManager.ALIBABA_OSS.stsEndpoint", ""); endpoint != "" {
+			if endpoint := kitconf.GetStringVar("", "FileManager.ALIBABA_OSS.stsEndpoint"); endpoint != "" {
 				credentialConfig.SetSTSEndpoint(endpoint)
 			}
 			credential, err := aliyuncredentials.NewCredential(credentialConfig)
@@ -237,7 +237,7 @@ func validateOSSEndpointConfig(config *OSSConfig, allowInsecureEndpoint bool) er
 	}
 	if parsed.Scheme == "" {
 		if parsed.Host != "" {
-			return errors.New("Alibaba OSS endPoint must include https scheme")
+			return errors.New("alibaba OSS endPoint must include https scheme")
 		}
 		// The OSS SDK adds https:// to scheme-less host names when DisableSSL is false.
 		return validateOSSAlibabaEndpointHost(parsed.Path)
@@ -246,19 +246,19 @@ func validateOSSEndpointConfig(config *OSSConfig, allowInsecureEndpoint bool) er
 		return nil
 	}
 	if parsed.Scheme != "https" {
-		return fmt.Errorf("Alibaba OSS endPoint must use https: %s", config.EndPoint)
+		return fmt.Errorf("alibaba OSS endPoint must use https: %s", config.EndPoint)
 	}
 	return validateOSSAlibabaEndpointHost(parsed.Hostname())
 }
 
 func validateOSSAlibabaEndpointHost(host string) error {
 	if host == "" {
-		return errors.New("Alibaba OSS endPoint host is required")
+		return errors.New("alibaba OSS endPoint host is required")
 	}
 	if host == "aliyuncs.com" || strings.HasSuffix(host, ".aliyuncs.com") {
 		return nil
 	}
-	return fmt.Errorf("Alibaba OSS endPoint must be an aliyuncs.com host: %s", host)
+	return fmt.Errorf("alibaba OSS endPoint must be an aliyuncs.com host: %s", host)
 }
 
 func ossCredentialTimeoutSeconds(defaultTimeoutFn func() time.Duration, maxSeconds int) int {
@@ -304,7 +304,7 @@ func (m *OSSManager) UploadReader(ctx context.Context, objName string, rdr io.Re
 	ctx, cancel := context.WithTimeout(ctx, m.getTimeout())
 	defer cancel()
 
-	request := &oss.PutObjectRequest{Bucket: oss.Ptr(m.config.Bucket), Key: oss.Ptr(objName), Body: rdr}
+	request := &oss.PutObjectRequest{Bucket: new(m.config.Bucket), Key: new(objName), Body: rdr}
 	var err error
 	if _, ok := rdr.(*os.File); ok {
 		_, err = oss.NewUploader(m.getClient()).UploadFrom(ctx, request, rdr)
@@ -333,13 +333,13 @@ func escapeOSSObjectName(objectName string) string {
 
 func (m *OSSManager) Download(ctx context.Context, output io.WriterAt, key string, opts ...DownloadOption) error {
 	key = sanitizeKey(key)
-	request := &oss.GetObjectRequest{Bucket: oss.Ptr(m.config.Bucket), Key: oss.Ptr(key)}
+	request := &oss.GetObjectRequest{Bucket: new(m.config.Bucket), Key: new(key)}
 	downloadOpts := applyDownloadOptions(opts...)
 	if downloadOpts.isRangeRequest {
 		if downloadOpts.length > 0 {
-			request.Range = oss.Ptr(fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1))
+			request.Range = new(fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1))
 		} else {
-			request.Range = oss.Ptr(fmt.Sprintf("bytes=%d-", downloadOpts.offset))
+			request.Range = new(fmt.Sprintf("bytes=%d-", downloadOpts.offset))
 		}
 	}
 
@@ -383,11 +383,11 @@ func (l *ossListSession) Next() ([]*FileInfo, error) {
 		return nil, nil
 	}
 	request := &oss.ListObjectsV2Request{
-		Bucket: oss.Ptr(l.manager.config.Bucket), Prefix: oss.Ptr(l.prefix), MaxKeys: int32(l.maxItems),
+		Bucket: new(l.manager.config.Bucket), Prefix: new(l.prefix), MaxKeys: int32(l.maxItems),
 		ContinuationToken: l.continuationToken,
 	}
 	if l.startAfter != "" {
-		request.StartAfter = oss.Ptr(l.startAfter)
+		request.StartAfter = new(l.startAfter)
 	}
 	ctx, cancel := context.WithTimeout(l.ctx, l.manager.getTimeout())
 	defer cancel()
@@ -415,13 +415,14 @@ func (m *OSSManager) Delete(ctx context.Context, keys []string) error {
 		requested := make(map[string]struct{}, len(chunk))
 		for _, key := range chunk {
 			key = sanitizeKey(key)
-			objects = append(objects, oss.ObjectIdentifier{Key: oss.Ptr(key)})
+			objects = append(objects, oss.ObjectIdentifier{Key: new(key)})
 			requested[key] = struct{}{}
 		}
 		deleteCtx, cancel := context.WithTimeout(ctx, m.getTimeout())
 		result, err := m.getClient().DeleteMultipleObjects(deleteCtx, &oss.DeleteMultipleObjectsRequest{
-			Bucket: oss.Ptr(m.config.Bucket),
-			Delete: &oss.Delete{Objects: objects,
+			Bucket: new(m.config.Bucket),
+			Delete: &oss.Delete{
+				Objects: objects,
 				// Quiet must remain false: the live service returns no Deleted entries in quiet mode,
 				// leaving no data for partial-failure reconciliation (unlike SDK canned fixtures).
 				Quiet: false,
@@ -443,15 +444,14 @@ func (m *OSSManager) Delete(ctx context.Context, keys []string) error {
 			}
 			sort.Strings(missing)
 			shown := missing[:min(len(missing), 10)]
-			return fmt.Errorf("Alibaba OSS delete response omitted %d requested keys: %s", len(missing), strings.Join(shown, ", "))
+			return fmt.Errorf("alibaba OSS delete response omitted %d requested keys: %s", len(missing), strings.Join(shown, ", "))
 		}
 	}
 	return nil
 }
 
 func (m *OSSManager) logOSSError(message string, err error) {
-	var serviceErr *oss.ServiceError
-	if errors.As(err, &serviceErr) {
+	if serviceErr, ok := errors.AsType[*oss.ServiceError](err); ok {
 		m.logger.Errorn(message, obskit.Error(errors.New(err.Error())),
 			logger.NewStringField("errorCode", serviceErr.Code),
 			logger.NewStringField("errorMessage", serviceErr.Message),
@@ -494,8 +494,7 @@ func mapOSSError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var serviceErr *oss.ServiceError
-	if errors.As(err, &serviceErr) {
+	if serviceErr, ok := errors.AsType[*oss.ServiceError](err); ok {
 		if serviceErr.Code == "NoSuchKey" {
 			return ErrKeyNotFound
 		}
