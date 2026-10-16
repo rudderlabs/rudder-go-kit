@@ -128,6 +128,8 @@ func New(settings *Settings) (FileManager, error) {
 	switch settings.Provider {
 	case "S3_DATALAKE", "S3":
 		return NewS3Manager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
+	case "ALIBABA_OSS":
+		return NewOSSManager(conf, settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "GCS":
 		return NewGCSManager(settings.Config, log, getDefaultTimeout(conf, settings.Provider))
 	case "AZURE_BLOB":
