@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.84.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.84.0...v0.84.1) (2026-10-21)
+
+
+### Miscellaneous
+
+* require Go 1.27.3 ([#1260](https://github.com/rudderlabs/rudder-go-kit/issues/1260)) ([03613ee](https://github.com/rudderlabs/rudder-go-kit/commit/03613ee690e692c6351b8cee4b0cc7f86af3778c))
+
 ## [0.84.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.83.0...v0.84.0) (2026-10-13)
 
 
