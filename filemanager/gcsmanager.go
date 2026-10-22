@@ -122,8 +122,7 @@ func (m *GcsManager) UploadReader(ctx context.Context, objName string, rdr io.Re
 	}
 
 	if err := w.Close(); err != nil {
-		var ge *googleapi.Error
-		if errors.As(err, &ge) && ge.Code == http.StatusPreconditionFailed {
+		if ge, ok := errors.AsType[*googleapi.Error](err); ok && ge.Code == http.StatusPreconditionFailed {
 			return UploadedFile{}, ErrPreConditionFailed
 		}
 		return UploadedFile{}, fmt.Errorf("closing writer: %w", err)
