@@ -384,6 +384,9 @@ func TestOSSEndpointValidation(t *testing.T) {
 		{name: "http endpoint", modify: func(c map[string]any) { c["endPoint"] = "http://oss-cn-hangzhou.aliyuncs.com" }, want: "must use https"},
 		{name: "arbitrary https endpoint", modify: func(c map[string]any) { c["endPoint"] = "https://collector.example.com" }, want: "must be an aliyuncs.com host"},
 		{name: "missing scheme with path", modify: func(c map[string]any) { c["endPoint"] = "//oss-cn-hangzhou.aliyuncs.com" }, want: "must include https scheme"},
+		{name: "scheme-less endpoint with allowlist suffix in path", modify: func(c map[string]any) { c["endPoint"] = "evil.com/x.aliyuncs.com" }, want: "must not include userinfo, a path, or a query"},
+		{name: "scheme-less endpoint with allowlist suffix in query", modify: func(c map[string]any) { c["endPoint"] = "evil.com?x=.aliyuncs.com" }, want: "must not include userinfo, a path, or a query"},
+		{name: "scheme-less endpoint with userinfo", modify: func(c map[string]any) { c["endPoint"] = "user@evil.com" }, want: "must not include userinfo, a path, or a query"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := productionOSSConfig()
@@ -398,6 +401,11 @@ func TestOSSEndpointValidation(t *testing.T) {
 	manager, err := NewOSSManager(kitconfig.New(), config, logger.NOP, nil)
 	require.NoError(t, err)
 	require.Equal(t, "oss-cn-hangzhou.aliyuncs.com", manager.config.EndPoint)
+
+	config = productionOSSConfig()
+	config["endPoint"] = "https://oss-cn-hangzhou.aliyuncs.com"
+	_, err = NewOSSManager(kitconfig.New(), config, logger.NOP, nil)
+	require.NoError(t, err)
 
 	fake := newOSSFakeServer(t)
 	manager, err = newOSSManager(kitconfig.New(), testOSSConfig(fake), logger.NOP, nil, ossManagerOptions{allowInsecureEndpoint: true})
@@ -626,6 +634,7 @@ func TestOSSListPaginationExhaustionAndMaxClamp(t *testing.T) {
 	secondQuery, err := url.ParseQuery(fake.requests[1].rawQuery)
 	require.NoError(t, err)
 	require.Equal(t, "page-1", secondQuery.Get("continuation-token"))
+	require.Empty(t, secondQuery.Get("start-after"))
 	third, err := session.Next()
 	require.NoError(t, err)
 	require.Nil(t, third)
@@ -700,6 +709,20 @@ func TestOSSLocationParserPublicInternalAndCustom(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, key, actual)
 		require.Equal(t, key, manager.GetDownloadKeyFromFileLocation(location))
+	}
+
+	for _, test := range []struct {
+		bucket   string
+		location string
+	}{
+		{bucket: "oss", location: "https://oss-cn-hangzhou.aliyuncs.com/oss/events.json"},
+		{bucket: "aliyuncs", location: "https://oss-cn-hangzhou.aliyuncs.com/aliyuncs/events.json"},
+		{bucket: "cn", location: "https://oss-cn-hangzhou.aliyuncs.com/cn/events.json"},
+	} {
+		collisionManager := &OSSManager{config: &OSSConfig{Bucket: test.bucket}}
+		actual, err := collisionManager.GetObjectNameFromLocation(test.location)
+		require.NoError(t, err)
+		require.Equal(t, "events.json", actual)
 	}
 
 	_, err := manager.GetObjectNameFromLocation("https://example.com/%zz")

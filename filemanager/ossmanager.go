@@ -65,31 +65,27 @@ type ossRoleCredentialsProvider struct {
 }
 
 func (p *ossRoleCredentialsProvider) GetCredentials(ctx context.Context) (osscredentials.Credentials, error) {
-	type credentialResult struct {
-		credential *aliyuncredentials.CredentialModel
-		err        error
+	if err := ctx.Err(); err != nil {
+		return osscredentials.Credentials{}, fmt.Errorf("retrieving Alibaba role credentials: %w", err)
 	}
-	resultCh := make(chan credentialResult, 1)
-	go func() {
-		p.mu.Lock()
-		credential, err := p.credential.GetCredential()
-		p.mu.Unlock()
-		resultCh <- credentialResult{credential: credential, err: err}
-	}()
 
-	var result credentialResult
-	select {
-	case <-ctx.Done():
-		return osscredentials.Credentials{}, fmt.Errorf("retrieving Alibaba role credentials: %w", ctx.Err())
-	case result = <-resultCh:
+	p.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		p.mu.Unlock()
+		return osscredentials.Credentials{}, fmt.Errorf("retrieving Alibaba role credentials: %w", err)
 	}
-	if result.err != nil {
-		return osscredentials.Credentials{}, fmt.Errorf("retrieving Alibaba role credentials (check credentials and host clock): %w", result.err)
+	credential, err := p.credential.GetCredential()
+	p.mu.Unlock()
+	if err != nil {
+		return osscredentials.Credentials{}, fmt.Errorf("retrieving Alibaba role credentials (check credentials and host clock): %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return osscredentials.Credentials{}, fmt.Errorf("retrieving Alibaba role credentials: %w", err)
 	}
 	return osscredentials.Credentials{
-		AccessKeyID:     oss.ToString(result.credential.AccessKeyId),
-		AccessKeySecret: oss.ToString(result.credential.AccessKeySecret),
-		SecurityToken:   oss.ToString(result.credential.SecurityToken),
+		AccessKeyID:     oss.ToString(credential.AccessKeyId),
+		AccessKeySecret: oss.ToString(credential.AccessKeySecret),
+		SecurityToken:   oss.ToString(credential.SecurityToken),
 		// Expires deliberately remains nil. credentials-go owns caching and refresh.
 	}, nil
 }
@@ -102,7 +98,8 @@ type ossManagerOptions struct {
 
 // OSSManager manages files in Alibaba Cloud Object Storage Service.
 // UploadedFile.Location is a stable public identifier for recovering the object key; it is not
-// guaranteed to be reachable when the client uses an internal or custom endpoint.
+// guaranteed to be reachable when the client uses an internal endpoint or a non-default
+// *.aliyuncs.com endpoint.
 type OSSManager struct {
 	*baseManager
 	config *OSSConfig
@@ -240,7 +237,13 @@ func validateOSSEndpointConfig(config *OSSConfig, allowInsecureEndpoint bool) er
 			return errors.New("alibaba OSS endPoint must include https scheme")
 		}
 		// The OSS SDK adds https:// to scheme-less host names when DisableSSL is false.
-		return validateOSSAlibabaEndpointHost(parsed.Path)
+		parsed, err = url.Parse("https://" + config.EndPoint)
+		if err != nil {
+			return fmt.Errorf("parsing Alibaba OSS endPoint: %w", err)
+		}
+	}
+	if parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.ForceQuery {
+		return errors.New("alibaba OSS endPoint must not include userinfo, a path, or a query")
 	}
 	if allowInsecureEndpoint && parsed.Scheme == "http" {
 		return nil
@@ -318,7 +321,7 @@ func (m *OSSManager) UploadReader(ctx context.Context, objName string, rdr io.Re
 }
 
 // objectURL returns a public OSS identifier from which the key can be recovered. It is not a
-// reachability guarantee for managers configured with internal or custom endpoints.
+// reachability guarantee for managers using internal or non-default *.aliyuncs.com endpoints.
 func objectURL(bucket, region, objectName string) string {
 	return "https://" + bucket + ".oss-" + region + ".aliyuncs.com/" + escapeOSSObjectName(objectName)
 }
@@ -386,7 +389,7 @@ func (l *ossListSession) Next() ([]*FileInfo, error) {
 		Bucket: new(l.manager.config.Bucket), Prefix: new(l.prefix), MaxKeys: int32(l.maxItems),
 		ContinuationToken: l.continuationToken,
 	}
-	if l.startAfter != "" {
+	if l.startAfter != "" && l.continuationToken == nil {
 		request.StartAfter = new(l.startAfter)
 	}
 	ctx, cancel := context.WithTimeout(l.ctx, l.manager.getTimeout())
@@ -469,7 +472,7 @@ func (m *OSSManager) GetObjectNameFromLocation(location string) (string, error) 
 		return "", fmt.Errorf("parsing Alibaba OSS location: %w", err)
 	}
 	key := strings.TrimLeft(parsed.EscapedPath(), "/")
-	if !strings.Contains(parsed.Hostname(), m.config.Bucket) {
+	if !strings.HasPrefix(parsed.Hostname(), m.config.Bucket+".") {
 		key = strings.TrimPrefix(key, url.PathEscape(m.config.Bucket)+"/")
 	}
 	decoded, err := url.PathUnescape(key)
