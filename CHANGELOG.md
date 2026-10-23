@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.84.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.84.1...v0.84.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* bump dependency versions ([#1267](https://github.com/rudderlabs/rudder-go-kit/issues/1267)) ([51a095e](https://github.com/rudderlabs/rudder-go-kit/commit/51a095e2fb982bb3752a8b09c2b6183afe8317bc))
+
+
+### Miscellaneous
+
+* enforce errors.AsType over errors.As ([#1262](https://github.com/rudderlabs/rudder-go-kit/issues/1262)) ([474bb51](https://github.com/rudderlabs/rudder-go-kit/commit/474bb51c01ac04daa4f1e8ee8047c17032d9a88e))
+* move agent guidelines to AGENTS.md and align them ([#1264](https://github.com/rudderlabs/rudder-go-kit/issues/1264)) ([d052ee1](https://github.com/rudderlabs/rudder-go-kit/commit/d052ee1c2c1b6120d2013fdc1e8e8a071ae48ea4))
+
 ## [0.84.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.84.0...v0.84.1) (2026-10-21)
 
 
