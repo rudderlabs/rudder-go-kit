@@ -1,9 +1,9 @@
 package kafka
 
 import (
+	"crypto/tls"
 	_ "encoding/json"
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +12,10 @@ import (
 	"github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/samber/lo"
+	kafkago "github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl"
+	"github.com/segmentio/kafka-go/sasl/plain"
+	"github.com/segmentio/kafka-go/sasl/scram"
 	"golang.org/x/sync/errgroup"
 
 	kithelper "github.com/rudderlabs/rudder-go-kit/testhelper"
@@ -375,19 +379,65 @@ func Setup(pool *dockertest.Pool, cln resource.Cleaner, opts ...Option) (*Resour
 		}
 		res.Brokers = append(res.Brokers, containers[i].GetBoundIP(kafkaClientPort+"/tcp")+":"+containers[i].GetPort(kafkaClientPort+"/tcp"))
 	}
-	err = pool.Retry(func() error {
-		conn, err := net.DialTimeout("tcp", res.Brokers[0], time.Second)
-		if err != nil {
-			return err
-		}
-
-		return conn.Close()
-	})
-	if err != nil {
+	if err := waitForBrokers(pool, res.Brokers[0], int(c.brokers), c.saslConfig); err != nil {
 		return nil, fmt.Errorf("could not connect to kafka: %w", err)
 	}
 
 	cln.Logf("Kafka brokers on %v", res.Brokers)
 
 	return res, nil
+}
+
+// waitForBrokers blocks until the broker at address answers a Metadata request that lists all the brokers of the cluster.
+// A successful TCP dial is not enough: the Docker port proxy accepts connections before Kafka listens, and Kafka accepts
+// connections before the broker has registered, answering Metadata with no brokers. A librdkafka consumer that starts
+// in that window can lose its group join Metadata request and stall until the next periodic metadata refresh (5 minutes
+// by default).
+// See https://github.com/confluentinc/librdkafka/issues/5647.
+func waitForBrokers(pool *dockertest.Pool, address string, brokers int, saslConfig *SASLConfig) error {
+	dialer := &kafkago.Dialer{Timeout: 5 * time.Second}
+	if saslConfig != nil {
+		mechanism, err := saslConfig.clientMechanism()
+		if err != nil {
+			return err
+		}
+		dialer.SASLMechanism = mechanism
+		dialer.TLS = &tls.Config{ // skipcq: GSC-G402
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: true,
+		}
+	}
+	return pool.Retry(func() error {
+		conn, err := dialer.Dial("tcp", address)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = conn.Close() }()
+		if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			return err
+		}
+		registered, err := conn.Brokers()
+		if err != nil {
+			return err
+		}
+		if len(registered) < brokers {
+			return fmt.Errorf("%d of %d brokers registered", len(registered), brokers)
+		}
+		return nil
+	})
+}
+
+// clientMechanism returns the SASL mechanism a client uses to authenticate as the first configured user.
+func (c *SASLConfig) clientMechanism() (sasl.Mechanism, error) {
+	user := c.Users[0]
+	switch c.hashType {
+	case scramPlainText:
+		return plain.Mechanism{Username: user.Username, Password: user.Password}, nil
+	case scramSHA256:
+		return scram.Mechanism(scram.SHA256, user.Username, user.Password)
+	case scramSHA512:
+		return scram.Mechanism(scram.SHA512, user.Username, user.Password)
+	default:
+		return nil, fmt.Errorf("scram algorithm out of the known domain")
+	}
 }
