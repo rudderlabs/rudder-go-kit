@@ -441,10 +441,10 @@ github.com/rogpeppe/go-internal v1.16.0 h1:O9DK+vNMDVGLr2BeZqmpLeMjiMNkuXfcqntWb
 github.com/rogpeppe/go-internal v1.16.0/go.mod h1:DrUVZyrJU+txYW5/1kwtXQSMFio52ZOxX7yM1VHvnxs=
 github.com/rs/xid v1.6.0 h1:fV591PaemRlL6JfRxGDEPl69wICngIQ3shQtzfy2gxU=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
-github.com/rudderlabs/rudder-observability-kit v0.0.7 h1:vnIkOpcF7GRXytytls7ISfEJLNA14YE9qcoWvv5OGCo=
-github.com/rudderlabs/rudder-observability-kit v0.0.7/go.mod h1:VnydP2BRF1WXrWsbcfL09fC/+Tx/ZYSt3eBB/Yj3wqc=
-github.com/rudderlabs/rudder-schemas v0.12.0 h1:INUfeJdCe8BSEjC9FJkW3X47k/KN9RnutaQMpEWLG9E=
-github.com/rudderlabs/rudder-schemas v0.12.0/go.mod h1:xHQJIlg62F5xz+HwN5s4oCq2nAlnbTenrUquoLsdU8A=
+github.com/rudderlabs/rudder-observability-kit v0.0.8 h1:K/4sSuvLHy6P2hSvDpLx6zPl1RvngvmVdpI1KEfbUj8=
+github.com/rudderlabs/rudder-observability-kit v0.0.8/go.mod h1:kACGy+jiPLV/DUz9YukipOW3ysvxklb41shPB54fxg0=
+github.com/rudderlabs/rudder-schemas v0.12.1 h1:oVzy6hRQ0MiNVxYZC2rF9QjB2oU1KVT3ZdpqNgwDNQ8=
+github.com/rudderlabs/rudder-schemas v0.12.1/go.mod h1:6Px7LOlAeX5YwG/tkgNo+geGzQmhrRxOWbDqmeFN/vY=
 github.com/rudderlabs/sonnet v1.0.2 h1:nPfmDKD9gUwT571Dwtcsx0VIglSchvyNjuRLju4Xs3s=
 github.com/rudderlabs/sonnet v1.0.2/go.mod h1:tjQmKEGAo/xwmhw9AwLkazP5b5m8VpUvWNzPSx4ve0g=
 github.com/sagikazarmark/locafero v0.12.0 h1:/NQhBAkUb4+fH1jivKHWusDYFjMOOKU88eegjfxfHb4=
