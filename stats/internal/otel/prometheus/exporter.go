@@ -71,8 +71,12 @@ type collector struct {
 	targetInfo           prometheus.Metric
 	createTargetInfoOnce sync.Once
 	scopeInfos           map[instrumentation.Scope]prometheus.Metric
-	metricFamilies       map[string]*dto.MetricFamily
 	namespace            string
+
+	// mu guards metricFamilies: Collect runs once per scrape, and scrapes can overlap, e.g. when two Prometheus servers
+	// scrape the same endpoint.
+	mu             sync.Mutex
+	metricFamilies map[string]*dto.MetricFamily
 }
 
 // New returns a Prometheus Exporter.
@@ -146,21 +150,21 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 		for _, m := range scopeMetrics.Metrics {
 			switch v := m.Data.(type) {
 			case metricdata.Histogram[int64]:
-				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.validateMetrics)
 			case metricdata.Histogram[float64]:
-				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+				addHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.validateMetrics)
 			case metricdata.ExponentialHistogram[int64]:
-				addExponentialHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+				addExponentialHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.validateMetrics)
 			case metricdata.ExponentialHistogram[float64]:
-				addExponentialHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+				addExponentialHistogramMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.validateMetrics)
 			case metricdata.Sum[int64]:
-				addSumMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+				addSumMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.validateMetrics)
 			case metricdata.Sum[float64]:
-				addSumMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+				addSumMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.validateMetrics)
 			case metricdata.Gauge[int64]:
-				addGaugeMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+				addGaugeMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.validateMetrics)
 			case metricdata.Gauge[float64]:
-				addGaugeMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.metricFamilies, c.logger)
+				addGaugeMetric(ch, v, m, scopeKeys, scopeValues, c.getName(m), c.validateMetrics)
 			}
 		}
 	}
@@ -168,9 +172,9 @@ func (c *collector) Collect(ch chan<- prometheus.Metric) {
 
 func addHistogramMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, histogram metricdata.Histogram[N], m metricdata.Metrics,
-	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, validate func(name, description string, metricType *dto.MetricType) (bool, string),
 ) {
-	drop, help := validateMetrics(name, m.Description, dto.MetricType_HISTOGRAM.Enum(), mfs, l)
+	drop, help := validate(name, m.Description, dto.MetricType_HISTOGRAM.Enum())
 	if drop {
 		return
 	}
@@ -201,7 +205,7 @@ func addHistogramMetric[N int64 | float64](
 
 func addSumMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, sum metricdata.Sum[N], m metricdata.Metrics,
-	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, validate func(name, description string, metricType *dto.MetricType) (bool, string),
 ) {
 	valueType := prometheus.CounterValue
 	metricType := dto.MetricType_COUNTER
@@ -210,7 +214,7 @@ func addSumMetric[N int64 | float64](
 		metricType = dto.MetricType_GAUGE
 	}
 
-	drop, help := validateMetrics(name, m.Description, metricType.Enum(), mfs, l)
+	drop, help := validate(name, m.Description, metricType.Enum())
 	if drop {
 		return
 	}
@@ -237,9 +241,9 @@ func addSumMetric[N int64 | float64](
 
 func addGaugeMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, gauge metricdata.Gauge[N], m metricdata.Metrics,
-	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, validate func(name, description string, metricType *dto.MetricType) (bool, string),
 ) {
-	drop, help := validateMetrics(name, m.Description, dto.MetricType_GAUGE.Enum(), mfs, l)
+	drop, help := validate(name, m.Description, dto.MetricType_GAUGE.Enum())
 	if drop {
 		return
 	}
@@ -351,9 +355,9 @@ func downscaleExponentialBucket(bucket metricdata.ExponentialBucket, scaleDelta 
 // Exponential histograms provide better accuracy and performance for high-dynamic-range data.
 func addExponentialHistogramMetric[N int64 | float64](
 	ch chan<- prometheus.Metric, histogram metricdata.ExponentialHistogram[N], m metricdata.Metrics,
-	ks, vs []string, name string, mfs map[string]*dto.MetricFamily, l logger,
+	ks, vs []string, name string, validate func(name, description string, metricType *dto.MetricType) (bool, string),
 ) {
-	drop, help := validateMetrics(name, m.Description, dto.MetricType_HISTOGRAM.Enum(), mfs, l)
+	drop, help := validate(name, m.Description, dto.MetricType_HISTOGRAM.Enum())
 	if drop {
 		return
 	}
@@ -545,12 +549,13 @@ func sanitizeName(n string) string {
 	return b.String()
 }
 
-func validateMetrics(
-	name, description string, metricType *dto.MetricType, mfs map[string]*dto.MetricFamily, l logger,
-) (drop bool, help string) {
-	emf, exist := mfs[name]
+func (c *collector) validateMetrics(name, description string, metricType *dto.MetricType) (drop bool, help string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	emf, exist := c.metricFamilies[name]
 	if !exist {
-		mfs[name] = &dto.MetricFamily{
+		c.metricFamilies[name] = &dto.MetricFamily{
 			Name: new(name),
 			Help: new(description),
 			Type: metricType,
@@ -558,7 +563,7 @@ func validateMetrics(
 		return false, ""
 	}
 	if emf.GetType() != *metricType {
-		l.Error(
+		c.logger.Error(
 			errors.New("instrument type conflict"),
 			"Using existing type definition.",
 			"instrument", name,
@@ -568,7 +573,7 @@ func validateMetrics(
 		return true, ""
 	}
 	if emf.GetHelp() != description {
-		l.Info(
+		c.logger.Info(
 			"Instrument description conflict, using existing",
 			"instrument", name,
 			"existing", emf.GetHelp(),
