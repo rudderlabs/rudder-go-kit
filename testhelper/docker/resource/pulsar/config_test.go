@@ -40,3 +40,12 @@ func TestContainerEnv(t *testing.T) {
 		require.Equal(t, append(append([]string{}, testTuningEnv...), "FOO=baz"), env)
 	})
 }
+
+func TestContainerCmd(t *testing.T) {
+	tuned := &config{}
+	require.Equal(t, []string{"bin/pulsar", "standalone", "--no-functions-worker", "-nss"}, tuned.containerCmd())
+
+	stock := &config{}
+	WithoutTestTuning()(stock)
+	require.Equal(t, []string{"bin/pulsar", "standalone"}, stock.containerCmd())
+}

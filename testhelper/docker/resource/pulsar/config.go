@@ -14,6 +14,10 @@ var testTuningEnv = []string{
 	"PULSAR_GC=-XX:+UseG1GC -XX:+PerfDisableSharedMem",
 }
 
+// testTuningFlags skip the functions worker and the stream storage, which tests do not use. On a busy host they
+// delay the creation of the public/default namespace, which the setup waits for, by tens of seconds.
+var testTuningFlags = []string{"--no-functions-worker", "-nss"}
+
 type Option func(*config)
 
 func WithTag(tag string) Option {
@@ -36,8 +40,8 @@ func WithEnv(env ...string) Option {
 	}
 }
 
-// WithoutTestTuning keeps Pulsar's stock JVM settings instead of the test tuning, for tests that depend on its
-// default heap or garbage collector.
+// WithoutTestTuning keeps Pulsar's stock JVM settings and starts the functions worker and the stream storage, for
+// tests that depend on them.
 func WithoutTestTuning() Option {
 	return func(c *config) {
 		c.disableTestTuning = true
@@ -71,4 +75,12 @@ func (c *config) containerEnv() []string {
 		env = append(env, kv)
 	}
 	return env
+}
+
+func (c *config) containerCmd() []string {
+	cmd := []string{"bin/pulsar", "standalone"}
+	if !c.disableTestTuning {
+		cmd = append(cmd, testTuningFlags...)
+	}
+	return cmd
 }

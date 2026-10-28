@@ -81,6 +81,8 @@ func TestTestTuning(t *testing.T) {
 		require.Contains(t, args, "-Xmx512m")
 		require.Contains(t, args, "-XX:+UseG1GC")
 		require.NotContains(t, args, "-XX:+AlwaysPreTouch")
+		require.Contains(t, args, "--no-functions-worker")
+		require.Contains(t, args, "-nss")
 	})
 
 	t.Run("caller variables replace the tuning", func(t *testing.T) {
@@ -100,6 +102,7 @@ func TestTestTuning(t *testing.T) {
 		args := jvmArgs(t, pulsarContainer)
 		require.Contains(t, args, "-Xmx2g")
 		require.Contains(t, args, "-XX:+AlwaysPreTouch")
+		require.NotContains(t, args, "--no-functions-worker")
 	})
 }
 
