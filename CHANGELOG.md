@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.84.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.84.2...v0.84.3) (2026-10-28)
+
+
+### Bug Fixes
+
+* **stats:** lock the Prometheus exporter's metric families across concurrent scrapes ([#1271](https://github.com/rudderlabs/rudder-go-kit/issues/1271)) ([887f8d3](https://github.com/rudderlabs/rudder-go-kit/commit/887f8d3417c4a268811e456fca048deb33b2078c))
+
+
+### Miscellaneous
+
+* bump andybalholm/brotli to v1.2.7 ([#1270](https://github.com/rudderlabs/rudder-go-kit/issues/1270)) ([6ef2f8d](https://github.com/rudderlabs/rudder-go-kit/commit/6ef2f8db2384b8107cf7347f7d9f2d7bc2976eb2))
+* **deps:** bump the all group with 2 updates ([#1268](https://github.com/rudderlabs/rudder-go-kit/issues/1268)) ([9315246](https://github.com/rudderlabs/rudder-go-kit/commit/9315246bc079f99a51f848725a26cb63aa58045d))
+
 ## [0.84.2](https://github.com/rudderlabs/rudder-go-kit/compare/v0.84.1...v0.84.2) (2026-10-23)
 
 
