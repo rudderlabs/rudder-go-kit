@@ -1,8 +1,10 @@
 package pulsar
 
 import (
+	"bytes"
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,4 +67,50 @@ func TestPulsar(t *testing.T) {
 	require.NotNil(t, msg)
 	require.Equal(t, "foo", msg.Key())
 	require.Equal(t, "bar", string(msg.Payload()))
+}
+
+func TestTestTuning(t *testing.T) {
+	pool, err := dockertest.NewPool("")
+	require.NoError(t, err)
+
+	t.Run("tuned by default", func(t *testing.T) {
+		pulsarContainer, err := Setup(pool, t)
+		require.NoError(t, err)
+
+		args := jvmArgs(t, pulsarContainer)
+		require.Contains(t, args, "-Xmx512m")
+		require.Contains(t, args, "-XX:+UseG1GC")
+		require.NotContains(t, args, "-XX:+AlwaysPreTouch")
+	})
+
+	t.Run("caller variables replace the tuning", func(t *testing.T) {
+		pulsarContainer, err := Setup(pool, t, WithEnv("PULSAR_MEM=-Xms256m -Xmx768m"))
+		require.NoError(t, err)
+
+		args := jvmArgs(t, pulsarContainer)
+		require.Contains(t, args, "-Xmx768m")
+		require.NotContains(t, args, "-Xmx512m")
+		require.Contains(t, args, "-XX:+UseG1GC")
+	})
+
+	t.Run("stock settings without test tuning", func(t *testing.T) {
+		pulsarContainer, err := Setup(pool, t, WithoutTestTuning())
+		require.NoError(t, err)
+
+		args := jvmArgs(t, pulsarContainer)
+		require.Contains(t, args, "-Xmx2g")
+		require.Contains(t, args, "-XX:+AlwaysPreTouch")
+	})
+}
+
+// jvmArgs returns the command line of the Pulsar JVM, which bin/pulsar execs as the container's PID 1.
+func jvmArgs(t *testing.T, r *Resource) []string {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	code, err := r.container.Exec([]string{"cat", "/proc/1/cmdline"}, dockertest.ExecOptions{
+		StdOut: &stdout, StdErr: &stderr,
+	})
+	require.NoError(t, err)
+	require.Zerof(t, code, "reading the JVM command line: %s", stderr.String())
+	return strings.Split(strings.TrimRight(stdout.String(), "\x00"), "\x00")
 }

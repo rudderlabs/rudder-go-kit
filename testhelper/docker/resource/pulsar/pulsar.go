@@ -18,7 +18,8 @@ type Resource struct {
 	// URLInNetwork is the URL accessible from the provided Docker network (if any).
 	URLInNetwork string
 
-	purge func()
+	container *dockertest.Resource
+	purge     func()
 }
 
 // Purge is an optional method that can be called to purge the container before the test finishes.
@@ -40,7 +41,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 	container, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Repository:   registry.ImagePath("apachepulsar/pulsar"),
 		Tag:          c.tag,
-		Env:          []string{},
+		Env:          c.containerEnv(),
 		ExposedPorts: []string{"6650/tcp", "8080/tcp"},
 		PortBindings: internal.IPv4PortBindings([]string{"6650", "8080"}),
 		Cmd:          []string{"bin/pulsar", "standalone"},
@@ -92,6 +93,7 @@ func Setup(pool *dockertest.Pool, d resource.Cleaner, opts ...Option) (*Resource
 		URL:          url,
 		AdminURL:     adminURL,
 		URLInNetwork: urlInNetwork,
+		container:    container,
 		purge:        purge,
 	}, nil
 }
