@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.85.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.84.3...v0.85.0) (2026-10-29)
+
+
+### Features
+
+* **testhelper:** size the Pulsar resource for tests by default ([#1275](https://github.com/rudderlabs/rudder-go-kit/issues/1275)) ([f05caed](https://github.com/rudderlabs/rudder-go-kit/commit/f05caed5bd575134e4c333138d0570728446ff94))
+
+
+### Miscellaneous
+
+* **deps:** bump github.com/go-jose/go-jose/v4 from 4.1.4 to 4.1.6 ([#1273](https://github.com/rudderlabs/rudder-go-kit/issues/1273)) ([5ef8c52](https://github.com/rudderlabs/rudder-go-kit/commit/5ef8c5232aaa463e9131aa9c3b7b8735dd9842ff))
+* **deps:** bump the all group across 1 directory with 8 updates ([#1274](https://github.com/rudderlabs/rudder-go-kit/issues/1274)) ([45e7eb9](https://github.com/rudderlabs/rudder-go-kit/commit/45e7eb92610707ae35ddcb0123d8559bbc7842b2))
+
 ## [0.84.3](https://github.com/rudderlabs/rudder-go-kit/compare/v0.84.2...v0.84.3) (2026-10-28)
 
 
