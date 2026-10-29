@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -736,6 +737,36 @@ func TestOSSRoleCredentialsProviderFakeSTSRefresh(t *testing.T) {
 	defer mu.Unlock()
 	require.Equal(t, 2, calls, "credentials-go should refresh when STS expiry is within 180 seconds")
 	require.Equal(t, []string{"900", "900"}, durations)
+}
+
+func TestOSSRoleCredentialsProviderTransportErrorRedactsSTSQuery(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	endpoint := listener.Addr().String()
+	require.NoError(t, listener.Close())
+
+	const callerID = "caller-id-must-not-leak"
+	conf := kitconfig.New()
+	conf.Set("FileManager.ALIBABA_OSS.callerAccessKeyID", callerID)
+	conf.Set("FileManager.ALIBABA_OSS.callerAccessKeySecret", "caller-secret")
+	conf.Set("FileManager.ALIBABA_OSS.stsEndpoint", endpoint)
+	config := productionOSSConfig()
+	config["roleBasedAuth"] = true
+	config["iamRoleARN"] = "acs:ram::123:role/test"
+	config["externalID"] = "workspace-id"
+	manager, err := NewOSSManager(conf, config, logger.NOP, func() time.Duration { return 5 * time.Second })
+	require.NoError(t, err)
+
+	_, err = manager.credentialsProvider.GetCredentials(context.Background())
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), callerID)
+	require.NotContains(t, err.Error(), "Signature=")
+	requestError, ok := errors.AsType[*url.Error](err)
+	require.True(t, ok)
+	require.Equal(t, "Post", requestError.Op)
+	require.ErrorContains(t, requestError.Err, "connection refused")
+	require.Equal(t, "https://"+endpoint, requestError.URL)
+	require.NotContains(t, requestError.URL, "?")
 }
 
 func TestOSSRoleCredentialsProviderConcurrencyAndNilExpires(t *testing.T) {

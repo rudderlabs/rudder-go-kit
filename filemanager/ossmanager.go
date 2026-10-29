@@ -78,6 +78,12 @@ func (p *ossRoleCredentialsProvider) GetCredentials(ctx context.Context) (osscre
 	credential, err := p.credential.GetCredential()
 	p.mu.Unlock()
 	if err != nil {
+		// STS signs in the URL query; a transport error includes that URL in its message.
+		if requestErr, ok := errors.AsType[*url.Error](err); ok {
+			sanitized := *requestErr
+			sanitized.URL = stripOSSRequestQuery(requestErr.URL)
+			err = &sanitized
+		}
 		return osscredentials.Credentials{}, fmt.Errorf("retrieving Alibaba role credentials (check credentials and host clock): %w", err)
 	}
 	if err := ctx.Err(); err != nil {
