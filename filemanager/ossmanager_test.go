@@ -802,6 +802,15 @@ func TestOSSUploadMultipartFailureAborts(t *testing.T) {
 	require.Equal(t, fake.initiatedIDs, fake.abortedIDs)
 	require.Empty(t, fake.completedIDs)
 	require.NotContains(t, fake.objects, "configured/prefix/multipart/multipart.bin")
+	partAttempts := 0
+	for _, request := range fake.requests {
+		query, err := url.ParseQuery(request.rawQuery)
+		require.NoError(t, err)
+		if query.Get("partNumber") == "2" {
+			partAttempts++
+		}
+	}
+	require.Greater(t, partAttempts, 1, "multipart part failures must still be retried")
 }
 
 func TestOSSDownloadRangesAndErrors(t *testing.T) {

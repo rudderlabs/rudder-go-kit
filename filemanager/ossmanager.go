@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -293,9 +294,68 @@ func (m *OSSManager) getClient() *oss.Client {
 		if m.config.DisableSSL {
 			config.WithDisableSSL(true)
 		}
-		m.client = oss.NewClient(config)
+		m.client = oss.NewClient(config, func(options *oss.Options) {
+			options.HttpClient = &ossRequestBodyClient{client: options.HttpClient}
+		})
 	})
 	return m.client
+}
+
+// The OSS SDK retries seekable request bodies after an early HTTP error. net/http can
+// still be reading the previous attempt when Do returns, so wait for that body's
+// Close before the SDK resets its reader and CRC state for the next attempt.
+type ossRequestBodyClient struct {
+	client oss.HTTPClient
+}
+
+func (c *ossRequestBodyClient) Do(request *http.Request) (*http.Response, error) {
+	if request.Body == nil || request.Body == http.NoBody {
+		return c.client.Do(request)
+	}
+	seekable, ok := request.Body.(interface{ IsSeekable() bool })
+	if !ok || !seekable.IsSeekable() {
+		return c.client.Do(request)
+	}
+	body := &ossRequestBody{ReadCloser: request.Body, done: make(chan struct{})}
+	attempt := request.Clone(request.Context())
+	attempt.Body = body
+	response, err := c.client.Do(attempt)
+	<-body.done
+	return response, err
+}
+
+type ossRequestBody struct {
+	io.ReadCloser
+	mu     sync.Mutex
+	reads  sync.WaitGroup
+	closed bool
+	done   chan struct{}
+}
+
+func (b *ossRequestBody) Read(p []byte) (int, error) {
+	b.mu.Lock()
+	if b.closed {
+		b.mu.Unlock()
+		return 0, io.EOF
+	}
+	b.reads.Add(1)
+	b.mu.Unlock()
+	defer b.reads.Done()
+	return b.ReadCloser.Read(p)
+}
+
+func (b *ossRequestBody) Close() error {
+	b.mu.Lock()
+	if b.closed {
+		b.mu.Unlock()
+		return nil
+	}
+	b.closed = true
+	b.mu.Unlock()
+	err := b.ReadCloser.Close()
+	b.reads.Wait()
+	close(b.done)
+	return err
 }
 
 func (m *OSSManager) Upload(ctx context.Context, file *os.File, prefixes ...string) (UploadedFile, error) {
