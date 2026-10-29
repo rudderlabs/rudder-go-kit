@@ -467,6 +467,67 @@ func (p *testOSSCredentialsProvider) GetCredentials(context.Context) (osscredent
 	return p.credentials, p.err
 }
 
+type ossHTTPClientStub func(*http.Request) (*http.Response, error)
+
+func (s ossHTTPClientStub) Do(request *http.Request) (*http.Response, error) {
+	return s(request)
+}
+
+type ossSeekableTestBody struct{ io.ReadCloser }
+
+func (*ossSeekableTestBody) IsSeekable() bool { return true }
+
+func startOSSRequestBodyCall(t *testing.T, ctx context.Context) (io.ReadCloser, <-chan error) {
+	t.Helper()
+	bodySeen := make(chan io.ReadCloser, 1)
+	stub := ossHTTPClientStub(func(request *http.Request) (*http.Response, error) {
+		bodySeen <- request.Body
+		return &http.Response{Body: http.NoBody}, nil
+	})
+	request, err := http.NewRequestWithContext(ctx, http.MethodPut, "https://example.com/object", &ossSeekableTestBody{io.NopCloser(strings.NewReader("payload"))})
+	require.NoError(t, err)
+	result := make(chan error, 1)
+	client := &ossRequestBodyClient{client: stub}
+	go func() {
+		response, err := client.Do(request)
+		if response != nil {
+			if closeErr := response.Body.Close(); closeErr != nil {
+				result <- closeErr
+				return
+			}
+		}
+		result <- err
+	}()
+	var body io.ReadCloser
+	require.Eventually(t, func() bool {
+		select {
+		case body = <-bodySeen:
+			return true
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond)
+	t.Cleanup(func() { require.NoError(t, body.Close()) })
+	return body, result
+}
+
+func TestOSSRequestBodyClientWaitsForClose(t *testing.T) {
+	body, result := startOSSRequestBodyCall(t, context.Background())
+	require.Never(t, func() bool { return len(result) > 0 }, 50*time.Millisecond, time.Millisecond)
+	require.NoError(t, body.Close())
+	require.Eventually(t, func() bool { return len(result) > 0 }, time.Second, time.Millisecond)
+	require.NoError(t, <-result)
+}
+
+func TestOSSRequestBodyClientCancellationUnblocksWait(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, result := startOSSRequestBodyCall(t, ctx)
+	cancel()
+	require.Eventually(t, func() bool { return len(result) > 0 }, time.Second, time.Millisecond)
+	require.NoError(t, <-result)
+}
+
 func TestOSSConfigValidationAndRegion(t *testing.T) {
 	base := productionOSSConfig()
 	for _, test := range []struct {

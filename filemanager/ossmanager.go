@@ -303,7 +303,8 @@ func (m *OSSManager) getClient() *oss.Client {
 
 // The OSS SDK retries seekable request bodies after an early HTTP error. net/http can
 // still be reading the previous attempt when Do returns, so wait for that body's
-// Close before the SDK resets its reader and CRC state for the next attempt.
+// Close before a retry resets its reader and CRC state. A canceled request cannot
+// retry and must not wait indefinitely for Close.
 type ossRequestBodyClient struct {
 	client oss.HTTPClient
 }
@@ -320,7 +321,10 @@ func (c *ossRequestBodyClient) Do(request *http.Request) (*http.Response, error)
 	attempt := request.Clone(request.Context())
 	attempt.Body = body
 	response, err := c.client.Do(attempt)
-	<-body.done
+	select {
+	case <-body.done:
+	case <-request.Context().Done():
+	}
 	return response, err
 }
 
