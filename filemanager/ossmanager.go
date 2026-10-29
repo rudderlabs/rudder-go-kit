@@ -27,7 +27,7 @@ import (
 
 const (
 	ossRoleSessionName                 = "rudderstack-filemanager"
-	ossRoleSessionExpiration           = 3600
+	ossDefaultRoleSessionExpiration    = 3600
 	ossRoleSTSReadTimeoutMaxSeconds    = 30
 	ossRoleSTSConnectTimeoutMaxSeconds = 5
 	ossDeleteBatchSize                 = 1000
@@ -173,6 +173,10 @@ func newOSSManager(
 		if ossConfig.AccessKeyID != "" || ossConfig.AccessKeySecret != "" {
 			log.Warnn("Ignoring static Alibaba OSS credentials because role-based authentication is enabled")
 		}
+		roleSessionExpiration := kitconf.GetIntVar(ossDefaultRoleSessionExpiration, 1, "FileManager.ALIBABA_OSS.roleSessionExpiration")
+		if roleSessionExpiration < 900 || roleSessionExpiration > 3600 {
+			return nil, fmt.Errorf("FileManager.ALIBABA_OSS.roleSessionExpiration must be between 900 and 3600 seconds (got %d)", roleSessionExpiration)
+		}
 		if provider == nil {
 			credentialConfig := new(aliyuncredentials.Config).
 				SetType("ram_role_arn").
@@ -180,7 +184,7 @@ func newOSSManager(
 				SetAccessKeySecret(callerAccessKeySecret).
 				SetRoleArn(ossConfig.IAMRoleARN).
 				SetRoleSessionName(ossConfig.RoleSessionName).
-				SetRoleSessionExpiration(ossRoleSessionExpiration).
+				SetRoleSessionExpiration(roleSessionExpiration).
 				SetTimeout(ossCredentialTimeoutSeconds(defaultTimeout, ossRoleSTSReadTimeoutMaxSeconds)).
 				SetConnectTimeout(ossCredentialTimeoutSeconds(defaultTimeout, ossRoleSTSConnectTimeoutMaxSeconds))
 			credentialConfig.ExternalId = &ossConfig.ExternalID
@@ -367,7 +371,7 @@ func (m *OSSManager) ListFilesWithPrefix(ctx context.Context, startAfter, prefix
 	maxListItems := min(max(maxItems, 0), ossMaxListItems)
 	return &ossListSession{
 		baseListSession: &baseListSession{
-			ctx: ctx, startAfter: sanitizeKey(startAfter), prefix: sanitizeKey(prefix), maxItems: maxListItems,
+			ctx: ctx, startAfter: startAfter, prefix: sanitizeKey(prefix), maxItems: maxListItems,
 		},
 		manager: m, isTruncated: maxListItems > 0,
 	}
@@ -469,6 +473,10 @@ func (m *OSSManager) Prefix() string { return m.config.Prefix }
 func (m *OSSManager) GetObjectNameFromLocation(location string) (string, error) {
 	parsed, err := url.Parse(location)
 	if err != nil {
+		// url.Error includes the full location, which may carry signed query credentials.
+		if parseErr, ok := errors.AsType[*url.Error](err); ok {
+			err = parseErr.Err
+		}
 		return "", fmt.Errorf("parsing Alibaba OSS location: %w", err)
 	}
 	key := strings.TrimLeft(parsed.EscapedPath(), "/")

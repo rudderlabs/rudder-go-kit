@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +46,11 @@ type ossFakeRequest struct {
 	authorization string
 }
 
+type ossFakeMultipartUpload struct {
+	key   string
+	parts map[int][]byte
+}
+
 type ossFakeServer struct {
 	server *httptest.Server
 
@@ -53,6 +59,13 @@ type ossFakeServer struct {
 	requests       []ossFakeRequest
 	listPages      [][]ossFakeListObject
 	deleteOmit     map[string]bool
+	multipart      map[string]*ossFakeMultipartUpload
+	initiatedIDs   []string
+	completedIDs   []string
+	completedParts [][]int
+	completedSizes [][]int
+	abortedIDs     []string
+	failPart       int
 	delay          time.Duration
 	downloadStatus int
 	downloadCode   string
@@ -63,6 +76,7 @@ func newOSSFakeServer(t *testing.T) *ossFakeServer {
 	fake := &ossFakeServer{
 		objects:    make(map[string][]byte),
 		deleteOmit: make(map[string]bool),
+		multipart:  make(map[string]*ossFakeMultipartUpload),
 	}
 	fake.server = httptest.NewServer(http.HandlerFunc(fake.serveHTTP))
 	t.Cleanup(fake.server.Close)
@@ -104,6 +118,27 @@ func (f *ossFakeServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := strings.TrimPrefix(r.URL.Path, prefix)
+	query := r.URL.Query()
+	if r.Method == http.MethodPost {
+		if _, ok := query["uploads"]; ok {
+			f.serveInitiateMultipart(w, key)
+			return
+		}
+		if uploadID := query.Get("uploadId"); uploadID != "" {
+			f.serveCompleteMultipart(w, r, uploadID)
+			return
+		}
+	}
+	if uploadID := query.Get("uploadId"); uploadID != "" {
+		switch r.Method {
+		case http.MethodPut:
+			f.serveUploadPart(w, r, uploadID)
+			return
+		case http.MethodDelete:
+			f.serveAbortMultipart(w, uploadID)
+			return
+		}
+	}
 	switch r.Method {
 	case http.MethodPut:
 		body, err := io.ReadAll(r.Body)
@@ -122,6 +157,102 @@ func (f *ossFakeServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeOSSError(w, http.StatusBadRequest, "InvalidRequest", "unexpected request")
 	}
+}
+
+func (f *ossFakeServer) serveInitiateMultipart(w http.ResponseWriter, key string) {
+	f.mu.Lock()
+	uploadID := fmt.Sprintf("upload-%d", len(f.initiatedIDs)+1)
+	f.multipart[uploadID] = &ossFakeMultipartUpload{key: key, parts: make(map[int][]byte)}
+	f.initiatedIDs = append(f.initiatedIDs, uploadID)
+	f.mu.Unlock()
+	w.Header().Set("Content-Type", "application/xml")
+	w.Header().Set("x-oss-request-id", "initiate-request")
+	_, _ = io.WriteString(w, "<InitiateMultipartUploadResult><Bucket>"+testOSSBucket+"</Bucket><Key>"+xmlText(key)+"</Key><UploadId>"+uploadID+"</UploadId></InitiateMultipartUploadResult>")
+}
+
+func (f *ossFakeServer) serveUploadPart(w http.ResponseWriter, r *http.Request, uploadID string) {
+	partNumber, err := strconv.Atoi(r.URL.Query().Get("partNumber"))
+	if err != nil {
+		writeOSSError(w, http.StatusBadRequest, "InvalidPart", err.Error())
+		return
+	}
+	if partNumber == f.failPart {
+		writeOSSError(w, http.StatusInternalServerError, "InternalError", "injected upload part failure")
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeOSSError(w, http.StatusBadRequest, "InvalidPart", err.Error())
+		return
+	}
+	f.mu.Lock()
+	upload, exists := f.multipart[uploadID]
+	if exists {
+		upload.parts[partNumber] = body
+	}
+	f.mu.Unlock()
+	if !exists {
+		writeOSSError(w, http.StatusNotFound, "NoSuchUpload", "unknown upload ID")
+		return
+	}
+	w.Header().Set("ETag", fmt.Sprintf(`"part-%d"`, partNumber))
+	w.Header().Set("x-oss-request-id", "part-request")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (f *ossFakeServer) serveCompleteMultipart(w http.ResponseWriter, r *http.Request, uploadID string) {
+	var request struct {
+		Parts []struct {
+			Number int    `xml:"PartNumber"`
+			ETag   string `xml:"ETag"`
+		} `xml:"Part"`
+	}
+	if err := xml.NewDecoder(r.Body).Decode(&request); err != nil {
+		writeOSSError(w, http.StatusBadRequest, "MalformedXML", err.Error())
+		return
+	}
+	f.mu.Lock()
+	upload, exists := f.multipart[uploadID]
+	var key string
+	var contents []byte
+	var numbers []int
+	var sizes []int
+	if exists {
+		key = upload.key
+		for _, part := range request.Parts {
+			if part.ETag != fmt.Sprintf(`"part-%d"`, part.Number) || upload.parts[part.Number] == nil {
+				exists = false
+				break
+			}
+			contents = append(contents, upload.parts[part.Number]...)
+			numbers = append(numbers, part.Number)
+			sizes = append(sizes, len(upload.parts[part.Number]))
+		}
+	}
+	if exists {
+		f.objects[key] = contents
+		f.completedIDs = append(f.completedIDs, uploadID)
+		f.completedParts = append(f.completedParts, numbers)
+		f.completedSizes = append(f.completedSizes, sizes)
+		delete(f.multipart, uploadID)
+	}
+	f.mu.Unlock()
+	if !exists {
+		writeOSSError(w, http.StatusBadRequest, "InvalidPart", "missing or mismatched part")
+		return
+	}
+	w.Header().Set("Content-Type", "application/xml")
+	w.Header().Set("x-oss-request-id", "complete-request")
+	_, _ = io.WriteString(w, "<CompleteMultipartUploadResult><Bucket>"+testOSSBucket+"</Bucket><Key>"+xmlText(key)+"</Key><ETag>complete-etag</ETag></CompleteMultipartUploadResult>")
+}
+
+func (f *ossFakeServer) serveAbortMultipart(w http.ResponseWriter, uploadID string) {
+	f.mu.Lock()
+	f.abortedIDs = append(f.abortedIDs, uploadID)
+	delete(f.multipart, uploadID)
+	f.mu.Unlock()
+	w.Header().Set("x-oss-request-id", "abort-request")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (f *ossFakeServer) serveDownload(w http.ResponseWriter, r *http.Request, key string) {
@@ -165,15 +296,40 @@ func (f *ossFakeServer) serveDownload(w http.ResponseWriter, r *http.Request, ke
 
 func (f *ossFakeServer) serveList(w http.ResponseWriter, r *http.Request) {
 	page := 0
-	if token := r.URL.Query().Get("continuation-token"); token != "" {
-		if _, err := fmt.Sscanf(token, "page-%d", &page); err != nil {
-			writeOSSError(w, http.StatusBadRequest, "InvalidArgument", err.Error())
-			return
-		}
-	}
 	var objects []ossFakeListObject
-	if page < len(f.listPages) {
-		objects = f.listPages[page]
+	var nextToken string
+	if f.listPages != nil {
+		if token := r.URL.Query().Get("continuation-token"); token != "" {
+			if _, err := fmt.Sscanf(token, "page-%d", &page); err != nil {
+				writeOSSError(w, http.StatusBadRequest, "InvalidArgument", err.Error())
+				return
+			}
+		}
+		if page < len(f.listPages) {
+			objects = f.listPages[page]
+		}
+		if page+1 < len(f.listPages) {
+			nextToken = "page-" + strconv.Itoa(page+1)
+		}
+	} else {
+		marker := r.URL.Query().Get("start-after")
+		if token := r.URL.Query().Get("continuation-token"); token != "" {
+			marker = strings.TrimPrefix(token, "key-")
+		}
+		prefix := r.URL.Query().Get("prefix")
+		maxKeys, _ := strconv.Atoi(r.URL.Query().Get("max-keys"))
+		f.mu.Lock()
+		for key := range f.objects {
+			if strings.HasPrefix(key, prefix) && key > marker {
+				objects = append(objects, ossFakeListObject{key: key})
+			}
+		}
+		f.mu.Unlock()
+		sort.Slice(objects, func(i, j int) bool { return objects[i].key < objects[j].key })
+		if maxKeys > 0 && len(objects) > maxKeys {
+			nextToken = "key-" + objects[maxKeys-1].key
+			objects = objects[:maxKeys]
+		}
 	}
 	w.Header().Set("Content-Type", "application/xml")
 	w.Header().Set("x-oss-request-id", "list-request")
@@ -181,8 +337,8 @@ func (f *ossFakeServer) serveList(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, "<Prefix>"+xmlText(r.URL.Query().Get("prefix"))+"</Prefix>")
 	_, _ = io.WriteString(w, "<MaxKeys>"+xmlText(r.URL.Query().Get("max-keys"))+"</MaxKeys>")
 	_, _ = io.WriteString(w, "<KeyCount>"+strconv.Itoa(len(objects))+"</KeyCount>")
-	if page+1 < len(f.listPages) {
-		_, _ = io.WriteString(w, "<IsTruncated>true</IsTruncated><NextContinuationToken>page-"+strconv.Itoa(page+1)+"</NextContinuationToken>")
+	if nextToken != "" {
+		_, _ = io.WriteString(w, "<IsTruncated>true</IsTruncated><NextContinuationToken>"+xmlText(nextToken)+"</NextContinuationToken>")
 	} else {
 		_, _ = io.WriteString(w, "<IsTruncated>false</IsTruncated>")
 	}
@@ -358,6 +514,18 @@ func TestOSSConfigValidationAndRegion(t *testing.T) {
 			require.ErrorContains(t, err, test.want)
 		})
 	}
+	for _, expiration := range []int{899, 3601} {
+		t.Run(fmt.Sprintf("invalid role expiration %d", expiration), func(t *testing.T) {
+			config := maps.Clone(roleConfig)
+			config["iamRoleARN"], config["externalID"] = "acs:ram::123:role/test", "external"
+			conf := kitconfig.New()
+			conf.Set("FileManager.ALIBABA_OSS.callerAccessKeyID", "caller-id")
+			conf.Set("FileManager.ALIBABA_OSS.callerAccessKeySecret", "caller-secret")
+			conf.Set("FileManager.ALIBABA_OSS.roleSessionExpiration", expiration)
+			_, err := NewOSSManager(conf, config, logger.NOP, nil)
+			require.ErrorContains(t, err, "FileManager.ALIBABA_OSS.roleSessionExpiration must be between 900 and 3600 seconds")
+		})
+	}
 
 	for configured, expected := range map[string]string{
 		" cn-hangzhou ":                         "cn-hangzhou",
@@ -473,6 +641,40 @@ func TestOSSRoleCredentialsProviderFakeSTS(t *testing.T) {
 	handlerMu.Unlock()
 	require.Equal(t, "workspace-id", observedForm.Get("ExternalId"))
 	require.Equal(t, ossRoleSessionName, observedForm.Get("RoleSessionName"))
+	require.Equal(t, "3600", observedForm.Get("DurationSeconds"))
+}
+
+func TestOSSRoleCredentialsProviderFakeSTSRefresh(t *testing.T) {
+	var mu sync.Mutex
+	var calls int
+	var durations []string
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		form, err := url.ParseQuery(string(body))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		mu.Lock()
+		calls++
+		call := calls
+		durations = append(durations, form.Get("DurationSeconds"))
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"RequestId":"request-id","Credentials":{"AccessKeyId":"role-id-%d","AccessKeySecret":"role-secret-%d","SecurityToken":"role-token-%d","Expiration":"%s"}}`,
+			call, call, call, time.Now().Add(2*time.Minute).UTC().Format("2006-01-02T15:04:05Z"))
+	}))
+	defer server.Close()
+
+	runOSSSTSSubprocess(t, server, "refresh")
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, 2, calls, "credentials-go should refresh when STS expiry is within 180 seconds")
+	require.Equal(t, []string{"900", "900"}, durations)
 }
 
 func TestOSSRoleCredentialsProviderConcurrencyAndNilExpires(t *testing.T) {
@@ -556,6 +758,52 @@ func TestOSSUploadReaderUploadAndEmptyFile(t *testing.T) {
 	require.ErrorContains(t, err, "object name cannot be empty")
 }
 
+func newOSSMultipartTestFile(t *testing.T) (*os.File, []byte) {
+	t.Helper()
+	file, err := os.Create(path.Join(t.TempDir(), "multipart.bin"))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, file.Close()) })
+	contents := bytes.Repeat([]byte{0x00, 0x7f, 0xff, 0x42}, (13<<20)/4)
+	_, err = file.Write(contents)
+	require.NoError(t, err)
+	_, err = file.Seek(0, io.SeekStart)
+	require.NoError(t, err)
+	return file, contents
+}
+
+func TestOSSUploadMultipartSuccess(t *testing.T) {
+	fake := newOSSFakeServer(t)
+	manager := newTestOSSManager(t, fake)
+	file, contents := newOSSMultipartTestFile(t)
+	uploaded, err := manager.Upload(context.Background(), file, "multipart")
+	require.NoError(t, err)
+	require.Equal(t, "configured/prefix/multipart/multipart.bin", uploaded.ObjectName)
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	require.Equal(t, []string{"upload-1"}, fake.initiatedIDs)
+	require.Equal(t, []string{"upload-1"}, fake.completedIDs)
+	require.Equal(t, [][]int{{1, 2, 3}}, fake.completedParts)
+	require.Equal(t, [][]int{{6 << 20, 6 << 20, 1 << 20}}, fake.completedSizes)
+	require.Equal(t, len(contents), fake.completedSizes[0][0]+fake.completedSizes[0][1]+fake.completedSizes[0][2])
+	require.Empty(t, fake.abortedIDs)
+	require.Equal(t, contents, fake.objects[uploaded.ObjectName])
+}
+
+func TestOSSUploadMultipartFailureAborts(t *testing.T) {
+	fake := newOSSFakeServer(t)
+	fake.failPart = 2
+	manager := newTestOSSManager(t, fake)
+	file, _ := newOSSMultipartTestFile(t)
+	_, err := manager.Upload(context.Background(), file, "multipart")
+	require.Error(t, err)
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	require.Equal(t, []string{"upload-1"}, fake.initiatedIDs)
+	require.Equal(t, fake.initiatedIDs, fake.abortedIDs)
+	require.Empty(t, fake.completedIDs)
+	require.NotContains(t, fake.objects, "configured/prefix/multipart/multipart.bin")
+}
+
 func TestOSSDownloadRangesAndErrors(t *testing.T) {
 	fake := newOSSFakeServer(t)
 	manager := newTestOSSManager(t, fake)
@@ -629,6 +877,22 @@ func TestOSSListPaginationExhaustionAndMaxClamp(t *testing.T) {
 		require.Nil(t, listed)
 	}
 	require.Empty(t, zeroFake.requests, "non-positive maxItems should not issue a list request")
+}
+
+func TestOSSListStartAfterPreservesTrailingSpace(t *testing.T) {
+	fake := newOSSFakeServer(t)
+	fake.objects["prefix/a "] = []byte("a")
+	fake.objects["prefix/b"] = []byte("b")
+	manager := newTestOSSManager(t, fake)
+	first, err := manager.ListFilesWithPrefix(context.Background(), "", "prefix/", 1).Next()
+	require.NoError(t, err)
+	require.Equal(t, []string{"prefix/a "}, fileInfoKeys(first))
+	resumed, err := manager.ListFilesWithPrefix(context.Background(), "prefix/a ", "prefix/", 1).Next()
+	require.NoError(t, err)
+	require.Equal(t, []string{"prefix/b"}, fileInfoKeys(resumed))
+	query, err := url.ParseQuery(fake.lastRequest().rawQuery)
+	require.NoError(t, err)
+	require.Equal(t, "prefix/a ", query.Get("start-after"))
 }
 
 func TestOSSDeleteHappyNonexistentAndPartialReconciliation(t *testing.T) {
@@ -707,6 +971,10 @@ func TestOSSLocationParserPublicInternalAndCustom(t *testing.T) {
 
 	_, err := manager.GetObjectNameFromLocation("https://example.com/%zz")
 	require.ErrorContains(t, err, "parsing Alibaba OSS location")
+	_, err = manager.GetObjectNameFromLocation("https://bucket.oss-cn-hangzhou.aliyuncs.com/key/%zz?security-token=fake-token&Signature=fake-signature")
+	require.EqualError(t, err, `parsing Alibaba OSS location: invalid URL escape "%zz"`)
+	require.NotContains(t, err.Error(), "fake-token")
+	require.NotContains(t, err.Error(), "fake-signature")
 }
 
 func TestOSSMapErrorNoSuchKeyAndRedaction(t *testing.T) {
@@ -823,6 +1091,9 @@ func TestOSSSTSSubprocess(t *testing.T) {
 	conf.Set("FileManager.ALIBABA_OSS.callerAccessKeyID", "caller-id")
 	conf.Set("FileManager.ALIBABA_OSS.callerAccessKeySecret", "caller-secret")
 	conf.Set("FileManager.ALIBABA_OSS.stsEndpoint", os.Getenv("RUDDER_GO_KIT_OSS_STS_TEST_ENDPOINT"))
+	if mode == "refresh" {
+		conf.Set("FileManager.ALIBABA_OSS.roleSessionExpiration", 900)
+	}
 	manager, err := NewOSSManager(conf, config, logger.NOP, nil)
 	require.NoError(t, err)
 
@@ -836,6 +1107,14 @@ func TestOSSSTSSubprocess(t *testing.T) {
 		manager.SetTimeout(time.Millisecond)
 		_, err := manager.UploadReader(context.Background(), "role-fake-sts-timeout.txt", strings.NewReader("payload"))
 		require.ErrorIs(t, err, context.DeadlineExceeded)
+	case "refresh":
+		first, err := manager.credentialsProvider.GetCredentials(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "role-id-1", first.AccessKeyID)
+		second, err := manager.credentialsProvider.GetCredentials(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "role-id-2", second.AccessKeyID)
+		require.NotEqual(t, first.SecurityToken, second.SecurityToken)
 	default:
 		t.Fatalf("unknown fake STS subprocess mode %q", mode)
 	}
@@ -964,14 +1243,21 @@ func TestOSSLiveRoleRefresh(t *testing.T) {
 	if os.Getenv("OSS_TEST_ROLE_REFRESH") == "" {
 		t.Skip("Alibaba OSS role refresh test requires OSS_TEST_ROLE_REFRESH")
 	}
-	const wait = 20 * time.Minute
-	manager := newOSSLiveRoleManager(t)
+	// Run this opt-in test with go test -timeout 30m; it must pass the 900-second session lifetime.
+	const wait = 16 * time.Minute
+	manager := newOSSLiveRoleManager(t, 900)
 	key := "rudder-go-kit-test/" + uuid.NewString() + "/refresh.txt"
 	t.Cleanup(func() { _ = manager.Delete(context.Background(), []string{key}) })
 	_, err := manager.UploadReader(context.Background(), key, strings.NewReader("refresh payload"))
 	require.NoError(t, err)
+	first, err := manager.credentialsProvider.GetCredentials(context.Background())
+	require.NoError(t, err)
+	require.NotEmpty(t, first.SecurityToken)
 	t.Logf("waiting %s so credentials-go must refresh the role session", wait)
 	time.Sleep(wait)
+	refreshed, err := manager.credentialsProvider.GetCredentials(context.Background())
+	require.NoError(t, err)
+	require.NotEqual(t, first.SecurityToken, refreshed.SecurityToken)
 	var output bytesWriterAt
 	require.NoError(t, manager.Download(context.Background(), &output, key))
 	require.Equal(t, "refresh payload", output.String())
@@ -998,7 +1284,7 @@ func ossLiveStaticConfig(t *testing.T) map[string]any {
 	return config
 }
 
-func newOSSLiveRoleManager(t *testing.T) *OSSManager {
+func newOSSLiveRoleManager(t *testing.T, roleSessionExpiration ...int) *OSSManager {
 	t.Helper()
 	config := map[string]any{
 		"bucketName":    requiredOSSEnv(t, "OSS_TEST_BUCKET"),
@@ -1010,7 +1296,11 @@ func newOSSLiveRoleManager(t *testing.T) *OSSManager {
 	if endpoint := os.Getenv("OSS_TEST_ENDPOINT"); endpoint != "" {
 		config["endPoint"] = endpoint
 	}
-	manager, err := NewOSSManager(ossLiveRoleKitConfig(t), config, logger.NOP, func() time.Duration { return 2 * time.Minute })
+	conf := ossLiveRoleKitConfig(t)
+	if len(roleSessionExpiration) > 0 {
+		conf.Set("FileManager.ALIBABA_OSS.roleSessionExpiration", roleSessionExpiration[0])
+	}
+	manager, err := NewOSSManager(conf, config, logger.NOP, func() time.Duration { return 2 * time.Minute })
 	require.NoError(t, err)
 	return manager
 }
