@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -465,28 +466,7 @@ func TestOSSRoleCredentialsProviderFakeSTS(t *testing.T) {
 	}))
 	defer server.Close()
 
-	certificatePEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
-	certificateFile := path.Join(t.TempDir(), "sts-ca.pem")
-	require.NoError(t, os.WriteFile(certificateFile, certificatePEM, 0o600))
-	t.Setenv("SSL_CERT_FILE", certificateFile)
-
-	fake := newOSSFakeServer(t)
-	config := testOSSConfig(fake)
-	config["roleBasedAuth"] = true
-	config["iamRoleARN"] = "acs:ram::123:role/test"
-	config["externalID"] = "workspace-id"
-	delete(config, "accessKeyID")
-	delete(config, "accessKey")
-	conf := kitconfig.New()
-	conf.Set("FileManager.ALIBABA_OSS.callerAccessKeyID", "caller-id")
-	conf.Set("FileManager.ALIBABA_OSS.callerAccessKeySecret", "caller-secret")
-	conf.Set("FileManager.ALIBABA_OSS.stsEndpoint", strings.TrimPrefix(server.URL, "https://"))
-	manager, err := newOSSManager(conf, config, logger.NOP, nil, ossManagerOptions{allowInsecureEndpoint: true})
-	require.NoError(t, err)
-	credentials, err := manager.credentialsProvider.GetCredentials(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, "role-id", credentials.AccessKeyID)
-	require.Equal(t, "role-token", credentials.SecurityToken)
+	runOSSSTSSubprocess(t, server, "credentials")
 	handlerMu.Lock()
 	require.NoError(t, handlerErr)
 	observedForm := maps.Clone(form)
@@ -805,27 +785,60 @@ func TestOSSRoleCredentialsProviderDelayedFakeSTSHonorsManagerTimeout(t *testing
 	}))
 	defer server.Close()
 
+	runOSSSTSSubprocess(t, server, "deadline")
+}
+
+// Go caches system roots on first use. A child process makes the fake STS CA available
+// before any test or package can initialize TLS, even when the suite is shuffled.
+func runOSSSTSSubprocess(t *testing.T, server *httptest.Server, mode string) {
+	t.Helper()
 	certificatePEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
 	certificateFile := path.Join(t.TempDir(), "sts-ca.pem")
 	require.NoError(t, os.WriteFile(certificateFile, certificatePEM, 0o600))
-	t.Setenv("SSL_CERT_FILE", certificateFile)
 
-	fake := newOSSFakeServer(t)
-	config := testOSSConfig(fake)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestOSSSTSSubprocess$")
+	command.Env = append(os.Environ(),
+		"SSL_CERT_FILE="+certificateFile,
+		"RUDDER_GO_KIT_OSS_STS_TEST_MODE="+mode,
+		"RUDDER_GO_KIT_OSS_STS_TEST_ENDPOINT="+strings.TrimPrefix(server.URL, "https://"),
+	)
+	output, err := command.CombinedOutput()
+	require.NoError(t, err, "%s", output)
+}
+
+func TestOSSSTSSubprocess(t *testing.T) {
+	mode := os.Getenv("RUDDER_GO_KIT_OSS_STS_TEST_MODE")
+	if mode == "" {
+		t.Skip("fake STS subprocess helper")
+	}
+	config := productionOSSConfig()
 	config["roleBasedAuth"] = true
 	config["iamRoleARN"] = "acs:ram::123:role/test"
-	config["externalID"] = "external"
+	config["externalID"] = "workspace-id"
 	delete(config, "accessKeyID")
 	delete(config, "accessKey")
 	conf := kitconfig.New()
 	conf.Set("FileManager.ALIBABA_OSS.callerAccessKeyID", "caller-id")
 	conf.Set("FileManager.ALIBABA_OSS.callerAccessKeySecret", "caller-secret")
-	conf.Set("FileManager.ALIBABA_OSS.stsEndpoint", strings.TrimPrefix(server.URL, "https://"))
-	manager, err := newOSSManager(conf, config, logger.NOP, nil, ossManagerOptions{allowInsecureEndpoint: true})
+	conf.Set("FileManager.ALIBABA_OSS.stsEndpoint", os.Getenv("RUDDER_GO_KIT_OSS_STS_TEST_ENDPOINT"))
+	manager, err := NewOSSManager(conf, config, logger.NOP, nil)
 	require.NoError(t, err)
-	manager.SetTimeout(time.Millisecond)
-	_, err = manager.UploadReader(context.Background(), "role-fake-sts-timeout.txt", strings.NewReader("payload"))
-	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	switch mode {
+	case "credentials":
+		credentials, err := manager.credentialsProvider.GetCredentials(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, "role-id", credentials.AccessKeyID)
+		require.Equal(t, "role-token", credentials.SecurityToken)
+	case "deadline":
+		manager.SetTimeout(time.Millisecond)
+		_, err := manager.UploadReader(context.Background(), "role-fake-sts-timeout.txt", strings.NewReader("payload"))
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+	default:
+		t.Fatalf("unknown fake STS subprocess mode %q", mode)
+	}
 }
 
 func TestOSSFactoryAndEnvironmentConfig(t *testing.T) {
