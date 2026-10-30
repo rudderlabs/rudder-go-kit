@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"maps"
 	"net"
 	"net/http"
@@ -43,6 +44,7 @@ type ossFakeListObject struct {
 type ossFakeRequest struct {
 	rawQuery      string
 	rangeHeader   string
+	rangeBehavior string
 	securityToken string
 	authorization string
 }
@@ -55,21 +57,24 @@ type ossFakeMultipartUpload struct {
 type ossFakeServer struct {
 	server *httptest.Server
 
-	mu             sync.Mutex
-	objects        map[string][]byte
-	requests       []ossFakeRequest
-	listPages      [][]ossFakeListObject
-	deleteOmit     map[string]bool
-	multipart      map[string]*ossFakeMultipartUpload
-	initiatedIDs   []string
-	completedIDs   []string
-	completedParts [][]int
-	completedSizes [][]int
-	abortedIDs     []string
-	failPart       int
-	delay          time.Duration
-	downloadStatus int
-	downloadCode   string
+	mu                  sync.Mutex
+	objects             map[string][]byte
+	requests            []ossFakeRequest
+	listPages           [][]ossFakeListObject
+	deleteOmit          map[string]bool
+	multipart           map[string]*ossFakeMultipartUpload
+	initiatedIDs        []string
+	completedIDs        []string
+	completedParts      [][]int
+	completedSizes      [][]int
+	abortedIDs          []string
+	failPart            int
+	blockPartsAfter     int
+	releaseBlockedParts chan struct{}
+	failAbort           bool
+	delay               time.Duration
+	downloadStatus      int
+	downloadCode        string
 }
 
 func newOSSFakeServer(t *testing.T) *ossFakeServer {
@@ -97,6 +102,7 @@ func (f *ossFakeServer) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	f.requests = append(f.requests, ossFakeRequest{
 		rawQuery:      r.URL.RawQuery,
 		rangeHeader:   r.Header.Get("Range"),
+		rangeBehavior: r.Header.Get("x-oss-range-behavior"),
 		securityToken: r.Header.Get("x-oss-security-token"),
 		authorization: r.Header.Get("Authorization"),
 	})
@@ -181,6 +187,14 @@ func (f *ossFakeServer) serveUploadPart(w http.ResponseWriter, r *http.Request, 
 		writeOSSError(w, http.StatusInternalServerError, "InternalError", "injected upload part failure")
 		return
 	}
+	if f.blockPartsAfter > 0 && partNumber > f.blockPartsAfter {
+		select {
+		case <-r.Context().Done():
+		case <-f.releaseBlockedParts:
+			writeOSSError(w, http.StatusInternalServerError, "InternalError", "interrupted upload part")
+		}
+		return
+	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		writeOSSError(w, http.StatusBadRequest, "InvalidPart", err.Error())
@@ -248,6 +262,10 @@ func (f *ossFakeServer) serveCompleteMultipart(w http.ResponseWriter, r *http.Re
 }
 
 func (f *ossFakeServer) serveAbortMultipart(w http.ResponseWriter, uploadID string) {
+	if f.failAbort {
+		writeOSSError(w, http.StatusInternalServerError, "InternalError", "injected abort failure")
+		return
+	}
 	f.mu.Lock()
 	f.abortedIDs = append(f.abortedIDs, uploadID)
 	delete(f.multipart, uploadID)
@@ -283,10 +301,11 @@ func (f *ossFakeServer) serveDownload(w http.ResponseWriter, r *http.Request, ke
 			writeOSSError(w, http.StatusRequestedRangeNotSatisfiable, "InvalidRange", err.Error())
 			return
 		}
-		if start < 0 || end < start || end >= len(contents) {
+		if start < 0 || end < start || start >= len(contents) {
 			writeOSSError(w, http.StatusRequestedRangeNotSatisfiable, "InvalidRange", "range outside object")
 			return
 		}
+		end = min(end, len(contents)-1)
 		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(contents)))
 		w.WriteHeader(http.StatusPartialContent)
 		_, _ = w.Write(contents[start : end+1])
@@ -862,12 +881,36 @@ func TestOSSUploadReaderUploadAndEmptyFile(t *testing.T) {
 	require.ErrorContains(t, err, "object name cannot be empty")
 }
 
-func newOSSMultipartTestFile(t *testing.T) (*os.File, []byte) {
+func TestOSSSDKDebugLoggingDoesNotExposeCredentials(t *testing.T) {
+	t.Setenv("OSS_SDK_LOG_LEVEL", "debug")
+	fake := newOSSFakeServer(t)
+	manager := newTestOSSManager(t, fake)
+	const accessKeyID = "debug-log-access-key-id"
+	const securityToken = "debug-log-security-token"
+	manager.credentialsProvider = &testOSSCredentialsProvider{credentials: osscredentials.Credentials{
+		AccessKeyID: accessKeyID, AccessKeySecret: "debug-log-secret", SecurityToken: securityToken,
+	}}
+
+	var sdkLog bytes.Buffer
+	previousOutput := log.Writer()
+	log.SetOutput(&sdkLog)
+	t.Cleanup(func() { log.SetOutput(previousOutput) })
+	_, err := manager.UploadReader(context.Background(), "debug-log.txt", strings.NewReader("payload"))
+	require.NoError(t, err)
+	request := fake.lastRequest()
+	require.Equal(t, securityToken, request.securityToken)
+	require.Contains(t, request.authorization, accessKeyID)
+	require.NotContains(t, sdkLog.String(), "Authorization")
+	require.NotContains(t, sdkLog.String(), securityToken)
+	require.NotContains(t, sdkLog.String(), accessKeyID)
+}
+
+func newOSSMultipartTestFile(t *testing.T, size int) (*os.File, []byte) {
 	t.Helper()
 	file, err := os.Create(path.Join(t.TempDir(), "multipart.bin"))
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, file.Close()) })
-	contents := bytes.Repeat([]byte{0x00, 0x7f, 0xff, 0x42}, (13<<20)/4)
+	contents := bytes.Repeat([]byte{0x00, 0x7f, 0xff, 0x42}, size/4)
 	_, err = file.Write(contents)
 	require.NoError(t, err)
 	_, err = file.Seek(0, io.SeekStart)
@@ -878,7 +921,7 @@ func newOSSMultipartTestFile(t *testing.T) (*os.File, []byte) {
 func TestOSSUploadMultipartSuccess(t *testing.T) {
 	fake := newOSSFakeServer(t)
 	manager := newTestOSSManager(t, fake)
-	file, contents := newOSSMultipartTestFile(t)
+	file, contents := newOSSMultipartTestFile(t, 13<<20)
 	uploaded, err := manager.Upload(context.Background(), file, "multipart")
 	require.NoError(t, err)
 	require.Equal(t, "configured/prefix/multipart/multipart.bin", uploaded.ObjectName)
@@ -893,11 +936,27 @@ func TestOSSUploadMultipartSuccess(t *testing.T) {
 	require.Equal(t, contents, fake.objects[uploaded.ObjectName])
 }
 
+func TestOSSUploadMultipartUsesCurrentFilePosition(t *testing.T) {
+	fake := newOSSFakeServer(t)
+	manager := newTestOSSManager(t, fake)
+	file, contents := newOSSMultipartTestFile(t, 14<<20)
+	_, err := file.Seek(1<<20, io.SeekStart)
+	require.NoError(t, err)
+
+	uploaded, err := manager.Upload(context.Background(), file, "multipart")
+	require.NoError(t, err)
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	require.Equal(t, []string{"upload-1"}, fake.initiatedIDs)
+	require.Equal(t, [][]int{{6 << 20, 6 << 20, 1 << 20}}, fake.completedSizes)
+	require.Equal(t, contents[1<<20:], fake.objects[uploaded.ObjectName])
+}
+
 func TestOSSUploadMultipartFailureAborts(t *testing.T) {
 	fake := newOSSFakeServer(t)
 	fake.failPart = 2
 	manager := newTestOSSManager(t, fake)
-	file, _ := newOSSMultipartTestFile(t)
+	file, _ := newOSSMultipartTestFile(t, 13<<20)
 	_, err := manager.Upload(context.Background(), file, "multipart")
 	require.Error(t, err)
 	fake.mu.Lock()
@@ -917,6 +976,65 @@ func TestOSSUploadMultipartFailureAborts(t *testing.T) {
 	require.Greater(t, partAttempts, 1, "multipart part failures must still be retried")
 }
 
+func runCanceledOSSMultipart(t *testing.T, fake *ossFakeServer) error {
+	t.Helper()
+	fake.blockPartsAfter = 1
+	fake.releaseBlockedParts = make(chan struct{})
+	t.Cleanup(func() {
+		select {
+		case <-fake.releaseBlockedParts:
+		default:
+			close(fake.releaseBlockedParts)
+		}
+	})
+	manager := newTestOSSManager(t, fake)
+	file, _ := newOSSMultipartTestFile(t, 13<<20)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		_, err := manager.Upload(ctx, file, "multipart")
+		result <- err
+	}()
+	require.Eventually(t, func() bool {
+		fake.mu.Lock()
+		defer fake.mu.Unlock()
+		upload := fake.multipart["upload-1"]
+		return upload != nil && len(upload.parts[1]) > 0
+	}, 5*time.Second, 5*time.Millisecond, "first multipart part should be stored before cancellation")
+	cancel()
+	close(fake.releaseBlockedParts)
+	select {
+	case err := <-result:
+		return err
+	case <-time.After(5 * time.Second):
+		t.Fatal("canceled multipart upload did not return")
+		return nil
+	}
+}
+
+func TestOSSUploadMultipartCancellationAborts(t *testing.T) {
+	fake := newOSSFakeServer(t)
+	err := runCanceledOSSMultipart(t, fake)
+	require.ErrorIs(t, err, context.Canceled)
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	require.Equal(t, []string{"upload-1"}, fake.initiatedIDs)
+	require.Contains(t, fake.abortedIDs, "upload-1")
+	require.Empty(t, fake.multipart)
+	require.Empty(t, fake.completedIDs)
+	require.NotContains(t, fake.objects, "configured/prefix/multipart/multipart.bin")
+}
+
+func TestOSSUploadMultipartCancellationReportsAbortFailure(t *testing.T) {
+	fake := newOSSFakeServer(t)
+	fake.failAbort = true
+	err := runCanceledOSSMultipart(t, fake)
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorContains(t, err, "aborting canceled Alibaba OSS multipart upload")
+	require.ErrorContains(t, err, "injected abort failure")
+}
+
 func TestOSSDownloadRangesAndErrors(t *testing.T) {
 	fake := newOSSFakeServer(t)
 	manager := newTestOSSManager(t, fake)
@@ -932,13 +1050,30 @@ func TestOSSDownloadRangesAndErrors(t *testing.T) {
 	require.NoError(t, manager.Download(context.Background(), &output, key, WithDownloadOffSetAndLength(5, 10)))
 	require.Equal(t, "56789abcde", output.String())
 	require.Equal(t, "bytes=5-14", fake.lastRequest().rangeHeader)
+	require.Equal(t, "standard", fake.lastRequest().rangeBehavior)
 
 	output = bytesWriterAt{}
 	require.NoError(t, manager.Download(context.Background(), &output, key, WithDownloadOffSet(10)))
 	require.Equal(t, "abcdefghij", output.String())
 	require.Equal(t, "bytes=10-", fake.lastRequest().rangeHeader)
+	require.Equal(t, "standard", fake.lastRequest().rangeBehavior)
 
-	err := manager.Download(context.Background(), &output, "missing.txt")
+	output = bytesWriterAt{}
+	require.NoError(t, manager.Download(context.Background(), &output, key, WithDownloadOffSetAndLength(15, 100)))
+	require.Equal(t, "fghij", output.String())
+	require.Equal(t, "bytes=15-114", fake.lastRequest().rangeHeader)
+	require.Equal(t, "standard", fake.lastRequest().rangeBehavior)
+
+	output = bytesWriterAt{}
+	err := manager.Download(context.Background(), &output, key, WithDownloadOffSet(20))
+	require.Error(t, err)
+	var invalidRange *oss.ServiceError
+	require.ErrorAs(t, err, &invalidRange)
+	require.Equal(t, http.StatusRequestedRangeNotSatisfiable, invalidRange.StatusCode)
+	require.Empty(t, output.String())
+	require.Equal(t, "standard", fake.lastRequest().rangeBehavior)
+
+	err = manager.Download(context.Background(), &output, "missing.txt")
 	require.ErrorIs(t, err, ErrKeyNotFound)
 
 	fake.downloadStatus = http.StatusForbidden
@@ -1247,7 +1382,7 @@ func TestOSSFactoryAndEnvironmentConfig(t *testing.T) {
 	t.Setenv("ALIBABA_OSS_REGION", "cn-shanghai")
 	t.Setenv("ALIBABA_OSS_ENDPOINT", "https://custom.example")
 	t.Setenv("ALIBABA_OSS_ACCESS_KEY_ID", "env-id")
-	t.Setenv("ALIBABA_OSS_ACCESS_KEY_SECRET", "env-secret")
+	t.Setenv("ALIBABA_OSS_SECRET_ACCESS_KEY", "env-secret")
 	environment := GetProviderConfigFromEnv(ProviderConfigOpts{
 		Provider: "ALIBABA_OSS", Bucket: "env-bucket", Prefix: "env-prefix", Config: kitconfig.New(),
 	})

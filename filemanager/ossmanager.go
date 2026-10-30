@@ -33,6 +33,7 @@ const (
 	ossRoleSTSConnectTimeoutMaxSeconds = 5
 	ossDeleteBatchSize                 = 1000
 	ossMaxListItems                    = 1000
+	ossMultipartAbortTimeout           = 30 * time.Second
 )
 
 // OSSConfig contains the destination settings for Alibaba Cloud OSS.
@@ -292,6 +293,8 @@ func (m *OSSManager) getClient() *oss.Client {
 	m.clientOnce.Do(func() {
 		config := oss.LoadDefaultConfig().
 			WithRegion(m.config.Region).
+			// SDK debug logging prints signed request headers, including temporary security tokens.
+			WithLogLevel(oss.LogOff).
 			WithCredentialsProvider(m.credentialsProvider)
 		if m.config.EndPoint != "" {
 			config.WithEndpoint(m.config.EndPoint)
@@ -384,12 +387,38 @@ func (m *OSSManager) UploadReader(ctx context.Context, objName string, rdr io.Re
 
 	request := &oss.PutObjectRequest{Bucket: new(m.config.Bucket), Key: new(objName), Body: rdr}
 	var err error
-	if _, ok := rdr.(*os.File); ok {
-		_, err = oss.NewUploader(m.getClient()).UploadFrom(ctx, request, rdr)
+	if file, ok := rdr.(*os.File); ok {
+		position, seekErr := file.Seek(0, io.SeekCurrent)
+		if seekErr != nil {
+			return UploadedFile{}, fmt.Errorf("finding Alibaba OSS upload position: %w", seekErr)
+		}
+		info, statErr := file.Stat()
+		if statErr != nil {
+			return UploadedFile{}, fmt.Errorf("statting Alibaba OSS upload file: %w", statErr)
+		}
+		// The SDK's multipart section readers start at offset zero even when an os.File is
+		// already positioned later. Rebase the reader so zero means its current position.
+		remaining := max(info.Size()-position, 0)
+		body := io.NewSectionReader(file, position, remaining)
+		_, err = oss.NewUploader(m.getClient()).UploadFrom(ctx, request, body)
 	} else {
 		_, err = m.getClient().PutObject(ctx, request)
 	}
 	if err != nil {
+		if uploadErr, ok := errors.AsType[*oss.UploadError](err); ok && uploadErr.UploadId != "" && ctx.Err() != nil {
+			// The SDK tries to abort with the canceled upload context. Retry cleanup with
+			// an independent, bounded context so incomplete parts do not remain billable.
+			abortCtx, abortCancel := context.WithTimeout(context.WithoutCancel(ctx), ossMultipartAbortTimeout)
+			_, abortErr := m.getClient().AbortMultipartUpload(abortCtx, &oss.AbortMultipartUploadRequest{
+				Bucket: new(m.config.Bucket), Key: new(objName), UploadId: new(uploadErr.UploadId),
+			})
+			abortCancel()
+			if abortErr != nil {
+				if serviceErr, ok := errors.AsType[*oss.ServiceError](abortErr); !ok || serviceErr.Code != "NoSuchUpload" {
+					return UploadedFile{}, errors.Join(mapOSSError(err), fmt.Errorf("aborting canceled Alibaba OSS multipart upload: %w", mapOSSError(abortErr)))
+				}
+			}
+		}
 		return UploadedFile{}, mapOSSError(err)
 	}
 	return UploadedFile{Location: objectURL(m.config.Bucket, m.config.Region, objName), ObjectName: objName}, nil
@@ -414,6 +443,7 @@ func (m *OSSManager) Download(ctx context.Context, output io.WriterAt, key strin
 	request := &oss.GetObjectRequest{Bucket: new(m.config.Bucket), Key: new(key)}
 	downloadOpts := applyDownloadOptions(opts...)
 	if downloadOpts.isRangeRequest {
+		request.RangeBehavior = new("standard")
 		if downloadOpts.length > 0 {
 			request.Range = new(fmt.Sprintf("bytes=%d-%d", downloadOpts.offset, downloadOpts.offset+downloadOpts.length-1))
 		} else {

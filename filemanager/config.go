@@ -67,7 +67,7 @@ func GetProviderConfigFromEnv(opts ProviderConfigOpts) map[string]any {
 		providerConfig["region"] = config.GetStringVar("", "ALIBABA_OSS_REGION")
 		providerConfig["endPoint"] = config.GetStringVar("", "ALIBABA_OSS_ENDPOINT")
 		providerConfig["accessKeyID"] = config.GetStringVar("", "ALIBABA_OSS_ACCESS_KEY_ID")
-		providerConfig["accessKey"] = config.GetStringVar("", "ALIBABA_OSS_ACCESS_KEY_SECRET")
+		providerConfig["accessKey"] = config.GetStringVar("", "ALIBABA_OSS_SECRET_ACCESS_KEY")
 	}
 
 	return providerConfig
