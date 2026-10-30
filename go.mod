@@ -11,8 +11,8 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.49.0
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/DataDog/zstd v1.5.7
-	github.com/aliyun/alibabacloud-oss-go-sdk-v2 v1.6.0
-	github.com/aliyun/credentials-go v1.3.10
+	github.com/aliyun/alibabacloud-oss-go-sdk-v2 v1.6.1
+	github.com/aliyun/credentials-go v1.4.13
 	github.com/apache/pulsar-client-go v0.21.0
 	github.com/aws/aws-sdk-go-v2 v1.47.4
 	github.com/aws/aws-sdk-go-v2/config v1.33.10
