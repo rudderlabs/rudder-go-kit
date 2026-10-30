@@ -61,6 +61,13 @@ func GetProviderConfigFromEnv(opts ProviderConfigOpts) map[string]any {
 		providerConfig["endPoint"] = config.GetStringVar("", "DO_SPACES_ENDPOINT")
 		providerConfig["accessKeyID"] = config.GetStringVar("", "DO_SPACES_ACCESS_KEY_ID")
 		providerConfig["accessKey"] = config.GetStringVar("", "DO_SPACES_SECRET_ACCESS_KEY")
+	case "ALIBABA_OSS":
+		providerConfig["bucketName"] = opts.Bucket
+		providerConfig["prefix"] = opts.Prefix
+		providerConfig["region"] = config.GetStringVar("", "ALIBABA_OSS_REGION")
+		providerConfig["endPoint"] = config.GetStringVar("", "ALIBABA_OSS_ENDPOINT")
+		providerConfig["accessKeyID"] = config.GetStringVar("", "ALIBABA_OSS_ACCESS_KEY_ID")
+		providerConfig["accessKey"] = config.GetStringVar("", "ALIBABA_OSS_SECRET_ACCESS_KEY")
 	}
 
 	return providerConfig
