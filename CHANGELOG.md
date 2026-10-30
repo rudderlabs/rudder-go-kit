@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.86.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.85.0...v0.86.0) (2026-10-30)
+
+
+### Features
+
+* add Alibaba OSS provider ([#1256](https://github.com/rudderlabs/rudder-go-kit/issues/1256)) ([d4119e8](https://github.com/rudderlabs/rudder-go-kit/commit/d4119e84d384fc41aa72c5651e24fd3d145e50d0))
+
 ## [0.85.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.84.3...v0.85.0) (2026-10-29)
 
 
