@@ -415,7 +415,15 @@ func (m *OSSManager) UploadReader(ctx context.Context, objName string, rdr io.Re
 			abortCancel()
 			if abortErr != nil {
 				if serviceErr, ok := errors.AsType[*oss.ServiceError](abortErr); !ok || serviceErr.Code != "NoSuchUpload" {
-					return UploadedFile{}, errors.Join(mapOSSError(err), fmt.Errorf("aborting canceled Alibaba OSS multipart upload: %w", mapOSSError(abortErr)))
+					// Preserve the upload error; only OSS code and message are safe to log from cleanup.
+					if ok {
+						m.logger.Errorn("Alibaba OSS multipart abort failed",
+							obskit.Error(errors.New(serviceErr.Message)),
+							logger.NewStringField("errorCode", serviceErr.Code))
+					} else {
+						m.logger.Errorn("Alibaba OSS multipart abort failed",
+							obskit.Error(errors.New("abort request failed")))
+					}
 				}
 			}
 		}

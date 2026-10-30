@@ -487,6 +487,17 @@ func (p *testOSSCredentialsProvider) GetCredentials(context.Context) (osscredent
 	return p.credentials, p.err
 }
 
+type ossAbortLogRecorder struct {
+	logger.Logger
+	message string
+	fields  []logger.Field
+}
+
+func (l *ossAbortLogRecorder) Errorn(message string, fields ...logger.Field) {
+	l.message = message
+	l.fields = append([]logger.Field(nil), fields...)
+}
+
 type ossHTTPClientStub func(*http.Request) (*http.Response, error)
 
 func (s ossHTTPClientStub) Do(request *http.Request) (*http.Response, error) {
@@ -976,7 +987,7 @@ func TestOSSUploadMultipartFailureAborts(t *testing.T) {
 	require.Greater(t, partAttempts, 1, "multipart part failures must still be retried")
 }
 
-func runCanceledOSSMultipart(t *testing.T, fake *ossFakeServer) error {
+func runCanceledOSSMultipart(t *testing.T, fake *ossFakeServer, log logger.Logger) error {
 	t.Helper()
 	fake.blockPartsAfter = 1
 	fake.releaseBlockedParts = make(chan struct{})
@@ -988,6 +999,7 @@ func runCanceledOSSMultipart(t *testing.T, fake *ossFakeServer) error {
 		}
 	})
 	manager := newTestOSSManager(t, fake)
+	manager.logger = log
 	file, _ := newOSSMultipartTestFile(t, 13<<20)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1015,8 +1027,11 @@ func runCanceledOSSMultipart(t *testing.T, fake *ossFakeServer) error {
 
 func TestOSSUploadMultipartCancellationAborts(t *testing.T) {
 	fake := newOSSFakeServer(t)
-	err := runCanceledOSSMultipart(t, fake)
+	err := runCanceledOSSMultipart(t, fake, logger.NOP)
 	require.ErrorIs(t, err, context.Canceled)
+	uploadErr, ok := errors.AsType[*oss.UploadError](err)
+	require.True(t, ok)
+	require.Equal(t, "upload-1", uploadErr.UploadId)
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
 	require.Equal(t, []string{"upload-1"}, fake.initiatedIDs)
@@ -1026,13 +1041,21 @@ func TestOSSUploadMultipartCancellationAborts(t *testing.T) {
 	require.NotContains(t, fake.objects, "configured/prefix/multipart/multipart.bin")
 }
 
-func TestOSSUploadMultipartCancellationReportsAbortFailure(t *testing.T) {
+func TestOSSUploadMultipartCancellationLogsAbortFailure(t *testing.T) {
 	fake := newOSSFakeServer(t)
 	fake.failAbort = true
-	err := runCanceledOSSMultipart(t, fake)
+	log := &ossAbortLogRecorder{Logger: logger.NOP}
+	err := runCanceledOSSMultipart(t, fake, log)
 	require.ErrorIs(t, err, context.Canceled)
-	require.ErrorContains(t, err, "aborting canceled Alibaba OSS multipart upload")
-	require.ErrorContains(t, err, "injected abort failure")
+	require.NotContains(t, err.Error(), "injected abort failure")
+	require.Equal(t, "Alibaba OSS multipart abort failed", log.message)
+	require.Len(t, log.fields, 2)
+	require.Equal(t, "error", log.fields[0].Name())
+	loggedErr, ok := log.fields[0].Value().(error)
+	require.True(t, ok)
+	require.EqualError(t, loggedErr, "injected abort failure")
+	require.Equal(t, "errorCode", log.fields[1].Name())
+	require.Equal(t, "InternalError", log.fields[1].Value())
 }
 
 func TestOSSDownloadRangesAndErrors(t *testing.T) {
