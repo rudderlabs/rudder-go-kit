@@ -253,9 +253,10 @@ func validateOSSEndpointConfig(config *OSSConfig, allowInsecureEndpoint bool) er
 			return fmt.Errorf("parsing Alibaba OSS endPoint: %w", err)
 		}
 	}
-	if parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.ForceQuery {
+	if parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.ForceQuery {
 		return errors.New("alibaba OSS endPoint must not include userinfo, a path, or a query")
 	}
+	config.EndPoint = strings.TrimSuffix(config.EndPoint, "/")
 	if allowInsecureEndpoint && parsed.Scheme == "http" {
 		return nil
 	}

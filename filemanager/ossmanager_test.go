@@ -618,6 +618,7 @@ func TestOSSEndpointValidation(t *testing.T) {
 		{name: "scheme-less endpoint with allowlist suffix in path", modify: func(c map[string]any) { c["endPoint"] = "evil.com/x.aliyuncs.com" }, want: "must not include userinfo, a path, or a query"},
 		{name: "scheme-less endpoint with allowlist suffix in query", modify: func(c map[string]any) { c["endPoint"] = "evil.com?x=.aliyuncs.com" }, want: "must not include userinfo, a path, or a query"},
 		{name: "scheme-less endpoint with userinfo", modify: func(c map[string]any) { c["endPoint"] = "user@evil.com" }, want: "must not include userinfo, a path, or a query"},
+		{name: "endpoint with path", modify: func(c map[string]any) { c["endPoint"] = "https://oss-cn-hangzhou.aliyuncs.com/proxy" }, want: "must not include userinfo, a path, or a query"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			config := productionOSSConfig()
@@ -633,15 +634,26 @@ func TestOSSEndpointValidation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "oss-cn-hangzhou.aliyuncs.com", manager.config.EndPoint)
 
-	config = productionOSSConfig()
-	config["endPoint"] = "https://oss-cn-hangzhou.aliyuncs.com"
-	_, err = NewOSSManager(kitconfig.New(), config, logger.NOP, nil)
-	require.NoError(t, err)
+	for _, endpoint := range []string{
+		"https://oss-cn-hangzhou.aliyuncs.com",
+		"https://oss-cn-hangzhou.aliyuncs.com/",
+	} {
+		config = productionOSSConfig()
+		config["endPoint"] = endpoint
+		manager, err = NewOSSManager(kitconfig.New(), config, logger.NOP, nil)
+		require.NoError(t, err)
+		require.Equal(t, "https://oss-cn-hangzhou.aliyuncs.com", manager.config.EndPoint)
+	}
 
 	fake := newOSSFakeServer(t)
-	manager, err = newOSSManager(kitconfig.New(), testOSSConfig(fake), logger.NOP, nil, ossManagerOptions{allowInsecureEndpoint: true})
+	config = testOSSConfig(fake)
+	config["endPoint"] = fake.server.URL + "/"
+	manager, err = newOSSManager(kitconfig.New(), config, logger.NOP, nil, ossManagerOptions{allowInsecureEndpoint: true})
 	require.NoError(t, err)
 	require.Equal(t, fake.server.URL, manager.config.EndPoint)
+	_, err = manager.UploadReader(context.Background(), "trailing-slash.txt", strings.NewReader("payload"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("payload"), fake.objects["trailing-slash.txt"])
 }
 
 func TestOSSRolePrecedenceAndTokenPropagation(t *testing.T) {
