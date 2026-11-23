@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.86.1](https://github.com/rudderlabs/rudder-go-kit/compare/v0.86.0...v0.86.1) (2026-11-23)
+
+
+### Miscellaneous
+
+* **ci:** remove codecov ([#1295](https://github.com/rudderlabs/rudder-go-kit/issues/1295)) ([faab1c9](https://github.com/rudderlabs/rudder-go-kit/commit/faab1c9d1d4a3b8fcd4805f045fccf471d8c40b7))
+* require Go 1.27.4 ([#1296](https://github.com/rudderlabs/rudder-go-kit/issues/1296)) ([18d7de7](https://github.com/rudderlabs/rudder-go-kit/commit/18d7de78f3ab74cff8280fd6de4322ec4f185db7))
+
 ## [0.86.0](https://github.com/rudderlabs/rudder-go-kit/compare/v0.85.0...v0.86.0) (2026-10-30)
 
 
